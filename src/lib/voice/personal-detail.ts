@@ -222,55 +222,91 @@ export function personalDetailMatcher(opts: PersonalDetailOptions): PersonalDeta
 
 export type PersonalDetail = {
   sentence: string;
-  // What matched, for the retry instruction. Never logged or stored.
+  // What matched. Never logged or stored.
   matched: string;
 };
+
+// Text is read line by line, so markdown survives: a heading or a
+// blank line is never touched, and a line's bullet or quote marker is
+// kept apart from its sentences. Finding, rewriting and removing all
+// read it this way, so they agree on what a sentence is.
+type Line = { verbatim: string } | { original: string; prefix: string; sentences: string[] };
+
+function linesOf(text: string, match: PersonalDetailMatcher): Line[] {
+  return text.split("\n").map((line) => {
+    if (/^\s*#/.test(line) || line.trim().length === 0 || !match(line)) return { verbatim: line };
+    const prefix = /^\s*(?:[-*+]|\d+[.)]|>)\s+/.exec(line)?.[0] ?? "";
+    return { original: line, prefix, sentences: splitSentences(line.slice(prefix.length)) };
+  });
+}
+
+const matcherOf = (opts: PersonalDetailOptions | PersonalDetailMatcher): PersonalDetailMatcher =>
+  typeof opts === "function" ? opts : personalDetailMatcher(opts);
 
 // Every sentence in `text` that mentions somebody's private life.
 export function findPersonalDetail(
   text: string,
   opts: PersonalDetailOptions | PersonalDetailMatcher
 ): PersonalDetail[] {
-  const match = typeof opts === "function" ? opts : personalDetailMatcher(opts);
+  const match = matcherOf(opts);
   const found: PersonalDetail[] = [];
-  for (const sentence of splitSentences(text)) {
-    const matched = match(sentence);
-    if (matched) found.push({ sentence, matched });
+  for (const line of linesOf(text, match)) {
+    if ("verbatim" in line) continue;
+    for (const sentence of line.sentences) {
+      const matched = match(sentence);
+      if (matched) found.push({ sentence, matched });
+    }
   }
   return found;
 }
 
-// Names the sentences, like the other retries: the rule was in the
-// prompt and was already ignored.
-export function personalDetailRetryInstruction(found: readonly PersonalDetail[]): string {
-  return [
-    "These sentences mention somebody's health, family or private life, which copy about their work must never do:",
-    ...found.map((f) => `- "${f.sentence}"`),
-    "Rewrite it with the personal detail left out entirely. If somebody was away, you may say so and who covers for them, but not why or where. Keep everything else as it was.",
-  ].join("\n");
+// Replaces each sentence that mentions somebody's private life with
+// its rewrite, when there is one and it passes the same check, and
+// takes the sentence out otherwise. Everything else is kept exactly as
+// written: a line with nothing to change is never rebuilt, and a bullet
+// or quote left with nothing in it goes. Counts are for the log.
+export function rewritePersonalDetail(
+  text: string,
+  opts: PersonalDetailOptions | PersonalDetailMatcher,
+  rewriteOf: (sentence: string) => string | null | undefined
+): { text: string; reworded: number; removed: number } {
+  const match = matcherOf(opts);
+  let reworded = 0;
+  let removed = 0;
+  const out: string[] = [];
+  for (const line of linesOf(text, match)) {
+    if ("verbatim" in line) {
+      out.push(line.verbatim);
+      continue;
+    }
+    if (!line.sentences.some((s) => match(s))) {
+      out.push(line.original);
+      continue;
+    }
+    const kept: string[] = [];
+    for (const s of line.sentences) {
+      if (!match(s)) {
+        kept.push(s);
+        continue;
+      }
+      const rewrite = rewriteOf(s)?.trim();
+      if (rewrite && !match(rewrite)) {
+        kept.push(rewrite);
+        reworded++;
+      } else {
+        removed++;
+      }
+    }
+    if (kept.length > 0) out.push(line.prefix + kept.join(" "));
+  }
+  return { text: out.join("\n"), reworded, removed };
 }
 
-// Takes out each sentence that mentions somebody's private life, line
-// by line, so markdown survives: a heading is never touched, and a
-// bullet or quote left with nothing in it goes. Returns how many
-// sentences went, for the log.
+// Takes out each sentence that mentions somebody's private life.
 export function removePersonalDetail(
   text: string,
   opts: PersonalDetailOptions | PersonalDetailMatcher
 ): { text: string; removed: number } {
-  const match = typeof opts === "function" ? opts : personalDetailMatcher(opts);
-  let removed = 0;
-  const out: string[] = [];
-  for (const line of text.split("\n")) {
-    if (/^\s*#/.test(line) || line.trim().length === 0 || !match(line)) {
-      out.push(line);
-      continue;
-    }
-    const prefix = /^\s*(?:[-*+]|\d+[.)]|>)\s+/.exec(line)?.[0] ?? "";
-    const sentences = splitSentences(line.slice(prefix.length));
-    const kept = sentences.filter((s) => !match(s));
-    removed += sentences.length - kept.length;
-    if (kept.length > 0) out.push(prefix + kept.join(" "));
-  }
-  return { text: out.join("\n"), removed };
+  const { text: out, removed } = rewritePersonalDetail(text, opts, () => null);
+  return { text: out, removed };
 }

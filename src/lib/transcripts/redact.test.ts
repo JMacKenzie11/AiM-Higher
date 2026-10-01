@@ -30,9 +30,12 @@ describe("redactAnalysis", () => {
     );
     const { row, counts } = await redactAnalysis(ROW, match, reword);
 
-    // One call, for the two items that broke the rule.
+    // One call for the meeting: prose sentences and items together.
     expect(reword).toHaveBeenCalledOnce();
     expect(reword.mock.calls[0][0]).toEqual([
+      "Lee was off sick on Tuesday.",
+      "She shared her surgery date.",
+      "Lee is pregnant.",
       "Pat covers Lee's accounts through December while Lee is on maternity leave",
       "Cover while Lee is on sick leave",
     ]);
@@ -65,7 +68,8 @@ describe("redactAnalysis", () => {
   it("returns a clean row unchanged, without a rewording call", async () => {
     const clean = { ...ROW, analysis_markdown: "## Summary\n\n- The quote goes out Friday.", commitments_json: [], issues_json: [], coverage_json: null, facilitation_review_json: null };
     const reword = vi.fn();
-    expect(await redactAnalysis(clean, match, reword)).toEqual({ row: clean, counts: { sentences: 0, reworded: 0, flagged: 0 } });
+    const r = await redactAnalysis(clean, match, reword);
+    expect({ row: r.row, counts: r.counts }).toEqual({ row: clean, counts: { sentences: 0, reworded: 0, flagged: 0 } });
     expect(reword).not.toHaveBeenCalled();
   });
 });

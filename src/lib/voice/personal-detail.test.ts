@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   findPersonalDetail,
   personalDetailMatcher,
-  personalDetailRetryInstruction,
+  rewritePersonalDetail,
   removePersonalDetail,
 } from "./personal-detail";
 
@@ -150,11 +150,15 @@ describe("removing it from a summary", () => {
   });
 });
 
-describe("the retry instruction", () => {
-  it("names each sentence", () => {
-    const found = findPersonalDetail("Sam was out with the flu. The rota is agreed.", record);
-    const msg = personalDetailRetryInstruction(found);
-    expect(msg).toContain('- "Sam was out with the flu."');
-    expect(msg).not.toContain("rota");
+describe("rewriting in place", () => {
+  it("swaps a clean rewrite in, takes out one that still breaks the rule, and leaves other lines byte for byte", () => {
+    const text = "## A) Check-in\n\n- Sam shared a win.   Jeff was away for a doctor's appointment.\n- The team agreed  the rota.";
+    const r = rewritePersonalDetail(text, record, (s) => (s.startsWith("Jeff") ? "Jeff was away." : null));
+    expect(r).toEqual({
+      text: "## A) Check-in\n\n- Sam shared a win. Jeff was away.\n- The team agreed  the rota.",
+      reworded: 1,
+      removed: 0,
+    });
+    expect(rewritePersonalDetail(text, record, () => "Jeff had a doctor's appointment.").removed).toBe(1);
   });
 });

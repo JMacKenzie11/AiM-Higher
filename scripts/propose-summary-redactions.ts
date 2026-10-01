@@ -39,13 +39,8 @@ import { homedir } from "node:os";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { forEachActiveInstance } from "@/lib/instances/for-each";
-import {
-  personalDetailMatcher,
-  findPersonalDetail,
-  removePersonalDetail,
-  type PersonalDetailMatcher,
-} from "@/lib/voice/personal-detail";
-import { redactAnalysis, settleTexts, mapStrings, type RedactableAnalysis } from "@/lib/transcripts/redact";
+import { personalDetailMatcher, findPersonalDetail, type PersonalDetailMatcher } from "@/lib/voice/personal-detail";
+import { redactAnalysis, rewordProse, settleTexts, mapStrings, type RedactableAnalysis } from "@/lib/transcripts/redact";
 import { rewordWithModel, type Reword } from "@/lib/transcripts/reword";
 import { summaryModel } from "@/lib/transcripts/model";
 import type { CoverageReport } from "@/lib/transcripts/coverage";
@@ -122,24 +117,24 @@ function analysisFields(r: StoredAnalysis): Fields {
 }
 
 // The analysis row: what redactAnalysis changed, as a list for the
-// reader. Prose changes are the sentences taken out.
+// reader. A prose sentence is reworded or taken out.
 export async function analysisChanges(
   r: StoredAnalysis,
   match: PersonalDetailMatcher,
   reword: Reword
 ): Promise<{ after: Fields; changes: Change[] }> {
   const before = analysisFields(r);
-  const { row: after } = await redactAnalysis(before, match, reword);
+  const { row: after, rewrites } = await redactAnalysis(before, match, reword);
   const changes: Change[] = [];
   const base = { writtenBy: "AiMS" as const, table: "meeting_analyses" as const, rowId: r.id };
+  const sentence = (where: string, field: string, s: string) =>
+    changes.push({ ...base, where, field, before: s, after: rewrites.get(s) ?? "" });
   for (const f of findPersonalDetail(before.analysis_markdown, match)) {
-    changes.push({ ...base, where: "Summary", field: "analysis_markdown", before: f.sentence, after: "" });
+    sentence("Summary", "analysis_markdown", f.sentence);
   }
   if (before.facilitation_review_json) {
     mapStrings(before.facilitation_review_json, (t) => {
-      for (const f of findPersonalDetail(t, match)) {
-        changes.push({ ...base, where: "Facilitation review", field: "facilitation_review_json", before: f.sentence, after: "" });
-      }
+      for (const f of findPersonalDetail(t, match)) sentence("Facilitation review", "facilitation_review_json", f.sentence);
       return t;
     });
   }
@@ -151,7 +146,7 @@ export async function analysisChanges(
     const a = after.commitments_json[i];
     item("Meeting record: commitment", "commitments_json", c.description, a.description, a.needs_rewording);
     for (const f of findPersonalDetail(c.clarity_note ?? "", match)) {
-      changes.push({ ...base, where: "Meeting record: clarity note", field: "commitments_json", before: f.sentence, after: "" });
+      sentence("Meeting record: clarity note", "commitments_json", f.sentence);
     }
   });
   before.issues_json.forEach((iss, i) => {
@@ -194,12 +189,13 @@ export async function pageChanges(
     if (s.needsRewording) changes.push({ ...l, after: null });
     else if (s.reworded) changes.push({ ...l, after: s.text });
   });
-  // A clarity note is advice, not the commitment: prose, so sentences go.
+  // A clarity note is advice, not the commitment: prose, so a sentence
+  // is reworded or taken out.
   for (const c of commitments) {
     if (!c.clarity_note) continue;
-    const r = removePersonalDetail(c.clarity_note, match);
-    if (r.removed > 0) {
-      changes.push({ where: "Commitments page: clarity note", writtenBy: "AiMS", before: c.clarity_note, after: r.text, table: "commitments", rowId: c.id, field: "clarity_note" });
+    const r = await rewordProse([c.clarity_note], match, reword);
+    if (r.texts[0] !== c.clarity_note) {
+      changes.push({ where: "Commitments page: clarity note", writtenBy: "AiMS", before: c.clarity_note, after: r.texts[0], table: "commitments", rowId: c.id, field: "clarity_note" });
     }
   }
   return changes;

@@ -193,32 +193,47 @@ describe("a summary never stores somebody's private life", () => {
       issues_json?: Array<{ title: string }>;
     };
 
-  it("sends it back once, naming the sentence, and stores the rewrite", async () => {
-    let n = 0;
+  const rewordCalls = () =>
+    h.create.mock.calls.map(([req]) => req).filter((req) => kindOf(req) === "reword");
+
+  it("rewords only the sentence, never regenerating the summary, and stores the rewrite", async () => {
     h.create.mockImplementation(async (req) =>
-      text(kindOf(req) === "analysis" ? (n++ === 0 ? PERSONAL : SUMMARY) : EXTRACTION)
+      text(
+        kindOf(req) === "analysis"
+          ? PERSONAL
+          : kindOf(req) === "reword"
+            ? JSON.stringify(["Pat was away on Tuesday."])
+            : EXTRACTION
+      )
     );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const { analyzeMeeting } = await import("./analyze");
     await analyzeMeeting("m1");
 
-    expect(analysisCalls()).toHaveLength(2);
-    const retry = analysisCalls()[1].messages;
-    expect(retry.at(-1).content).toContain(`"Pat was away for a doctor's appointment."`);
-    expect(stored().analysis_markdown).toContain("The team agreed the quote goes out Friday.");
+    expect(analysisCalls()).toHaveLength(1);
+    expect(rewordCalls()[0].messages[0].content).toContain("Pat was away for a doctor's appointment.");
+    expect(stored().analysis_markdown).toContain("The team agreed the quote goes out Friday. Pat was away on Tuesday.");
     expect(stored().analysis_markdown).not.toMatch(/doctor/);
     warn.mockRestore();
   });
 
   it("takes the sentence out when the rewrite still has it, and the meeting completes", async () => {
-    h.create.mockImplementation(async (req) => text(kindOf(req) === "analysis" ? PERSONAL : EXTRACTION));
+    h.create.mockImplementation(async (req) =>
+      text(
+        kindOf(req) === "analysis"
+          ? PERSONAL
+          : kindOf(req) === "reword"
+            ? JSON.stringify(["Pat had a doctor's appointment."])
+            : EXTRACTION
+      )
+    );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const { analyzeMeeting } = await import("./analyze");
     await analyzeMeeting("m1");
 
-    expect(analysisCalls()).toHaveLength(2);
+    expect(analysisCalls()).toHaveLength(1);
     expect(stored().analysis_markdown).toContain("The team agreed the quote goes out Friday.");
     expect(stored().analysis_markdown).not.toMatch(/doctor/);
     expect(h.writes.filter((w) => w.table === "meetings" && w.op === "update").at(-1)?.payload).toMatchObject({

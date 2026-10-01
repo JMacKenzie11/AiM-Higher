@@ -317,21 +317,13 @@ export async function analyzeMeeting(
     });
 
     // The summary's passes, retry included. See summary.ts.
+    // One rewording call per batch of flagged lines (reword.ts): here
+    // for the summary, and once more at the write for the rest.
+    const reword = rewordWithModel(client, model, logAnalysisUsage);
     const summary = await settleSummary(
       analysisMessage,
       { transcript: meetingRow.transcript_text, speakerMap, spell, personalDetail },
-      async (previous, instruction) => {
-        const message = await client.messages.create({
-          ...analysisRequest,
-          messages: [
-            { role: "user", content: analysisUserMessage },
-            { role: "assistant", content: previous },
-            { role: "user", content: instruction },
-          ],
-        });
-        logAnalysisUsage(message);
-        return message;
-      }
+      reword
     );
     spellingChanges.push(...summary.spellingChanges);
     const analysisMarkdown = summary.markdown;
@@ -348,10 +340,10 @@ export async function analyzeMeeting(
       );
     }
     // Counts only: what the sentences said is never logged.
-    if (summary.personalDetail.found > 0) {
+    if (summary.personalDetail.reworded + summary.personalDetail.removed > 0) {
       console.warn(
         `[analyze] personal detail in the summary for meeting ${meetingId}: ` +
-          `${summary.personalDetail.found} sentence(s), sent back once, ` +
+          `${summary.personalDetail.reworded} sentence(s) reworded, ` +
           `${summary.personalDetail.removed} taken out`
       );
     }
@@ -526,7 +518,7 @@ export async function analyzeMeeting(
         facilitation_review_json: reviewForStorage,
       },
       personalDetail,
-      rewordWithModel(client, model, logAnalysisUsage)
+      reword
     );
     // Counts only: what was said is never logged.
     if (redactionCount(redacted) > 0) {

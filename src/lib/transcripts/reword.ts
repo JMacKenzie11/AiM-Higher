@@ -2,12 +2,15 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 
-// REWORDING A SHORT ITEM WITHOUT THE PERSONAL DETAIL.
+// REWORDING A LINE WITHOUT THE PERSONAL DETAIL.
 //
 // A commitment or an issue is never dropped for mentioning somebody's
 // private life (Jason, 2026-10-01: "A commitment must never be lost").
-// It is reworded instead: one call for every flagged item in a
-// meeting, each kept to what is to be done, by whom and by when.
+// It is reworded instead: one call for every flagged line, each kept
+// to what is to be done, by whom and by when. A sentence of the
+// summary or review goes the same way, and only that sentence: the
+// summary is never regenerated to fix one line (a full rewrite of a
+// long Benson summary came back as a 328-character fragment).
 // Whether the rewrite is clean is the caller's check (redact.ts), not
 // the model's word; an item still breaking the rule is kept as it was
 // and flagged for the company admin to reword.
@@ -17,7 +20,7 @@ import { stripEmDashes } from "@/lib/voice/strip-dashes";
 
 export type Reword = (texts: readonly string[]) => Promise<Array<string | null>>;
 
-const SYSTEM = `Each item below is one line from the record of a meeting's work: a commitment, an issue, or the reason a commitment was noted. Each one mentions somebody's private life, which the record must never do.
+const SYSTEM = `Each item below is one line from the record of a meeting's work: a sentence of its summary or review, a commitment, an issue, or the reason a commitment was noted. Each one mentions somebody's private life, which the record must never do.
 
 Reword each item so it keeps what is to be done, who does it, and any date it already gives, and leaves the personal detail out entirely. Never add anything the item does not say. Keep it about the same length.
 

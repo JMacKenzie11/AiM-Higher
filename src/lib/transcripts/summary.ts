@@ -1,11 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { unquoteUnsupported } from "@/lib/voice/quotes";
-import {
-  findPersonalDetail,
-  personalDetailRetryInstruction,
-  removePersonalDetail,
-  type PersonalDetailMatcher,
-} from "@/lib/voice/personal-detail";
+import { type PersonalDetailMatcher } from "@/lib/voice/personal-detail";
+import { rewordProse } from "./redact";
+import type { Reword } from "./reword";
 import { replaceSpeakerLabels, type SpeakerMap } from "./speakers";
 import type { Speller, SpellingChange } from "./spelling";
 
@@ -19,11 +16,13 @@ import type { Speller, SpellingChange } from "./spelling";
 //   2. speaker labels become names (speakers.ts);
 //   3. the company's spellings are enforced (spelling.ts);
 //   4. nothing about a person's private life (voice/personal-detail.ts):
-//      a summary that breaks it is sent back once, naming the
-//      sentences, and the attempt with fewer is kept; what is still
-//      there after that is taken out, sentence by sentence. The
-//      meeting always completes: the summary is what everything else
-//      reads, and one removed sentence is a smaller loss than none.
+//      each sentence that breaks it is sent back once to be reworded
+//      (reword.ts), and only that sentence. A clean rewrite takes its
+//      place; a sentence still breaking the rule is taken out. The
+//      summary is never regenerated to fix a line: on 2026-10-01 a
+//      full rewrite of a long Benson summary came back as a
+//      328-character fragment and replaced 25,000 characters, and it
+//      doubled the slowest call. The meeting always completes.
 //
 // Dashes are stripped at the write in analyze.ts, with everything
 // else that is stored.
@@ -36,7 +35,6 @@ export type SummaryPasses = {
 };
 
 type Attempt = {
-  raw: string;
   markdown: string;
   truncated: boolean;
   unquoted: string[];
@@ -44,9 +42,9 @@ type Attempt = {
   spellingChanges: SpellingChange[];
 };
 
-export type SettledSummary = Omit<Attempt, "raw"> & {
+export type SettledSummary = Attempt & {
   // Counts only: what the sentences said is never logged or stored.
-  personalDetail: { found: number; retried: boolean; removed: number };
+  personalDetail: { reworded: number; removed: number };
 };
 
 function textOf(message: Anthropic.Message): string {
@@ -68,7 +66,6 @@ function finish(message: Anthropic.Message, passes: SummaryPasses): Attempt {
   const { text: labelled, replaced } = replaceSpeakerLabels(unquotedText, passes.speakerMap);
   const { text, changes } = passes.spell(labelled);
   return {
-    raw,
     markdown: text,
     // Recorded from stop_reason, not guessed from the text: a summary
     // that legitimately ends on a bullet has no terminal punctuation.
@@ -79,44 +76,12 @@ function finish(message: Anthropic.Message, passes: SummaryPasses): Attempt {
   };
 }
 
-// `retry` sends the same request again with the first attempt and the
-// instruction appended, and returns the model's new message.
 export async function settleSummary(
-  first: Anthropic.Message,
+  message: Anthropic.Message,
   passes: SummaryPasses,
-  retry: (previous: string, instruction: string) => Promise<Anthropic.Message>
+  reword: Reword
 ): Promise<SettledSummary> {
-  let attempt = finish(first, passes);
-  let personal = findPersonalDetail(attempt.markdown, passes.personalDetail);
-  const found = personal.length;
-  let retried = false;
-
-  if (personal.length > 0) {
-    retried = true;
-    const second = finish(
-      await retry(attempt.raw, personalDetailRetryInstruction(personal)),
-      passes
-    );
-    const secondPersonal = findPersonalDetail(second.markdown, passes.personalDetail);
-    // A rewrite cut off at the token limit is worse than a sentence
-    // taken out of a complete summary.
-    if (!second.truncated && secondPersonal.length < personal.length) {
-      attempt = second;
-      personal = secondPersonal;
-    }
-  }
-
-  const { text: markdown, removed } =
-    personal.length > 0
-      ? removePersonalDetail(attempt.markdown, passes.personalDetail)
-      : { text: attempt.markdown, removed: 0 };
-
-  return {
-    markdown,
-    truncated: attempt.truncated,
-    unquoted: attempt.unquoted,
-    labelsReplaced: attempt.labelsReplaced,
-    spellingChanges: attempt.spellingChanges,
-    personalDetail: { found, retried, removed },
-  };
+  const attempt = finish(message, passes);
+  const { texts, reworded, removed } = await rewordProse([attempt.markdown], passes.personalDetail, reword);
+  return { ...attempt, markdown: texts[0], personalDetail: { reworded, removed } };
 }

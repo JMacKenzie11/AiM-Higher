@@ -34,7 +34,9 @@ describe("what a proposal lists", () => {
   };
 
   it("lists the sentences taken out and the items reworded, from the analysis", async () => {
-    const reword = vi.fn(async () => ["Pat covers Lee's accounts"]);
+    const reword = vi.fn(async (texts: readonly string[]) =>
+      texts.map((t) => (t.startsWith("Pat covers") ? "Pat covers Lee's accounts" : null))
+    );
     const { changes } = await analysisChanges(analysis, match, reword);
     expect(changes.map((c) => [c.where, c.before, c.after])).toEqual([
       ["Summary", "Lee was off sick on Tuesday.", ""],
