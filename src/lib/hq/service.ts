@@ -388,24 +388,29 @@ export async function loadRecentActivity(
     { overall: number | null; insufficient: boolean; when: string }
   >();
   if (meetingIds.length > 0) {
-    const { data: analyses } = await supabase
+    // meeting_analyses has no updated_at: a reanalysis deletes the row
+    // and writes a new one, so created_at is when the review was written.
+    const { data: analyses, error: analysesErr } = await supabase
       .from("meeting_analyses")
-      .select("meeting_id, facilitation_review_json, updated_at")
+      .select("meeting_id, facilitation_review_json, created_at")
       .in("meeting_id", meetingIds);
+    if (analysesErr) {
+      console.error("loadRecentActivity: analyses query failed", analysesErr);
+    }
     for (const a of (analyses ?? []) as Array<{
       meeting_id: string;
       facilitation_review_json: {
         overall: number | null;
         insufficient_transcript: boolean;
       } | null;
-      updated_at: string;
+      created_at: string;
     }>) {
       if (!a.facilitation_review_json) continue;
       facilitationByMeeting.set(a.meeting_id, {
         overall: a.facilitation_review_json.overall ?? null,
         insufficient:
           Boolean(a.facilitation_review_json.insufficient_transcript) ?? false,
-        when: a.updated_at,
+        when: a.created_at,
       });
     }
   }
