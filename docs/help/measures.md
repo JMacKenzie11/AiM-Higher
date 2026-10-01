@@ -115,6 +115,7 @@ You name two column headings: the one holding dates and the one holding the numb
 - Any date inside the week works: Monday, Friday, or the day the report was run.
 - If several rows fall in one week, it takes the **last** one. A sheet with a row per day gives you the last day's figure, not the week's total. If you need a weekly total, put a weekly row in the sheet.
 - Headings are matched by name, not column letter, so inserting a column won't point it at the wrong one.
+- The scheduled pull runs after the week ends and records the week's number. If someone pressed **Pull now** during the week, that running total is replaced by the week's final number when the scheduled pull runs. A number someone typed is never replaced.
 
 ## Success Tracking
 

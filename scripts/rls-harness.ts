@@ -7865,13 +7865,13 @@ async function externalMeasurePathsChecks(
         ? "the cron's path works and attributes the value to nobody, which is the truth"
         : "NOT PROVEN: the control failed, so every refusal below is the refusal of a function that does nothing");
 
-  // ---- 3. Idempotent -------------------------------------------
+  // ---- 3. Idempotent: the same number twice writes once --------
   const twice = await attempt(asService(
     clear,
     `select * from public.record_external_pull_scheduled(
        '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
      select * from public.record_external_pull_scheduled(
-       '${measure}', ${WEEK}, 'week_keyed', 'written', 999);
+       '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
      select (select count(*)::int from public.success_measure_entries
               where measure_id = '${measure}' and week_ending = ${WEEK}
                 and value_number = 777) as kept,
@@ -7888,6 +7888,36 @@ async function externalMeasurePathsChecks(
       kept === 1 && skipped === 1
         ? "a re-run leaves the week alone and says so, so a double fire and a retry are both safe"
         : "the scheduler is not idempotent");
+
+  // ---- 3b. A changed number replaces the scheduler's own pull (0248)
+  //
+  // "Pull now" mid-week writes a running total; the scheduled pull after
+  // the week closes has the week's number, and must not be refused for
+  // finding the earlier pull (Benson, week ending 2026-09-25: 95,894
+  // kept, 152,727 skipped, until 0248). Red before 0248: the second run
+  // logs skipped_exists and 777 stays.
+  const changed = await attempt(asService(
+    clear,
+    `select * from public.record_external_pull_scheduled(
+       '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+     select * from public.record_external_pull_scheduled(
+       '${measure}', ${WEEK}, 'week_keyed', 'written', 999);
+     select (select count(*)::int from public.success_measure_entries
+              where measure_id = '${measure}' and week_ending = ${WEEK}
+                and value_number = 999 and origin = 'google_sheet') as replaced,
+            (select count(*)::int from public.external_pull_log
+              where measure_id = '${measure}' and week_ending = ${WEEK}
+                and outcome = 'written') as written;`
+  ));
+  const changedN = Number(changed.rows?.[0]?.replaced ?? 0);
+  const changedWritten = Number(changed.rows?.[0]?.written ?? 0);
+  say("a later scheduled run with a changed number replaces its own pull",
+      "0213: the first pull was kept and the change skipped",
+      changed.code ? `errored with ${changed.code}` : `replaced with the new number: ${changedN}, written logged: ${changedWritten}`,
+      changedN === 1 && changedWritten === 2,
+      changedN === 1 && changedWritten === 2
+        ? "a mid-week pull no longer freezes the week: the closed week's number replaces it"
+        : "THE SCHEDULER KEPT AN EARLIER PULL OVER A CHANGED SHEET (is 0248 applied?)");
 
   // ---- 4. A typed value survives -------------------------------
   const manual = await attempt(asService(

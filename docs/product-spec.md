@@ -809,7 +809,7 @@ Under the caller's client, RLS still filters what the action can see, so a calle
 
 **`success_measure_entries.entered_by` is now nullable.** A cron-written entry has no author, and inventing one would put a person's name on a number they never saw. `origin` and the receipt answer where it came from.
 
-**Idempotent, in the database.** The scheduled path refuses to replace *any* existing entry for the week — typed or previously pulled — and logs `skipped_exists`. A double fire, a retry and a hand re-trigger are all safe without the cron checking first.
+**Idempotent, in the database.** The scheduled path never replaces a typed entry (`skipped_manual_exists`). It replaces its own earlier pull only when the sheet's number has changed (0248, 2026-10-01); a re-run that reads the same number writes nothing and logs `skipped_exists`, so a double fire, a retry and a hand re-trigger are all safe without the cron checking first. Until 0248 it refused to replace any existing entry, which froze a mid-week "Pull now" running total over the week's real number: Benson's Total Pounds Received, week ending 2026-09-25, kept 95,894 from the Thursday and skipped 152,727 on the Saturday. That one entry was corrected by hand on Jason's go.
 
 **Failure.** One retry, and only for a transient failure (timeouts, resets, rate limits, 5xx). A misspelled tab answers identically a second later and is not retried. After that the week stays awaiting, which the accountable person's existing unrecorded-measure reminder already covers: the performance sweep decides "missing" on the presence of an entry and knows nothing about mappings, so a mapped-but-empty week is treated exactly like any other empty week. Pinned by test rather than left to habit.
 
