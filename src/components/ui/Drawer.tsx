@@ -48,6 +48,7 @@ export function Drawer({
   side = false,
   trapFocus = false,
   initialFocusRef,
+  fill = false,
   testId = "drawer-panel",
 }: {
   open: boolean;
@@ -81,6 +82,11 @@ export function Drawer({
   trapFocus?: boolean;
   // Where focus goes on open, instead of the panel itself.
   initialFocusRef?: React.RefObject<HTMLElement | null>;
+  // FILL: the body is a bare column the caller lays out itself, with
+  // no padding and no scroll of its own. For content that scrolls in
+  // parts (Aimee's panel: the conversation scrolls, its composer
+  // stays put). Every other drawer scrolls its padded body.
+  fill?: boolean;
   // The panel's data-testid. "drawer-panel" for the drawers a page
   // opens, which specs find as THE drawer. Aimee's panel is on every
   // page and kept mounted, so it takes its own, or every one of those
@@ -188,7 +194,7 @@ export function Drawer({
           </button>
         </div>
 
-        <div className={styles.body}>{children}</div>
+        <div className={fill ? `${styles.body} ${styles.bodyFill}` : styles.body}>{children}</div>
 
         {footer ? <div className={styles.footer}>{footer}</div> : null}
       </div>

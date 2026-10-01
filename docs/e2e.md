@@ -193,7 +193,7 @@ button teaches people to ignore it. The hooks in use:
 Matching on *data* is fine, and the commitment spec does it: the
 description it types is unique per run. Data is not copy.
 
-## The two servers
+## The servers
 
 Most specs run against `npm run dev` on 3200, where `LOCAL_INSTANCE_*`
 pins every request to the dev database and the hostname is ignored.
@@ -205,6 +205,19 @@ rejects before consulting the registry. That matters: **the registry
 lives in the production project**, so a hostname with a domain under it
 would reach for production. `CONTROL_PLANE_*` is blanked on that server
 too, so an accidental lookup fails loudly instead of connecting.
+
+`aimee-panel-off.spec.ts` needs a third: Aimee's panel switched off,
+which is how production runs until `AIMEE_PANEL_FOR_EVERYONE` is set.
+It runs on 3202 with the variable blank and its own build output
+(`.next-e2e-panel-off`). The main server on 3200 has the panel **on**,
+which every other spec expects: Playwright sets
+`AIMEE_PANEL_FOR_EVERYONE=true` when it starts that server itself, and
+a server started any other way (a script, by hand) must set it too.
+
+The switched-off spec opens the seeded Guide invitation from the bell,
+which marks it read, and `guide-champion.spec.ts` opens the same one.
+So a full run reseeds, runs the `panel-off` project, reseeds again, then
+runs `chromium`.
 
 ## Why a full run compiles everything first
 

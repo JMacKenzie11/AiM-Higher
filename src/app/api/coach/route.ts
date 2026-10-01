@@ -13,6 +13,7 @@ import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
 import { buildGuideTools } from "@/lib/guide/agent-tools";
 import { formatHelpIndex, helpIndexFor } from "@/lib/help/search";
 import { makeSearchHelpTool } from "@/lib/help/tool";
+import { PANEL_PROMPT_BLOCK, recordPanelEvent } from "@/lib/aimee/panel";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import {
   checkOpener,
@@ -310,8 +311,15 @@ export async function POST(req: NextRequest): Promise<Response> {
   const helpIndexBlock = plainAimee
     ? formatHelpIndex(await helpIndexFor(session.profile.role, helpFeatures), session.profile.role)
     : "";
+  // STARTED IN AIMEE'S PANEL (0240): short answers, no memory writes,
+  // and an offer to continue on the Aimee page when it turns into
+  // coaching (lib/aimee/panel.ts). Read from the row, so opening the
+  // conversation on the Aimee page later changes nothing.
+  const fromPanel = convo.origin === "panel";
   const systemPromptText =
-    (await loadSystemPrompt(convo.mode, agentConfig)) + (helpIndexBlock ? `\n\n${helpIndexBlock}` : "");
+    (await loadSystemPrompt(convo.mode, agentConfig)) +
+    (helpIndexBlock ? `\n\n${helpIndexBlock}` : "") +
+    (fromPanel ? `\n\n${PANEL_PROMPT_BLOCK}` : "");
 
   const client = new Anthropic({ apiKey });
   const personBlock = context.personContext ? `${context.personContext}\n\n` : "";
@@ -334,11 +342,28 @@ export async function POST(req: NextRequest): Promise<Response> {
   // the feature is on — Aimee can recommend a training in Ask Aimee
   // conversations too. buildCoachTools handles the branch.
   const tools = [
-    ...(plainAimee ? [makeSearchHelpTool({ role: session.profile.role, features: helpFeatures })] : []),
+    ...(plainAimee
+      ? [
+          makeSearchHelpTool({
+            role: session.profile.role,
+            features: helpFeatures,
+            // Counted, never the query (lib/aimee/panel.ts).
+            onSearch: (found) =>
+              void recordPanelEvent(supabase, {
+                companyId: convo.company_id,
+                profileId: session.profile.id,
+                role: session.profile.role,
+                kind: "help_search",
+                found,
+              }),
+          }),
+        ]
+      : []),
     ...(await buildCoachTools({
       subjectProfileId:
         convo.mode === "about" ? convo.subject_profile_id ?? null : null,
       companyId: convo.company_id,
+      memoryWrites: !fromPanel,
     })),
     // PRACTICE TOOLS, registered for the practice running and
     // nowhere else. A tool the model can always see is a tool it

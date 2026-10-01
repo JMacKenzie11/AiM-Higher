@@ -110,6 +110,13 @@
   min-height: 0;
 }
 
+.bodyFill {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* LEFT, against the convention, and deliberately. The help widget is
    fixed to the bottom-right corner at z-index 100 — above this panel
    — so a right-aligned footer button sits underneath it. */

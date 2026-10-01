@@ -106,7 +106,7 @@ export async function summarizeFinishedConversationsAction(
   let query = supabase
     .from("coaching_conversations")
     .select(
-      "id, updated_at, memory_summarized_through, mode, subject_profile_id, practice_id"
+      "id, updated_at, memory_summarized_through, mode, subject_profile_id, practice_id, origin"
     )
     .eq("created_by", session.profile.id)
     // Agents produce no memory. A conversation run through the
@@ -117,6 +117,9 @@ export async function summarizeFinishedConversationsAction(
     // carry a null practice_id, so this one filter keeps exactly the
     // two the product wants and drops the rest.
     .is("practice_id", null)
+    // Nor do conversations started in Aimee's panel (0240), wherever
+    // they are opened later. The row decides, never the surface.
+    .neq("origin", "panel")
     .order("updated_at", { ascending: false })
     // How far we LOOK. Deliberately not MAX_PER_RUN: a run of empty
     // conversations at the head used to wall off everything behind
@@ -142,6 +145,7 @@ export async function summarizeFinishedConversationsAction(
     mode: string;
     subject_profile_id: string | null;
     practice_id: string | null;
+    origin: string | null;
   }>;
   if (candidates.length === 0) {
     return { ok: true, conversationsSummarized: 0, memoriesWritten: 0, droppedByFilter: 0 };

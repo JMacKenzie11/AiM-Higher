@@ -45,6 +45,7 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 .next-e2e-unresolved/
+.next-e2e-panel-off/
 
 # A clone of the private aimhigher-regression repo: expected values for
 # real meetings, which are client content and never committed here.

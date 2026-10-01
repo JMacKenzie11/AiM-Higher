@@ -51,6 +51,9 @@ export type CoachingConversation = {
   revising_role_id: string | null;
   debriefing_meeting_id: string | null;
   partner_profile_id: string | null;
+  // Where it was started (0240): the Aimee page or Aimee's panel. A
+  // panel conversation never writes coach memory.
+  origin: "page" | "panel";
   created_at: string;
   updated_at: string;
 };

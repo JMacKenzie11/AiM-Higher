@@ -162,6 +162,29 @@ conversations. While that is happening the reply area tells you what
 it is reading. A first message usually takes longest, because there
 is the most to gather.
 
+::: panel
+## Aimee's panel, on every page
+
+Aimee's icon sits in the bottom-right corner of every page. Click it,
+or press **Ctrl + .** (Ctrl and the full stop, on a Mac as well), to
+open her panel beside the page you are on. On a computer the page
+stays where it is and you can keep working in it; on a phone the
+panel fills the screen until you close it.
+
+- **A conversation with Aimee.** She greets you and offers a few
+  questions about the page you are on; click one to ask it. Or ask
+  how to do something in the app, or anything on your mind. The panel picks up your last
+  conversation from the panel; **New conversation** starts another.
+  You can move between pages and the conversation stays with you.
+- **The panel does not add to what Aimee remembers about you.** She
+  can still use what she already knows. When a conversation turns
+  into something worth keeping, she offers a link to **continue on
+  this page**, which starts a new conversation here, where she
+  remembers as usual. It opens with a short summary of what you told
+  her in the panel, so you don't have to say it again.
+- Panel conversations are listed here with your others.
+:::
+
 ## Common questions
 
 **I opened a chat from another company and my sidebar didn't

@@ -377,6 +377,18 @@ export default async function AdminDashboardPage() {
                 ${(displayedCosts.totalCents30d / 100).toFixed(2)}
               </span>
             </div>
+            <div>
+              <span className={`${styles.costTotalLabel} ${styles.tipLabel}`}>
+                Per Aimee conversation
+                <InfoTip text="Average estimated cost of one plain Aimee conversation over the last 30 days, from the token log: every turn, title and memory note it cost. Started in the panel, and on the Aimee page. Agent conversations are not included." />
+              </span>
+              <span className={styles.costTotalValue}>
+                {formatConversationCost(costs.perConversation.panel)} panel
+              </span>
+              <span className={styles.costTotalValue}>
+                {formatConversationCost(costs.perConversation.page)} page
+              </span>
+            </div>
           </div>
           <div className={styles.costSparkWrap}>
             <Sparkline
@@ -466,4 +478,12 @@ function relativeDay(iso: string): string {
   if (h < 24) return h <= 1 ? "just now" : `${h}h ago`;
   const d = Math.floor(h / 24);
   return d === 1 ? "yesterday" : `${d} days ago`;
+}
+
+// "4.2¢ (12)": the average, and how many conversations it is over, so
+// an average of one is read as one. A dash when there were none.
+function formatConversationCost(c: { conversations: number; avgCents: number }): string {
+  if (c.conversations === 0) return "–";
+  const avg = c.avgCents >= 100 ? `$${(c.avgCents / 100).toFixed(2)}` : `${c.avgCents.toFixed(1)}¢`;
+  return `${avg} (${c.conversations})`;
 }

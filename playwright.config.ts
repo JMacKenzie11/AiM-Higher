@@ -57,6 +57,12 @@ const BASE_URL = `http://localhost:${PORT}`;
 const UNRESOLVED_PORT = 3201;
 const UNRESOLVED_BASE_URL = `http://localhost:${UNRESOLVED_PORT}`;
 
+// A third server with Aimee's panel switched off (AIMEE_PANEL_FOR_EVERYONE
+// unset), which is how production runs until Jason switches it on. The
+// main server has it on, which is what every other spec expects.
+const PANEL_OFF_PORT = 3202;
+const PANEL_OFF_BASE_URL = `http://localhost:${PANEL_OFF_PORT}`;
+
 export default defineConfig({
   testDir: "./e2e",
   // Compiles every page before the first test (e2e/global-setup.ts).
@@ -82,13 +88,18 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: /instance-resolution\.spec\.ts/,
+      testIgnore: [/instance-resolution\.spec\.ts/, /aimee-panel-off\.spec\.ts/],
       use: { ...devices["Desktop Chrome"], baseURL: BASE_URL },
     },
     {
       name: "unresolved-host",
       testMatch: /instance-resolution\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], baseURL: UNRESOLVED_BASE_URL },
+    },
+    {
+      name: "panel-off",
+      testMatch: /aimee-panel-off\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], baseURL: PANEL_OFF_BASE_URL },
     },
   ],
 
@@ -101,6 +112,10 @@ export default defineConfig({
       timeout: 180_000,
       stdout: "ignore",
       stderr: "pipe",
+      // Aimee's panel on, which every chromium spec expects. A server
+      // started some other way (a script, by hand) must set this itself:
+      // reuseExistingServer does not apply it.
+      env: { AIMEE_PANEL_FOR_EVERYONE: "true" },
     },
     {
       command: `next dev -p ${UNRESOLVED_PORT}`,
@@ -119,6 +134,18 @@ export default defineConfig({
         LOCAL_INSTANCE_SUPABASE_SERVICE_KEY: "",
         CONTROL_PLANE_SUPABASE_URL: "",
         CONTROL_PLANE_SUPABASE_SERVICE_KEY: "",
+      },
+    },
+    {
+      command: `next dev -p ${PANEL_OFF_PORT}`,
+      url: `${PANEL_OFF_BASE_URL}/sign-in`,
+      reuseExistingServer: true,
+      timeout: 180_000,
+      stdout: "ignore",
+      stderr: "pipe",
+      env: {
+        NEXT_DIST_DIR: ".next-e2e-panel-off",
+        AIMEE_PANEL_FOR_EVERYONE: "",
       },
     },
   ],

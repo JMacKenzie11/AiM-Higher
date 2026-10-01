@@ -35,7 +35,12 @@ export type CreateGeneralResult =
   | { ok: true; item: CoachingConversation }
   | { ok: false; message: string };
 
-export async function createGeneralConversation(): Promise<CreateGeneralResult> {
+// origin: 'panel' for a conversation started in Aimee's panel (0240),
+// which never writes coach memory. Everything else is 'page', the
+// column's default.
+export async function createGeneralConversation(
+  opts: { origin?: "page" | "panel" } = {}
+): Promise<CreateGeneralResult> {
   const session = await requireProfile();
 
   // Single-source-of-truth resolver: regular members return their
@@ -60,6 +65,7 @@ export async function createGeneralConversation(): Promise<CreateGeneralResult> 
       title: defaultTitleForToday(),
       context_kind: "execution",
       mode: "general",
+      ...(opts.origin === "panel" ? { origin: "panel" } : {}),
     })
     .select("*")
     .single<CoachingConversation>();
@@ -72,7 +78,7 @@ export async function createGeneralConversation(): Promise<CreateGeneralResult> 
   trackAfter(
     session.profile.id,
     "coach.thread_opened",
-    { mode: "general", context_kind: "execution" },
+    { mode: "general", context_kind: "execution", origin: opts.origin ?? "page" },
     { company: companyId }
   );
   return { ok: true, item: data };

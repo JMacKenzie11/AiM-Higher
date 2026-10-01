@@ -8,6 +8,7 @@ import { resolveAgent } from "@/lib/practices/resolve";
 import { practiceGate } from "@/lib/practices/gate";
 import { createPracticeConversation } from "@/lib/practices/create";
 import { createGeneralConversation } from "@/lib/coach/create-general";
+import { continueFromPanel, isConversationId } from "@/lib/aimee/continue";
 import { PageShell } from "@/components/ui/PageShell";
 
 // Unified launch route. Two shapes:
@@ -28,6 +29,10 @@ type PageProps = {
     agent?: string;
     practice?: string;
     from?: string;
+    // A panel conversation to carry over (Aimee's "Continue on the
+    // Aimee page"): the new conversation opens with a summary of what
+    // the person said there. lib/aimee/continue.ts.
+    continue?: string;
   }>;
 };
 
@@ -75,6 +80,15 @@ export default async function AskAimeeNewLaunchPage({ searchParams }: PageProps)
   // revalidatePath, and revalidating during render is forbidden —
   // calling it here is what made this route 500 on every visit
   // without an ?agent= parameter.
+  // Continuing from the panel: a new conversation that opens with what
+  // they said there. Only their own panel conversation is read; any
+  // other id falls through to an ordinary new conversation.
+  if (!agentId && params.continue && isConversationId(params.continue)) {
+    const result = await continueFromPanel(params.continue);
+    if (!result.ok) return notAvailable(result.message);
+    redirect(`/ask-aimee/${result.conversationId}`);
+  }
+
   if (!agentId) {
     const result = await createGeneralConversation();
     if (!result.ok) return notAvailable(result.message);
