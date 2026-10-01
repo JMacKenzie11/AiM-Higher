@@ -104,6 +104,7 @@ export function ChatView({
   openablePatterns,
   variant = "page",
   onInAppLink,
+  pageContext,
   linkHref,
   panelGreeting,
   panelSuggestions = [],
@@ -172,6 +173,10 @@ export function ChatView({
   // Hears a click on an in-app link in a reply, before it navigates.
   // The panel uses it to count "Continue on the Aimee page".
   onInAppLink?: (href: string) => void;
+  // Read at send time: what the panel is open beside (the path, and a
+  // record a drawer has open), as a pattern and an id only. The server
+  // decides what, if anything, Aimee is told (lib/aimee/page-context.ts).
+  pageContext?: () => { path: string; record: { pattern: string; id: string } | null };
   // Rewrites an in-app link before it is drawn. The panel uses it to
   // add its conversation to "Continue on the Aimee page", so the new
   // conversation can open with what was said (lib/aimee/continue.ts).
@@ -420,6 +425,7 @@ export function ChatView({
             conversationId: conversation.id,
             userMessage: trimmed,
             retry: Boolean(opts.retry),
+            ...(pageContext ? { pageContext: pageContext() } : {}),
           }),
           signal: controller.signal,
         });
@@ -532,7 +538,7 @@ export function ChatView({
         }
       }
     },
-    [conversation.id, sending, currentUserId, isOwner, router, inPanel]
+    [conversation.id, sending, currentUserId, isOwner, router, inPanel, pageContext]
   );
 
   function retry() {

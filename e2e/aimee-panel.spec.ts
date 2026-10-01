@@ -45,6 +45,12 @@ test.describe("Aimee's panel, desktop", () => {
     // And its controls still work with the panel open.
     await heading.click();
 
+    // Escape on the page belongs to the page: the panel stays.
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeVisible();
+
+    // Escape inside the panel closes it and hands focus back.
+    await panel.getByPlaceholder("Ask Aimee…").focus();
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();
     await expect(launcher).toBeFocused();

@@ -112,10 +112,12 @@ export function Drawer({
   // into the panel, on every keystroke in a form inside it.
   const onCloseRef = useRef(onClose);
   const trapFocusRef = useRef(trapFocus);
+  const sideRef = useRef(side);
   const initialFocus = useRef(initialFocusRef);
   useEffect(() => {
     onCloseRef.current = onClose;
     trapFocusRef.current = trapFocus;
+    sideRef.current = side;
     initialFocus.current = initialFocusRef;
   });
 
@@ -127,7 +129,17 @@ export function Drawer({
     returnFocusTo.current = document.activeElement;
     (initialFocus.current?.current ?? panelRef.current)?.focus();
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Escape") {
+        // TWO CAN BE OPEN: Aimee's side panel beside a modal drawer
+        // (/chart's function editor). Escape closes the one it was
+        // pressed in. A side panel closes only from inside itself,
+        // since the page beside it is in use and has its own Escapes.
+        // data-drawer marks every drawer's panel, whatever its test id.
+        const inDrawer = (e.target as Element | null)?.closest?.("[data-drawer]") ?? null;
+        if (inDrawer && inDrawer !== panelRef.current) return;
+        if (sideRef.current && inDrawer !== panelRef.current) return;
+        onCloseRef.current();
+      }
       if (e.key === "Tab" && trapFocusRef.current && panelRef.current) {
         const focusable = panelRef.current.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -175,6 +187,7 @@ export function Drawer({
         aria-modal={side ? undefined : "true"}
         aria-labelledby={titleId}
         data-testid={testId}
+        data-drawer=""
         data-drawer-name={name}
       >
         <div className={styles.head}>

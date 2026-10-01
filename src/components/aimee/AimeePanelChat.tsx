@@ -9,6 +9,7 @@ import {
   recordPanelEventAction,
   type PanelChat,
 } from "@/lib/aimee/panel-actions";
+import { useReadOpenRecord } from "./OpenRecord";
 import { panelGreeting, suggestionsFor } from "@/lib/aimee/suggestions";
 import styles from "./AimeeLauncher.module.css";
 
@@ -46,12 +47,22 @@ export function AimeePanelChat({
   // phone, where it would throw up the keyboard.
   focusOnLoad?: boolean;
 }) {
-  const pathname = usePathname() ?? "/";
   const [state, setState] = useState<State>({ kind: "idle" });
   // Whether the conversation on screen has anything from the person yet.
   const [hasTurns, setHasTurns] = useState(false);
   const [starting, setStarting] = useState(false);
   const loaded = useRef(false);
+
+  // What the panel is beside, read when a message is sent: the path,
+  // and a record a drawer has open. Pattern and id only (Step 4).
+  const pathname = usePathname() ?? "/";
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
+  const readOpenRecord = useReadOpenRecord();
+  const pageContext = useCallback(
+    () => ({ path: pathRef.current, record: readOpenRecord() }),
+    [readOpenRecord]
+  );
 
   useEffect(() => {
     if (!active || loaded.current) return;
@@ -132,6 +143,7 @@ export function AimeePanelChat({
           subjectPosition={null}
           firstName={null}
           onInAppLink={onInAppLink}
+          pageContext={pageContext}
           linkHref={linkHref}
           panelGreeting={panelGreeting(state.chat.firstName)}
           panelSuggestions={suggestionsFor(pathname, state.chat.role)}

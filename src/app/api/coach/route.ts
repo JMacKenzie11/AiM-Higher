@@ -14,6 +14,7 @@ import { buildGuideTools } from "@/lib/guide/agent-tools";
 import { formatHelpIndex, helpIndexFor } from "@/lib/help/search";
 import { makeSearchHelpTool } from "@/lib/help/tool";
 import { PANEL_PROMPT_BLOCK, recordPanelEvent } from "@/lib/aimee/panel";
+import { describePageContext, parsePageContext } from "@/lib/aimee/page-context";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import {
   checkOpener,
@@ -71,6 +72,9 @@ export const runtime = "nodejs"; // Node runtime for fs + Anthropic streaming.
 type IncomingBody = {
   conversationId?: unknown;
   userMessage?: unknown;
+  // From Aimee's panel only: { path, record: { pattern, id } | null }.
+  // Shape-checked by parsePageContext; never a record's contents.
+  pageContext?: unknown;
   // When true, don't persist a new user_message row; use the last
   // stored user message as the prompt. This is the retry path — the
   // admin's original message survived the API failure and is already
@@ -331,7 +335,23 @@ export async function POST(req: NextRequest): Promise<Response> {
   // <coach_memory> block is a prompt saying "there is a memory system
   // and it is empty", which invites apologising for it.
   const memoryBlock = context.memoryContext ? `${context.memoryContext}\n\n` : "";
-  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${memoryBlock}${context.coachingContext}\n\n`;
+  // WHAT IS OPEN BESIDE THE PANEL (Step 4). A panel conversation's
+  // request names the page and, for a drawer, a record's pattern and
+  // id; nothing else from the browser is used. The page is checked
+  // against this person's role and features, and the record is loaded
+  // with THIS session's client, so RLS decides what Aimee may read
+  // (lib/aimee/page-context.ts). Rides on the latest user turn, which
+  // is the only turn it describes.
+  const pageBlock =
+    fromPanel && plainAimee
+      ? await describePageContext(
+          supabase,
+          parsePageContext(body.pageContext),
+          session.profile.role,
+          helpFeatures
+        )
+      : "";
+  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${memoryBlock}${context.coachingContext}\n\n${pageBlock ? `${pageBlock}\n\n` : ""}`;
   const messages = buildMessages(history, userTurnPrefix);
 
   // Tool gating: subject-scoped tools are ONLY registered when there

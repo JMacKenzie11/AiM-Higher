@@ -176,6 +176,12 @@ panel fills the screen until you close it.
   how to do something in the app, or anything on your mind. The panel picks up your last
   conversation from the panel; **New conversation** starts another.
   You can move between pages and the conversation stays with you.
+- **Aimee knows which page you are on**, and on a page about one
+  thing (a person, a function, a goal, a priority, a meeting) she can
+  read its name and description, so you can ask "what is this for?"
+  without explaining. On the Functional Chart that includes the
+  function open in the side drawer. She sees only what you could open
+  yourself.
 - **The panel does not add to what Aimee remembers about you.** She
   can still use what she already knows. When a conversation turns
   into something worth keeping, she offers a link to **continue on

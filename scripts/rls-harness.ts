@@ -61,6 +61,7 @@ import { readFileSync, readdirSync } from "node:fs";
 
 import { createManagementClient } from "./lib/provisioning/supabase-management.ts";
 import { isEntryPoint } from "./lib/entry-point.ts";
+import { RECORD_SOURCES } from "../src/lib/aimee/record-sources.ts";
 
 for (const file of [".env.local", ".env.provisioning"]) {
   try {
@@ -9979,6 +9980,94 @@ values ('${seeded[0]}', '${ids.memberCompany}', '${ids.member}', 'opened', null)
   ];
 }
 
+// ---- What Aimee's panel may read (Step 4) --------------------------
+//
+// The panel sends a record's pattern and id; the chat route loads it
+// under the person's own session from RECORD_SOURCES
+// (src/lib/aimee/page-context.ts). So "a team member cannot get Aimee
+// to read a record they cannot open" is exactly: for each table on
+// that list, reading another company's row by id, as a member, with
+// the route's own columns, returns nothing. Read here from the SAME
+// list, so the probe cannot drift from what the route reads.
+//
+// The control is the member reading a row of their own company with
+// the same query, so a 0 means refused rather than a broken query. A
+// table with no own-company row on the clone reports the refusal
+// without a control and says so.
+async function aimeePageContextProbes(run: Runner, ids: Identities): Promise<GrantProbe[]> {
+  const probes: GrantProbe[] = [];
+  let proven = 0;
+  const lines: string[] = [];
+  let ok = true;
+  for (const [pattern, src] of Object.entries(RECORD_SOURCES)) {
+    const cols = [src.titleColumn, src.detailColumn].filter(Boolean).join(", ");
+    const [pick] = await run<{ other: string | null; own: string | null }>(`
+      select
+        (select id::text from public.${src.table} where company_id is not null and company_id <> '${ids.memberCompany}' limit 1) as other,
+        (select id::text from public.${src.table} where company_id = '${ids.memberCompany}' limit 1) as own;`);
+    if (!pick?.other) {
+      lines.push(`${pattern}: no other-company row on the clone to try`);
+      continue;
+    }
+    const read = async (id: string): Promise<string> => {
+      try {
+        const rows = await run<Record<string, unknown>>(
+          asCaller(ids.member, "", `select ${cols} from public.${src.table} where id = '${id}';`)
+        );
+        return String(rows.length);
+      } catch (err) {
+        return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+      }
+    };
+    const other = await read(pick.other);
+    const own = pick.own ? await read(pick.own) : "n/a";
+    const refused = other === "0";
+    // Own-company rows are only a control where the member can open
+    // them; a 0 there is reported, not failed (meetings are narrower).
+    if (!refused || other.startsWith("ERROR") || own.startsWith("ERROR")) ok = false;
+    else proven += 1;
+    lines.push(`${pattern} (${src.table}): other company ${other} row(s), own company ${own}`);
+  }
+  // functions and profiles hold on every clone; if they cannot be
+  // tried, the probe has proven nothing and says so.
+  if (proven < 2) ok = false;
+
+  // THE CANARY. A clean result is only worth something if this probe
+  // can see a leak, so every run plants one: a permissive select
+  // policy on functions, inside the rolled-back transaction, and the
+  // same read must now return the other company's row.
+  const [fn] = await run<{ other: string | null }>(
+    `select (select id::text from public.functions where company_id <> '${ids.memberCompany}' limit 1) as other;`
+  );
+  let canary = "not tried";
+  if (fn?.other) {
+    try {
+      const rows = await run<Record<string, unknown>>(
+        asCaller(
+          ids.member,
+          "create policy harness_planted_leak on public.functions for select to authenticated using (true);",
+          `select title from public.functions where id = '${fn.other}';`
+        )
+      );
+      canary = rows.length === 1 ? "caught" : `missed (${rows.length} rows)`;
+    } catch (err) {
+      canary = `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+    }
+  }
+  if (canary !== "caught") ok = false;
+  lines.push(`planted leak on functions: ${canary}`);
+  probes.push({
+    name: "aimee page context · team member reads",
+    granted: "the member's own company, as the control: see each line",
+    withheld: lines.join(" | "),
+    ok,
+    detail: ok
+      ? `a team member reading another company's record by id gets nothing, on all ${proven} tables tried`
+      : "A TEAM MEMBER COULD READ A RECORD THEY CANNOT OPEN, or a query failed, or too little could be tried",
+  });
+  return probes;
+}
+
 // ---- Hiding a swapped-out opener (0239) --------------------------
 //
 // Swapping the agent before the first user turn replaces the old
@@ -10837,7 +10926,10 @@ async function main(): Promise<void> {
   const probes = await grantProbes(run, ids, pendingSql);
   const portfolio = await portfolioProbes(run, ids, pendingSql);
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
-  const panelEvents = await aimeePanelEventProbes(run, ids, pendingSql);
+  const panelEvents = [
+    ...(await aimeePanelEventProbes(run, ids, pendingSql)),
+    ...(await aimeePageContextProbes(run, ids)),
+  ];
   console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...panelEvents]).join("\n"));
 
   let batchOk = true;
