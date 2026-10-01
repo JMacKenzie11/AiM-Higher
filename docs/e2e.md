@@ -258,6 +258,34 @@ Do not raise the memory limit with NODE_OPTIONS: next dev already sets
 it to half the machine's memory, so a smaller number lowers it, and a
 larger one only delays the restart while the machine starts swapping.
 
+### Against a production build: `npm run e2e:prod`
+
+Opt-in since 2026-10-01. It builds the app once into `.next-e2e`
+(`npm run e2e:build`) and runs all three servers as `next start` on that
+one build, each with its own environment. That is the build users get.
+There is nothing to compile mid-test, so global-setup skips the warm-up,
+the memory restart never comes, and no shards are needed: a full run
+took about 20 minutes, against about 70 in eight dev-server shards. A
+single file runs against the last build with `E2E_PROD=1 npx playwright
+test e2e/<file>`; with no build the servers refuse to start and say so.
+
+**Why it is not the default yet.** On a LOCAL production build the page
+sometimes does not refresh after a server action. Adding a focus area or
+a goal from the plan toolbar and creating a company on Portfolio never
+finish: the server saves the row and answers in about two seconds, and
+the page sits on "Adding…" with nothing more requested, no console
+error and no failed load. Opening the champion's invitation from Aimee's
+icon leaves its badge, intermittently (passed in one run, failed in the
+next). The same forms work in production on Vercel (checked by hand on
+2026-10-01) and on `next dev`. Ruled out: Aimee's panel, Sentry,
+PostHog, the response (complete), and that day's merges (main from
+before them does it too). The one difference seen is that a production
+build prefetches every linked page, the plan's `/plan/sfa/<id>` and
+`/plan/priority/<id>` among them. Running those tests on a separate dev
+server instead was tried and made the run worse: it split a serial group
+and brought back the dev compile race. Find the cause, then make this
+the default.
+
 Two rules for specs, from the same investigation:
 
 - **Wait on what the product writes, never on the clock.** Coach
