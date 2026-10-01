@@ -75,6 +75,18 @@ export function toEntryNumber(
   return stored / factorFor(valueType, scale);
 }
 
+// Stored → the text in the value box. Thousands and millions show two
+// decimals at most (152727 in thousands is 152.73, not 152.727), the
+// same as formatMeasureValue; plain numbers keep what was entered.
+export function toEntryText(
+  stored: number,
+  valueType: MetricValueType,
+  scale: MeasureScale
+): string {
+  const shown = toEntryNumber(stored, valueType, scale);
+  return scale === "plain" ? String(shown) : String(Number(shown.toFixed(2)));
+}
+
 // What a person typed → what is stored.
 export function toStoredNumber(
   typed: number,

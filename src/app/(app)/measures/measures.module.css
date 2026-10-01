@@ -1191,8 +1191,10 @@
 .gridCell {
   text-align: center;
   vertical-align: middle;
-  padding-left: var(--space-2);
-  padding-right: var(--space-2);
+  /* 4px a side, not 8: the value box needs the width more than the
+     gap does (seven characters, 2026-10-01; .gridInput). */
+  padding-left: var(--space-1);
+  padding-right: var(--space-1);
 }
 
 /* THIS WEEK, marked. It is the only column that takes a value, and
@@ -1279,10 +1281,12 @@
   -moz-appearance: textfield;
   width: 100%;
   box-sizing: border-box;
-  /* No min-width. The cell is 76px with padding either side, and a
-     floor wider than what is left pushed the box past the cell's
-     right edge, where the card clipped it. */
-  min-width: 0;
+  /* Seven characters wide at least ("12345.6", "152.73"; Jason,
+     2026-10-01), plus the box's own padding and border. The column
+     is never narrower than that plus the cell's padding
+     (MIN_WEEK_WIDTH in MeasuresGrid.tsx), so the box cannot be pushed
+     past the cell's edge, which is what clipped an earlier floor. */
+  min-width: calc(7ch + 2 * var(--space-1) + 2px);
   height: var(--control-h-sm);
   padding: 0 var(--space-1);
   background: var(--surface);
