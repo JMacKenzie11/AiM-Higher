@@ -14,60 +14,60 @@ Aimee remembers from a conversation is private in the same way,
 including memory from a conversation about another person, which that
 person must never see. Who can change data stays as it is.
 
-## Decisions needed
+## Decisions (Jason, 2026-10-01)
 
-Each has a recommendation. The section that explains it is in brackets.
+Recommendations 2 to 12 are accepted as written below. Decision 1 is
+changed. The section that explains each is in brackets.
 
-1. **The nightly conversation insights job.** It reads the text of every
-   conversation in every company and shows system admins summaries of
-   it, filterable to one company. The themes job sends titles and first
-   messages to the model. Both break the principle for system admins.
-   *Recommend:* switch both off, delete what they stored
-   (`coaching_conversation_analyses`, `coach_theme_snapshot`), and
-   remove the dashboard cards. (§2)
-2. **Usage per person on the admin dashboard.** System admins can see
-   who used Aimee, how often and at what cost. That tells them a
-   conversation exists. *Recommend:* per company totals only, no
-   per-person rows; cost stays per company. (§2)
-3. **Debrief invitations.** Company admins, guides, portfolio admins
-   and system admins can see that a person's debrief conversation
-   exists and whether they opened it. *Recommend:* the invitation row
-   is readable by its recipient only. (§2)
-4. **Memories that already hold judgments about another person.** The
-   memory prompt has been telling Aimee to record a leader's
-   assessments of the person they discussed. Nobody else can read
-   these, so this is a content clean-up, not a leak. *Recommend:*
-   delete about-mode memories that are not about the asker's own
-   goals, plans or decisions, after the new rule is in place, with a
-   count shown to you first. (§4)
-5. **Guides and portfolio admins on the Coach button.** A "same company"
-   rule silently leaves them out, because they have no home company.
-   *Recommend:* an assigned guide, and a portfolio admin switched on as
-   a company's admin, can coach about anyone in that company; other
+1. **Changed: the insights and themes jobs stay, and become
+   anonymous.** AiMS uses them to improve the product, so the jobs and
+   the dashboard cards stay. Before any conversation text goes to the
+   model, and before anything is stored, people's names and identifying
+   details are removed, using the company's roster to find names. The
+   model is told to leave names, roles that identify one person, and
+   personal details out of what it writes. Unit fixtures show a summary
+   that would have named someone failing first, then passing. (§2a)
+   The principle is restated, in the spec and in the help, in these
+   words: "Only the person who started a conversation can see it. AiMS
+   reviews anonymised summaries of conversation themes to improve
+   Aimee." Wherever the product describes Aimee's privacy, it says this.
+2. **Accepted.** Usage on the admin dashboard is per company only, no
+   per-person rows. (§2)
+3. **Accepted.** A debrief invitation is readable by its recipient
+   only. (§2)
+4. **Accepted.** About-mode memories that are not about the asker's own
+   goals, plans or decisions are deleted after the new rule is in
+   place, with the count shown to Jason first. (§4)
+5. **Accepted.** Assigned guides, and portfolio admins switched on as a
+   company's admin, can use the Coach button for that company. Other
    portfolio admins cannot. (§3)
-6. **Strengths inputs.** *Recommend:* results open to the company; the
-   raw answers and the assessment conversation stay private to the
-   person, because they are closer to an Aimee conversation than to a
-   result. (§1)
-7. **Colleagues' email addresses.** Any member can already see a
-   colleague's email on their person page, read through a service-role
-   call. *Recommend:* keep it (a company directory is company data),
-   but read it through a rule rather than the service role. Say if you
-   want it restricted instead. (§1)
-8. **Guide session briefs.** These are a guide's preparation notes for
-   a session. *Recommend:* they stay private to the guide who
+6. **Accepted.** Strengths results open to the company; raw answers and
+   the assessment conversation stay private to the person. (§1)
+7. **Accepted.** Colleagues' email stays visible in the company, read
+   through a rule rather than the service role. (§1)
+8. **Accepted.** Guide session briefs stay private to the guide who
    generated them. (§1)
-9. **Company history logs** (settings changes, feature changes, sheet
-   pull log). *Recommend:* open to the company; `portfolio_admin_events`
-   stays system admin only. (§1)
-10. **When a summary breaks the personal-detail rule.** *Recommend:*
-    retry once with the fault named, then remove the offending sentence
-    and log it; never fail the meeting. (§6)
-11. **The 13 existing summaries.** *Recommend:* a reviewed redaction, not
-    a reanalysis. (§6)
-12. **A transcript page.** No page shows a transcript to anyone today,
-    admins included. Opening transcripts means building one. *Recommend:*
-    build it in phase 3, after summaries are protected. (§1, §6)
+9. **Accepted.** Company history logs open to the company;
+   `portfolio_admin_events` stays system admin only. (§1)
+10. **Accepted.** A summary that breaks the personal-detail rule is
+    retried once with the fault named, then the offending sentence is
+    removed and logged. The meeting never fails. (§6)
+11. **Accepted.** The existing summaries get a reviewed redaction, not a
+    reanalysis. (§6)
+12. **Accepted.** A transcript page is built after summaries are
+    protected. (§1, §6)
+
+**Also decided:**
+- Aimee's rules for coaching about someone else (help them act, no
+  ranking or comparing, no case-building, no speculation, and framing
+  for a peer as well as a manager) go into
+  `prompts/aims-coaching-principles.md` as part of the coaching
+  principles project, not into a separate prompt. That file holds
+  Jason's final text, so the added wording goes to him for approval
+  before it is used. Phase E (the Coach button) depends on it. (§3)
+- PostHog: Jason checks whether session recording is on. (§2)
+- Order: summary protection first (§8).
+- Nothing merges and nothing reaches the fleet without Jason's go.
 
 ## What I found, in short
 
@@ -136,7 +136,7 @@ Each ships with a harness probe shown red first.
 | Table | Reason |
 |---|---|
 | `coaching_conversations`, `coaching_messages`, `coaching_conversation_shares`, `coach_memories` | the exception itself |
-| `coaching_conversation_analyses`, `coach_theme_snapshot` | derived from conversations; decision 1 proposes deleting them |
+| `coaching_conversation_analyses`, `coach_theme_snapshot` | derived from conversations; stay system admin only and become anonymous (decision 1, §2a) |
 | `strengths_responses`, `strengths_narrative_messages` | raw answers and the assessment conversation (decision 6) |
 | `guide_nudges` | addressed to one person, and carries a conversation id (decision 3) |
 | `notifications` | addressed to one person |
@@ -217,10 +217,10 @@ context is loaded all run as the person. Sentry sends no message text.
 ### Gaps against the principle, most serious first
 
 1. System admins read what is said, through the insights job and its
-   dashboard (decision 1).
+   dashboard. Decision 1: kept, and made anonymous (§2a).
 2. Memory records judgments about the other person (§4, decision 4).
 3. The themes job sends conversation openings, names included, to the
-   model (decision 1).
+   model. Decision 1: kept, and made anonymous (§2a).
 4. Admins can see that a debrief conversation exists and was opened
    (decision 3).
 5. Conversations and messages are not locked against the service role,
@@ -233,6 +233,76 @@ context is loaded all run as the person. Sentry sends no message text.
 No harness case today asserts that a system admin, company admin, guide
 or portfolio admin is refused someone else's conversation or messages.
 Memory has one; conversations do not.
+
+## 2a. Anonymous insights and themes (decision 1)
+
+The two jobs and the dashboard cards stay. What changes is what reaches
+the model and what is stored.
+
+**Before the model sees anything.**
+- Build a name list from the company's roster: each person's full name,
+  first name, last name and email name, longest first. Replace each, as
+  a whole word and in any case, with "a colleague" in the text sent to
+  the model. Remove email addresses and phone numbers the same way.
+- The themes job gets the same treatment for titles and first messages.
+- The prompt tells the model to leave out names, roles that identify one
+  person ("the CEO", "our only finance person", "the head of sales"),
+  and personal details: health, family, private situation.
+
+**Before anything is stored.** The model's output is checked in code:
+the roster names again, a list of one-person roles (CEO, CFO, COO,
+founder, owner, president, "head of", "director of", "the only"), and
+the personal-detail check from phase A. On a hit the call is retried
+once with the fault named. If it still fails, that summary's sentence
+is not stored; its topic and friction level still are. Each failure is
+logged as a label and a count, never the text.
+
+**What it cannot catch.** A nickname, or a name that is not on the
+roster (a client, a spouse). The prompt and the output check cover some
+of that, not all. That is why the principle says "anonymised summaries"
+and why the company view needs the limits below.
+
+**Fixtures, failing first.** A conversation that names "Marcus" and
+"our CFO" and mentions a hospital stay. Today its summary goes through
+untouched (red); with the scrub and the check, the stored summary holds
+none of the three (green). And a control that must pass: a summary
+about "sales pipeline health" and a "diagnostic review".
+
+**Rows already stored.** Production holds 41 conversation analyses
+written before this rule (and no theme rows). *Recommendation:* delete
+them and let the job rebuild under the new rule, rather than trying to
+scrub them after the fact. That is a production write, on Jason's go.
+
+**The wording,** in the spec and in the help, wherever the product
+describes Aimee's privacy: "Only the person who started a conversation
+can see it. AiMS reviews anonymised summaries of conversation themes to
+improve Aimee." Places that describe it today: `docs/help/coach.md`,
+`docs/help/ask-aimee.md`, the coaching page's privacy note
+(`src/app/(app)/coach/[profileId]/page.tsx:68-73`), and spec §13 and
+§14. Phase B checks for others.
+
+### Can the company filter still point at a person?
+
+Yes, and on today's numbers it almost always would. In the last 30 days
+on production, 6 companies had Aimee conversations, and in each of
+them only 1 to 3 people had them. Company rosters run from 2 to 15
+people. An anonymous theme filtered to a company where one person used
+Aimee that month is that person's conversation, whatever the wording.
+Topic and timing do the rest: "worried about a key hire leaving" in a
+six-person company, the week after someone resigned, needs no name.
+
+*Recommendations:*
+- **A minimum crowd for the company view.** A company appears in the
+  filter only when at least 5 different people had conversations there
+  in the period shown. Below that, its themes count only towards "all
+  companies". Today no company would appear, so in practice the filter
+  goes away until a company is big enough.
+- **A minimum crowd for a quoted sentence.** A theme shows example
+  sentences only when it is drawn from at least 3 different people,
+  across at least 2 companies. Otherwise it shows its label and count.
+- **No finer than a month** on any company view.
+- **No list of single conversations** anywhere on the dashboard. Today
+  it is per theme, and it stays that way.
 
 ## 3. The Coach button
 
@@ -258,8 +328,8 @@ admins see no button and are refused at every layer.
    is still refused for someone in another company.
 5. Strengths: the tool reads under the asker's login. A colleague who
    cannot read the strengths results gets `incomplete`, which wrongly
-   says the person has not finished. Phase 2 opens results, which fixes
-   this; the tool should still say "not visible to you" when that is
+   says the person has not finished. Phase D (open company content)
+   opens results, which fixes this; the tool should still say "not visible to you" when that is
    the reason.
 6. The prompts assume a senior asker ("a manager… with one of their
    direct reports", `prompts/leadership-coach.md:7,11`). A peer needs
@@ -270,10 +340,15 @@ not to speculate about motives or home life, not to open with a ranking
 or verdict, and not to claim more than the data supports. It says
 nothing about building a case or comparing two people. Proposed:
 
-- **In the prompt:** she helps the person prepare to act, usually a
-  direct conversation; she never ranks or compares people; she never
-  assembles someone's history as a case against them; she never
-  speculates about health, personal life or motives.
+- **In the principles file, not a separate prompt** (decided): she
+  helps the person prepare to act, usually a direct conversation; she
+  never ranks or compares people; she never assembles someone's
+  history as a case against them; she never speculates about health,
+  personal life or motives; and she frames the conversation for a peer
+  as well as for a manager. These go into
+  `prompts/aims-coaching-principles.md` as part of the coaching
+  principles project, worded for Jason's approval since that file holds
+  his text. Phase E waits for it.
 - **In the structure, where it can be enforced:** the person scope reads
   one person, the conversation's subject, and the model cannot name
   another. So she cannot pull a second person's record to compare.
@@ -329,7 +404,7 @@ that. So the simple rule is how she already works. Two things follow.
      though they are "company data". The history tools' guard against
      those tables stays.
   2. Where a rule is wider than the screen, she exposes it. That is the
-     reason phase 2 audits each table before opening the app.
+     reason phase D audits each table before opening the app.
   3. Code that reads with the service role must never feed her a
      result. None does today; the source guards stay.
 
@@ -412,7 +487,7 @@ Each is shown failing first, against a planted wrong rule.
    message count.
 3. **No way around it in code.** A source guard: no service-role read
    of `coaching_messages` or `coaching_conversations` outside a short
-   named list, which shrinks as phase 1 lands.
+   named list, which shrinks as phase B lands.
 4. **Debrief invitations are the recipient's.** A company admin, guide
    and system admin read 0 of someone else's.
 5. **Everyone in the company reads its content.** For every table on the
@@ -423,42 +498,63 @@ Each is shown failing first, against a planted wrong rule.
 7. **Not harness, but unit tests:** the memory filter with the subject's
    name, and the summary check with both kinds of fixture.
 
-## 8. Phased plan
+## 8. Phased plan (order decided 2026-10-01)
 
-Privacy first, then openness: each phase closes a gap before the next
-widens anything. Every migration goes through the runner, is rehearsed
-on dev, and reaches the fleet only on your go. Every phase updates the
-spec and help in the same PR.
+Summary protection first: 13 summaries holding health, family or
+bereavement details are readable by everyone in their companies today,
+including through Aimee. Then privacy before openness. Every migration
+goes through the runner, is rehearsed on dev, and reaches the fleet
+only on Jason's go, per instance. Every phase updates the spec and help
+in the same PR. Nothing merges without Jason's go.
 
-**Phase 1. Close the conversation gaps.** Nothing becomes more visible.
-- Switch off the insights and themes jobs, delete what they stored,
-  remove the dashboard cards (decision 1).
+**Queue.** After the measure-entries fix and the production-build
+tests, which stay first.
+
+**Phase A. Protect people in summaries.**
+- The summariser rule and its check in code (§6), with fixtures shown
+  red first.
+- A read-only script that applies the check to existing summaries and
+  writes the proposed removals to a file **on this computer only, never
+  in the repo**. The file is deleted once Jason has decided.
+- Jason's decisions are applied through the runner as a guarded data
+  migration, per instance, on his go.
+
+**Phase B. Close the conversation gaps.**
+- Insights and themes jobs: kept, made anonymous (§2a), with the
+  company view limits and the restated principle in spec and help.
 - Per-company usage only (decision 2).
 - Debrief invitations readable by the recipient only (decision 3).
 - Drop `coach_memory_metadata`; revoke the share checks from `anon`;
-  same error for "missing" and "not yours".
+  the same error for "missing" and "not yours".
 - Revoke the service role from conversations and messages where no
   remaining code needs it, as memory already is.
 - Harness checks 1 to 4.
 
-**Phase 2. Protect people in summaries and in memory.**
-- The summariser rule and its code check (§6).
+**Phase C. Memory about another person.**
 - The memory rule and its check (§4).
-- Prepare, then on your decision apply, the clean-ups for existing
-  summaries and memories.
+- The clean-up of existing about-mode memories: the count goes to Jason
+  first, then the deletion on his go.
 
-**Phase 3. Open company content.**
+**Phase D. Open company content** (was phase 3).
 - New read rules on the "would open" tables (§1), with check 5.
-- Remove the app gates, fix the person page's privacy note.
+- Remove the app gates; fix the person page's privacy note.
 - The transcript page.
 - Help and spec, including a Strengths section in the spec.
 
-**Phase 4. The Coach button for everyone.**
-- Button, action, page guard and insert rule (§3), with check 6.
-- Aimee's rules for these conversations, and the voice check labels.
+**Phase E. The Coach button for everyone** (was phase 4).
+- Button, action, page guard and insert rule (§3), with check 6,
+  including assigned guides and switched-on portfolio admins.
+- Depends on the coaching principles project carrying the rules for
+  coaching about someone else.
 - The strengths tool's "not visible to you" answer.
 
-**Phase 5. Aimee looks at a named person from the panel.** Under the
-"reads what you can read" rule, with the name looked up on the server.
+**Phase F. Aimee looks at a named person from the panel** (was phase
+5). Under the "reads what you can read" rule, with the name looked up
+on the server.
+
+**Still open:**
+- PostHog session recording: Jason is checking.
+- Deleting the 41 stored conversation analyses (§2a): a production
+  write, on Jason's go.
 
 Docs: this file is the investigation. No product behaviour changed.
