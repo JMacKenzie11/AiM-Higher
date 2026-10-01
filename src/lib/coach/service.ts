@@ -36,6 +36,9 @@ export type CoachingConversation = {
   // position, reports_to, open commitments, current-quarter
   // follow-through rate — nothing else).
   practice_id: string | null;
+  // An Agent Hub rehearsal of a draft (migration 0229). Kept out of
+  // analytics, memory and the recent list.
+  is_preview: boolean;
   // The config version this conversation runs on (migration 0228).
   // Null means registry-defined, which is every row that predates
   // phase 2 and every conversation on an agent nobody has published.
@@ -156,6 +159,11 @@ export async function listConversationsForUser(
     .order("updated_at", { ascending: false });
   if (companyId) query = query.eq("company_id", companyId);
   if (!includeArchived) query = query.eq("archived", false);
+  // Not a system admin's Agent Hub previews (migration 0229). They are
+  // rehearsals of a draft, opened from the Hub, and already kept out of
+  // analytics and memory; in the recent list they read as the admin's
+  // own coaching conversations (Aimee panel investigation, 2026-09-28).
+  query = query.eq("is_preview", false);
 
   const { data: convos } = await query;
   const rows = (convos ?? []) as CoachingConversation[];
