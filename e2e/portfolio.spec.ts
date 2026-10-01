@@ -29,11 +29,25 @@ test.describe("portfolio_admin", () => {
     });
     await expect(cards.first()).toBeVisible();
 
-    // The denominator travels with the scorecard. Without it a reader
-    // compares two overalls that are means over different sets.
-    await expect(
-      cards.first().getByText(/across \d+ disciplines?/i)
-    ).toBeVisible();
+    // Every card's score is its latest weekly snapshot. A card with one
+    // carries the denominator (without it a reader compares overalls
+    // that are means over different sets) and the snapshot's date. A
+    // card without one says "No score yet", never zero. Checked on
+    // every card, because which companies have snapshots depends on
+    // the dev clone's data, and the rule must hold either way.
+    const count = await cards.count();
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      if (await card.getByText("No score yet").count()) {
+        await expect(card.getByText(/across \d+ disciplines?/i)).toHaveCount(0);
+        await expect(card.getByText(/score as of/i)).toHaveCount(0);
+      } else {
+        await expect(card.getByText(/across \d+ disciplines?/i)).toBeVisible();
+        await expect(
+          card.getByText(/^Score as of (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) [A-Z][a-z]{2} \d{1,2}$/)
+        ).toBeVisible();
+      }
+    }
   });
 
   test("the nav offers the portfolio and no platform surfaces", async ({
