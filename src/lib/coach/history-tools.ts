@@ -6,6 +6,7 @@ import { loadCompanyScorecard } from "@/lib/maturity/service";
 import { compareOverall } from "@/lib/maturity/compute";
 import { splitThread } from "@/lib/issues/thread";
 import { getCascade } from "@/lib/plan/service";
+import { meetingDateIn } from "@/lib/transcripts/due-phrase";
 import type { CoachTool } from "./tools";
 import {
   quarterOf,
@@ -22,7 +23,8 @@ import {
 //
 // Everything in this file reads the SHARED ORGANIZATIONAL RECORD:
 // commitments and their occurrences, scorecard snapshots, issues and
-// their commitment threads, the planning cascade, measures.
+// their commitment threads, the planning cascade, measures, and meeting
+// summaries (the written analysis, never the transcript).
 //
 // NOTHING here reads `coaching_conversations`, `coaching_messages`,
 // or anything derived from a conversation. That is not an oversight
@@ -90,7 +92,157 @@ export function buildHistoryTools(args: {
     makeScorecardTrajectoryTool(args),
     makeIssueCasefilesTool(args),
     makePlanningHistoryTool(args),
+    ...makeMeetingTools(args),
   ];
+}
+
+// ---- recent_meetings, read_meeting ------------------------------
+//
+// The company's meeting summaries: what Aimee reads to answer "what
+// came out of last week's leadership meeting?" (Jason, 2026-10-01; she
+// used to say she had no way to see it). The written summary and the
+// commitments the analysis drew out, never the transcript.
+//
+// Who can read a meeting is the meetings and meeting_analyses read
+// rules, on the caller's client: the company's own people, its
+// assigned guides, portfolio admins and system admins, which is who
+// sees it on Meeting Summaries. A meeting id from another company
+// comes back as nothing, because the database refuses the read.
+//
+// Two tools, because a summary averages 20,000 characters: the list
+// gives each meeting's opening and its commitments, and read_meeting
+// gives one in full when she needs it.
+const MAX_MEETINGS = 8;
+const LIST_EXCERPT_CHARS = 1500;
+const READ_MAX_CHARS = 30000;
+
+type MeetingRow = { id: string; meeting_title: string | null; created_at: string };
+type AnalysisRow = {
+  meeting_id: string;
+  analysis_markdown: string | null;
+  commitments_json: unknown;
+  truncated: boolean | null;
+};
+
+async function companyTimezone(
+  db: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  companyId: string
+): Promise<string> {
+  const { data } = await db.from("companies").select("timezone").eq("id", companyId).maybeSingle<{ timezone: string | null }>();
+  return data?.timezone ?? "UTC";
+}
+
+function commitmentsOf(json: unknown): unknown[] {
+  return Array.isArray(json) ? json : [];
+}
+
+function makeMeetingTools(args: { companyId: string }): CoachTool[] {
+  const list: CoachTool = {
+    definition: {
+      name: "recent_meetings",
+      description:
+        `The company's most recent analysed meetings, newest first: date, title, the opening of the written summary (${LIST_EXCERPT_CHARS} characters), ` +
+        "the commitments that came out of it, and the page that shows it. Use it for questions about recent meetings, " +
+        "\"last week's leadership meeting\", or what was decided or committed to. title_contains narrows by title (case-insensitive). " +
+        `count is 1-${MAX_MEETINGS}, default 3. For a meeting's full summary, call read_meeting with its id. ` +
+        "Returns status='empty' when there are none; say so rather than guessing what was said.",
+      input_schema: {
+        type: "object",
+        properties: {
+          count: { type: "integer", description: `How many meetings, newest first. 1-${MAX_MEETINGS}.` },
+          title_contains: { type: "string", description: "Only meetings whose title contains this, e.g. \"leadership\"." },
+        },
+      },
+    },
+    handler: async (input) => {
+      const raw = (input ?? {}) as { count?: number; title_contains?: string };
+      const want = clamp(raw.count, 1, MAX_MEETINGS, 3);
+      const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+      let q = db
+        .from("meetings")
+        .select("id, meeting_title, created_at")
+        .eq("company_id", args.companyId)
+        .eq("status", "complete")
+        .order("created_at", { ascending: false })
+        .limit(want);
+      const title = raw.title_contains?.trim();
+      if (title) q = q.ilike("meeting_title", `%${title.replace(/[%_]/g, "")}%`);
+      const { data: meetings } = await q;
+      const rows = (meetings ?? []) as MeetingRow[];
+      if (rows.length === 0) {
+        return { status: "empty" as const, reason: title ? `no analysed meeting with "${title}" in its title` : "no analysed meetings on record" };
+      }
+      const { data: analyses } = await db
+        .from("meeting_analyses")
+        .select("meeting_id, analysis_markdown, commitments_json, truncated")
+        .in("meeting_id", rows.map((m) => m.id));
+      const byMeeting = new Map(((analyses ?? []) as AnalysisRow[]).map((a) => [a.meeting_id, a]));
+      const tz = await companyTimezone(db, args.companyId);
+      return {
+        status: "ok" as const,
+        meetings: rows.map((m) => {
+          const a = byMeeting.get(m.id);
+          const summary = a?.analysis_markdown ?? "";
+          return {
+            id: m.id,
+            date: meetingDateIn(m.created_at, tz),
+            title: m.meeting_title,
+            page: `/leadership/meetings/${m.id}`,
+            summary_opening: summary.slice(0, LIST_EXCERPT_CHARS),
+            summary_continues: summary.length > LIST_EXCERPT_CHARS,
+            commitments: commitmentsOf(a?.commitments_json),
+          };
+        }),
+      };
+    },
+  };
+
+  const read: CoachTool = {
+    definition: {
+      name: "read_meeting",
+      description:
+        "One meeting's full written summary and its commitments, by the id recent_meetings returned. " +
+        "Use it when the opening of the summary is not enough to answer. Returns found=false for a meeting that is gone or not visible to this person.",
+      input_schema: {
+        type: "object",
+        properties: { meeting_id: { type: "string", description: "An id from recent_meetings." } },
+        required: ["meeting_id"],
+      },
+    },
+    handler: async (input) => {
+      const id = String((input as { meeting_id?: unknown } | null)?.meeting_id ?? "").trim();
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return { found: false as const, note: "That is not a meeting id from recent_meetings." };
+      const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+      const { data: meeting } = await db
+        .from("meetings")
+        .select("id, meeting_title, created_at")
+        .eq("id", id)
+        .eq("company_id", args.companyId)
+        .maybeSingle<MeetingRow>();
+      // RLS makes "gone" and "not yours" the same null, and they are the
+      // same answer to give.
+      if (!meeting) return { found: false as const, note: "That meeting summary is not available." };
+      const { data: analysis } = await db
+        .from("meeting_analyses")
+        .select("meeting_id, analysis_markdown, commitments_json, truncated")
+        .eq("meeting_id", id)
+        .maybeSingle<AnalysisRow>();
+      const summary = analysis?.analysis_markdown ?? "";
+      return {
+        found: true as const,
+        date: meetingDateIn(meeting.created_at, await companyTimezone(db, args.companyId)),
+        title: meeting.meeting_title,
+        page: `/leadership/meetings/${meeting.id}`,
+        summary_markdown: summary.slice(0, READ_MAX_CHARS),
+        // Said out loud: a cut-off summary is missing sections, and a
+        // missing section is not "they didn't do that".
+        summary_was_cut_off: analysis?.truncated === true || summary.length > READ_MAX_CHARS,
+        commitments: commitmentsOf(analysis?.commitments_json),
+      };
+    },
+  };
+
+  return [list, read];
 }
 
 // ---- commitment_history ---------------------------------------

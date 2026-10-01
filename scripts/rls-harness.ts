@@ -10392,6 +10392,66 @@ async function aimeePageContextProbes(run: Runner, ids: Identities): Promise<Gra
   return probes;
 }
 
+// ---- Aimee reads meeting summaries (recent_meetings, read_meeting) ----
+//
+// The tools read meetings and meeting_analyses on the caller's client,
+// so these rules are the whole boundary. As a team member, both ways
+// the tools read: the other company's summaries must come back empty,
+// and the member's own company's must come back in full (the control,
+// counted as postgres). A planted permissive rule on meeting_analyses
+// must be caught, or a clean result means nothing.
+async function meetingSummaryProbes(run: Runner, ids: Identities): Promise<GrantProbe[]> {
+  const [pick] = await run<{ other: string | null; other_meeting: string | null; other_n: number; own_n: number }>(`
+    select
+      (select m.company_id::text from public.meetings m join public.meeting_analyses a on a.meeting_id = m.id
+        where m.company_id is not null and m.company_id <> '${ids.memberCompany}' and m.status = 'complete' limit 1) as other,
+      (select m.id::text from public.meetings m join public.meeting_analyses a on a.meeting_id = m.id
+        where m.company_id is not null and m.company_id <> '${ids.memberCompany}' and m.status = 'complete' limit 1) as other_meeting,
+      (select count(*)::int from public.meeting_analyses a join public.meetings m on m.id = a.meeting_id
+        where m.company_id = (select m2.company_id from public.meetings m2 join public.meeting_analyses a2 on a2.meeting_id = m2.id
+                              where m2.company_id is not null and m2.company_id <> '${ids.memberCompany}' and m2.status = 'complete' limit 1)) as other_n,
+      (select count(*)::int from public.meeting_analyses a join public.meetings m on m.id = a.meeting_id
+        where m.company_id = '${ids.memberCompany}') as own_n;`);
+  if (!pick?.other || !pick.other_meeting) {
+    return [{ name: "aimee meeting summaries · team member reads", granted: "not attempted", withheld: "no other company with an analysed meeting on the clone", ok: false, detail: "NOT PROVEN: nothing to be refused" }];
+  }
+  const count = async (setup: string, sql: string): Promise<string> => {
+    try {
+      const [row] = await run<{ n: number }>(asCaller(ids.member, setup, sql));
+      return String(row?.n ?? 0);
+    } catch (err) {
+      return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+    }
+  };
+  const byCompany = (co: string) =>
+    `select count(*)::int as n from public.meeting_analyses a join public.meetings m on m.id = a.meeting_id where m.company_id = '${co}';`;
+  const otherList = await count("", byCompany(pick.other));
+  const otherById = await count("", `select count(*)::int as n from public.meetings where id = '${pick.other_meeting}';`);
+  const otherSummaryById = await count("", `select count(*)::int as n from public.meeting_analyses where meeting_id = '${pick.other_meeting}';`);
+  const ownList = await count("", byCompany(ids.memberCompany));
+  // By meeting id with no join, so the planted rule alone decides it:
+  // a join through meetings would still be hidden by meetings' own rules.
+  const canary = await count(
+    "create policy harness_planted_leak on public.meeting_analyses for select to authenticated using (true);",
+    `select count(*)::int as n from public.meeting_analyses where meeting_id = '${pick.other_meeting}';`
+  );
+  const ok =
+    otherList === "0" && otherById === "0" && otherSummaryById === "0" &&
+    ownList === String(pick.own_n) &&
+    canary === "1" && pick.other_n > 0;
+  return [{
+    name: "aimee meeting summaries · team member reads",
+    granted: `own company's summaries: ${ownList} of ${pick.own_n}`,
+    withheld:
+      `another company's summaries by company: ${otherList} of ${pick.other_n} | that company's meeting by id: ${otherById}, its summary by id: ${otherSummaryById} | ` +
+      `planted permissive rule on meeting_analyses: ${canary === "1" ? "caught" : `missed (${canary})`}`,
+    ok,
+    detail: ok
+      ? "a team member's Aimee reads their own company's meeting summaries and none of another's"
+      : "A TEAM MEMBER COULD READ ANOTHER COMPANY'S MEETINGS, or could not read their own, or the planted leak went unseen",
+  }];
+}
+
 // ---- Hiding a swapped-out opener (0239) --------------------------
 //
 // Swapping the agent before the first user turn replaces the old
@@ -11257,6 +11317,7 @@ async function main(): Promise<void> {
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
+    ...(await meetingSummaryProbes(run, ids)),
   ];
   console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...panelEvents]).join("\n"));
 

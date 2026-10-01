@@ -25,6 +25,8 @@ const LABELS: Record<string, string> = {
   commitment_history: "Looking back through commitments",
   issue_casefiles: "Reading the issue history",
   planning_history: "Looking at past plans",
+  recent_meetings: "Looking at recent meetings",
+  read_meeting: "Reading the meeting summary",
   scorecard_trajectory: "Checking the scorecard trend",
   search_classroom: "Searching the classroom",
   memory_lookup: "Recalling earlier conversations",

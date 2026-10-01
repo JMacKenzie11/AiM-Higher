@@ -36,6 +36,9 @@ vi.mock("@/lib/supabase/server", () => ({
         lte: note("lte"),
         order: note("order"),
         limit: note("limit"),
+        ilike: note("ilike"),
+        maybeSingle: () =>
+          Promise.resolve({ data: (mocks.tables[table] ?? [])[0] ?? null, error: null }),
         then: (r: (v: unknown) => unknown) =>
           Promise.resolve({ data: mocks.tables[table] ?? [], error: null }).then(r),
       });
@@ -296,5 +299,65 @@ describe("history tools run as the caller", () => {
     expect(src).not.toMatch(/createSupabaseAdminClient/);
     // The tier-one scope boundary, enforced rather than described.
     expect(src).not.toMatch(/coaching_conversations|coaching_messages/);
+  });
+});
+
+describe("recent_meetings and read_meeting", () => {
+  const LONG = "## Summary\n" + "x".repeat(40000);
+  const MEETINGS = [
+    { id: "11111111-1111-4111-8111-111111111111", meeting_title: "Leadership Meeting", created_at: "2026-09-28T15:00:00Z" },
+  ];
+  const ANALYSES = [
+    { meeting_id: MEETINGS[0].id, analysis_markdown: LONG, commitments_json: [{ description: "send the pricing memo" }], truncated: false },
+  ];
+
+  it("lists the company's analysed meetings with an opening, commitments and the page", async () => {
+    mocks.lastFilters = [];
+    mocks.tables = { meetings: MEETINGS, meeting_analyses: ANALYSES, companies: [{ timezone: "America/Toronto" }] };
+    const out = (await toolNamed("recent_meetings", null).handler({})) as {
+      status: string;
+      meetings: Array<{ id: string; title: string; page: string; summary_opening: string; summary_continues: boolean; commitments: unknown[] }>;
+    };
+    expect(out.status).toBe("ok");
+    expect(out.meetings[0].title).toBe("Leadership Meeting");
+    expect(out.meetings[0].page).toBe(`/leadership/meetings/${MEETINGS[0].id}`);
+    expect(out.meetings[0].summary_opening.length).toBe(1500);
+    expect(out.meetings[0].summary_continues).toBe(true);
+    expect(out.meetings[0].commitments).toEqual([{ description: "send the pricing memo" }]);
+    // Scoped to this conversation's company and to finished analyses.
+    const meetingsQuery = mocks.lastFilters.find((f) => f[0] === "from:meetings")!;
+    expect(meetingsQuery).toContain("eq:company_id");
+    expect(meetingsQuery).toContain("eq:status");
+    // Never the transcript.
+    expect(meetingsQuery.find((f) => f.startsWith("select:"))).not.toContain("transcript");
+  });
+
+  it("narrows by title when asked", async () => {
+    mocks.lastFilters = [];
+    mocks.tables = { meetings: MEETINGS, meeting_analyses: ANALYSES, companies: [] };
+    await toolNamed("recent_meetings", null).handler({ title_contains: "leadership" });
+    expect(mocks.lastFilters.find((f) => f[0] === "from:meetings")).toContain("ilike:meeting_title");
+  });
+
+  it("says there are none rather than inventing any", async () => {
+    mocks.tables = { meetings: [], meeting_analyses: [] };
+    const out = (await toolNamed("recent_meetings", null).handler({})) as { status: string };
+    expect(out.status).toBe("empty");
+  });
+
+  it("reads one meeting in full, capped, and says when it was cut off", async () => {
+    mocks.tables = { meetings: MEETINGS, meeting_analyses: ANALYSES, companies: [{ timezone: "UTC" }] };
+    const out = (await toolNamed("read_meeting", null).handler({ meeting_id: MEETINGS[0].id })) as {
+      found: boolean; summary_markdown: string; summary_was_cut_off: boolean;
+    };
+    expect(out.found).toBe(true);
+    expect(out.summary_markdown.length).toBe(30000);
+    expect(out.summary_was_cut_off).toBe(true);
+  });
+
+  it("finds nothing for a meeting it cannot see, and refuses an id that is not one", async () => {
+    mocks.tables = { meetings: [], meeting_analyses: [] };
+    expect(((await toolNamed("read_meeting", null).handler({ meeting_id: MEETINGS[0].id })) as { found: boolean }).found).toBe(false);
+    expect(((await toolNamed("read_meeting", null).handler({ meeting_id: "drop table" })) as { found: boolean }).found).toBe(false);
   });
 });
