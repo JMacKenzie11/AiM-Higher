@@ -46,6 +46,16 @@ export type AccessRowData = {
   openCommitmentsByCompany: Record<string, number>;
   /** Account-level controls for this person, if any. */
   actions?: ReactNode;
+  /** Of companyIds, those switched on as company admin (0245). */
+  adminCompanyIds?: string[];
+};
+
+// The company admin switch on a portfolio admin's assignment (0245).
+// A system admin gets a checkbox per company the person has access to;
+// everybody else sees which ones are on.
+export type AdminSwitch = {
+  canSet: boolean;
+  action: (personId: string, companyId: string, on: boolean) => Promise<{ ok: true } | { ok: false; message: string }>;
 };
 
 type Row = AccessRowData;
@@ -56,12 +66,14 @@ export function CompanyAccessRows({
   action,
   emptyLabel,
   personLabel,
+  adminSwitch,
 }: {
   rows: Row[];
   companies: Array<{ id: string; name: string }>;
   action: (id: string, companyIds: string[]) => Promise<AccessResult>;
   emptyLabel: string;
   personLabel: string;
+  adminSwitch?: AdminSwitch;
 }) {
   if (rows.length === 0) {
     return <p className={styles.emptyLine}>{emptyLabel}</p>;
@@ -75,6 +87,7 @@ export function CompanyAccessRows({
           companies={companies}
           action={action}
           personLabel={personLabel}
+          adminSwitch={adminSwitch}
         />
       ))}
     </div>
@@ -86,12 +99,16 @@ function AccessRow({
   companies,
   action,
   personLabel,
+  adminSwitch,
 }: {
   row: Row;
   companies: Array<{ id: string; name: string }>;
   action: (id: string, companyIds: string[]) => Promise<AccessResult>;
   personLabel: string;
+  adminSwitch?: AdminSwitch;
 }) {
+  const [adminOn, setAdminOn] = useState<Set<string>>(() => new Set(row.adminCompanyIds ?? []));
+  const [switching, startSwitch] = useTransition();
   const [checked, setChecked] = useState<Set<string>>(
     () => new Set(row.companyIds)
   );
@@ -188,6 +205,43 @@ function AccessRow({
                     </span>
                   ) : null}
                 </label>
+                {adminSwitch && saved.has(company.id) ? (
+                  adminSwitch.canSet ? (
+                    <label className={styles.adminSwitch}>
+                      <input
+                        type="checkbox"
+                        checked={adminOn.has(company.id)}
+                        disabled={switching || pending}
+                        aria-label={`${row.name} is ${company.name}'s company admin`}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setMessage(null);
+                          startSwitch(async () => {
+                            const result = await adminSwitch.action(row.id, company.id, on);
+                            if (!result.ok) {
+                              setMessage(result.message);
+                              return;
+                            }
+                            setAdminOn((prev) => {
+                              const next = new Set(prev);
+                              if (on) next.add(company.id);
+                              else next.delete(company.id);
+                              return next;
+                            });
+                            setMessage(
+                              on
+                                ? `${row.name} is now ${company.name}'s company admin.`
+                                : `${row.name} is no longer ${company.name}'s company admin.`
+                            );
+                          });
+                        }}
+                      />
+                      <span>Company admin</span>
+                    </label>
+                  ) : adminOn.has(company.id) ? (
+                    <span className={styles.adminBadge}>Company admin</span>
+                  ) : null
+                ) : null}
               </li>
             );
           })}

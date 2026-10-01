@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Reordering on /measures, at both levels.
@@ -28,17 +28,17 @@ import type { Page } from "@playwright/test";
 // BOTH HALVES RESTORE WHAT THEY MOVED. This runs against a shared
 // dev clone and the order is a real column on real rows.
 
-// GEO-SCI, NOT THE SEEDED FIXTURE AND NOT BENSON. Reordering needs
-// something to reorder: the fixture company has no measures at all,
-// and Benson has exactly one area holding one measure, so both
-// correctly render no handles and neither can exercise this. Geo-Sci
-// has six areas and several measures in each.
+// THE FIXTURE COMPANY, never a copy of a client's. Reordering needs
+// something to reorder, so seed:e2e gives the fixture two areas (E2E
+// Operations, E2E Sales) with two measures each, and resets their
+// order on every run. This used to run against Geo-Sci's copy, which
+// had enough to reorder and was a client's data.
 async function scopeIn(page: Page) {
   await signIn(page, users.admin());
   await page.goto("/admin/companies");
   await page
     .getByTestId("scope-into-company")
-    .filter({ hasText: /^Geo-Sci$/ })
+    .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
     .click();
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 }
@@ -49,6 +49,21 @@ async function openMeasures(page: Page) {
   await expect(page.locator("#measures-grid-scroll")).toBeVisible({
     timeout: 30_000,
   });
+}
+
+// Press the key that drops (or moves) and wait for the reorder's save to
+// answer, not for a length of time. Navigating before it lands reads the
+// old order. A fixed 1.5 seconds was too short in a full run on
+// 2026-09-30: the save took 2.4 seconds on a freshly started dev server,
+// and the page reloaded at 1.5.
+async function pressAndSave(page: Page, key: string) {
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.request().headers()["next-action"] !== undefined,
+    { timeout: 30_000 }
+  );
+  await page.keyboard.press(key);
+  const response = await saved;
+  expect(response.ok(), "the reorder save failed").toBe(true);
 }
 
 const ROWS = `Array.from(document.querySelectorAll('#measures-grid-scroll tbody th[scope=row]')).map(e => e.textContent.trim())`;
@@ -75,8 +90,7 @@ test("a critical success factor keeps its new place in its area", async ({
   await page.waitForTimeout(300);
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(300);
-  await page.keyboard.press("Space");
-  await page.waitForTimeout(1500);
+  await pressAndSave(page, "Space");
 
   // Reloaded, not just read back: an optimistic order that never
   // reached the database looks identical until the next visit, and
@@ -92,8 +106,7 @@ test("a critical success factor keeps its new place in its area", async ({
   await page.waitForTimeout(300);
   await page.keyboard.press("ArrowUp");
   await page.waitForTimeout(300);
-  await page.keyboard.press("Space");
-  await page.waitForTimeout(1500);
+  await pressAndSave(page, "Space");
   await openMeasures(page);
   expect((await page.evaluate(ROWS)) as string[]).toEqual(before);
 });
@@ -112,8 +125,7 @@ test("a functional area keeps its new place among its siblings", async ({
   const before = (await page.evaluate(AREAS)) as string[];
 
   await areaHandles.first().focus();
-  await page.keyboard.press("ArrowDown");
-  await page.waitForTimeout(1800);
+  await pressAndSave(page, "ArrowDown");
 
   await openMeasures(page);
   const after = (await page.evaluate(AREAS)) as string[];
@@ -124,8 +136,7 @@ test("a functional area keeps its new place among its siblings", async ({
   await page
     .locator(`[aria-label="Reorder ${before[0]}"]`)
     .focus();
-  await page.keyboard.press("ArrowUp");
-  await page.waitForTimeout(1800);
+  await pressAndSave(page, "ArrowUp");
   await openMeasures(page);
   expect((await page.evaluate(AREAS)) as string[]).toEqual(before);
 });

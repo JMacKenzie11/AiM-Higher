@@ -1,4 +1,7 @@
 import { requireRole } from "@/lib/auth/current-user";
+import { getEffectiveCompanyId } from "@/lib/admin/scope";
+import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { TEST_ONLY_FEATURE } from "@/lib/practices/test-agent";
 import { listHubAgents, listHubCategories } from "@/lib/practices/hub-service";
 import { isPrimaryInstance } from "@/lib/instances/primary";
 import { AgentHubEditor } from "./AgentHubEditor";
@@ -16,8 +19,8 @@ import styles from "../companies/admin.module.css";
 // them, and this page holds everything around them.
 
 export default async function AgentHubPage() {
-  await requireRole(["system_admin"]);
-  const [categories, agents, primary] = await Promise.all([
+  const session = await requireRole(["system_admin"]);
+  const [categories, allAgents, primary] = await Promise.all([
     listHubCategories(),
     listHubAgents(),
     // Agents are authored in one place (0231). Everywhere else this
@@ -27,6 +30,15 @@ export default async function AgentHubPage() {
     // control and then take it away.
     isPrimaryInstance(),
   ]);
+
+  // The test-only agent (lib/practices/test-agent.ts) is listed only
+  // while you are inside a company that has its feature: the E2E
+  // fixtures. Everywhere else it is not in the Hub either.
+  const scopedCompanyId = await getEffectiveCompanyId(session);
+  const scopedFeatures = scopedCompanyId ? await getCompanyFeatures(scopedCompanyId) : [];
+  const agents = allAgents.filter(
+    (a) => a.feature !== TEST_ONLY_FEATURE || scopedFeatures.includes(TEST_ONLY_FEATURE)
+  );
 
   return (
     <div className={styles.stage}>

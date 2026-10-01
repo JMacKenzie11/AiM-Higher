@@ -4,8 +4,12 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // AgentPicker. Pins the invariants that matter:
 //   - Owner-only. Sharees + strangers refused.
 //   - Lock: refuses if ANY user-role message exists.
-//   - Swap wipes prior assistant openers so a leader who tries
-//     three agents in a row doesn't end up with three greetings.
+//   - Swap HIDES prior assistant openers (hide_conversation_openers,
+//     migration 0239) so a leader who tries three agents in a row
+//     doesn't end up with three greetings. Never deletes: the fake
+//     client below has no delete(), so a delete fails the test. It used
+//     to have one that pretended to work, which is how a delete the
+//     real database refused went unnoticed.
 //   - null agentId clears back to plain Ask Aimee.
 //   - Scripted opener persists inline; generate mode signals the
 //     client to fire /api/coach separately (runGenerateOpener=true).
@@ -28,6 +32,7 @@ type MessageRow = {
   created_by: string;
   role: "user" | "assistant";
   content: string;
+  hidden_at?: string | null;
 };
 
 const db = {
@@ -118,32 +123,29 @@ function fromBuilder(table: keyof typeof db) {
       };
       return updateApi;
     },
-    delete() {
-      const deleteApi = {
-        _f: [] as Array<{ col: string; val: unknown }>,
-        eq(col: string, val: unknown) {
-          this._f.push({ col, val });
-          return this;
-        },
-        async then(resolve: (v: { error: null }) => unknown) {
-          const rows = db[table] as unknown as Array<Record<string, unknown>>;
-          for (let i = rows.length - 1; i >= 0; i--) {
-            if (deleteApi._f.every((f) => rows[i][f.col] === f.val)) {
-              rows.splice(i, 1);
-            }
-          }
-          resolve({ error: null });
-        },
-      };
-      return deleteApi;
-    },
   };
 }
 
 const requireProfileMock = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: async () => ({ from: fromBuilder }),
+  createSupabaseServerClient: async () => ({
+    from: fromBuilder,
+    // hide_conversation_openers, as the migration defines it for the
+    // owner before the first user turn (the action has already checked
+    // both): every visible assistant row gets hidden_at.
+    rpc: async (name: string, args: { p_conversation_id: string }) => {
+      if (name !== "hide_conversation_openers") throw new Error(`unexpected rpc ${name}`);
+      let n = 0;
+      for (const m of db.coaching_messages as Array<Record<string, unknown>>) {
+        if (m.conversation_id === args.p_conversation_id && m.role === "assistant" && !m.hidden_at) {
+          m.hidden_at = new Date().toISOString();
+          n++;
+        }
+      }
+      return { data: n, error: null };
+    },
+  }),
 }));
 
 vi.mock("@/lib/auth/current-user", () => ({
@@ -230,7 +232,7 @@ describe("setConversationAgentAction", () => {
     expect(db.coaching_messages).toHaveLength(0);
   });
 
-  it("swapping agent before first user message wipes the prior opener", async () => {
+  it("swapping agent before first user message hides the prior opener, and deletes nothing", async () => {
     seedGeneralConvo({ practice_id: "functional-chart-builder" });
     db.coaching_messages.push({
       id: "msg_prev",
@@ -245,8 +247,10 @@ describe("setConversationAgentAction", () => {
     const res = await setConversationAgentAction("conv_1", null);
     expect(res.ok).toBe(true);
     expect(db.coaching_conversations[0].practice_id).toBe(null);
-    // Clear-to-Aimee wipes the prior opener and inserts none.
-    expect(db.coaching_messages).toHaveLength(0);
+    // Clear-to-Aimee hides the prior opener and inserts none. The row
+    // is still there: hidden, not deleted.
+    expect(db.coaching_messages).toHaveLength(1);
+    expect(db.coaching_messages[0].hidden_at).toBeTruthy();
   });
 
   it("refuses to change agent after any user turn (lock)", async () => {

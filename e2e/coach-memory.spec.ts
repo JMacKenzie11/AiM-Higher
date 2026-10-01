@@ -101,6 +101,43 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
   }).toPass({ timeout: 60_000 });
 }
 
+// WAIT FOR THE SWEEP BY WHAT IT WRITES, not by the clock.
+//
+// Memory is written by a background call the page fires on entry
+// (MemorySweep), and that call is a model round trip: about 6 seconds
+// on dev, longer when the server is busy. These tests used to pause a
+// fixed 3, 4 or 20 seconds and then read the Memory page once. In a
+// full run the sweep took 5.9s against a 4s pause, the page rendered
+// before the write, and the test failed with "no memories were
+// produced", which was false: the conversation was summarized a
+// moment later (2026-09-29, dev-server log).
+//
+// So reload the Memory page until every expected phrase is on it, and
+// fail with what WAS there if the limit passes. The limit is generous
+// because it only costs time when something is actually wrong.
+async function waitForMemory(
+  page: import("@playwright/test").Page,
+  expected: RegExp[],
+  timeout = 120_000
+): Promise<string> {
+  let seen = "";
+  await expect
+    .poll(
+      async () => {
+        await page.goto("/ask-aimee/memory");
+        seen = (await page.locator("body").innerText()).toLowerCase();
+        return expected.every((re) => re.test(seen));
+      },
+      {
+        timeout,
+        intervals: [2_000, 3_000, 5_000],
+        message: `memory never showed ${expected.join(" and ")}`,
+      }
+    )
+    .toBe(true);
+  return seen;
+}
+
 test.describe("coach memory", () => {
   // Four model round trips plus a summarization pass. Playwright's
   // 30-second default is for a click and a render; this is a
@@ -184,7 +221,8 @@ test.describe("coach memory", () => {
     // than the one open, so the second conversation's creation is
     // what distils the first.
     await page.goto("/ask-aimee");
-    await page.waitForTimeout(3000);
+    await waitForMemory(page, [/marcus|dispatch/]);
+    await page.goto("/ask-aimee");
 
     // ---- Conversation two -------------------------------------
     await page.getByRole("button", { name: /new|start|ask/i }).first().click();
@@ -255,10 +293,9 @@ test.describe("coach memory", () => {
 
     // Leaving is what finishes the thought and triggers the sweep.
     await page.goto("/ask-aimee");
-    await page.waitForTimeout(4000);
+    await waitForMemory(page, [/marcus|dispatch/]);
 
     // ---- The page shows them ----------------------------------
-    await page.goto("/ask-aimee/memory");
     await expect(page.getByRole("heading", { name: /^Memory$/ }))
       .toBeVisible({ timeout: 30_000 });
     // The promise is on the page, in the same words as the help.
@@ -301,11 +338,18 @@ test.describe("coach memory", () => {
     // still reaching context assembly after every row was deleted,
     // she would recall it.
     const remaining = page.getByRole("button", { name: /^Delete:/i });
+    // One at a time, each confirmed gone before the next. A fixed
+    // pause let the loop click a row whose delete was still in flight,
+    // and the run hung on a confirm button that kept leaving the page.
     for (let guard = 0; guard < 20; guard += 1) {
-      if ((await remaining.count()) === 0) break;
+      const count = await remaining.count();
+      if (count === 0) break;
       await remaining.first().click();
-      await page.getByRole("button", { name: /^delete$/i }).click();
-      await page.waitForTimeout(800);
+      const accept = page.getByTestId("confirm-accept");
+      await expect(accept).toBeVisible();
+      await accept.click();
+      await expect(accept).toHaveCount(0);
+      await expect(remaining).toHaveCount(count - 1, { timeout: 30_000 });
     }
     await expect(remaining).toHaveCount(0, { timeout: 30_000 });
 
@@ -317,17 +361,15 @@ test.describe("coach memory", () => {
     await sendAndWait(page, "What do you remember about me? List everything.");
     const answer = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
 
-    // She must say she has nothing — and must not produce the content
-    // of the conversation that was deleted.
+    // The claim is that deleted memories no longer reach her, so it is
+    // checked by what she can no longer produce: the details of the
+    // deleted conversation. How she words having nothing is hers
+    // (Jason, 2026-09-30: coach tests check something reliable, never
+    // the model's wording). "There's nothing on file yet... a blank
+    // slate" failed the old phrase list while being exactly right.
     expect(
-      /don'?t have|nothing (yet|on record|from)|no (memory|memories|record)|first time|haven'?t (talked|noted)|starting fresh/.test(
-        answer
-      ),
-      `expected an empty-memory answer after deleting everything. Got: ${answer.slice(0, 400)}`
-    ).toBe(true);
-    expect(
-      answer.includes("dispatch"),
-      "the coach recalled deleted content"
+      /dispatch|marcus/.test(answer),
+      `the coach recalled deleted content. Got: ${answer.slice(0, 400)}`
     ).toBe(false);
   });
 });
@@ -424,9 +466,9 @@ test.describe("coach memory, about mode", () => {
     // The sweep fires on entry to Ask Aimee and never summarizes the
     // conversation in front of you.
     await page.goto("/ask-aimee");
-    await page.waitForTimeout(20_000);
-
-    await page.goto("/ask-aimee/memory");
+    // Both halves come from one pass over one conversation, written one
+    // after the other, so wait for both rather than the first.
+    await waitForMemory(page, [/handoff/, /feedback conversation|before friday/]);
     const rows = page.getByTestId("memory-row");
     await expect(rows.first()).toBeVisible({ timeout: 30_000 });
     const memoryText = (await page.locator("body").innerText()).toLowerCase();

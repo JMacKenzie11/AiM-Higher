@@ -190,7 +190,9 @@ export default async function PeoplePage() {
                           admin" in a team list invites a question
                           nobody on that page can answer. */}
                       {person.viaAssignment
-                        ? "company admin"
+                        ? person.assignedAsAdmin
+                          ? "company admin"
+                          : "team member"
                         : person.role.replace("_", " ")}
                     </td>
                     <td>

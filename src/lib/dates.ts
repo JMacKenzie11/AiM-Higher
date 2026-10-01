@@ -94,3 +94,14 @@ export function formatShortDate(iso: YMD): string {
     timeZone: "UTC",
   });
 }
+
+// "Friday Sep 26": the weekday, then formatShortDate. Built from the
+// two parts rather than one toLocaleDateString call, which puts a
+// comma between them.
+export function formatWeekdayDate(iso: YMD): string {
+  const weekday = new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, {
+    weekday: "long",
+    timeZone: "UTC",
+  });
+  return `${weekday} ${formatShortDate(iso)}`;
+}

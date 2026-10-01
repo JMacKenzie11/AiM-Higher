@@ -1,3 +1,4 @@
+import { TEST_AGENT_CODE_CHIP, TEST_AGENT_ID } from "../src/lib/practices/test-agent";
 import {
   test,
   expect,
@@ -71,15 +72,23 @@ async function pinnedChipsOf(conversationId: string): Promise<string[]> {
 //
 // ---- RESTORE --------------------------------------------------
 //
-// Everything here publishes against a real agent on the dev clone,
-// so afterEach reverts it to the code default. Version rows are
-// immutable and cannot be deleted; reverting the pointer is what
-// puts the product back. The rows left behind are history, which is
-// what they are for.
+// Everything here publishes against THE TEST-ONLY AGENT, never a real
+// one (docs/e2e.md: tests never change a real agent). It used to
+// publish "Ask great questions", which changed it for every company on
+// the dev clone while the test ran, and a run stopped halfway left it
+// on a test version (2026-09-29). The test agent is in code, so it has
+// a code default to revert to; it is gated to the E2E fixture
+// companies; and seed:e2e resets it before every run. afterEach still
+// reverts it, so a failed test does not leave the next one a live
+// version. Version rows are immutable; the ones left behind are
+// history.
+//
+// SLUG_B is a real agent, and is only ATTACHED to a fixture
+// conversation to swap away to. Nothing publishes or reverts it.
 
-const SLUG_A = "ask-better-questions";
+const SLUG_A = TEST_AGENT_ID;
 const SLUG_B = "prepare-a-hard-conversation";
-const REGISTRY_CHIP_A = "I have a conversation to prepare for";
+const REGISTRY_CHIP_A = TEST_AGENT_CODE_CHIP;
 
 const panel = (page: Page, name: string) =>
   page.getByTestId("drawer-panel").and(page.locator(`[data-drawer-name="${name}"]`));
@@ -133,11 +142,31 @@ async function publishChip(page: Page, slug: string, marker: string) {
   await d.getByRole("button", { name: /review and publish/i }).click();
   await expect(d.getByTestId("agent-config-diff")).toBeVisible();
   await d.getByLabel(/^publish notes$/i).fill(`e2e: chips to ${marker}`);
-  await d.getByTestId("agent-config-publish").click();
 
-  await expect(
-    panel(page, "agent-config").getByTestId("agent-config-source")
-  ).toContainText(/running version/i, { timeout: 20_000 });
+  // Wait for THIS publish to land, then for the drawer to show it.
+  //
+  // "Running version" alone is already true when an earlier version is
+  // live, so it passed the instant the button was clicked, the test
+  // pressed Escape and navigated, and that cancelled the publish: the
+  // new version never went live and its chip never appeared (final
+  // runs, 2026-09-30: the publish request ended with status -1). The
+  // button saves the draft and then publishes it, and only the publish
+  // carries the notes, so the publish is the request with this note.
+  // Then the source line must change from what it said before.
+  const source = panel(page, "agent-config").getByTestId("agent-config-source");
+  const sourceBefore = (await source.textContent()) ?? "";
+  const published = page.waitForResponse(
+    (r) =>
+      r.request().method() === "POST" &&
+      r.request().headers()["next-action"] !== undefined &&
+      (r.request().postData() ?? "").includes(`e2e: chips to ${marker}`),
+    { timeout: 30_000 }
+  );
+  await d.getByTestId("agent-config-publish").click();
+  expect((await published).ok(), "the publish failed").toBe(true);
+
+  await expect(source).toContainText(/running version/i, { timeout: 20_000 });
+  await expect(source).not.toHaveText(sourceBefore, { timeout: 20_000 });
   await page.keyboard.press("Escape");
 }
 
@@ -158,7 +187,7 @@ async function attach(page: Page, slug: string) {
   await expect(picker).toBeVisible();
   // The picker lists by title, so map the two slugs this spec uses.
   const title =
-    slug === SLUG_A ? "Ask great questions" : "Prepare a hard conversation";
+    slug === SLUG_A ? "E2E version test agent" : "Prepare a hard conversation";
   await picker.getByRole("button", { name: new RegExp(title, "i") }).first().click();
   await expect(picker).toHaveCount(0, { timeout: 20_000 });
   // Reload before reading chips.
@@ -193,11 +222,10 @@ async function revertToCode(page: Page, slug: string) {
 
 test.describe("agent config versions", () => {
   test.afterEach(async ({ page }) => {
-    // Put both agents back on the code default, whatever the test
+    // Put the test agent back on its code default, whatever the test
     // did. Version rows stay: nothing can delete them, and they are
     // history.
     await revertToCode(page, SLUG_A);
-    await revertToCode(page, SLUG_B);
   });
 
   test("a publish does not change a conversation already running", async ({

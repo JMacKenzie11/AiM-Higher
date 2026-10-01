@@ -37,9 +37,9 @@ As an admin or guide, you can also:
 - **Deactivate** — stops sign-in without deleting history.
 - **Delete** — removes sign-in + profile permanently. See below.
 - **Remove a portfolio admin from this company.** Somebody who runs
-  the wider group of companies can take company admin rights here,
-  and when they do they appear on this list with the role *company
-  admin*, like anyone else. Their row's menu offers *Remove from
+  the wider group of companies can join your team here. They appear on
+  this list as *team member*, or as *company admin* if a system admin
+  has made them this company's admin. Their row's menu offers *Remove from
   this company* instead of Delete: it ends their access here and
   leaves their account, their other companies and everything they
   own in this one exactly as they are. You cannot deactivate or
