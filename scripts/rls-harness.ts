@@ -10452,6 +10452,38 @@ async function meetingSummaryProbes(run: Runner, ids: Identities): Promise<Grant
   }];
 }
 
+// ---- A stuck connection is ended (0249) -------------------------
+//
+// authenticator, the login PostgREST uses, must carry both timeouts, so
+// a connection left in a failed transaction is ended by Postgres rather
+// than reused. Red before 0249: neither is set. The settings apply to
+// new sessions, so this reads the role's configuration rather than
+// trying to observe a kill inside a rolled-back transaction.
+async function authenticatorTimeoutProbes(run: Runner, pending: string): Promise<GrantProbe[]> {
+  let config = "";
+  try {
+    const [row] = await run<{ c: string | null }>(
+      ["begin;", pending, "select array_to_string(rolconfig, ', ') as c from pg_roles where rolname = 'authenticator';", "rollback;"].join("\n")
+    );
+    config = row?.c ?? "";
+  } catch (err) {
+    config = `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 100)}`;
+  }
+  const idle = /idle_in_transaction_session_timeout=2s/.test(config);
+  const tx = /transaction_timeout=60s/.test(config.replace(/idle_in_transaction_session_timeout=[^,]*/, ""));
+  const keeps = /statement_timeout=8s/.test(config);
+  const ok = idle && tx && keeps;
+  return [{
+    name: "stuck connection · authenticator timeouts",
+    granted: `idle_in_transaction_session_timeout 2s: ${idle ? "set" : "MISSING"} | transaction_timeout 60s: ${tx ? "set" : "MISSING"}`,
+    withheld: `statement_timeout 8s kept: ${keeps ? "yes" : "NO"} | authenticator config: ${config || "(none)"}`,
+    ok,
+    detail: ok
+      ? "a connection left in a failed transaction is ended by Postgres, and the statement limit is unchanged"
+      : "AUTHENTICATOR IS MISSING A TIMEOUT (is 0249 applied?), or the statement limit moved",
+  }];
+}
+
 // ---- Hiding a swapped-out opener (0239) --------------------------
 //
 // Swapping the agent before the first user turn replaces the old
@@ -11314,12 +11346,13 @@ async function main(): Promise<void> {
   const probes = await grantProbes(run, ids, pendingSql);
   const portfolio = await portfolioProbes(run, ids, pendingSql);
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
+  const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...timeouts, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -11409,6 +11442,7 @@ async function main(): Promise<void> {
     !staticResult.ok ||
     probes.some((p) => !p.ok) ||
     panelEvents.some((p) => !p.ok) ||
+    timeouts.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);
