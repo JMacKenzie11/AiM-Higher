@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { AIMEE_NOTIFICATION_KINDS } from "./kinds";
+import { seesAimeePanel } from "@/lib/aimee/panel-audience";
 
 // Server actions for the notifications system. Read-side pulls
 // live in lib/notifications/service.ts; this file is the caller-
@@ -43,17 +45,27 @@ export async function markNotificationReadAction(
 }
 
 // Clear every unread notification for the caller in one action.
-// Used by a "Clear all" affordance in the bell tray footer (if we
-// add one). Kept separate from single-mark so we don't need to
-// enumerate ids in the client.
+// "Mark all as read" in the bell tray. Kept separate from single-mark
+// so we don't need to enumerate ids in the client.
+//
+// The bell's "all" is what the bell shows: Aimee's invitations and
+// shared chats live on her icon for anyone who has the panel
+// (notifications/kinds.ts), and clearing the bell must not empty her
+// badge unseen.
 export async function markAllNotificationsReadAction(): Promise<NotificationActionResult> {
   const session = await requireProfile();
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { error } = await supabase
+  let clear = supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("recipient_id", session.profile.id)
     .is("read_at", null);
+  // Without the panel, the bell holds Aimee's kinds too, so they clear
+  // with everything else (panel-audience.ts).
+  if (seesAimeePanel(session.profile.role)) {
+    clear = clear.not("kind", "in", `(${AIMEE_NOTIFICATION_KINDS.join(",")})`);
+  }
+  const { error } = await clear;
   if (error) return { ok: false, message: "Couldn't clear notifications." };
   revalidatePath("/", "layout");
   return { ok: true };

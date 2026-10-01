@@ -15,16 +15,18 @@ import type { Page } from "@playwright/test";
 // covers both at once, because they are in different modules and
 // each one passes on its own.
 //
-// The second is that a notification LEADS SOMEWHERE. The bell item,
-// its href, the open path's redirect and the conversation it lands
-// in are four separate pieces and the seam between them is a string.
+// The second is that a notification LEADS SOMEWHERE. The badge on
+// Aimee's icon, the "For you" item, the open action and the
+// conversation it shows are separate pieces, and the seam between them
+// is a notification id.
 //
 // ---- THE FIXTURE ----------------------------------------------
 //
 // `npm run seed:e2e` creates one pending nudge for the fixture
-// member, about a seeded meeting, and leaves the champion seat
-// EMPTY. These tests fill the seat, read what changed, and empty it
-// again — but opening the nudge CONSUMES it, so a second run needs a
+// member, about a seeded meeting, and puts that member in the champion
+// seat (an invitation shows only to whoever holds it). These tests
+// clear and refill the seat, read what changed, and leave the member
+// in it. Opening the nudge CONSUMES it, so a second run needs a
 // reseed. That is stated in docs/e2e.md rather than worked around:
 // no user role may create a nudge, by design.
 
@@ -60,21 +62,6 @@ async function setChampion(page: Page, label: string): Promise<boolean> {
     timeout: 30_000,
   });
   return true;
-}
-
-// The notification bell lives in the sidebar footer, bottom-left,
-// which is exactly where `next dev` parks its own dev-tools badge.
-// The badge is a portal that swallows pointer events over that
-// corner, so a click on the bell never lands.
-//
-// It does not exist in a production build, so taking its pointer
-// capture away restores what a real user meets rather than faking
-// anything. Nothing else in the suite had clicked that corner, so
-// nothing else had met this.
-async function ignoreDevOverlay(page: Page): Promise<void> {
-  await page.addStyleTag({
-    content: "nextjs-portal { pointer-events: none !important; }",
-  });
 }
 
 const NOBODY = "Nobody yet";
@@ -153,82 +140,56 @@ test.describe("the AiMS champion seat", () => {
     expect(await pickerText(page)).not.toContain("Debrief a meeting");
   });
 
-  test("the notification leads into a conversation about that meeting", async ({
+  test("the invitation is on Aimee's icon and opens in her panel", async ({
     page,
   }) => {
     await signIn(page, users.member());
     await page.goto("/dashboard");
-    await ignoreDevOverlay(page);
 
-    const bell = page.getByRole("button", { name: /notifications \(/i });
-    await expect(bell).toBeVisible({ timeout: 30_000 });
-    await bell.click();
+    // Aimee's icon carries the count; the bell does not show it
+    // (Step 5, notifications/kinds.ts).
+    const launcher = page.getByTestId("corner-launcher");
+    await expect(page.getByTestId("aimee-badge")).toBeVisible({ timeout: 30_000 });
+    await expect(launcher).toHaveAttribute("aria-label", /waiting for you/);
+    await expect(page.locator('a[href^="/guide/nudge/"]')).toHaveCount(0);
 
-    const item = page.locator('a[href^="/guide/nudge/"]').first();
-    await expect(item).toBeVisible({ timeout: 30_000 });
-    // The invitation says something about the meeting. A tray item
+    await launcher.click();
+    const panel = page.locator('[data-testid="aimee-panel"]');
+    const forYou = panel.getByRole("region", { name: "For you" });
+    await expect(forYou).toBeVisible({ timeout: 30_000 });
+    const invitation = forYou.getByRole("listitem").first();
+    // The invitation says something about the meeting. An item
     // reading "your meeting was analyzed" is the thing this whole
     // feature exists not to be.
-    await expect(item).not.toContainText(/was analy[sz]ed/i);
+    await expect(invitation).not.toContainText(/was analy[sz]ed/i);
+    const line = (await invitation.locator("span").nth(1).innerText()).trim();
     // And it can be waved away without opening it.
-    await expect(page.getByRole("button", { name: /not now/i })).toBeVisible();
+    await expect(invitation.getByRole("button", { name: /not now/i })).toBeVisible();
 
-    const href = await item.getAttribute("href");
-    await item.click();
-    await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, {
-      timeout: 60_000,
-    });
-    const landed = page.url();
-    await expect(page.getByRole("heading", { name: /debrief a meeting/i }))
-      .toBeVisible({ timeout: 30_000 });
+    await invitation.getByRole("button", { name: /talk it through/i }).click();
+    // The debrief opens in the panel, with the line they read as
+    // Aimee's first message (persisted when opened, no model call).
+    await expect(panel.getByText(/debrief a meeting/i).first()).toBeVisible({ timeout: 60_000 });
+    const first = panel.locator('[class*="bubbleRowAssistant"]').first();
+    await expect(first).toBeVisible({ timeout: 30_000 });
+    expect((await first.innerText()).trim()).toContain(line.slice(0, 40));
 
-    // ---- the opening turn ------------------------------------
-    //
-    // The agent's opener is GENERATED, not scripted: ChatView fires
-    // /api/coach on landing and the first thing the champion reads
-    // is a live turn that has called get_meeting_debrief. So this
-    // waits on a real model call, which is slow and which no unit
-    // test can stand in for.
-    //
-    // Asserted on SHAPE, never on wording (failure mode E17). Two
-    // things have to be true and neither varies run to run: an
-    // assistant turn arrives at all, and it is not the notification
-    // sentence again. "Your meeting was analyzed" one screen
-    // further in is the exact outcome this feature exists not to
-    // produce.
-    const assistant = page
-      .locator('[class*="bubbleRowAssistant"]')
-      .first();
-    await expect(assistant).toBeVisible({ timeout: 120_000 });
-    // Waits for the turn to SETTLE, not merely to start. Reading
-    // innerText the moment it passes a length threshold catches the
-    // stream mid-sentence, and an assertion against half a sentence
-    // is an assertion against the network.
-    let settled = "";
-    await expect
-      .poll(
-        async () => {
-          const now = (await assistant.innerText()).trim();
-          const stable = now.length > 80 && now === settled;
-          settled = now;
-          return stable;
-        },
-        { timeout: 120_000, intervals: [1000] }
-      )
-      .toBe(true);
-    const opener = settled;
-    expect(opener).not.toMatch(/was analy[sz]ed/i);
-    // Printed so the opener can be READ in the run output. An agent
-    // that reaches out first is judged on its first sentence, and
-    // there is no other place that sentence shows up.
-    console.log(`\n---- debrief opener ----\n${opener}\n------------------------\n`);
+    // Opened is read: the badge and the item go.
+    await expect(page.getByTestId("aimee-badge")).toHaveCount(0, { timeout: 30_000 });
+    await expect(forYou).toHaveCount(0);
 
-    // Opening it again lands on the SAME conversation. The
-    // notification stays in the bar until it is read, so a second
-    // click is ordinary — and two conversations would split one
-    // debrief and count one invitation as two opens.
-    await page.goto(href!);
-    await expect(page).toHaveURL(landed, { timeout: 60_000 });
+    // And the same conversation is on the Aimee page.
+    const pageLink = panel.getByRole("link", { name: "Open on the Aimee page" });
+    const href = await pageLink.getAttribute("href");
+    expect(href).toMatch(/^\/ask-aimee\/[0-9a-f-]{36}$/);
+  });
+
+  test("nobody else gets the badge", async ({ page }) => {
+    // Same company, same role, no seat, no invitation.
+    await signIn(page, users.lead());
+    await page.goto("/dashboard");
+    await expect(page.getByTestId("corner-launcher")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("aimee-badge")).toHaveCount(0);
   });
 
   test("somebody else's invitation is not openable", async ({ page }) => {
@@ -243,10 +204,11 @@ test.describe("the AiMS champion seat", () => {
     });
   });
 
-  test("and the seat empties again", async ({ page }) => {
-    // Restores the fixture. Also the assertion that an empty seat is
-    // a supported state rather than a validation error: it is what
-    // most companies will have.
+  test("the seat can be left empty, and goes back to the fixture member", async ({ page }) => {
+    // An empty seat is a supported state rather than a validation
+    // error: it is what most companies will have. Then the fixture is
+    // put back as seed:e2e leaves it, with the member in the seat that
+    // matches their invitation.
     await signIn(page, users.companyAdmin());
     await page.goto("/admin/companies");
     await expect(page).toHaveURL(/\/admin\/companies\/[0-9a-f-]{36}$/, {
@@ -254,5 +216,6 @@ test.describe("the AiMS champion seat", () => {
     });
     await setChampion(page, NOBODY);
     await expect(page.getByText(/those notes are not sent/i)).toBeVisible();
+    await setChampion(page, FIXTURE_CHAMPION);
   });
 });

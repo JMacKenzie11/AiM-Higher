@@ -81,8 +81,14 @@ their own coach URL gets redirected there automatically.
 *Share* button at the top of the thread. Choose *Read-only* or
 *Collaborate*, pick the person (teammate or assigned guide),
 and they'll see the thread in their
+::: panel
+Shared with you list — and see it under **For you** in Aimee's
+panel, with a number on her icon, linking straight into it. You stay the owner and can change
+:::
+::: no-panel
 Shared with you list — and get a notification in their top-right
 bell linking straight into it. You stay the owner and can change
+:::
 access or remove them at any time.
 
 **Can I share cross-company?** No. Shares are locked to the

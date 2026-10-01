@@ -24,6 +24,13 @@ import styles from "./NavBand.module.css";
 // Computed items (dismissible=false) recompute from live state on
 // every render, so there's nothing to mark on click.
 //
+// AIMEE'S KINDS ARE HERE ONLY WITHOUT THE PANEL. For anyone who sees
+// Aimee's panel, invitations to debrief a meeting and shared chats show
+// on her icon and open in her panel, "Not now" included
+// (notifications/kinds.ts, components/aimee), and the layout hands this
+// bell everything else. Until AIMEE_PANEL_FOR_EVERYONE is on, everyone
+// else gets them here, as before the panel (panel-audience.ts).
+//
 // ---- THE TRAY IS PORTALLED -------------------------------------
 //
 // It used to be positioned inside the bell's own wrapper. In the
@@ -215,7 +222,8 @@ export function NotificationBell({
   );
 }
 
-// "Not now" on a Guide nudge.
+// "Not now" on a Guide nudge, in the bell for anyone without Aimee's
+// panel.
 //
 // Declining is worth recording — see dismissGuideNudgeAction — so
 // this is a real round trip and not a local hide. It disables while
@@ -250,10 +258,11 @@ function DismissNudge({ id }: { id: string }) {
 // data changes, so there is nothing to mark and the button only
 // shows when there is at least one stored item.
 //
-// A Guide invitation marked read this way is put away, not declined:
-// its nudge stays pending, and only "Not now" records a dismissal.
-// Same round-trip shape as "Not now": disabled while in flight, and
-// the items leave when the layout revalidates.
+// Only what the bell shows: with Aimee's panel, her invitations and
+// shared chats are on her icon, and clearing the bell leaves them
+// there; without it they are in the bell and clear with the rest.
+// Disabled while in flight; the items leave when the layout
+// revalidates.
 
 function MarkAllRead() {
   const [pending, startTransition] = useTransition();

@@ -13,6 +13,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { deriveCompanyContext } from "@/lib/companies/context-label";
 import { getHeaderNotifications } from "@/lib/notifications/service";
+import { splitNotifications } from "@/lib/notifications/kinds";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   PostHogProvider,
@@ -123,6 +124,14 @@ export default async function AppLayout({
         features,
       })
     : [];
+  // Aimee's kinds (invitations and shared chats) go to her icon, the
+  // rest stay in the bell. One query, split (notifications/kinds.ts).
+  // Without the panel (panel-audience.ts) there is no icon to carry
+  // them, so everything stays in the bell, as it did before the panel.
+  const panelOn = seesAimeePanel(role);
+  const { bell: bellNotifications, aimee: aimeeNotifications } = panelOn
+    ? splitNotifications(notifications)
+    : { bell: notifications, aimee: [] };
 
   // Read persisted collapse state so the initial render matches the
   // user's preference (no post-hydration jump). Sidebar writes these
@@ -166,7 +175,7 @@ export default async function AppLayout({
             showExitScope={isCrossCompanyRole && Boolean(scopedCompanyId)}
             scopedCompanyName={scopedCompanyName}
             features={features}
-            notifications={notifications}
+            notifications={bellNotifications}
             initialCollapsed={initialCollapsed}
             initialCollapsedGroups={initialCollapsedGroups}
           />
@@ -179,7 +188,7 @@ export default async function AppLayout({
                 System admins only until AIMEE_PANEL_FOR_EVERYONE is on
                 (panel-audience.ts); everyone else keeps the "?" until
                 then. docs/investigations/aimee-panel.md. */}
-            {seesAimeePanel(role) ? <AimeeLauncher /> : <HelpWidget />}
+            {panelOn ? <AimeeLauncher notifications={aimeeNotifications} /> : <HelpWidget />}
           </OpenRecordProvider>
         </div>
       </PostHogProvider>
