@@ -57,7 +57,19 @@ async function keyboardMove(
   await page.waitForTimeout(300);
   await page.keyboard.press(direction);
   await page.waitForTimeout(300);
+  // The drop sends the reorder to the server. Wait for its answer, not
+  // for a length of time: a reload before it lands cancels the wait and
+  // shows the old order. A fixed second after the drop was too short on
+  // a freshly started dev server, where the first save of a run took
+  // longer (full run 2, 2026-09-30: the reload fired at 1.0s with the
+  // save still in flight, and the save landed after it).
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.request().headers()["next-action"] !== undefined,
+    { timeout: 30_000 }
+  );
   await page.keyboard.press("Space");
+  const response = await saved;
+  expect(response.ok(), "the reorder save failed").toBe(true);
 }
 
 const keyboardDrag = (page: Page, label: string | RegExp) =>
@@ -66,7 +78,12 @@ const keyboardDrag = (page: Page, label: string | RegExp) =>
 const keyboardDragUp = (page: Page, label: string | RegExp) =>
   keyboardMove(page, label, "ArrowUp");
 
-// Let the reorder actually reach the server before reloading.
+// Let the page go quiet before a drag or a reload.
+//
+// The drag itself waits for its own save now (keyboardMove), because
+// "networkidle" here returns at once when the page already reached it
+// on load, so this was in effect a fixed second. What follows is why
+// the save has to be waited for at all.
 //
 // THIS IS NOT PADDING. The optimistic update lands synchronously, so
 // the "did it move" assertion passes within milliseconds while the
@@ -121,6 +138,11 @@ test.describe("drag to reorder", () => {
   test("an issue can be moved down and the new order sticks", async ({
     page,
   }) => {
+    // Its own time limit, like the other specs: it makes about ten
+    // round trips (two creates, a drag, two deletes), and on the
+    // default 30 seconds one slow delete (3.9s, final run 1,
+    // 2026-09-30) ran it out of time after the reorder had passed.
+    test.setTimeout(120_000);
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
     // The fixture company, never a copy of a client's. `.first()` was

@@ -51,6 +51,21 @@ async function openMeasures(page: Page) {
   });
 }
 
+// Press the key that drops (or moves) and wait for the reorder's save to
+// answer, not for a length of time. Navigating before it lands reads the
+// old order. A fixed 1.5 seconds was too short in a full run on
+// 2026-09-30: the save took 2.4 seconds on a freshly started dev server,
+// and the page reloaded at 1.5.
+async function pressAndSave(page: Page, key: string) {
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === "POST" && r.request().headers()["next-action"] !== undefined,
+    { timeout: 30_000 }
+  );
+  await page.keyboard.press(key);
+  const response = await saved;
+  expect(response.ok(), "the reorder save failed").toBe(true);
+}
+
 const ROWS = `Array.from(document.querySelectorAll('#measures-grid-scroll tbody th[scope=row]')).map(e => e.textContent.trim())`;
 const AREAS = `Array.from(document.querySelectorAll('#measures-grid-scroll tbody th[scope=rowgroup]')).map(e => e.textContent.replace(/[^A-Za-z0-9& ]/g,'').trim())`;
 
@@ -75,8 +90,7 @@ test("a critical success factor keeps its new place in its area", async ({
   await page.waitForTimeout(300);
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(300);
-  await page.keyboard.press("Space");
-  await page.waitForTimeout(1500);
+  await pressAndSave(page, "Space");
 
   // Reloaded, not just read back: an optimistic order that never
   // reached the database looks identical until the next visit, and
@@ -92,8 +106,7 @@ test("a critical success factor keeps its new place in its area", async ({
   await page.waitForTimeout(300);
   await page.keyboard.press("ArrowUp");
   await page.waitForTimeout(300);
-  await page.keyboard.press("Space");
-  await page.waitForTimeout(1500);
+  await pressAndSave(page, "Space");
   await openMeasures(page);
   expect((await page.evaluate(ROWS)) as string[]).toEqual(before);
 });
@@ -112,8 +125,7 @@ test("a functional area keeps its new place among its siblings", async ({
   const before = (await page.evaluate(AREAS)) as string[];
 
   await areaHandles.first().focus();
-  await page.keyboard.press("ArrowDown");
-  await page.waitForTimeout(1800);
+  await pressAndSave(page, "ArrowDown");
 
   await openMeasures(page);
   const after = (await page.evaluate(AREAS)) as string[];
@@ -124,8 +136,7 @@ test("a functional area keeps its new place among its siblings", async ({
   await page
     .locator(`[aria-label="Reorder ${before[0]}"]`)
     .focus();
-  await page.keyboard.press("ArrowUp");
-  await page.waitForTimeout(1800);
+  await pressAndSave(page, "ArrowUp");
   await openMeasures(page);
   expect((await page.evaluate(AREAS)) as string[]).toEqual(before);
 });
