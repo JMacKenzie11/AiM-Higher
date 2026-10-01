@@ -71,7 +71,7 @@ Aimee's icon sits in the bottom-right corner of every page. Click it, or press *
 - **For you.** When someone shares a conversation with you, it's listed here with their name, and a number shows on Aimee's icon. *Open the chat* opens it in the panel. A conversation about a person opens on their coaching page instead.
 - **A conversation.** Aimee greets you and suggests a few questions about the page you're on. Click one, or ask anything. The panel picks up your last panel conversation, and *New conversation* starts another. It stays with you as you move between pages.
 - **She knows the page you're on.** On a page about one thing (a person, a function, a goal, a priority, a meeting) she can read its name and description, so you can ask "what is this for?" On the Functional Chart that includes the function open beside it. She only sees what you could open yourself.
-- **The panel doesn't add to what Aimee remembers about you,** though she still uses what she already knows. When a conversation turns into real coaching, she offers a link to *Continue on the Aimee page*. That starts a new conversation here, where she remembers as usual, and it opens with a short summary of what you told her in the panel.
+- **The panel doesn't add to what Aimee remembers about you,** though she still uses what she already knows. For coaching you want her to remember, start a conversation on the Aimee page instead.
 
 If you're your company's AiMS champion, *For you* also shows Aimee's invitations to talk a meeting through. Click *Talk it through* to start.
 
