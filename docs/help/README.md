@@ -33,7 +33,7 @@ dynamic segments (`[id]`) replaced by `_id`.
 | `/admin/companies/[id]`            | `admin.companies._id.md`           |
 | `/plan/priority/[id]`              | `plan.priority._id.md`             |
 | `/chart/function/[id]/role-description` | `chart.function._id.role-description.md` |
-| `/chart/function/[id]/role-description/v/[n]` | `chart.function._id.role-description.v._version.md` |
+| `/chart/function/[id]/role-description/v/[n]` | `chart.function._id.role-description.v._id.md` (every dynamic segment is `_id`, the version number included) |
 
 The resolver tries the most specific filename first and falls back
 to progressively less specific ones, so a `/plan/priority/xyz` URL
