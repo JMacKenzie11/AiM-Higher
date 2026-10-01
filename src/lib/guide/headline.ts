@@ -5,6 +5,8 @@ import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
 import { findUnsupportedQuotes } from "@/lib/voice/quotes";
+import { personalDetailMatcher, PERSONAL_DETAIL_RULE, type PersonalDetailMatcher } from "@/lib/voice/personal-detail";
+import { attendeesFromSummary } from "@/lib/transcripts/attendees";
 import { checkDebriefReply, describeReplyFaults } from "./reply-checks";
 import { meetingDayLabel } from "./meeting-label";
 
@@ -93,7 +95,7 @@ First choose ONE moment that shows something the team did well, and that has a c
 For all three:
 - Who is reading: the champion. Say "you" only for what they did themselves, when you are told who they are. Otherwise "your team", or the person's name for what somebody did.
 - Name only people on the leadership team. Never "Speaker 1" or any other speaker label.
-- Never mention health, family, or personal reasons for anybody's absence, or where they were instead. If somebody was away, leave the reason out entirely.
+- ${PERSONAL_DETAIL_RULE}
 - Never contrast what happened with what did not ("X instead of Y", "not just"). Never reassure by denying the opposite. No metaphors like "landed". No promises: you cannot remind, schedule or follow up.
 
 ${VOICE_CORE}
@@ -110,13 +112,6 @@ export const HEADLINE_RULES_FOR_TEST = SYSTEM;
 // did not happen (Jason, 2026-09-29: "Nobody took it personally").
 const IMPLIES_OPPOSITE =
   /\b(without|nobody|no one|no-one|didn['’]t|did not|never|instead of|rather than|wasn['’]t|weren['’]t|not just)\b/i;
-
-// Somebody's absence and why (Jason, 2026-09-29: the Centre North
-// draft gave a doctor's appointment as the reason). Narrow on purpose:
-// a physiotherapy clinic's meeting is full of appointments that are
-// its work, not anybody's private life.
-const PERSONAL_REASON =
-  /\b(doctor['’]?s appointment|medical appointment|dentist|sick (?:day|leave)|off sick|illness|in (?:the )?hospital|funeral|bereavement|maternity|paternity|pregnan\w*|family (?:emergency|reasons?|matters?|commitments?)|personal (?:reasons?|matters?)|health (?:issues?|reasons?|problems?))\b/i;
 
 const SPEAKER_LABEL = /\bspeaker\s*\d+\b/i;
 const YOU_FOR_OTHERS = /\byou (?:two|both)\b/i;
@@ -164,10 +159,15 @@ function sameLine(a: string, b: string): boolean {
 
 export type CardFaults = { headline: string[]; invitation: string[]; opener: string[] };
 
+// Somebody's private life (Jason, 2026-09-29: the Centre North draft
+// gave Jeff's doctor's appointment as why he was away). The card is a
+// record of the meeting's work, so a physiotherapy clinic's own
+// appointments pass. The words live in voice/personal-detail.ts.
 export function checkCard(
   card: { headline: string; invitation: string; opener: string },
   transcript: string,
-  recentInvitations: readonly string[]
+  recentInvitations: readonly string[],
+  personalDetail: PersonalDetailMatcher = personalDetailMatcher({ mode: "record" })
 ): CardFaults {
   const headline: string[] = [];
   const h = card.headline;
@@ -213,8 +213,8 @@ export function checkCard(
     ["invitation", inv, invitation],
     ["opener", o, opener],
   ] as const) {
-    const m = text.match(PERSONAL_REASON);
-    if (m) list.push(`the ${name} mentions "${m[0]}", a personal reason for somebody's absence`);
+    const m = personalDetail(text);
+    if (m) list.push(`the ${name} mentions "${m}", a personal reason for somebody's absence`);
   }
   return { headline, invitation, opener };
 }
@@ -265,6 +265,12 @@ export async function generateInvitationCard(
     recentInvitations: string[];
   }
 ): Promise<InvitationCard> {
+  // The names the card can mention, so "Jeff was out with the flu" is
+  // caught as well as the words that are private anywhere.
+  const personalDetail = personalDetailMatcher({
+    mode: "record",
+    people: [...attendeesFromSummary(input.analysisMarkdown), ...(input.championName ? [input.championName] : [])],
+  });
   const plain: InvitationCard = {
     headline: HEADLINE_FALLBACK(input.meetingDate),
     invitation: INVITATION_FALLBACK,
@@ -315,7 +321,7 @@ export async function generateInvitationCard(
     let messages: Anthropic.MessageParam[] = [{ role: "user", content: userTurn }];
     for (let attempt = 1; attempt <= MAX_TRIES; attempt += 1) {
       const got = await ask(messages);
-      const gotFaults = got.card ? checkCard(got.card, input.transcript, input.recentInvitations) : null;
+      const gotFaults = got.card ? checkCard(got.card, input.transcript, input.recentInvitations, personalDetail) : null;
       if (got.card && gotFaults && (!faults || count(gotFaults) < count(faults))) {
         card = got.card;
         faults = gotFaults;

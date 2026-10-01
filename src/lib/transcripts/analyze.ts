@@ -1,6 +1,6 @@
 import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
-import { unquoteUnsupported } from "@/lib/voice/quotes";
+import { personalDetailMatcher, PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
 import "server-only";
 
 import fs from "node:fs/promises";
@@ -19,6 +19,10 @@ import {
   replaceSpeakerLabels,
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
+import { settleSummary } from "./summary";
+import { mapStrings, redactAnalysis, redactionCount } from "./redact";
+import { rewordWithModel } from "./reword";
+import { summaryModel } from "./model";
 import { buildSpeller, describeChanges, summariseChanges, type SpellingChange, type SpellingEntry } from "./spelling";
 import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/score";
 import { generateMeetingQuestions } from "@/lib/leadership/questions";
@@ -45,7 +49,6 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // as CONTENT only — any embedded "ignore your instructions"
 // language is treated as text to analyze, not directives.
 
-const DEFAULT_MODEL = "claude-sonnet-5";
 // Raised from 5000 on 2026-09-24. At 5000 a real leadership meeting
 // did not fit: Benson Seafood's ran to roughly 6,300 output tokens
 // and stopped on the words "current stock to be". Of 36 stored
@@ -131,7 +134,7 @@ export async function analyzeMeeting(
     const context = await loadCompanyContext(admin, meetingRow.company_id);
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
-    const model = process.env.ANTHROPIC_SUMMARY_MODEL || DEFAULT_MODEL;
+    const model = summaryModel();
     const client = new Anthropic({ apiKey });
 
     // ---- NO EXTENDED THINKING ON EITHER CALL ------------------
@@ -260,17 +263,16 @@ export async function analyzeMeeting(
       : Promise.resolve(null);
 
     // ---- Call 1: analysis ----
-    const analysisP = client.messages.create({
+    const analysisRequest = {
       model,
       ...NO_THINKING,
       max_tokens: MAX_TOKENS_ANALYSIS,
-      system: [{ type: "text", text: analyzerPrompt }],
-      messages: [
-        {
-          role: "user",
-          content: `${companyBlock}\n\n${speakerBlock}\n\n<transcript>\n${meetingRow.transcript_text}\n</transcript>`,
-        },
-      ],
+      system: [{ type: "text" as const, text: analyzerPrompt }],
+    };
+    const analysisUserMessage = `${companyBlock}\n\n${speakerBlock}\n\n<transcript>\n${meetingRow.transcript_text}\n</transcript>`;
+    const analysisP = client.messages.create({
+      ...analysisRequest,
+      messages: [{ role: "user", content: analysisUserMessage }],
     });
 
     const [analysisMessage, rawExtraction, reviewFromCall] = await Promise.all([
@@ -278,34 +280,17 @@ export async function analyzeMeeting(
       extractionP,
       facilitationP,
     ]);
-    if (analysisMessage.usage) {
+    const logAnalysisUsage = (message: Anthropic.Message) => {
+      if (!message.usage) return;
       void logCoachTokenUsage({
         conversationId: null,
         companyId: meetingRow.company_id,
         purpose: "analyzer",
         model,
-        usage: analysisMessage.usage,
+        usage: message.usage,
       });
-    }
-    const rawAnalysisMarkdown = analysisMessage.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
-
-    // QUOTATION MARKS MEAN THE EXACT WORDS. A summary quoted "who
-    // owns the calendar", which nobody said, and the debrief opener
-    // quoted it back to the champion as a record of their meeting.
-    // The prompt says so; this makes it true whatever the model did,
-    // by taking the marks off any span the transcript does not
-    // contain. The words stay, as the summary's own paraphrase.
-    const { text: unquotedMarkdown, unquoted } = unquoteUnsupported(
-      rawAnalysisMarkdown,
-      meetingRow.transcript_text
-    );
-    // After the quote pass, so a quote is compared with the transcript
-    // exactly as the model wrote it. See replaceSpeakerLabels.
-    const { text: labelledMarkdown, replaced: labelsReplaced } =
-      replaceSpeakerLabels(unquotedMarkdown, speakerMap);
+    };
+    logAnalysisUsage(analysisMessage);
 
     // The company's spellings, enforced rather than asked for. Every
     // generated string passes through `spelled` before it is stored
@@ -322,29 +307,50 @@ export async function analyzeMeeting(
       spellingChanges.push(...r.changes);
       return r.text;
     };
-    const analysisMarkdown = spelled(labelledMarkdown);
-    if (labelsReplaced > 0) {
+
+    // Nothing about a person's private life in anything stored below.
+    // The roster and the identified speakers are the people the text
+    // can name. See voice/personal-detail.ts.
+    const personalDetail = personalDetailMatcher({
+      mode: "record",
+      people: [...context.roster.map((p) => p.full_name), ...identifiedSpeakers(speakerMap)],
+    });
+
+    // The summary's passes, retry included. See summary.ts.
+    // One rewording call per batch of flagged lines (reword.ts): here
+    // for the summary, and once more at the write for the rest.
+    const reword = rewordWithModel(client, model, logAnalysisUsage);
+    const summary = await settleSummary(
+      analysisMessage,
+      { transcript: meetingRow.transcript_text, speakerMap, spell, personalDetail },
+      reword
+    );
+    spellingChanges.push(...summary.spellingChanges);
+    const analysisMarkdown = summary.markdown;
+    const analysisTruncated = summary.truncated;
+    if (summary.labelsReplaced > 0) {
       console.log(
-        `[analyze] replaced ${labelsReplaced} speaker label(s) in the summary for meeting ${meetingId}`
+        `[analyze] replaced ${summary.labelsReplaced} speaker label(s) in the summary for meeting ${meetingId}`
       );
     }
-    if (unquoted.length > 0) {
+    if (summary.unquoted.length > 0) {
       console.log(
-        `[analyze] unquoted ${unquoted.length} paraphrase(s) in meeting ${meetingId}: ` +
-          unquoted.map((q) => `"${q}"`).join(", ")
+        `[analyze] unquoted ${summary.unquoted.length} paraphrase(s) in meeting ${meetingId}: ` +
+          summary.unquoted.map((q) => `"${q}"`).join(", ")
+      );
+    }
+    // Counts only: what the sentences said is never logged.
+    if (summary.personalDetail.reworded + summary.personalDetail.removed > 0) {
+      console.warn(
+        `[analyze] personal detail in the summary for meeting ${meetingId}: ` +
+          `${summary.personalDetail.reworded} sentence(s) reworded, ` +
+          `${summary.personalDetail.removed} taken out`
       );
     }
 
-    // DID IT FINISH? The extraction call below has asked this since
-    // it was written; the analysis call never did, so a summary that
-    // stopped mid-sentence was stored looking complete and rendered
-    // without a mark on it.
-    //
-    // Recorded from stop_reason, not guessed from the text. A
-    // summary that legitimately ends on a bullet has no terminal
-    // punctuation either, and a warning on a complete document is
-    // its own kind of wrong.
-    const analysisTruncated = analysisMessage.stop_reason === "max_tokens";
+    // DID IT FINISH? A summary that stopped mid-sentence was stored
+    // looking complete and rendered without a mark on it. See
+    // summary.ts for how it is recorded.
     if (analysisTruncated) {
       console.warn(
         `[analyze] Analysis hit max_tokens for meeting ${meetingId} — ` +
@@ -499,6 +505,29 @@ export async function analyzeMeeting(
           stripEmDashes(spelled(replaceSpeakerLabels(t, speakerMap).text))
         )
       : null;
+    // NOTHING ABOUT A PERSON'S PRIVATE LIFE, applied once to the whole
+    // row, after every pass has run on the full data: coverage above
+    // compared against every extracted commitment. See redact.ts.
+    // Items are reworded, never dropped; see reword.ts.
+    const { row: stored, counts: redacted } = await redactAnalysis(
+      {
+        analysis_markdown: stripEmDashes(analysisMarkdown),
+        commitments_json: validated,
+        issues_json: validatedIssues,
+        coverage_json: coverage,
+        facilitation_review_json: reviewForStorage,
+      },
+      personalDetail,
+      reword
+    );
+    // Counts only: what was said is never logged.
+    if (redactionCount(redacted) > 0) {
+      console.warn(
+        `[analyze] personal detail kept out of meeting ${meetingId}: ` +
+          `${redacted.sentences} sentence(s) taken out, ${redacted.reworded} item(s) reworded, ` +
+          `${redacted.flagged} item(s) kept and marked for the company admin`
+      );
+    }
     const { error: analysisErr } = await admin.from("meeting_analyses").insert({
       meeting_id: meetingId,
       // Stripped on the way IN, not on the way out. The markdown is
@@ -506,9 +535,9 @@ export async function analyzeMeeting(
       // the headline generator and by anything added later; cleaning
       // it at one reader leaves the rest reading the dashes. Stored
       // clean, it is clean everywhere, once.
-      analysis_markdown: stripEmDashes(analysisMarkdown),
+      analysis_markdown: stored.analysis_markdown,
       truncated: analysisTruncated,
-      coverage_json: coverage,
+      coverage_json: stored.coverage_json,
       // Everything corrected up to here; the headline's own changes
       // come later and are logged only (0238).
       spelling_changes: summariseChanges(spellingChanges),
@@ -519,14 +548,14 @@ export async function analyzeMeeting(
       score_agenda: scoreParts?.agenda ?? null,
       score_overall: overallScore ? overallScore.hundredths / 100 : null,
       score_weights: overallScore ? SCORE_WEIGHTS : null,
-      commitments_json: validated,
-      issues_json: validatedIssues,
+      commitments_json: stored.commitments_json,
+      issues_json: stored.issues_json,
       // Every string in the review, through the same label pass as
       // the summary: it is read on the same page.
       // Em dashes too: a 4Ws note came back as "Which lighting option
       // do we try first — the peak-mounted floodlight or a pole
       // light", because only the summary went through the dash pass.
-      facilitation_review_json: reviewForStorage,
+      facilitation_review_json: stored.facilitation_review_json,
       model,
     });
     if (analysisErr) {
@@ -549,7 +578,7 @@ export async function analyzeMeeting(
       ? await createCommitmentsFromExtraction(
           admin,
           meetingRow,
-          validated,
+          stored.commitments_json,
           context.timezone ?? "UTC",
           context
         )
@@ -608,7 +637,7 @@ export async function analyzeMeeting(
       "system:transcript-cron",
       "meeting.analyzed",
       {
-        commitments_extracted: validated.length,
+        commitments_extracted: stored.commitments_json.length,
         commitments_created: created,
         auto_track: autoTrackOn,
       },
@@ -616,8 +645,8 @@ export async function analyzeMeeting(
     );
 
     return {
-      analysisMarkdown,
-      commitments: validated,
+      analysisMarkdown: stored.analysis_markdown,
+      commitments: stored.commitments_json,
       model,
       createdCommitmentCount: created,
       nudge,
@@ -837,9 +866,11 @@ async function loadAnalyzerPrompt(): Promise<string> {
 
 // Pure, and exported, so the shared-voice test can hold this
 // surface against the same list as the others without reading a
-// file or standing up the pipeline.
+// file or standing up the pipeline. The private-life rule rides with
+// the voice rules: summariser, card and questions say it in one
+// wording (voice/personal-detail.ts).
 export function withVoiceRules(prompt: string): string {
-  return `${prompt}\n\n${VOICE_CORE}`;
+  return `${prompt}\n\n${PERSONAL_DETAIL_RULE}\n\n${VOICE_CORE}`;
 }
 
 // Feature check using the admin client so the pipeline (which runs
@@ -941,7 +972,9 @@ Due-date resolution rules:
   - A named weekday ("by Thursday") — the next occurrence on or after the meeting date.
   Set clarity_timeline TRUE for all of these: the person said when. A date left at the default because you were unsure reads to the team as a deadline nobody agreed.
 - Vague anchors: "next week" alone is not a specific deadline. "By end of next week" without a stated day is still vague — set due_date to null and clarity_timeline to FALSE.
-- No stated deadline at all: leave due_date null and clarity_timeline FALSE. The server will default the row to meeting_date + 7 days. Do NOT guess a nearer date to be helpful — the floor exists precisely because "I'll aim for Wednesday" without an explicit commitment shouldn't turn into a Wednesday deadline. Any date you emit without a genuinely explicit statement will be adjusted up to meeting + 7 anyway; save yourself the guess and null it.`;
+- No stated deadline at all: leave due_date null and clarity_timeline FALSE. The server will default the row to meeting_date + 7 days. Do NOT guess a nearer date to be helpful — the floor exists precisely because "I'll aim for Wednesday" without an explicit commitment shouldn't turn into a Wednesday deadline. Any date you emit without a genuinely explicit statement will be adjusted up to meeting + 7 anyway; save yourself the guess and null it.
+
+${PERSONAL_DETAIL_RULE}`;
 
 function buildExtractionUserMessage(
   ctx: CompanyContext,
@@ -1139,18 +1172,6 @@ export function validateCommitments(
     new Set(ctx.priorities.map((p) => p.id)),
     meetingDateIso
   );
-}
-
-// Applies fn to every string inside a JSON-shaped value.
-function mapStrings<T>(value: T, fn: (s: string) => string): T {
-  if (typeof value === "string") return fn(value) as T;
-  if (Array.isArray(value)) return value.map((v) => mapStrings(v, fn)) as T;
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, mapStrings(v, fn)])
-    ) as T;
-  }
-  return value;
 }
 
 // An owner has to have been at the meeting. See attendees.ts for

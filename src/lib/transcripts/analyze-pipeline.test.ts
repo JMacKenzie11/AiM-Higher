@@ -91,7 +91,11 @@ const SUMMARY = "## Attendees\n\n- Pat\n\n## Summary\n\nThe team agreed the quot
 const EXTRACTION = JSON.stringify({ commitments: [], issues: [{ title: "Quote timing" }] });
 
 const kindOf = (req: { system: Array<{ text: string }> }) =>
-  req.system[0].text.startsWith("You extract commitments") ? "extraction" : "analysis";
+  req.system[0].text.startsWith("You extract commitments")
+    ? "extraction"
+    : req.system[0].text.startsWith("Each item below")
+      ? "reword"
+      : "analysis";
 const text = (t: string) => ({ content: [{ type: "text", text: t }], stop_reason: "end_turn", usage: null });
 
 beforeEach(() => {
@@ -172,5 +176,115 @@ describe("one failing call fails the meeting cleanly", () => {
       status: "complete",
     });
     err.mockRestore();
+  });
+});
+
+// Nothing about a person's private life in what the company reads
+// (voice/personal-detail.ts). On 2026-10-01, 13 of production's 40
+// summaries named somebody's health, family or a bereavement.
+describe("a summary never stores somebody's private life", () => {
+  const PERSONAL =
+    "## Attendees\n\n- Pat\n\n## Summary\n\nThe team agreed the quote goes out Friday. Pat was away for a doctor's appointment.";
+  const analysisCalls = () =>
+    h.create.mock.calls.map(([req]) => req).filter((req) => kindOf(req) === "analysis");
+  const stored = () =>
+    (h.writes.find((w) => w.table === "meeting_analyses" && w.op === "insert")?.payload ?? {}) as {
+      analysis_markdown?: string;
+      issues_json?: Array<{ title: string }>;
+    };
+
+  const rewordCalls = () =>
+    h.create.mock.calls.map(([req]) => req).filter((req) => kindOf(req) === "reword");
+
+  it("rewords only the sentence, never regenerating the summary, and stores the rewrite", async () => {
+    h.create.mockImplementation(async (req) =>
+      text(
+        kindOf(req) === "analysis"
+          ? PERSONAL
+          : kindOf(req) === "reword"
+            ? JSON.stringify(["Pat was away on Tuesday."])
+            : EXTRACTION
+      )
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(analysisCalls()).toHaveLength(1);
+    expect(rewordCalls()[0].messages[0].content).toContain("Pat was away for a doctor's appointment.");
+    expect(stored().analysis_markdown).toContain("The team agreed the quote goes out Friday. Pat was away on Tuesday.");
+    expect(stored().analysis_markdown).not.toMatch(/doctor/);
+    warn.mockRestore();
+  });
+
+  it("takes the sentence out when the rewrite still has it, and the meeting completes", async () => {
+    h.create.mockImplementation(async (req) =>
+      text(
+        kindOf(req) === "analysis"
+          ? PERSONAL
+          : kindOf(req) === "reword"
+            ? JSON.stringify(["Pat had a doctor's appointment."])
+            : EXTRACTION
+      )
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(analysisCalls()).toHaveLength(1);
+    expect(stored().analysis_markdown).toContain("The team agreed the quote goes out Friday.");
+    expect(stored().analysis_markdown).not.toMatch(/doctor/);
+    expect(h.writes.filter((w) => w.table === "meetings" && w.op === "update").at(-1)?.payload).toMatchObject({
+      status: "complete",
+    });
+    // The log says how many, never what.
+    expect(warn.mock.calls.flat().join(" ")).not.toMatch(/doctor/);
+    warn.mockRestore();
+  });
+
+  it("does not send a clean summary back", async () => {
+    h.create.mockImplementation(async (req) => text(kindOf(req) === "analysis" ? SUMMARY : EXTRACTION));
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(analysisCalls()).toHaveLength(1);
+    expect(stored().analysis_markdown).toBe(SUMMARY);
+  });
+
+  const withIssue = (rewrite: string) => async (req: { system: Array<{ text: string }> }) =>
+    text(
+      kindOf(req) === "analysis"
+        ? SUMMARY
+        : kindOf(req) === "reword"
+          ? JSON.stringify([rewrite])
+          : JSON.stringify({ commitments: [], issues: [{ title: "Quote timing" }, { title: "Cover while Pat is on sick leave" }] })
+    );
+
+  it("rewords an issue that names it, and never drops it", async () => {
+    h.create.mockImplementation(withIssue("Cover Pat's work this week"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(stored().issues_json).toEqual([{ title: "Quote timing" }, { title: "Cover Pat's work this week" }]);
+    warn.mockRestore();
+  });
+
+  it("keeps an issue it cannot reword, marked for the company admin", async () => {
+    h.create.mockImplementation(withIssue("Cover while Pat is on sick leave"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(stored().issues_json).toEqual([
+      { title: "Quote timing" },
+      { title: "Cover while Pat is on sick leave", needs_rewording: true },
+    ]);
+    warn.mockRestore();
   });
 });
