@@ -127,7 +127,12 @@ export async function setCompanyFeaturesAction(
   const desired = new Set(cleaned);
 
   const toAdd = cleaned.filter((f) => !existing.has(f));
-  const toRemove = Array.from(existing).filter((f) => !desired.has(f));
+  // Only catalogue features are the form's to remove. Anything else on
+  // the company (e2e_testing, which only seed:e2e sets) is not on the
+  // form, so its absence from the ticked boxes says nothing about it.
+  const toRemove = Array.from(existing).filter(
+    (f) => !desired.has(f) && VALID_COMPANY_FEATURES.has(f)
+  );
 
   if (toAdd.length > 0) {
     const { error } = await supabase

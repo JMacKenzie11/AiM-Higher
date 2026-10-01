@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Editing a function happens on the chart now.
@@ -40,7 +40,9 @@ async function scopeIn(page: Page) {
   await page.goto("/admin/companies");
   await page
     .getByTestId("scope-into-company")
-    .filter({ hasText: /^Benson Seafood$/ })
+    // The fixture company, never a copy of a client's. Its chart is
+    // seeded (seed:e2e): Visionary with two functions under it.
+    .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
     .click();
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 }

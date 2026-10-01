@@ -350,8 +350,16 @@ export async function POST(req: NextRequest): Promise<Response> {
     // so a practice declaring a tool the coach also has cannot send
     // Anthropic two definitions with one name — which is an API
     // error, not a precedence question.
+    //
+    // FROM THE PINNED CONFIG, not the code registry. The conversation
+    // runs the agent version it was pinned to (resolveRuntimeConfig):
+    // its prompt, model and token ceiling already came from there, and
+    // its tools have to as well. Reading the registry's list meant a
+    // tool change published in the Agent Hub never reached a
+    // conversation, and an agent that exists only in the Hub got no
+    // tools at all (investigation, 2026-09-28).
     ...resolvePracticeTools(
-      practice?.tools,
+      agentConfig?.tools,
       convo.company_id,
       convo.revising_role_id ?? null,
       convo.debriefing_meeting_id ?? null
@@ -612,6 +620,16 @@ export async function POST(req: NextRequest): Promise<Response> {
                   { role: "user", content: first.instruction },
                 ],
               });
+              // The retry is part of this turn's cost. It was left out, so
+              // the usage log (and every cost report built on it)
+              // undercounted each turn that needed one (investigation,
+              // 2026-09-28).
+              if (retry.usage) {
+                turnUsage.input_tokens += retry.usage.input_tokens ?? 0;
+                turnUsage.output_tokens += retry.usage.output_tokens ?? 0;
+                turnUsage.cache_creation_input_tokens += retry.usage.cache_creation_input_tokens ?? 0;
+                turnUsage.cache_read_input_tokens += retry.usage.cache_read_input_tokens ?? 0;
+              }
               const retried = retry.content
                 .filter((b): b is Anthropic.TextBlock => b.type === "text")
                 .map((b) => b.text)

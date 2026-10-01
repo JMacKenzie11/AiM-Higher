@@ -116,6 +116,36 @@ none: a partial set throws, naming what is missing.
 Define them **once**. A dotenv file lets a later assignment win, so a
 second copy further down the file silently overrides the first.
 
+## Error monitoring
+
+**Sentry runs on Vercel deployments only, labelled by environment.**
+Production events carry `environment: production`, preview events
+`environment: preview`, so the two never mix in one view.
+
+It is **off** for local dev, local production builds (`next build` then
+`next start`), and e2e runs. All of those talk to the dev database,
+which holds copies of client data, and every Sentry event can carry
+that data: error messages, stack traces, URLs, traces, logs and, in
+the browser, session replays. Off means nothing is sent at all.
+
+How each runtime decides, in `src/lib/observability/sentry-enabled.ts`:
+
+| Runtime | On when | `environment` |
+|---|---|---|
+| Server, Edge | `VERCEL=1` and `VERCEL_ENV` is not `development` | `VERCEL_ENV` |
+| Browser | the page's hostname is not localhost, `127.x`, `::1`, `*.local`, or a private LAN address (`10.x`, `172.16-31.x`, `192.168.x`) | `NEXT_PUBLIC_VERCEL_ENV`, else `production` |
+
+The browser cannot see `VERCEL`, hence the hostname rule. The LAN
+ranges are there because the dev server is opened from phones on the
+same network (`192.168.x.x:3200`). Session Replay is only attached when
+Sentry is on.
+
+A `vercel env pull` writes `VERCEL_ENV=development` into a local file;
+that is refused explicitly, so a pulled file cannot switch Sentry on.
+
+To see a Sentry event from a change, deploy a preview and look under
+the `preview` environment. There is no local switch, on purpose.
+
 ## Instance-prefixed variables belong to the provisioning tool
 
 `{PREFIX}_SUPABASE_URL`, `{PREFIX}_SUPABASE_ANON_KEY` and
@@ -656,6 +686,68 @@ The disposable instance matters. Every destructive step in that list
 ran against `phase4test` and never against `promiseone`, which is a
 client. A test that has to be careful about which instance it breaks is
 a test that will eventually break the wrong one.
+
+## Sentry: what we send, and what we never send
+
+Sentry runs in three places: the browser (`src/instrumentation-client.ts`),
+the Node server (`sentry.server.config.ts`) and the Edge runtime
+(`sentry.edge.config.ts`). All three take their data rules from one
+module, `src/lib/observability/scrub-event.ts`.
+
+**Never sent, on any runtime:** IP addresses, cookies (including the
+Supabase `sb-<ref>-auth-token` session cookie), request or response
+headers, URL query strings and fragments, and request or response
+bodies (form posts, server action arguments, `/api/coach` conversation
+text). Also off: local variable values in stack frames, database query
+values, and AI prompt and response text.
+
+**Sent:** the error and its stack trace (with five lines of our own
+source around each frame), the page path without its query string,
+breadcrumbs of
+clicks, navigation and network calls (method, path, status code and
+body *size*, never content), sampled performance traces (10%), and
+session replays.
+
+**Replay** records the page with all text and inputs masked and media
+blocked (replay's defaults, written out in the config). Network
+requests appear as method, path, status and size. Headers and bodies
+are recorded only for URLs on `networkDetailAllowUrls`, which is empty,
+and `networkCaptureBodies` is off as a second lock. Query strings are
+stripped from the network and navigation entries. One residual: the
+page URL in replay's own "meta" frame (the address bar at each
+checkpoint) is written by the recorder below any hook we have, so a
+query string in the address bar can still appear there.
+
+**How it is enforced.** Two layers, because either alone has a hole:
+
+1. `dataCollection` is set with every key explicit. In `@sentry/core`
+   10.69, passing any `dataCollection` object, even `{}`, makes every
+   category default to ON (`resolveDataCollectionOptions.js`,
+   `DEFAULTS`). That is what the browser config did until
+   2026-09-29. The type is `Required<…>`, so an SDK upgrade that adds
+   a category fails to compile until someone decides about it.
+2. `scrubEvent` runs on the way out, as `beforeSend`,
+   `beforeSendTransaction` and an event processor (replay events skip
+   `beforeSend`). Some capture paths ignore `dataCollection`: the Node
+   HTTP integration buffers incoming request bodies up to 10 KB unless
+   told `maxIncomingRequestBodySize: "none"` (the server config now
+   does), and outgoing-request breadcrumbs always carry `http.query`.
+
+**Checking it.** `npx vitest run src/lib/observability` asserts the
+SDK's resolved options are all off, and pushes a request-shaped event
+through a real client with an in-memory transport. To see the browser's
+actual envelopes on a dev server, with nothing sent:
+
+```sh
+node --experimental-strip-types scripts/sentry-envelope-check.ts http://localhost:3000
+```
+
+It signs in as the e2e team member, makes a fetch with a marked query
+string and body, throws an error, and captures every request to
+`/monitoring` and `*.sentry.io`, aborting each one. It prints what each
+category contained and ends `PASS` only if an error event was captured
+and none of them appear. It does not see server or edge events, which
+leave Node directly.
 
 ## Order of operations for a deploy
 

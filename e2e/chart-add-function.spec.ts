@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Adding a function builds the whole box in the panel.
@@ -24,7 +24,9 @@ async function scopeIn(page: Page) {
   await page.goto("/admin/companies");
   await page
     .getByTestId("scope-into-company")
-    .filter({ hasText: /^Benson Seafood$/ })
+    // The fixture company, never a copy of a client's: a run that fails
+    // before its clean-up leaves the function behind.
+    .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
     .click();
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { requireProfile } from "@/lib/auth/current-user";
+import { planCompanyReorder, type CompanyPosition } from "./company-order";
 
 export type ReorderResult = { ok: true } | { ok: false; message: string };
 
@@ -35,23 +36,17 @@ export async function reorderCompaniesAction(
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
-  // Read first, then write only what moved. A drag usually shifts a
-  // contiguous handful of rows, so this is typically two or three
-  // updates rather than one per company — and on a no-op drop, none
-  // at all.
+  // Only the companies whose place in the list changed are written
+  // (planCompanyReorder). Everyone else's row is left alone, even when
+  // positions have gaps from removed companies.
   const { data: current } = await supabase
     .from("companies")
-    .select("id, sort_order")
+    .select("id, sort_order, name")
     .in("id", orderedIds);
-  const currentById = new Map(
-    ((current ?? []) as Array<{ id: string; sort_order: number | null }>).map(
-      (row) => [row.id, row.sort_order]
-    )
+  const changed = planCompanyReorder(
+    (current ?? []) as CompanyPosition[],
+    orderedIds
   );
-
-  const changed = orderedIds
-    .map((id, index) => ({ id, position: index + 1 }))
-    .filter(({ id, position }) => currentById.get(id) !== position);
 
   for (const { id, position } of changed) {
     const { error } = await supabase

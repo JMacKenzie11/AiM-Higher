@@ -1,6 +1,6 @@
 import { CompanyNameLink } from "../admin/companies/CompanyNameLink";
 import { ProgressBar } from "@/components/plan/ProgressBar";
-import { formatShortDate } from "@/lib/dates";
+import { formatShortDate, formatWeekdayDate } from "@/lib/dates";
 import type { PortfolioCard } from "@/lib/portfolio/service";
 import styles from "./portfolio.module.css";
 
@@ -59,11 +59,18 @@ export function PortfolioCompanyCard({ card }: { card: PortfolioCard }) {
               the same set — and a grid of cards is an invitation to
               compare them. See compareOverall in lib/maturity. */}
           {card.scorecardOverall === null
-            ? "no score yet"
+            ? "No score yet"
             : `across ${card.scorecardDisciplines} ${
                 card.scorecardDisciplines === 1 ? "discipline" : "disciplines"
               }`}
         </p>
+        {/* The score is the latest weekly snapshot, so its date goes
+            with it: a week-old number must not read as today's. */}
+        {card.scorecardOverall !== null && card.scorecardAsOf ? (
+          <p className={styles.metricNote}>
+            Score as of {formatWeekdayDate(card.scorecardAsOf)}
+          </p>
+        ) : null}
       </div>
 
       {/* Priorities — this quarter. */}

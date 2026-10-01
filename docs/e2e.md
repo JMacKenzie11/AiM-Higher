@@ -115,6 +115,65 @@ and a test user with a known password in the production auth table is
 not a test user, it is a back door. The dev clone and production are
 one typo apart, so the script checks rather than trusts.
 
+## Specs write only into E2E Fixture Co
+
+**The rule: tests never change or move anything belonging to a real
+company or a real agent.** Not a row, not a name, not a place in a
+list, not a published version, not even for a moment and put back
+after. What a spec creates, it creates in the fixtures, and it removes
+what it created even when it fails.
+
+The dev clone holds copies of client companies. A spec may READ them
+(Benson Seafood's real plan is the long-title case the phone specs
+need), but anything a spec creates, renames, reorders or deletes goes
+in **E2E Fixture Co**, the company `seed:e2e` builds.
+
+This used to be looser. The chart specs created and deleted functions
+on Benson's chart, and a run that failed before its delete left the
+function there for good: five of them by 2026-09-29, enough to make
+Benson's chart unreadable on a phone and to fail `chart-fit`. The
+measures reorder ran on Geo-Sci, and the issue reorder on whichever
+company sorted first. All three now scope into the fixture, which the
+seed gives a small chart (Visionary, E2E Operations, E2E Sales) and two
+measures per area, and whose leftover "E2E add" and "E2E move"
+functions the seed clears.
+
+What the fixtures give the specs to change, instead of real data:
+
+- **E2E Fixture Co 2**, next to E2E Fixture Co at the end of the
+  company list. The company-order test swaps these two and checks that
+  no other company's place changed.
+- **The test-only agent** (`e2e-version-test`), which only the two
+  fixtures can see, through the `e2e_testing` feature the seed sets.
+  The agent-version and Agent Hub specs publish, rename and re-scope it
+  and nothing else. The seed resets it to its code default before every
+  run, so a run stopped halfway never leaves the next one a live test
+  version or a stranded draft.
+- The portfolio spec removes the company it creates, the app's way
+  (archive, then delete), even when it fails.
+
+Scope with the name, never with `.first()`:
+
+```ts
+.getByTestId("scope-into-company")
+.filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
+```
+### When a lookup fails, the seed stops
+
+The seed finds its fixtures by name and creates any it cannot find. A
+lookup that errors (a timeout, a dropped connection) stops the seed;
+it is never read as "not there". Until 2026-09-30 it was: a lookup
+that timed out during Supabase's eastern-US latency incident created a
+second "E2E Fixture Co", and the next seed, finding two, created a
+third. Every spec picks the company by name, so every one failed at
+the global setup ("strict mode violation ... resolved to 3 elements").
+
+If the seed says more than one company is named "E2E Fixture Co",
+nothing has been seeded. The extras are test data, but removing them is
+a write to the dev clone, so it is Jason's call each time (CLAUDE.md,
+Scope). List them with their creation dates, keep one, remove the
+rest, then seed again.
+
 ## Selectors
 
 Roles, labels and `data-testid`. **Never copy text.** The wording of
@@ -146,6 +205,56 @@ rejects before consulting the registry. That matters: **the registry
 lives in the production project**, so a hostname with a domain under it
 would reach for production. `CONTROL_PLANE_*` is blanked on that server
 too, so an accidental lookup fails loudly instead of connecting.
+
+## Why a full run compiles everything first
+
+`next dev` compiles a page the first time it is asked for, and by
+default throws it away after a minute unused. A compile that lands
+while another page is rendering fails that render with `Cannot read
+properties of undefined (reading 'call')`. Over a 30-minute run that
+hit a different test or two every time, and each one passed when run
+alone (2026-09-29).
+
+So `e2e/global-setup.ts` signs in as the system admin, scopes into
+E2E Fixture Co and requests every page under `src/app/(app)` once before the
+first test, and `next.config.ts` keeps compiled pages for four hours
+in dev (`onDemandEntries`). The warm-up takes a few minutes on a cold
+server and seconds on a warm one. Production builds are unaffected:
+they compile everything up front.
+
+**Restart the dev server every quarter of the suite.** Every page
+compiled and kept costs memory: measured on 2026-09-29, `next dev` sits
+at about 8 GB after the warm-up and climbs to about 11 GB after ten
+minutes of tests. It gives itself half the machine's memory (16 GB on a
+32 GB Mac) and restarts itself at 80% of that ("Server is approaching the
+used memory threshold, restarting"), which drops every compiled page and
+fails whatever was loading, usually as a timeout or a test sent back to
+sign-in. A half of the suite reaches that; a quarter does not. So a full
+run is four shards, each on a freshly started server, each with its own
+warm-up:
+
+```sh
+for n in 1 2 3 4; do
+  # stop the server on 3200, start `npm run dev`, wait for /sign-in
+  npx playwright test --project=chromium --shard=$n/4
+done
+```
+
+Do not raise the memory limit with NODE_OPTIONS: next dev already sets
+it to half the machine's memory, so a smaller number lowers it, and a
+larger one only delays the restart while the machine starts swapping.
+
+Two rules for specs, from the same investigation:
+
+- **Wait on what the product writes, never on the clock.** Coach
+  memory is written by a background model call that takes about six
+  seconds, longer under load. `coach-memory.spec.ts` reloads the
+  Memory page until the expected lines appear, with a time limit,
+  instead of pausing and reading once.
+- **Write only into E2E Fixture Co.** A spec that fails before its
+  clean-up step leaves its rows behind, and in a copy of a client's
+  company that is the client's data with test rows in it. See "Specs
+  write only into E2E Fixture Co".
 
 ## Running the live-credential specs
 
@@ -313,8 +422,9 @@ user role can create one and neither can a browser test.
 
 So that file needs a fresh `npm run seed:e2e` before each full run.
 The seed rebuilds the meeting, the analysis, the nudge and its
-notification from scratch, and empties the champion seat, which is
-also the state the spec expects to start from.
+notification from scratch, and puts the fixture member in the champion
+seat, since the invitation is theirs. An invitation shows only to
+whoever holds the seat, so an empty seat would hide it.
 
 Every other spec in the suite restores what it changed and does not
 need this.

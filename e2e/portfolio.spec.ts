@@ -29,11 +29,25 @@ test.describe("portfolio_admin", () => {
     });
     await expect(cards.first()).toBeVisible();
 
-    // The denominator travels with the scorecard. Without it a reader
-    // compares two overalls that are means over different sets.
-    await expect(
-      cards.first().getByText(/across \d+ disciplines?/i)
-    ).toBeVisible();
+    // Every card's score is its latest weekly snapshot. A card with one
+    // carries the denominator (without it a reader compares overalls
+    // that are means over different sets) and the snapshot's date. A
+    // card without one says "No score yet", never zero. Checked on
+    // every card, because which companies have snapshots depends on
+    // the dev clone's data, and the rule must hold either way.
+    const count = await cards.count();
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      if (await card.getByText("No score yet").count()) {
+        await expect(card.getByText(/across \d+ disciplines?/i)).toHaveCount(0);
+        await expect(card.getByText(/score as of/i)).toHaveCount(0);
+      } else {
+        await expect(card.getByText(/across \d+ disciplines?/i)).toBeVisible();
+        await expect(
+          card.getByText(/^Score as of (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday) [A-Z][a-z]{2} \d{1,2}$/)
+        ).toBeVisible();
+      }
+    }
   });
 
   test("the nav offers the portfolio and no platform surfaces", async ({
@@ -43,6 +57,10 @@ test.describe("portfolio_admin", () => {
     await page.goto("/portfolio");
 
     const nav = page.getByRole("navigation").first();
+    // The Portfolio group starts closed for somebody with no saved
+    // preference (#190), so open it before looking inside it.
+    const group = nav.getByRole("button", { name: /^portfolio$/i });
+    if ((await group.getAttribute("aria-expanded")) !== "true") await group.click();
     await expect(nav.getByRole("link", { name: /overview/i })).toBeVisible();
     // Guide HQ and the platform tools belong to other roles.
     await expect(nav.getByRole("link", { name: /^platform$/i })).toHaveCount(0);
@@ -106,7 +124,7 @@ test.describe("portfolio_admin", () => {
     expect(await scopeCookie(page)).toBeNull();
   });
 
-  test("creates a company from the portfolio", async ({ page }) => {
+  test("creates a company from the portfolio", async ({ page, browser }) => {
     await signIn(page, users.portfolio());
     await page.goto("/portfolio");
 
@@ -114,6 +132,7 @@ test.describe("portfolio_admin", () => {
     // against the dev clone, which is not reset between runs, and a
     // fixed name would pass once and then collide with itself.
     const name = `E2E Portfolio Co ${Date.now()}`;
+    try {
     await page.getByLabel(/^company name$/i).fill(name);
     await page.getByRole("button", { name: /create company/i }).click();
 
@@ -123,7 +142,7 @@ test.describe("portfolio_admin", () => {
     //
     // SCOPED TO THE COMPANIES SECTION, because the name now appears
     // twice on this page: once as a card, and once as a checkbox
-    // label in Company admin access, which lists every company on the
+    // label in Company access, which lists every company on the
     // instance. An unscoped getByText was a strict-mode violation the
     // moment that card shipped — and "the name is somewhere on the
     // page" was never the claim. The card is.
@@ -131,6 +150,11 @@ test.describe("portfolio_admin", () => {
     await expect(
       companies.getByText(name, { exact: true })
     ).toBeVisible({ timeout: 30_000 });
+    } finally {
+      // The company this test made goes, even when the test failed. Dev
+      // held thirteen of these by 2026-09-29.
+      await removeTestCompany(browser, name);
+    }
   });
 
   test("cannot reach Guide HQ or the platform dashboard", async ({ page }) => {
@@ -147,3 +171,31 @@ test.describe("portfolio_admin", () => {
     }
   });
 });
+
+// REMOVES THE COMPANY THIS SPEC CREATED, the way the app removes one:
+// a system admin archives it, then deletes it (the delete hides it
+// everywhere and keeps the rows). In its own browser session, because
+// the portfolio admin who made it cannot delete. Only the exact name
+// this run generated is ever touched, and a run that failed before
+// creating it finds no row and does nothing.
+async function removeTestCompany(browser: import("@playwright/test").Browser, name: string) {
+  const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const admin = await context.newPage();
+  try {
+    await signIn(admin, users.admin());
+    await admin.goto("/admin/companies");
+    const row = admin.locator("tbody tr").filter({
+      has: admin.getByTestId("scope-into-company").filter({ hasText: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }),
+    });
+    if ((await row.count()) === 0) return;
+    await row.getByRole("button", { name: "Archive" }).click();
+    await admin.getByTestId("confirm-accept").click();
+    const del = row.getByRole("button", { name: "Delete" });
+    await expect(del).toBeVisible({ timeout: 30_000 });
+    await del.click();
+    await admin.getByTestId("confirm-accept").click();
+    await expect(row).toHaveCount(0, { timeout: 30_000 });
+  } finally {
+    await context.close();
+  }
+}

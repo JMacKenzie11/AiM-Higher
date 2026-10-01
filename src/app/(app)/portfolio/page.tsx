@@ -5,7 +5,10 @@ import {
   loadPortfolioAdminAccess,
 } from "@/lib/portfolio/service";
 import { CompanyAccessRows } from "@/components/access/CompanyAccessRows";
-import { setPortfolioCompanyAccessAction } from "@/lib/portfolio/company-access-actions";
+import {
+  setPortfolioCompanyAccessAction,
+  setPortfolioCompanyAdminAction,
+} from "@/lib/portfolio/company-access-actions";
 import { CreateCompanyForm } from "../admin/companies/CreateCompanyForm";
 import { PortfolioCompanyCard } from "./PortfolioCompanyCard";
 import styles from "./portfolio.module.css";
@@ -101,13 +104,12 @@ export default async function PortfolioPage() {
             {accessRows.length > 0 ? (
               <section className={styles.card} aria-labelledby="portfolio-access">
                 <h2 id="portfolio-access" className={styles.h2}>
-                  Company admin access
+                  Company access
                 </h2>
                 <p className={styles.sectionCaption}>
-                  Selecting a company gives you full company administrator
-                  access and you appear on that company&rsquo;s team list. As a
-                  portfolio admin, you always have full read access to every
-                  company.
+                  {session.profile.role === "system_admin"
+                    ? "Ticking a company puts this person on its team, so they can own commitments and priorities there. Tick Company admin to make them that company's admin as well. Every portfolio admin can read every company."
+                    : "Ticking a company puts you on its team, so you can own commitments and priorities there. A system admin can also make you a company's admin. As a portfolio admin, you can read every company."}
                 </p>
                 <CompanyAccessRows
                   rows={accessRows.map((r) => ({
@@ -115,10 +117,15 @@ export default async function PortfolioPage() {
                     name: r.fullName,
                     companyIds: r.companyIds,
                     openCommitmentsByCompany: r.openCommitmentsByCompany,
+                    adminCompanyIds: r.adminCompanyIds,
                   }))}
                   companies={cards.map((c) => ({ id: c.id, name: c.name }))}
                   action={setPortfolioCompanyAccessAction}
                   personLabel="Portfolio admin"
+                  adminSwitch={{
+                    canSet: session.profile.role === "system_admin",
+                    action: setPortfolioCompanyAdminAction,
+                  }}
                   emptyLabel="No portfolio admins on this instance yet."
                 />
               </section>

@@ -85,17 +85,28 @@ describe("removeGuideFromCompanyAction", () => {
     expect(mocks.del).not.toHaveBeenCalled();
   });
 
-  it("lets an assigned portfolio admin end one", async () => {
-    // They hold company-admin-equivalent rights in companies they are
-    // assigned to (decision 1), and isAdminForCompany is where that
-    // arrives. is_admin_for() says the same thing in the database.
+  it("lets a portfolio admin switched on as company admin end one", async () => {
+    // Company admin rights come from the switch a system admin sets
+    // (0245), and isAdminForCompany is where that arrives.
     mocks.profile.role = "portfolio_admin";
     mocks.profile.company_id = null;
     mocks.profile.portfolio_company_ids = ["co_a"];
+    (mocks.profile as { portfolio_admin_company_ids?: string[] }).portfolio_admin_company_ids = ["co_a"];
     const { removeGuideFromCompanyAction } = await import(
       "./assigned-access-actions"
     );
     expect((await removeGuideFromCompanyAction("co_a", "g_1")).ok).toBe(true);
+  });
+
+  it("refuses a portfolio admin whose assignment is not switched on", async () => {
+    mocks.profile.role = "portfolio_admin";
+    mocks.profile.company_id = null;
+    mocks.profile.portfolio_company_ids = ["co_a"];
+    (mocks.profile as { portfolio_admin_company_ids?: string[] }).portfolio_admin_company_ids = [];
+    const { removeGuideFromCompanyAction } = await import(
+      "./assigned-access-actions"
+    );
+    expect((await removeGuideFromCompanyAction("co_a", "g_1")).ok).toBe(false);
   });
 
   it("refuses an UNASSIGNED portfolio admin", async () => {
