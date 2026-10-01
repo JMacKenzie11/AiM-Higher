@@ -102,6 +102,13 @@ export function ChatView({
   senders,
   shareHeader,
   openablePatterns,
+  variant = "page",
+  onInAppLink,
+  linkHref,
+  panelGreeting,
+  panelSuggestions = [],
+  composerRef,
+  onHasUserTurns,
 }: {
   conversation: CoachingConversation;
   // Null in general (Ask Aimee) mode — no subject on file.
@@ -156,7 +163,30 @@ export function ChatView({
   // openablePatternsFor), for the link check in replies. Undefined
   // leaves links as they are.
   openablePatterns?: readonly string[];
+  // "panel": the conversation in Aimee's panel (components/aimee). The
+  // thread scrolls inside its own box rather than the window, since
+  // the window belongs to the page beside it; there is no header (the
+  // panel has its own); nothing refreshes the page underneath; and a
+  // finished reply is announced once, whole, to screen readers.
+  variant?: "page" | "panel";
+  // Hears a click on an in-app link in a reply, before it navigates.
+  // The panel uses it to count "Continue on the Aimee page".
+  onInAppLink?: (href: string) => void;
+  // Rewrites an in-app link before it is drawn. The panel uses it to
+  // add its conversation to "Continue on the Aimee page", so the new
+  // conversation can open with what was said (lib/aimee/continue.ts).
+  linkHref?: (href: string) => string;
+  // The panel's opening: Aimee's greeting, and questions for the page
+  // this person is on (lib/aimee/suggestions.ts). Clicking one asks it.
+  panelGreeting?: string;
+  panelSuggestions?: readonly string[];
+  // Lets the panel focus the message box when it opens.
+  composerRef?: React.RefObject<HTMLTextAreaElement | null>;
+  // Told whether the person has sent anything yet. The panel hides
+  // "New conversation" until they have: an empty one is already new.
+  onHasUserTurns?: (has: boolean) => void;
 }) {
+  const inPanel = variant === "panel";
   const isOwner = access === "owner";
   const canWrite = access === "owner" || access === "write";
   // Attribution shows once at least one sharee exists — with just
@@ -206,6 +236,9 @@ export function ChatView({
   // locked prop so the picker's non-interactive label kicks in
   // immediately on send, not on the next page reload.
   const hasUserTurns = messages.some((m) => m.role === "user");
+  useEffect(() => {
+    onHasUserTurns?.(hasUserTurns);
+  }, [hasUserTurns, onHasUserTurns]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [lastUserAttempt, setLastUserAttempt] = useState<string | null>(null);
@@ -307,25 +340,40 @@ export function ChatView({
   //   2. Track user scroll intent. If they scroll away from the
   //      bottom, flip the ref false. If they scroll back to
   //      within 80px of the bottom, flip it true.
+  //
+  // In the panel the same rule runs against the thread's own box.
   const stickToBottomRef = useRef(true);
+  const threadRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    const box = inPanel ? threadRef.current : null;
     function onScroll() {
-      const scrollTop = window.scrollY;
-      const viewport = window.innerHeight;
-      const total = document.documentElement.scrollHeight;
+      const scrollTop = box ? box.scrollTop : window.scrollY;
+      const viewport = box ? box.clientHeight : window.innerHeight;
+      const total = box ? box.scrollHeight : document.documentElement.scrollHeight;
       const distanceFromBottom = total - (scrollTop + viewport);
       stickToBottomRef.current = distanceFromBottom < 80;
     }
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const target: HTMLElement | Window = box ?? window;
+    target.addEventListener("scroll", onScroll, { passive: true });
+    return () => target.removeEventListener("scroll", onScroll);
+  }, [inPanel]);
   useEffect(() => {
     if (!stickToBottomRef.current) return;
     const id = requestAnimationFrame(() => {
-      window.scrollTo({ top: document.documentElement.scrollHeight });
+      if (inPanel) {
+        const box = threadRef.current;
+        if (box) box.scrollTop = box.scrollHeight;
+      } else {
+        window.scrollTo({ top: document.documentElement.scrollHeight });
+      }
     });
     return () => cancelAnimationFrame(id);
-  }, [messages]);
+  }, [messages, inPanel]);
+
+  // THE PANEL ANNOUNCES A REPLY ONCE IT IS COMPLETE. A reply read out
+  // token by token as it streams is unusable, so the thread itself is
+  // not a live region; this is, and it is filled only on done.
+  const [announcement, setAnnouncement] = useState("");
 
   const sendMessage = useCallback(
     async (text: string, opts: { retry?: boolean } = {}) => {
@@ -419,6 +467,10 @@ export function ChatView({
               const next = prev.map((m) =>
                 m.id === assistantId ? { ...m, streaming: false } : m
               );
+              if (inPanel) {
+                const reply = next.find((m) => m.id === assistantId);
+                if (reply?.content) setAnnouncement(`Aimee: ${reply.content}`);
+              }
               // Fire auto-title after the SECOND user turn's response
               // lands. Counting user messages (not total length)
               // makes this robust to agent openers, which add a
@@ -438,7 +490,9 @@ export function ChatView({
                     if (result.ok && result.title) {
                       setTitle(result.title);
                       setRenameValue(result.title);
-                      router.refresh();
+                      // Not in the panel: the page underneath is
+                      // somebody else's and has nothing to update.
+                      if (!inPanel) router.refresh();
                     }
                   })
                   .catch((err) => {
@@ -478,7 +532,7 @@ export function ChatView({
         }
       }
     },
-    [conversation.id, sending, currentUserId, isOwner, router]
+    [conversation.id, sending, currentUserId, isOwner, router, inPanel]
   );
 
   function retry() {
@@ -652,7 +706,16 @@ export function ChatView({
   const isEmpty = messages.length === 0;
 
   return (
-    <div className={styles.chatWrap}>
+    <div
+      className={inPanel ? `${styles.chatWrap} ${styles.chatWrapPanel}` : styles.chatWrap}
+      data-conversation-id={conversation.id}
+    >
+      {inPanel ? (
+        <p className={styles.srOnly} aria-live="polite" aria-atomic="true">
+          {announcement}
+        </p>
+      ) : null}
+      {inPanel ? null : (
       <div className={styles.chatHeader}>
         <div className={styles.chatHeaderMain}>
           <span className={styles.chatHeaderSubject}>{headerSubject}</span>
@@ -718,10 +781,40 @@ export function ChatView({
           <div className={styles.chatHeaderShare}>{shareHeader}</div>
         ) : null}
       </div>
+      )}
 
-      <div className={styles.thread} data-testid="coach-thread">
+      <div
+        ref={threadRef}
+        className={inPanel ? `${styles.thread} ${styles.threadPanel}` : styles.thread}
+        data-testid="coach-thread"
+      >
         {revisionPreamble}
-        {isEmpty && autoOpen ? null : isEmpty ? (
+        {isEmpty && autoOpen ? null : isEmpty && inPanel && !isPractice ? (
+          // THE PANEL'S OPENING: a small message from Aimee, the size of
+          // her replies, and the page's questions under it. The page's
+          // big gradient card took most of a 400px panel (Jason,
+          // 2026-09-29).
+          <div className={styles.panelOpening}>
+            <div className={`${styles.bubbleRow} ${styles.bubbleRowAssistant}`}>
+              <div className={styles.bubbleAssistant}>{panelGreeting ?? emptyPrompt}</div>
+            </div>
+            {panelSuggestions.length > 0 ? (
+              <div className={styles.panelChips} data-testid="panel-suggestions">
+                {panelSuggestions.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    className={styles.panelChip}
+                    onClick={() => void sendMessage(q)}
+                    disabled={sending}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : isEmpty ? (
           <div className={styles.emptyState}>
             <p className={styles.emptyStatePrompt}>
               {isPractice ? practice.title : emptyPrompt}
@@ -758,6 +851,8 @@ export function ChatView({
               currentUserId={currentUserId}
               showAttribution={showAttribution}
               openablePatterns={openablePatterns}
+              onInAppLink={onInAppLink}
+              linkHref={linkHref}
             />
           ))
         )}
@@ -787,7 +882,10 @@ export function ChatView({
             made the sticky composer stutter as the leader typed. */}
         <div className={styles.composerInputWrap} data-value={input}>
           <textarea
-            ref={textareaRef}
+            ref={(el) => {
+              textareaRef.current = el;
+              if (composerRef) composerRef.current = el;
+            }}
             className={styles.composerInput}
             placeholder={composerPlaceholder}
             value={input}
@@ -825,6 +923,8 @@ function MessageBubble({
   currentUserId,
   showAttribution,
   openablePatterns,
+  onInAppLink,
+  linkHref,
 }: {
   message: UiMessage;
   onRetry?: () => void;
@@ -841,6 +941,8 @@ function MessageBubble({
   currentUserId: string;
   showAttribution: boolean;
   openablePatterns?: readonly string[];
+  onInAppLink?: (href: string) => void;
+  linkHref?: (href: string) => string;
 }) {
   if (message.role === "user") {
     const author =
@@ -932,7 +1034,16 @@ function MessageBubble({
     a({ href, children }) {
       const decision = linkDecision(href, openablePatterns);
       if (decision === "text") return <span>{children}</span>;
-      if (decision === "in-app") return <Link href={href as string}>{children}</Link>;
+      if (decision === "in-app") {
+        return (
+          <Link
+            href={linkHref ? linkHref(href as string) : (href as string)}
+            onClick={onInAppLink ? () => onInAppLink(href as string) : undefined}
+          >
+            {children}
+          </Link>
+        );
+      }
       return <a href={href}>{children}</a>;
     },
   };

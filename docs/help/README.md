@@ -1,8 +1,8 @@
 # In-app help
 
-Every user-facing page has a help doc here. The floating `?` widget
-in the bottom-right of every authenticated page reads these files
-and renders the one matching the current route + user role.
+Every user-facing page has a help doc here. Aimee answers from them
+when someone asks how a page works (her help search, filtered to their
+role). Her panel does not show them directly.
 
 ## Adding a help doc
 

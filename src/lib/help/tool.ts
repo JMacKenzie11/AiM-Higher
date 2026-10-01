@@ -10,7 +10,15 @@ import { searchHelp } from "./search";
 // supplies a query and nothing else, so it cannot ask for another
 // role's help, and a result's link is only ever a page this person can
 // open (search.ts).
-export function makeSearchHelpTool(args: { role: Role; features: readonly ModuleFeature[] }): CoachTool {
+//
+// onSearch hears whether a search found anything, and only that: it is
+// how help answers are counted (aimee_panel_events), and the query is
+// never passed on, because a search can hold personal detail.
+export function makeSearchHelpTool(args: {
+  role: Role;
+  features: readonly ModuleFeature[];
+  onSearch?: (found: boolean) => void;
+}): CoachTool {
   return {
     definition: {
       name: "search_help",
@@ -36,6 +44,7 @@ export function makeSearchHelpTool(args: { role: Role; features: readonly Module
           : "";
       if (!query) return { status: "empty" as const, results: [] };
       const results = await searchHelp(query, args.role, args.features);
+      args.onSearch?.(results.length > 0);
       return results.length > 0
         ? { status: "found" as const, results }
         : { status: "none" as const, results: [], note: "Nothing in the help matched. Say so; do not guess." };

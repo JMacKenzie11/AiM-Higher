@@ -78,7 +78,9 @@ test("clarity opens as a drawer, not inside the row", async ({ page }) => {
     quote: string | null;
   };
   const info = (await page.evaluate(`(() => {
-    const p = document.querySelector('[role="dialog"][aria-modal="true"]');
+    // The OPEN dialog: Aimee's panel is kept mounted, hidden, and on a
+    // phone it is a dialog too, earlier in the document.
+    const p = document.querySelector('[role="dialog"][aria-modal="true"]:not([hidden])');
     const b = document.querySelector('button[aria-label*="clarity"], button[aria-label*="Clear —"], button[aria-label*="Unclear"]');
     const row = b.closest('[class*="row"]');
     return {

@@ -1,23 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Drawer } from "@/components/ui/Drawer";
-import { usePageHelp } from "@/components/help/usePageHelp";
 import { trackClient } from "@/lib/analytics/track-client";
+import { recordPanelEventAction } from "@/lib/aimee/panel-actions";
 import { AimeeIcon } from "./AimeeIcons";
+import { AimeePanelChat } from "./AimeePanelChat";
 import styles from "./AimeeLauncher.module.css";
 
 // AIMEE'S ICON AND PANEL, replacing the "?" help button in the same
 // corner (docs/investigations/aimee-panel.md).
 //
-// Step 1: the panel shows "About this page" (the same role-filtered
-// help the "?" shows) and a way into Ask Aimee. The conversation moves
-// into the panel in Step 3. Until both are merged the app layout shows
-// this to system admins only; everyone else keeps the "?".
+// A conversation with Aimee (AimeePanelChat): her last one started in
+// the panel, or a new one, opening with a greeting and a few questions
+// for the page. Everyone gets it, in place of the "?".
+//
+// NO "ABOUT THIS PAGE" (Jason, 2026-09-29). People do their interacting
+// through Aimee; the page's help is what she answers from (search_help),
+// not a document the panel shows them.
 //
 // ---- A PANEL THAT DOES NOT BLOCK THE PAGE ----------------------------
 //
@@ -63,8 +64,15 @@ export function AimeeLauncher() {
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const phone = usePhone();
-  const firstFocus = useRef<HTMLHeadingElement>(null);
-  const help = usePageHelp(pathname, open);
+  // The message box, where focus goes on a computer. Not on a phone:
+  // focusing it there throws the keyboard up the moment the panel opens.
+  const composer = useRef<HTMLTextAreaElement>(null);
+
+  // Counted in the database for the weekly report (aimee:uptake), as
+  // well as in analytics. Only that it opened.
+  useEffect(() => {
+    if (open) void recordPanelEventAction("opened").catch(() => {});
+  }, [open]);
 
   // Says the panel is open, on desktop: the corner button steps to the
   // panel's edge, and other drawers open beside it rather than under it.
@@ -85,7 +93,7 @@ export function AimeeLauncher() {
         setOpen(true);
         trackClient("aimee.panel_opened", { pathname, via: "shortcut" });
       } else {
-        firstFocus.current?.focus();
+        (composer.current ?? document.querySelector<HTMLElement>('[data-testid="aimee-panel"]'))?.focus();
       }
     }
     document.addEventListener("keydown", onKey);
@@ -96,7 +104,7 @@ export function AimeeLauncher() {
     <>
       <button
         type="button"
-        className={styles.launcher}
+        className={open && phone ? `${styles.launcher} ${styles.launcherHidden}` : styles.launcher}
         data-testid="corner-launcher"
         aria-label={open ? "Close Aimee" : "Aimee"}
         aria-expanded={open}
@@ -121,31 +129,11 @@ export function AimeeLauncher() {
         keepMounted
         name="aimee-panel"
         testId="aimee-panel"
-        initialFocusRef={firstFocus}
+        initialFocusRef={phone ? undefined : composer}
+        fill
       >
         <div id="aimee-panel" className={styles.body}>
-          <section aria-labelledby="aimee-about-this-page">
-            <h3 id="aimee-about-this-page" ref={firstFocus} tabIndex={-1} className={styles.sectionTitle}>
-              About this page
-            </h3>
-            {help.kind === "loading" ? (
-              <p className={styles.muted}>Loading…</p>
-            ) : help.kind === "empty" ? (
-              <p className={styles.muted}>There is no help for this page yet.</p>
-            ) : help.kind === "error" ? (
-              <p className={styles.muted}>The help for this page could not be loaded.</p>
-            ) : help.kind === "loaded" ? (
-              <div className={styles.prose}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{help.markdown}</ReactMarkdown>
-              </div>
-            ) : null}
-          </section>
-          <section className={styles.ask} aria-label="Ask Aimee">
-            <p className={styles.muted}>Want to talk something through, or ask how to do something here?</p>
-            <Link href="/ask-aimee/new" className={styles.askLink} onClick={() => setOpen(false)}>
-              Ask Aimee
-            </Link>
-          </section>
+          <AimeePanelChat active={open} composerRef={composer} focusOnLoad={!phone} />
         </div>
       </Drawer>
     </>

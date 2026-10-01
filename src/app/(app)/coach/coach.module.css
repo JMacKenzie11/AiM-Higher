@@ -164,6 +164,40 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* In Aimee's panel (ChatView variant="panel"): the card fills the
+   panel and the thread scrolls inside it, because the window belongs
+   to the page beside the panel. The composer stays at the bottom as
+   the card's last row. */
+.chatWrapPanel {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.threadPanel {
+  overflow-y: auto;
+  min-height: 0;
+  padding: var(--space-4);
+}
+
+.chatWrapPanel .composer {
+  border-radius: 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .chatHeader {
   position: sticky;
   top: 0;
@@ -544,6 +578,43 @@
 .emptyStatePrompt {
   font: var(--text-h2);
   margin: 0;
+}
+
+/* The panel's opening (ChatView variant="panel"): Aimee's greeting as a
+   message the size of her replies, and the page's questions under it,
+   left-aligned, small. */
+.panelOpening {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.panelChips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.panelChip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font: var(--text-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.panelChip:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--surface-inset);
+}
+
+.panelChip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .chipRow {

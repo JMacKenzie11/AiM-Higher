@@ -385,6 +385,8 @@ export type SweepCandidate = {
   // The agent this conversation ran, if any. Null for a direct Ask
   // Aimee conversation and for about-mode coaching.
   practice_id?: string | null;
+  // Where it was started (0240). 'panel' never writes memory.
+  origin?: string | null;
 };
 
 // How far down the list we are willing to LOOK. Bounded so that one
@@ -420,6 +422,12 @@ export function selectSweepCandidates<T extends SweepCandidate>(opts: {
     // query from quietly reintroducing them, which is exactly how the
     // about-mode exclusion came and went without anybody noticing.
     if (c.practice_id) continue;
+    // STARTED IN AIMEE'S PANEL: NO MEMORY, ever, even once it has been
+    // opened on the Aimee page (docs/investigations/aimee-panel.md).
+    // Quick questions about the app are not coaching, and when one
+    // turns into coaching Aimee offers a new conversation on the page,
+    // which is where memory is made. Filtered in the query too.
+    if (c.origin === "panel") continue;
     // Already summarized through its latest message. Top-up
     // semantics: it returns as a candidate only when it grows.
     if (c.memory_summarized_through && c.updated_at <= c.memory_summarized_through) {

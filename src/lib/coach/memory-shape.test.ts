@@ -257,6 +257,22 @@ describe("summarization output, end to end through the shaping layer", () => {
 });
 
 describe("selectSweepCandidates", () => {
+  // A conversation started in Aimee's panel never writes memory
+  // (0240, coaching_conversations.origin). Filtered in the query and
+  // here, the same belt and braces as the agent exclusion below.
+  it("skips a conversation started in Aimee's panel", () => {
+    const picked = selectSweepCandidates({
+      candidates: [
+        { id: "panel", updated_at: "2026-09-28T10:00:00Z", memory_summarized_through: null, origin: "panel" },
+        { id: "page", updated_at: "2026-09-28T09:00:00Z", memory_summarized_through: null, origin: "page" },
+      ],
+      userTurns: new Map([["panel", 5], ["page", 5]]),
+      maxPerRun: 3,
+      minUserTurns: 2,
+    }).map((c) => c.id);
+    expect(picked).toEqual(["page"]);
+  });
+
   const pick = (
     candidates: SweepCandidate[],
     turns: Record<string, number>,

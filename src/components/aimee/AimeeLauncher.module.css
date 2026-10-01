@@ -1,5 +1,5 @@
 /* The corner button: the same spot, size and shadow as the "?" it
-   replaces (HelpWidget.module.css), so nothing that was laid out
+   replaced (the old HelpWidget), so nothing that was laid out
    around that corner moves. */
 .launcher {
   position: fixed;
@@ -16,6 +16,19 @@
   cursor: pointer;
   display: inline-flex;
   transition: box-shadow var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+
+/* While the panel is open the button would sit on its composer. On
+   desktop it steps left to the panel's edge and stays a toggle; on a
+   phone the panel covers the screen and has its own close, so the
+   button hides until it closes (visibility, so focus can come back to
+   it the moment it does). */
+:global(html[data-aimee-panel="open"]) .launcher {
+  right: calc(min(400px, 100vw) + 20px);
+}
+
+.launcherHidden {
+  visibility: hidden;
 }
 
 /* A modal drawer or dialog owns the screen, and its own controls can
@@ -36,55 +49,50 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring), 0 4px 14px rgba(20, 38, 71, 0.2);
 }
 
+/* The panel's body: the conversation, which scrolls inside itself
+   (ChatView variant="panel"). */
 .body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  flex: 1;
+  min-height: 0;
 }
 
-.sectionTitle {
-  margin: 0 0 var(--space-3);
-  font: var(--text-subhead);
-  color: var(--text-heading);
-}
 
-.sectionTitle:focus {
-  outline: none;
-}
 
-.sectionTitle:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
+
+
+
+
 
 .muted {
   margin: 0;
   color: var(--text-muted);
 }
 
-.prose {
-  font: var(--text-body);
-  color: var(--text);
-}
 
-.prose :global(h1) {
-  display: none;
-}
 
-.prose :global(h2) {
-  font: var(--text-subhead);
-  margin: var(--space-4) 0 var(--space-2);
-}
 
-.ask {
+.chat {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
 }
 
-.askLink {
-  composes: btnPrimary from "../ui/ui.module.css";
-  align-self: flex-start;
+.chatBar {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.newButton {
+  composes: btnSecondary from "../ui/ui.module.css";
+}
+
+.chatNote {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--text-muted);
 }

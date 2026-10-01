@@ -4,8 +4,9 @@ import {
   parseCollapsedGroups,
 } from "@/components/sidebar/nav-group-state";
 import { Sidebar } from "@/components/sidebar/Sidebar";
-import { HelpWidget } from "@/components/help/HelpWidget";
 import { AimeeLauncher } from "@/components/aimee/AimeeLauncher";
+import { HelpWidget } from "@/components/help/HelpWidget";
+import { seesAimeePanel } from "@/lib/aimee/panel-audience";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
@@ -169,11 +170,12 @@ export default async function AppLayout({
             initialCollapsedGroups={initialCollapsedGroups}
           />
           <div className={styles.main}>{children}</div>
-          {/* Aimee's icon and panel replace the "?" for SYSTEM ADMINS
-              ONLY until the panel conversation (Step 3) has merged too;
-              then both are released to everyone together (Jason,
-              2026-09-28). docs/investigations/aimee-panel.md. */}
-          {session.profile.role === "system_admin" ? <AimeeLauncher /> : <HelpWidget />}
+          {/* Aimee's icon and panel, in place of the "?" help button:
+              a conversation with Aimee, who answers from the help.
+              System admins only until AIMEE_PANEL_FOR_EVERYONE is on
+              (panel-audience.ts); everyone else keeps the "?" until
+              then. docs/investigations/aimee-panel.md. */}
+          {seesAimeePanel(role) ? <AimeeLauncher /> : <HelpWidget />}
         </div>
       </PostHogProvider>
     </InstanceProvider>

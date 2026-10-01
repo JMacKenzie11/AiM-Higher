@@ -9868,6 +9868,117 @@ export type PortfolioFixtures = {
   spare_feature: string | null;
 };
 
+// ---- Counting Aimee panel use (0240) ------------------------------
+//
+// aimee_panel_events holds that something happened (a panel open, a
+// help search and whether it found anything, a "Continue on the Aimee
+// page"), never what was asked. It is still a record of a person's
+// behaviour, so the access is narrow and each edge gets a probe:
+//
+//   insert   your own row, for your own company
+//   refused  a row naming somebody else; a row for another company;
+//            portfolio_admin (no home company, and its writes stay on
+//            its four tables)
+//   select   system admins only: a member cannot read anybody's rows,
+//            including their own
+//   never    update or delete, by anybody
+//
+// Red before 0240: the table does not exist, so the granted insert
+// errors and the probe fails. That is the "shown failing first" (E5).
+async function aimeePanelEventProbes(
+  run: Runner,
+  ids: Identities,
+  pending: string
+): Promise<GrantProbe[]> {
+  const seeded = [
+    "a0240000-0000-4000-8000-000000000001", // the member's own
+    "a0240000-0000-4000-8000-000000000002", // a company admin's
+  ];
+  const setup = `${pending}
+${portfolioFixture()}
+insert into public.aimee_panel_events (id, company_id, profile_id, kind, found)
+values ('${seeded[0]}', '${ids.memberCompany}', '${ids.member}', 'opened', null),
+       ('${seeded[1]}', '${ids.companyAdminCompany}', '${ids.companyAdmin}', 'help_search', true);`;
+  const inSeeded = `id in ('${seeded[0]}', '${seeded[1]}')`;
+
+  const ask = async (sub: string, stmt: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>(asCaller(sub, setup, stmt));
+      return JSON.stringify(rows[0] ?? {});
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/row-level security/i.test(msg)) return "refused by policy";
+      if (/permission denied/i.test(msg)) return "refused by privilege";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+  const insertAs = (company: string, profile: string) =>
+    `insert into public.aimee_panel_events (company_id, profile_id, kind)
+     values ('${company}', '${profile}', 'opened');
+     select 'inserted' as outcome;`;
+
+  const ownInsert = await ask(ids.member, insertAs(ids.memberCompany, ids.member));
+  const forSomebodyElse = await ask(ids.member, insertAs(ids.memberCompany, ids.companyAdmin));
+  const otherCompany = await ask(ids.member, insertAs(ids.otherCompany, ids.member));
+  const portfolioAdmin = await ask(PA_UUID, insertAs(ids.memberCompany, PA_UUID));
+  const memberReads = await ask(
+    ids.member,
+    `select count(*)::int as visible from public.aimee_panel_events where ${inSeeded};`
+  );
+  const adminReads = await ask(
+    ids.companyAdmin,
+    `select count(*)::int as visible from public.aimee_panel_events where ${inSeeded};`
+  );
+  const sysadminReads = await ask(
+    ids.systemAdmin,
+    `select count(*)::int as visible from public.aimee_panel_events where ${inSeeded};`
+  );
+  const update = await ask(
+    ids.systemAdmin,
+    `update public.aimee_panel_events set kind = 'opened', found = null where ${inSeeded};
+     select count(*)::int as changed from public.aimee_panel_events
+      where ${inSeeded} and kind = 'help_search';`
+  );
+  const del = await ask(
+    ids.systemAdmin,
+    `with d as (delete from public.aimee_panel_events where ${inSeeded} returning id)
+     select count(*)::int as n from d;`
+  );
+
+  const refused = (o: string) => o === "refused by policy" || o === "refused by privilege";
+  const ok =
+    ownInsert === '{"outcome":"inserted"}' &&
+    refused(forSomebodyElse) &&
+    refused(otherCompany) &&
+    refused(portfolioAdmin) &&
+    memberReads === '{"visible":0}' &&
+    adminReads === '{"visible":0}' &&
+    sysadminReads === '{"visible":2}' &&
+    (update === "refused by privilege" || update === '{"changed":1}') &&
+    (del === "refused by privilege" || del === '{"n":0}');
+
+  return [
+    {
+      name: "aimee panel events · who reads, who writes",
+      granted:
+        `member records their own open: ${ownInsert} | ` +
+        `system admin reads the two seeded rows: ${sysadminReads}`,
+      withheld:
+        `member records one for somebody else: ${forSomebodyElse} | ` +
+        `member records one for another company: ${otherCompany} | ` +
+        `portfolio_admin records one: ${portfolioAdmin} | ` +
+        `member reads (incl. their own): ${memberReads} | company admin reads: ${adminReads} | ` +
+        `system admin updates: ${update} | system admin deletes: ${del}`,
+      ok,
+      detail: ok
+        ? "a person records only their own use; only system admins read it; nothing is edited or deleted"
+        : ownInsert !== '{"outcome":"inserted"}'
+          ? "THE GRANT DOES NOT WORK: a member cannot record their own panel open (is 0240 applied?)"
+          : "the access is wider than intended",
+    },
+  ];
+}
+
 // ---- Hiding a swapped-out opener (0239) --------------------------
 //
 // Swapping the agent before the first user turn replaces the old
@@ -10726,7 +10837,8 @@ async function main(): Promise<void> {
   const probes = await grantProbes(run, ids, pendingSql);
   const portfolio = await portfolioProbes(run, ids, pendingSql);
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers]).join("\n"));
+  const panelEvents = await aimeePanelEventProbes(run, ids, pendingSql);
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -10815,6 +10927,7 @@ async function main(): Promise<void> {
     results.some((r) => !r.ok) ||
     !staticResult.ok ||
     probes.some((p) => !p.ok) ||
+    panelEvents.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);

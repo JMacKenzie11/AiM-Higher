@@ -427,7 +427,44 @@ export type ModelCostSummary = {
     companyName: string;
     cents30d: number;
   }>;
+  // What one plain Aimee conversation costs, on average over 30 days,
+  // started in the panel and on the Aimee page. Estimated from the
+  // token log, which knows the conversation; Anthropic's invoiced
+  // totals do not.
+  perConversation: PerConversationCost;
 };
+
+export type PerConversationCost = {
+  panel: { conversations: number; avgCents: number };
+  page: { conversations: number; avgCents: number };
+};
+
+// Every logged call tied to a conversation counts toward it: turns,
+// titles, the memory distillation. Agent and about-mode conversations
+// are left out, since the question is what plain Aimee costs.
+export function perConversationCost(
+  rows: ReadonlyArray<{ conversation_id: string | null; cost_usd_cents: number }>,
+  conversations: ReadonlyArray<{ id: string; origin: string | null; mode: string; practice_id: string | null }>
+): PerConversationCost {
+  const kindOf = new Map<string, "panel" | "page">();
+  for (const c of conversations) {
+    if (c.mode !== "general" || c.practice_id) continue;
+    kindOf.set(c.id, c.origin === "panel" ? "panel" : "page");
+  }
+  const totals = { panel: new Map<string, number>(), page: new Map<string, number>() };
+  for (const r of rows) {
+    const kind = r.conversation_id ? kindOf.get(r.conversation_id) : undefined;
+    if (!kind || !r.conversation_id) continue;
+    const m = totals[kind];
+    m.set(r.conversation_id, (m.get(r.conversation_id) ?? 0) + r.cost_usd_cents);
+  }
+  const summarise = (m: Map<string, number>) => {
+    const n = m.size;
+    const sum = [...m.values()].reduce((a, b) => a + b, 0);
+    return { conversations: n, avgCents: n > 0 ? sum / n : 0 };
+  };
+  return { panel: summarise(totals.panel), page: summarise(totals.page) };
+}
 
 export async function getModelCostSummary(): Promise<ModelCostSummary> {
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
@@ -437,15 +474,26 @@ export async function getModelCostSummary(): Promise<ModelCostSummary> {
   const [rowsRes, companiesRes] = await Promise.all([
     admin
       .from("coach_token_usage")
-      .select("company_id, cost_usd_cents, created_at")
+      .select("company_id, conversation_id, cost_usd_cents, created_at")
       .gte("created_at", since30),
     admin.from("companies").select("id, name").is("deleted_at", null),
   ]);
   const rows = (rowsRes.data ?? []) as Array<{
     company_id: string | null;
+    conversation_id: string | null;
     cost_usd_cents: number;
     created_at: string;
   }>;
+  const conversationIds = [...new Set(rows.map((r) => r.conversation_id).filter((id): id is string => !!id))];
+  const convoRows: Array<{ id: string; origin: string | null; mode: string; practice_id: string | null }> = [];
+  // In slices: an .in() over hundreds of ids is a very long URL.
+  for (let i = 0; i < conversationIds.length; i += 200) {
+    const { data } = await admin
+      .from("coaching_conversations")
+      .select("id, origin, mode, practice_id")
+      .in("id", conversationIds.slice(i, i + 200));
+    convoRows.push(...((data ?? []) as typeof convoRows));
+  }
   const companies = new Map<string, string>();
   for (const c of (companiesRes.data ?? []) as Array<{
     id: string;
@@ -487,6 +535,7 @@ export async function getModelCostSummary(): Promise<ModelCostSummary> {
         cents30d,
       }))
       .sort((a, b) => b.cents30d - a.cents30d),
+    perConversation: perConversationCost(rows, convoRows),
   };
 }
 
