@@ -2,7 +2,8 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Anthropic from "@anthropic-ai/sdk";
-import { generateHeadline } from "./headline";
+import { generateInvitationCard } from "./headline";
+import { meetingLabel } from "./meeting-label";
 
 // RAISING A NUDGE, AND NEVER NAGGING TWICE.
 //
@@ -110,8 +111,27 @@ export async function raiseMeetingDebriefNudge(
       .eq("id", company.aims_champion_profile_id)
       .maybeSingle<{ full_name: string | null }>();
 
+    // The card's first line: the meeting's own name and its day.
+    const { data: meeting } = await admin
+      .from("meetings")
+      .select("meeting_title")
+      .eq("id", input.meetingId)
+      .maybeSingle<{ meeting_title: string | null }>();
+    const label = meetingLabel(meeting?.meeting_title ?? null, input.meetingDateIso);
+
+    // The last few invitation lines, so this week's reads differently.
+    const { data: earlier } = await admin
+      .from("guide_nudges")
+      .select("invitation")
+      .eq("company_id", input.companyId)
+      .order("raised_at", { ascending: false })
+      .limit(6);
+    const recentInvitations = ((earlier ?? []) as Array<{ invitation: string | null }>)
+      .map((r) => r.invitation)
+      .filter((v): v is string => Boolean(v));
+
     const spell = input.spell ?? ((t: string) => t);
-    const headline = spell(await generateHeadline(client, {
+    const card = await generateInvitationCard(client, {
       model: input.model,
       meetingDate: input.meetingDateIso,
       companyName: company.name,
@@ -119,7 +139,11 @@ export async function raiseMeetingDebriefNudge(
       transcript: input.transcript,
       championName: champion?.full_name ?? null,
       strengths: input.strengths,
-    }));
+      recentInvitations,
+    });
+    const headline = spell(card.headline);
+    const invitation = spell(card.invitation);
+    const opener = card.opener ? spell(card.opener) : null;
 
     // ---- one active nudge per company -------------------------
     //
@@ -179,6 +203,8 @@ export async function raiseMeetingDebriefNudge(
         trigger_kind: TRIGGER_MEETING_ANALYZED,
         meeting_id: input.meetingId,
         headline,
+        invitation,
+        opener,
       })
       .select("id")
       .single<{ id: string }>();
@@ -199,7 +225,8 @@ export async function raiseMeetingDebriefNudge(
       title: headline,
       eyebrow: "Aimee",
       href: `/guide/nudge/${nudge.id}`,
-      payload: { nudge_id: nudge.id, meeting_id: input.meetingId },
+      // The card's other two lines (lib/notifications/service.ts).
+      payload: { nudge_id: nudge.id, meeting_id: input.meetingId, meeting_label: label, invitation },
     });
     if (notifyError) {
       // The nudge row exists and the notification does not, so the

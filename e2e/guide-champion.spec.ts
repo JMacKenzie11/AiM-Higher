@@ -158,21 +158,27 @@ test.describe("the AiMS champion seat", () => {
     const forYou = panel.getByRole("region", { name: "For you" });
     await expect(forYou).toBeVisible({ timeout: 30_000 });
     const invitation = forYou.getByRole("listitem").first();
-    // The invitation says something about the meeting. An item
-    // reading "your meeting was analyzed" is the thing this whole
-    // feature exists not to be.
+    // The card (0241): the meeting's name and day, linking to its
+    // summary; a strength; an invitation line. Never "your meeting
+    // was analyzed", the thing this whole feature exists not to be.
     await expect(invitation).not.toContainText(/was analy[sz]ed/i);
-    const line = (await invitation.locator("span").nth(1).innerText()).trim();
+    const meeting = invitation.getByRole("link", { name: /^E2E Leadership Meeting, \w+day \w{3} \d{1,2}$/ });
+    await expect(meeting).toHaveAttribute("href", /^\/leadership\/meetings\/[0-9a-f-]{36}$/);
+    await expect(invitation).toContainText("The team debated pricing openly and kept it constructive.");
+    await expect(invitation).toContainText("Want to look at what made that work?");
     // And it can be waved away without opening it.
     await expect(invitation.getByRole("button", { name: /not now/i })).toBeVisible();
 
     await invitation.getByRole("button", { name: /talk it through/i }).click();
-    // The debrief opens in the panel, with the line they read as
-    // Aimee's first message (persisted when opened, no model call).
+    // The debrief opens in the panel. Aimee's first message is the one
+    // written with the card: the moment and a quote, not the card
+    // again (persisted when opened, no model call).
     await expect(panel.getByText(/debrief a meeting/i).first()).toBeVisible({ timeout: 60_000 });
     const first = panel.locator('[class*="bubbleRowAssistant"]').first();
     await expect(first).toBeVisible({ timeout: 30_000 });
-    expect((await first.innerText()).trim()).toContain(line.slice(0, 40));
+    const opening = (await first.innerText()).trim();
+    expect(opening).toContain("keep it about the numbers");
+    expect(opening).not.toContain("debated pricing openly");
 
     // Opened is read: the badge and the item go.
     await expect(page.getByTestId("aimee-badge")).toHaveCount(0, { timeout: 30_000 });

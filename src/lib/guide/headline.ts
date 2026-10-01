@@ -3,248 +3,360 @@ import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
-import {
-  findBannedPhrases,
-  describeHits,
-  retryInstruction,
-} from "@/lib/voice/banned";
-import {
-  findUnsupportedQuotes,
-  quoteRetryInstruction,
-} from "@/lib/voice/quotes";
+import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
+import { findUnsupportedQuotes } from "@/lib/voice/quotes";
+import { checkDebriefReply, describeReplyFaults } from "./reply-checks";
+import { meetingDayLabel } from "./meeting-label";
 
-// THE NOTIFICATION LINE IS THE PRODUCT.
+// THE CARD IS THE PRODUCT.
 //
 // It is the only thing the Guide says before a person chooses to
 // engage, and it is the whole of the first impression. "Your meeting
 // was analyzed" is a system message: it tells the champion something
-// they could have guessed, and teaches them the notification is
-// machinery rather than a person worth answering.
+// they could have guessed, and teaches them the card is machinery
+// rather than a person worth answering.
 //
-// What earns an open is one thing they could not see from inside the
-// room, said warmly and briefly.
+// ---- THREE PIECES, WRITTEN TOGETHER (Jason, 2026-09-29) --------
+//
+// The card in Aimee's panel: the meeting's name and date (not written
+// here, see meeting-label.ts), a HEADLINE stating one strength, and a
+// short INVITATION line. When they click "Talk it through", Aimee's
+// first message, the OPENER, adds what the card could not: the moment,
+// one short quote checked against the transcript, why it matters, and
+// one question. It never repeats the headline.
+//
+// One call writes all three, so they are about the same moment. Asked
+// separately, the opener wandered to a different moment than the
+// headline (dev drafts, 2026-09-29).
 //
 // ---- WHY THIS IS SAFE TO GENERATE IN A JOB ---------------------
 //
-// It reads the meeting ANALYSIS, which is company data written by
-// the same pipeline under the same admin client. It never touches
-// coach memory, which is person-scoped and unreachable without a
-// session (0194). The conversation that follows does use memory, and
-// that happens under the champion's own login.
+// It reads the meeting's analysis and transcript, company data
+// written by the same pipeline under the same admin client. It never
+// touches coach memory, which is person-scoped and unreachable without
+// a session (0194). The conversation that follows does use memory,
+// and that happens under the champion's own login.
+//
+// ---- CHECKED, SENT BACK ONCE, AND NEVER SENT WRONG --------------
+//
+// The rules that can be counted are counted (checkCard). Up to three
+// tries, each told what was wrong. A piece still wrong after that is replaced,
+// not sent: the headline by the plain line (and the others with it,
+// since they are about its moment), the invitation by a plain one, the
+// opener by nothing, in which case the debrief opens on the card's own
+// words. Each is said in the log (failure mode E13).
 //
 // ---- IF IT FAILS -----------------------------------------------
 //
-// A plain fallback, and the nudge is still raised. A missing
-// headline must never cost somebody the invitation.
+// The plain card, and the nudge is still raised. A failed call must
+// never cost somebody the invitation.
 
+// The plain card, used when the written one could not be made clean.
+// The day in words: the ISO date it used to carry read as a system
+// message, the thing the card exists not to be.
 export const HEADLINE_FALLBACK = (meetingDate: string) =>
-  `Your leadership meeting from ${meetingDate} is ready to debrief with Aimee.`;
+  `The summary of your meeting on ${meetingDayLabel(meetingDate)} is ready.`;
+export const INVITATION_FALLBACK = "Want to talk it through?";
 
-const SYSTEM = `You write the one line that invites a leader to debrief their weekly meeting with Aimee.
+// Two lines of the card at the panel's width, and one.
+export const HEADLINE_MAX_CHARS = 100;
+export const INVITATION_MAX_CHARS = 45;
+const OPENER_MAX_WORDS = 85;
+const MAX_TRIES = 3;
 
-They were IN the meeting. They do not need a recap, and being told what happened reads as a machine reciting their own week back at them.
+export type InvitationCard = {
+  headline: string;
+  invitation: string;
+  // Null when it could not be written clean; the debrief then opens on
+  // the headline and invitation.
+  opener: string | null;
+};
 
-WHAT TO WRITE
-- One thing worth their attention: something that worked, or a pattern visible from outside the meeting and not from inside it.
-- Warm, specific, addressed to them. It should read as though somebody paid attention.
-- End with a light invitation, written as a COMPLETE question: "Do you want to think about how to build on that?", "Is it worth five minutes to look at what made it work?". Never a fragment: not "Five minutes?", not "Worth a look?". An invitation, not an instruction.
+const SYSTEM = `You are Aimee, the AiMS leadership coach. A leadership team's weekly meeting has just been summarised. You write three things for the company's AiMS champion, who was in the meeting.
 
-Two that hit the target:
-  "Tuesday's meeting showed a team that looks after its people. Is it worth five minutes to look at what made that happen?"
-  "Priya is teaching her labelling shortcut without being asked. Do you want to think about how to build on that?"
+First choose ONE moment that shows something the team did well, and that has a clear line somebody said in the transcript. All three pieces are about that moment.
 
-HARD RULES
-- Under 40 words.
-- Never a recap of the agenda, never a count of issues or commitments, never a score or a grade, never "your meeting was analyzed".
-- LEAD WITH THE STRENGTH. What the team did well comes first. A short context clause before it is fine ("When Dunleavy's credit came up, the team split the fault honestly"), as long as the line does not open on the problem. What they had been doing before goes second, or goes nowhere. "The team traced the collisions to the real cause and named an owner" opens correctly; "Three people assumed someone else owned the calendar" opens on the problem and is wrong, even when the sentence recovers later. The reader sees the opening words in a notification bar and may not read the rest.
-- WHO DID IT. "You" only when the person reading did the thing themselves; you are told who they are. When somebody else did it, write "your team", or that person's name when the summary says who it was. "You traced the conflict to its root" sent to somebody who only agreed with the diagnosis credits them with a colleague's work.
-- Quote only words the summary itself puts in quotation marks. If you need a contrast, describe it in your own words. Never invent the other half of one and put it in somebody's mouth.
-- Name only people on the leadership team. Somebody on the floor may be described by what they did, such as "a supervisor" or "one of the pickers", but a person who was not at the meeting does not get named in a notification others may later see.
-- No promises. You cannot remind, schedule or follow up in this phase.
-- Plain sentences.
+1. HEADLINE, on a small card. One sentence stating the strength, as a pure strength.
+   - State the strength itself. Never phrase it so it implies the opposite was expected. "Nobody took it personally" implies somebody might have; "The team debated pricing openly and kept it constructive" says it as a strength. None of "without", "nobody", "didn't", "instead of", "rather than".
+   - Specific: the topic and what the team did. At most ${HEADLINE_MAX_CHARS} characters. Sentence case. Plain words. No quotation marks.
+   - Never a recap, a count, a score or a grade.
 
-${VOICE_CORE}`;
+2. INVITATION, under piece 1. One light, complete question, at most ${INVITATION_MAX_CHARS} characters, such as "Want to look at what made that work?". Worded differently from every recent invitation you are given. No exclamation marks.
 
-// The prompt's limit. sanitiseHeadline's own ceiling is 45, a
-// margin for the retry, never a target.
-const HEADLINE_MAX_WORDS = 40;
+3. OPENER, Aimee's first message when they click "Talk it through". They have just read piece 1: do not repeat or restate it. Add what the card could not, in this order:
+   a. The moment, starting straight in: what was being discussed, and what somebody did. No sentence about the moment itself ("What stood out").
+   b. One short quote on its own line: under 15 words, copied EXACTLY from the transcript, one continuous span (never joined with "..."), in quotation marks. Words that read clearly on their own and carry the strength.
+   c. Why it matters, in one sentence: what it gives the team. Never what it avoids, saves or prevents, and never what something else would miss.
+   d. One generative question on its own line: what made it possible, or how to carry it forward. Never a status check.
+   Under 75 words. Short sentences, contractions. No lists, headings or bold. Never use the same phrase in two sentences in a row: say it once, then move on.
 
-function wordCount(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
+For all three:
+- Who is reading: the champion. Say "you" only for what they did themselves, when you are told who they are. Otherwise "your team", or the person's name for what somebody did.
+- Name only people on the leadership team. Never "Speaker 1" or any other speaker label.
+- Never mention health, family, or personal reasons for anybody's absence, or where they were instead. If somebody was away, leave the reason out entirely.
+- Never contrast what happened with what did not ("X instead of Y", "not just"). Never reassure by denying the opposite. No metaphors like "landed". No promises: you cannot remind, schedule or follow up.
+
+${VOICE_CORE}
+
+Reply with JSON only: {"moment": "...", "headline": "...", "invitation": "...", "opener": "..."}`;
 
 // Exported for the shared voice test, which holds every generated
 // surface against the same handful of rules. Not for runtime use.
 export const HEADLINE_RULES_FOR_TEST = SYSTEM;
 
-export async function generateHeadline(
+// ---- THE CHECKS -------------------------------------------------
+
+// Words that make a strength sound like relief that the opposite
+// did not happen (Jason, 2026-09-29: "Nobody took it personally").
+const IMPLIES_OPPOSITE =
+  /\b(without|nobody|no one|no-one|didn['’]t|did not|never|instead of|rather than|wasn['’]t|weren['’]t|not just)\b/i;
+
+// Somebody's absence and why (Jason, 2026-09-29: the Centre North
+// draft gave a doctor's appointment as the reason). Narrow on purpose:
+// a physiotherapy clinic's meeting is full of appointments that are
+// its work, not anybody's private life.
+const PERSONAL_REASON =
+  /\b(doctor['’]?s appointment|medical appointment|dentist|sick (?:day|leave)|off sick|illness|in (?:the )?hospital|funeral|bereavement|maternity|paternity|pregnan\w*|family (?:emergency|reasons?|matters?|commitments?)|personal (?:reasons?|matters?)|health (?:issues?|reasons?|problems?))\b/i;
+
+const SPEAKER_LABEL = /\bspeaker\s*\d+\b/i;
+const YOU_FOR_OTHERS = /\byou (?:two|both)\b/i;
+const WAS_ANALYZED = /\b(your|the)\s+meeting\s+(was|has been)\s+analy[sz]ed/i;
+
+const STOPWORDS = new Set(
+  "a an and are as at be but by for from has have in is it its of on or so that the their them they this to was were what when which who will with your you our we".split(" ")
+);
+
+function sentencesOf(text: string): string[] {
+  return (text.match(/[^.?!\n]+[.?!]*/g) ?? []).map((s) => s.trim()).filter(Boolean);
+}
+
+function withoutQuotes(text: string): string {
+  return text.replace(/["“][^"”]*["”]/g, " ");
+}
+
+// The same three words in two sentences in a row (Jason, 2026-09-29:
+// "the full picture of what customers experience", then "a truer
+// picture of what customers actually experience"). Three words, one of
+// them more than filler, so "of the team" twice is not a repeat.
+export function repeatedPhrases(text: string): string[] {
+  const grams = (s: string) => {
+    const w = s.toLowerCase().match(/[a-z']+/g) ?? [];
+    const out = new Set<string>();
+    for (let i = 0; i + 2 < w.length; i++) {
+      const g = w.slice(i, i + 3);
+      if (g.some((x) => !STOPWORDS.has(x) && x.length >= 4)) out.add(g.join(" "));
+    }
+    return out;
+  };
+  const s = sentencesOf(withoutQuotes(text));
+  const hits: string[] = [];
+  for (let i = 0; i + 1 < s.length; i++) {
+    const next = grams(s[i + 1]);
+    for (const g of grams(s[i])) if (next.has(g)) hits.push(g);
+  }
+  return hits;
+}
+
+function sameLine(a: string, b: string): boolean {
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
+  return norm(a) === norm(b);
+}
+
+export type CardFaults = { headline: string[]; invitation: string[]; opener: string[] };
+
+export function checkCard(
+  card: { headline: string; invitation: string; opener: string },
+  transcript: string,
+  recentInvitations: readonly string[]
+): CardFaults {
+  const headline: string[] = [];
+  const h = card.headline;
+  if (h.length < 15) headline.push("headline is missing");
+  if (h.length > HEADLINE_MAX_CHARS) headline.push(`headline is ${h.length} characters, over ${HEADLINE_MAX_CHARS}`);
+  const hBanned = findBannedPhrases(h);
+  if (hBanned.length) headline.push(`headline uses ${describeHits(hBanned)}`);
+  const hOpp = h.match(IMPLIES_OPPOSITE);
+  if (hOpp) headline.push(`headline says "${hOpp[0]}", which implies the opposite was expected`);
+  if (/["“”]/.test(h)) headline.push("headline quotes somebody");
+  if (WAS_ANALYZED.test(h)) headline.push("headline says the meeting was analyzed");
+
+  const invitation: string[] = [];
+  const inv = card.invitation;
+  if (inv.length < 5) invitation.push("the invitation is missing");
+  if (inv.length > INVITATION_MAX_CHARS) invitation.push(`the invitation is ${inv.length} characters, over ${INVITATION_MAX_CHARS}`);
+  if (!inv.trim().endsWith("?")) invitation.push("the invitation is not a question");
+  const iBanned = findBannedPhrases(inv);
+  if (iBanned.length) invitation.push(`the invitation uses ${describeHits(iBanned)}`);
+  if (recentInvitations.some((r) => sameLine(r, inv))) invitation.push("the invitation repeats a recent one");
+
+  const opener: string[] = [];
+  const o = card.opener;
+  if (o.length < 20) opener.push("the opener is missing");
+  const quotes = o.match(/["“][^"”]+["”]/g) ?? [];
+  if (quotes.length !== 1) opener.push(`the opener has ${quotes.length} quotes, not one`);
+  // Aimee's own words against the reply rules; a quote is somebody
+  // else's, and is checked against the transcript instead.
+  const ownWords = checkDebriefReply(withoutQuotes(o), "");
+  const invented = transcript ? findUnsupportedQuotes(o, transcript) : [];
+  const described = describeReplyFaults({ ...ownWords, invented });
+  if (described) opener.push(`the opener: ${described}`);
+  if (SPEAKER_LABEL.test(o)) opener.push("the opener uses a speaker label");
+  if (YOU_FOR_OTHERS.test(o)) opener.push(`the opener says "${o.match(YOU_FOR_OTHERS)![0]}" about people who may not be the reader`);
+  const words = o.split(/\s+/).filter(Boolean).length;
+  if (words > OPENER_MAX_WORDS) opener.push(`the opener is ${words} words, over 75`);
+  const repeats = repeatedPhrases(o);
+  if (repeats.length) opener.push(`the opener repeats "${repeats[0]}" in two sentences in a row`);
+  if (sameLine(o.slice(0, h.length), h)) opener.push("opener repeats piece 1");
+
+  for (const [name, text, list] of [
+    ["headline", h, headline],
+    ["invitation", inv, invitation],
+    ["opener", o, opener],
+  ] as const) {
+    const m = text.match(PERSONAL_REASON);
+    if (m) list.push(`the ${name} mentions "${m[0]}", a personal reason for somebody's absence`);
+  }
+  return { headline, invitation, opener };
+}
+
+function count(f: CardFaults): number {
+  return f.headline.length + f.invitation.length + f.opener.length;
+}
+
+function all(f: CardFaults): string[] {
+  return [...f.headline, ...f.invitation, ...f.opener];
+}
+
+// ---- WRITING IT ------------------------------------------------
+
+type Raw = { headline: string; invitation: string; opener: string };
+
+function parse(text: string): Raw | null {
+  try {
+    const j = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, "").trim()) as Record<string, unknown>;
+    const clean = (v: unknown) => stripEmDashes(String(v ?? "").replace(/\s+\n/g, "\n").trim());
+    return {
+      headline: clean(j.headline).replace(/^["'“”]+|["'“”]+$/g, "").replace(/\s+/g, " "),
+      invitation: clean(j.invitation).replace(/\s+/g, " "),
+      // Its parts on their own lines: the moment, the quote, why, the
+      // question. A single line break is a space in the chat, so the
+      // parts ran together as one paragraph on dev (2026-09-29).
+      opener: clean(j.opener)
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join("\n\n"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function generateInvitationCard(
   client: Anthropic,
   input: {
     model: string;
     meetingDate: string;
     companyName: string;
     analysisMarkdown: string;
-    // What was actually said. Quotes are checked against this, never
-    // shown to the model: a summary can put its own paraphrase in
-    // quotation marks, so "it is in the summary" proved nothing.
     transcript: string;
-    // Who "you" is. Without it the model cannot follow the rule
-    // about crediting the right person.
     championName: string | null;
     strengths: string[];
+    recentInvitations: string[];
   }
-): Promise<string> {
-  const fallback = HEADLINE_FALLBACK(input.meetingDate);
+): Promise<InvitationCard> {
+  const plain: InvitationCard = {
+    headline: HEADLINE_FALLBACK(input.meetingDate),
+    invitation: INVITATION_FALLBACK,
+    opener: null,
+  };
   try {
     const strengths =
       input.strengths.length > 0
-        ? `\n\nWhat the facilitation review noticed went well:\n${input.strengths
-            .map((s) => `- ${s}`)
-            .join("\n")}`
+        ? `\n\nWhat the facilitation review noticed went well:\n${input.strengths.map((s) => `- ${s}`).join("\n")}`
         : "";
+    const recent =
+      input.recentInvitations.length > 0
+        ? input.recentInvitations.map((r) => `- ${r}`).join("\n")
+        : "(none yet)";
     const userTurn =
       `Company: ${input.companyName}\nMeeting date: ${input.meetingDate}` +
       `\nWritten to: ${input.championName ?? "the company's AiMS champion (name unknown)"}` +
-      `${strengths}\n\n<analysis>\n${input.analysisMarkdown.slice(0, 12000)}\n</analysis>`;
+      `\nRecent invitations for this company:\n${recent}` +
+      `${strengths}\n\n<summary>\n${input.analysisMarkdown.slice(0, 12000)}\n</summary>` +
+      `\n\n<transcript>\n${input.transcript.slice(0, 70000)}\n</transcript>`;
 
-    const ask = async (
-      messages: Anthropic.MessageParam[]
-    ): Promise<string> => {
+    const ask = async (messages: Anthropic.MessageParam[]): Promise<{ raw: string; card: Raw | null }> => {
       const response = await client.messages.create({
         model: input.model,
-        // Writing one sentence from material already in front of it.
-        // Thinking consumed the entire budget and emitted nothing on
-        // the analysis call; see the note in analyze.ts.
-        thinking: { type: "disabled" },
-        max_tokens: 300,
+        // Choosing the moment and finding a quotable line in a long
+        // transcript is the hard part, so it thinks, with room to
+        // answer after. A short budget with thinking on came back with
+        // no text at all (2026-09-29).
+        thinking: { type: "adaptive" },
+        max_tokens: 8000,
         system: [{ type: "text", text: SYSTEM }],
         messages,
       });
-      return response.content
+      const raw = response.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("")
         .trim();
+      return { raw, card: parse(raw) };
     };
 
-    let text = await ask([{ role: "user", content: userTurn }]);
-
-    // ---- ONE RETRY, NAMING WHAT WAS WRONG -----------------------
-    //
-    // The rules are in the prompt and the model breaks them anyway,
-    // in small habitual ways. Asking again with the offending
-    // phrases quoted back fixes most of it, and one retry is where
-    // this stops: a loop would spend a client's money arguing about
-    // a notification, and the fallback headline is a perfectly
-    // serviceable outcome.
-    //
-    // Cheap here in a way it is not everywhere. This runs in a
-    // background job, writes 40 words, and nobody is waiting on a
-    // screen for it.
-    // Both checks, one retry. An invented quote is the more serious
-    // of the two: a banned word is a tic, and a quote nobody said
-    // is the product handing somebody a false record of their own
-    // meeting. Named first in the retry for that reason.
-    //
-    // LENGTH is one of the checks. It was not: a 46-word headline
-    // went straight to sanitiseHeadline, which refuses anything over
-    // 45, and the champion got the fallback line with nothing in the
-    // log. A line four words too long wants to be asked for again,
-    // not thrown away.
-    const hits = findBannedPhrases(text);
-    const invented = findUnsupportedQuotes(text, input.transcript);
-    const words = wordCount(text);
-    const tooLong = words >= HEADLINE_MAX_WORDS;
-    if (hits.length > 0 || invented.length > 0 || tooLong) {
-      console.log(
-        `[guide] headline retry:` +
-          `${invented.length > 0 ? ` invented quote(s) ${invented.map((q) => `"${q.quote}"`).join(", ")};` : ""}` +
-          `${tooLong ? ` ${words} words;` : ""}` +
-          `${hits.length > 0 ? ` ${describeHits(hits)}` : ""}`
-      );
-      const instruction = [
-        invented.length > 0 ? quoteRetryInstruction(invented) : null,
-        tooLong
-          ? `Your line is ${words} words. Write it again in under ${HEADLINE_MAX_WORDS} words, keeping the same point.`
-          : null,
-        hits.length > 0 ? retryInstruction(hits) : null,
-      ]
-        .filter(Boolean)
-        .join(" ");
-      text = await ask([
-        { role: "user", content: userTurn },
-        { role: "assistant", content: text },
-        { role: "user", content: instruction },
-      ]);
-      const stillWrong = [
-        ...findBannedPhrases(text),
-        ...(wordCount(text) >= HEADLINE_MAX_WORDS
-          ? [{ phrase: `${wordCount(text)} words`, context: text }]
-          : []),
-        ...findUnsupportedQuotes(text, input.transcript).map((q) => ({
-          phrase: `invented quote "${q.quote}"`,
-          context: q.quote,
-        })),
-      ];
-      if (stillWrong.length > 0) {
-        // Twice is a signal about the prompt, not about this
-        // meeting. And the line is NOT sent: it used to be, so a
-        // banned phrase or an invented quote reached the champion
-        // whenever the retry failed too (audit, 2026-09-25). The
-        // plain line is serviceable and true. Said loudly, with what
-        // was refused, so a champion getting the plain line is never
-        // a mystery (failure mode E13).
-        console.error(
-          `[guide] headline still breaking the rules after a retry, sending the fallback: ` +
-            describeHits(stillWrong)
-        );
-        return fallback;
+    // Up to three tries (Jason, 2026-09-29): this is written in the
+    // background, so a retry costs nobody a wait. Each retry is sent
+    // what was wrong with the one before it. The best attempt wins:
+    // the first clean one, or the one with fewest faults.
+    let card: Raw | null = null;
+    let faults: CardFaults | null = null;
+    let messages: Anthropic.MessageParam[] = [{ role: "user", content: userTurn }];
+    for (let attempt = 1; attempt <= MAX_TRIES; attempt += 1) {
+      const got = await ask(messages);
+      const gotFaults = got.card ? checkCard(got.card, input.transcript, input.recentInvitations) : null;
+      if (got.card && gotFaults && (!faults || count(gotFaults) < count(faults))) {
+        card = got.card;
+        faults = gotFaults;
       }
+      if (faults && count(faults) === 0) break;
+      if (attempt === MAX_TRIES) break;
+      const what = gotFaults ? all(gotFaults).join("; ") : "the reply was not the JSON asked for";
+      console.log(`[guide] card try ${attempt} sent back: ${what}`);
+      messages = [
+        { role: "user", content: userTurn },
+        { role: "assistant", content: got.raw || "{}" },
+        {
+          role: "user",
+          content:
+            `Problems: ${what}. Write all three again as if for the first time, ` +
+            `as the same JSON, fixing those. No preamble.`,
+        },
+      ];
     }
 
-    const clean = sanitiseHeadline(text);
-    if (clean === null) {
-      // Said out loud. The fallback is a serviceable line, and a
-      // champion getting it every week is a failure that looks like
-      // success unless somebody can see why.
-      console.error(
-        `[guide] headline refused by the final check, sending the fallback: "${text}"`
-      );
-      return fallback;
+    if (!card || !faults) {
+      console.error("[guide] card could not be written, sending the plain card");
+      return plain;
     }
-    return clean;
+    // Still wrong after three tries: the piece is replaced, never
+    // stored or sent.
+    if (faults.headline.length > 0) {
+      console.error(`[guide] headline still breaking the rules after three tries, sending the plain card: ${faults.headline.join("; ")}`);
+      return plain;
+    }
+    const invitation = faults.invitation.length > 0 ? INVITATION_FALLBACK : card.invitation;
+    if (faults.invitation.length > 0) {
+      console.error(`[guide] invitation still breaking the rules after three tries, sending the plain one: ${faults.invitation.join("; ")}`);
+    }
+    const opener = faults.opener.length > 0 ? null : card.opener;
+    if (faults.opener.length > 0) {
+      console.error(`[guide] opener still breaking the rules after three tries, the debrief opens on the card: ${faults.opener.join("; ")}`);
+    }
+    return { headline: card.headline, invitation, opener };
   } catch (err) {
-    console.error(
-      "[guide] headline generation failed:",
-      err instanceof Error ? err.message : err
-    );
-    return fallback;
+    console.error("[guide] card generation failed:", err instanceof Error ? err.message : err);
+    return plain;
   }
-}
-
-// The rules that CAN be checked are checked, rather than trusted to
-// the prompt. A headline is read before anybody has chosen to
-// engage, so one that goes out wrong costs more than one that never
-// goes out.
-export function sanitiseHeadline(raw: string): string | null {
-  const withoutDashes = raw
-    .trim()
-    .replace(/^["'“”]+|["'“”]+$/g, "")
-    .replace(/\s+/g, " ")
-    // Em dashes read as machine-written in a line meant to sound
-    // like a person. The shared pass, so a headline and a summary
-    // resolve the same dash the same way; this one also caught the
-    // en dash and the no-space form, which the local version here
-    // did not.
-    .replace(/\s+/g, " ");
-  const text = stripEmDashes(withoutDashes);
-  if (text.length < 15) return null;
-  if (text.split(/\s+/).length > 45) return null;
-  // The banned opening. A model told not to recap still sometimes
-  // does, and this is the phrasing that makes the whole feature read
-  // as machinery.
-  if (/\b(your|the)\s+meeting\s+(was|has been)\s+analy[sz]ed/i.test(text)) {
-    return null;
-  }
-  return text;
 }

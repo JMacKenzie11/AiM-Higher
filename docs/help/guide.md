@@ -23,7 +23,9 @@ something worth your attention, as a note in your notification bar.
 
 After a leadership meeting is summarised, Aimee invites the champion
 ::: panel
-to talk it through. Click **Talk it through** under the note and a
+to talk it through. The note names the meeting and its day (click the
+name to read its summary), one thing the team did well, and a short
+question. Click **Talk it through** under the note and a
 chat about that specific meeting opens right there in the panel,
 beside whatever page you are on. **Open on the Aimee page** above the
 chat takes it to the full page if you want more room.
@@ -49,9 +51,9 @@ you won't see it any more.
 
 ## What happens in the chat
 
-The chat opens with the same line you clicked, from Aimee, ending
-with her question. Answer it and she picks up from there, having read
-the meeting summary. The conversation is about how the meeting went:
+Aimee opens with the moment in the meeting where it happened, one
+thing somebody said there, why it matters, and a question. Answer it
+and she picks up from there, having read the meeting summary. The conversation is about how the meeting went:
 what worked, where it got stuck, whether decisions ended up with an
 owner and a date.
 
@@ -71,10 +73,10 @@ It appears in your Ask Aimee list afterwards.
 Worth knowing before you reply to her, because a coach you cannot
 see the edges of is a coach people hedge with.
 
-**The meeting summary, not the recording.** Aimee reads the written
-summary of the meeting and the commitments that came out of it. She
-does not read the transcript. Nothing anybody said word for word is
-in front of her.
+**The meeting summary.** In the chat, Aimee reads the written summary
+of the meeting and the commitments that came out of it. The one line
+she quotes in her first message was picked when the note was written
+and checked against the recording, so it is what was actually said.
 
 **The shared record, the same as you see it.** Past commitments and
 whether they were met, the scorecard trend, issues and how they were

@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 
 vi.mock("server-only", () => ({}));
-vi.mock("./headline", () => ({ generateHeadline: vi.fn(async () => "Your team found the real cause. Worth five minutes?") }));
+vi.mock("./headline", () => ({
+  generateInvitationCard: vi.fn(async () => ({
+    headline: "Your team found the real cause.",
+    invitation: "Want to look at how?",
+    opener: "The moment.\n\"a quote\"\nWhy it matters.\nA question?",
+  })),
+}));
 
 // Raising a Guide invitation clears every earlier one still in the
 // bell. Before, only the invitations of PENDING nudges were cleared,
@@ -82,5 +88,18 @@ describe("raising a Guide invitation", () => {
     expect(read).toEqual({ opened_by_link: true, former_champion: true, other_company: false, a_share: false });
     // The new invitation is inserted after the sweep, so it stays unread.
     expect(admin.inserted.some((i) => i.table === "notifications")).toBe(true);
+  });
+
+  it("stores the whole card: the invitation and first message on the nudge, the label and invitation on the notification", async () => {
+    const admin = fakeAdmin([]);
+    const { raiseMeetingDebriefNudge } = await import("./nudges");
+    await raiseMeetingDebriefNudge(admin as never, {} as Anthropic, input);
+    const nudge = admin.inserted.find((i) => i.table === "guide_nudges")!.row as Record<string, unknown>;
+    expect(nudge).toMatchObject({ headline: "Your team found the real cause.", invitation: "Want to look at how?" });
+    expect(String(nudge.opener)).toContain('"a quote"');
+    const note = admin.inserted.find((i) => i.table === "notifications")!.row as { title: string; payload: Record<string, unknown> };
+    expect(note.title).toBe("Your team found the real cause.");
+    // No title recorded for the meeting in this fake: the plain name.
+    expect(note.payload).toMatchObject({ meeting_label: "Leadership meeting, Monday Sep 28", invitation: "Want to look at how?" });
   });
 });

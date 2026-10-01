@@ -168,6 +168,32 @@
   color: var(--text);
 }
 
+/* The Guide's card: at most four short lines of text, the headline
+   allowed two (Jason, 2026-09-29), the others one each. */
+.forYouMeeting {
+  font: var(--text-body-sm);
+  color: var(--primary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.forYouHeadline {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.forYouInvitation {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .forYouError {
   font: var(--text-body-sm);
   color: var(--text-muted);

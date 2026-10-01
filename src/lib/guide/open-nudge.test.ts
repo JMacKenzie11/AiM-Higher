@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
   writes: [] as Array<{ table: string; patch: Row; filters: Array<[string, unknown]> }>,
   created: 0,
   champion: true,
+  opener: undefined as string | undefined,
 }));
 
 vi.mock("@/lib/auth/current-user", () => ({
@@ -48,8 +49,9 @@ vi.mock("./champion", () => ({ isAimsChampion: async () => h.champion }));
 vi.mock("@/lib/practices/resolve", () => ({ resolveAgent: async () => ({ id: "debrief-a-meeting" }) }));
 vi.mock("@/lib/practices/gate", () => ({ practiceGate: async () => ({ ok: true }) }));
 vi.mock("@/lib/practices/create", () => ({
-  createPracticeConversation: async () => {
+  createPracticeConversation: async (_id: string, opts: { opener?: string }) => {
     h.created += 1;
+    h.opener = opts.opener;
     return { ok: true, item: { id: "new-conversation" } };
   },
 }));
@@ -76,6 +78,20 @@ beforeEach(() => {
 });
 
 describe("openNudge", () => {
+  it("opens on the first message written with the card, not the headline", async () => {
+    h.nudge = nudge({ headline: "Brendon agreed to lead next week's meeting.", invitation: "What made saying yes so easy?", opener: "Jeff asked the team.\n\"We can.\"\nWhat helped?" });
+    const { openNudge } = await import("./open-nudge");
+    await openNudge("n1");
+    expect(h.opener).toBe("Jeff asked the team.\n\"We can.\"\nWhat helped?");
+  });
+
+  it("opens on the card's own words when there is no first message", async () => {
+    h.nudge = nudge({ headline: "Brendon agreed to lead next week's meeting.", invitation: "What made saying yes so easy?", opener: null });
+    const { openNudge } = await import("./open-nudge");
+    await openNudge("n1");
+    expect(h.opener).toBe("Brendon agreed to lead next week's meeting. What made saying yes so easy?");
+  });
+
   it("refuses anyone but the recipient, and writes nothing", async () => {
     h.me = "company-admin";
     const { openNudge } = await import("./open-nudge");

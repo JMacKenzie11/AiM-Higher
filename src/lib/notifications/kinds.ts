@@ -35,3 +35,20 @@ export function forYouLabel(n: Pick<NotificationItem, "kind" | "eyebrow">): stri
   if (n.kind === "guide-nudge") return "Meeting debrief";
   return n.eyebrow ?? null;
 }
+
+// The card of a Guide invitation (0241), from what was stored with it
+// when it was raised. Undefined for anything else, and for invitations
+// raised before the card, which keep the "Meeting debrief" label.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function invitationCard(
+  kind: string,
+  payload: Record<string, unknown> | null | undefined
+): NotificationItem["card"] {
+  if (kind !== "guide-nudge" || !payload) return undefined;
+  const label = typeof payload.meeting_label === "string" ? payload.meeting_label.trim() : "";
+  const meetingId = typeof payload.meeting_id === "string" ? payload.meeting_id : "";
+  if (!label || !UUID.test(meetingId)) return undefined;
+  const invitation = typeof payload.invitation === "string" && payload.invitation.trim() ? payload.invitation.trim() : null;
+  return { meetingLabel: label, meetingHref: `/leadership/meetings/${meetingId}`, invitation };
+}
