@@ -30,21 +30,15 @@ test("clarity opens as a drawer, not inside the row", async ({ page }) => {
   // Sign-in leaves the page on "/" with a redirect to the role's home
   // still queued; it fires the moment anything else navigates and
   // cancels it. Let the first goto be the one it eats. See E15.
-  for (let i = 0; i < 4; i++) {
-    try {
-      await page.goto("/admin/companies", { waitUntil: "networkidle" });
-    } catch {
-      await page.waitForTimeout(1500);
-      continue;
-    }
-    if (new URL(page.url()).pathname === "/admin/companies") break;
-    await page.waitForTimeout(1500);
-  }
+  // Retried until it lands, rather than a fixed pause between tries.
+  await expect(async () => {
+    await page.goto("/admin/companies", { waitUntil: "networkidle" });
+    expect(new URL(page.url()).pathname).toBe("/admin/companies");
+  }).toPass({ timeout: 90_000 });
   await page.getByTestId("scope-into-company").filter({ hasText: /^Benson Seafood$/ }).click();
   await page.waitForURL(/\/dashboard$/, { timeout: 90_000 });
 
   await page.goto("/commitments", { waitUntil: "networkidle" });
-  await page.waitForTimeout(2000);
   expect(new URL(page.url()).pathname).toBe("/commitments");
   expect(dead, "app assets failed to load").toEqual([]);
 

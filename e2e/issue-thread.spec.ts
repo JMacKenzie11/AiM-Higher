@@ -64,6 +64,12 @@ async function landCommitment(row: Locator, description: string) {
 }
 
 test.describe("issue commitment thread", () => {
+  // Their own time limit, like the other specs. Each test is a string
+  // of creates, lands and resolves, a dozen round trips, and on the
+  // default 30 seconds the first one ran out of time waiting for the
+  // resolved issue to leave the open list (final run 2, 2026-09-30).
+  test.describe.configure({ timeout: 120_000 });
+
   // FIXME, and deliberately left visible rather than deleted.
   //
   // This test predates #126, which removed the review prompt, the

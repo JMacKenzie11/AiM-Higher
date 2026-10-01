@@ -1,4 +1,35 @@
 import { test, expect, signIn, scopeCookie, users } from "./fixtures";
+import type { Page } from "@playwright/test";
+
+// Counts this app's requests from the moment it is created, and waits
+// until none has been in flight for half a second. The tests below
+// prove that a hover or a scroll sets NO cookie, so they have to wait
+// until every prefetch those gestures started has come back, not for
+// a fixed length of time. Other hosts (analytics) are left out: they
+// never reach middleware and would keep the page from ever going quiet.
+function trackRequests(page: Page) {
+  const origin = new URL(page.url() === "about:blank" ? "http://localhost" : page.url()).origin;
+  let inFlight = 0;
+  let lastChange = Date.now();
+  const mine = (url: string) => new URL(url).origin === origin;
+  page.on("request", (r) => {
+    if (mine(r.url())) { inFlight += 1; lastChange = Date.now(); }
+  });
+  const done = (r: { url(): string }) => {
+    if (mine(r.url())) { inFlight = Math.max(0, inFlight - 1); lastChange = Date.now(); }
+  };
+  page.on("requestfinished", done);
+  page.on("requestfailed", done);
+  return {
+    quiet: () =>
+      expect
+        .poll(() => inFlight === 0 && Date.now() - lastChange >= 500, {
+          timeout: 15_000,
+          intervals: [100],
+        })
+        .toBe(true),
+  };
+}
 
 // THE REGRESSION TEST. This one has an incident behind it.
 //
@@ -35,12 +66,12 @@ test.describe("the scope cookie is never a navigation side effect", () => {
       0
     );
 
+    const requests = trackRequests(page);
     for (let i = 0; i < count; i += 1) {
       await controls.nth(i).hover();
-      await page.waitForTimeout(150);
     }
-    // Give any speculative fetch time to land and set a cookie.
-    await page.waitForTimeout(1000);
+    // Every speculative fetch the hovers started has come back.
+    await requests.quiet();
 
     expect(await scopeCookie(page)).toBe(before);
   });
@@ -103,10 +134,12 @@ test.describe("the scope cookie is never a navigation side effect", () => {
     await page.goto("/hq");
     const before = await scopeCookie(page);
 
+    const requests = trackRequests(page);
     await page.mouse.wheel(0, 4000);
-    await page.waitForTimeout(500);
+    await requests.quiet();
     await page.mouse.wheel(0, -4000);
-    await page.waitForTimeout(1000);
+    // Every prefetch the scrolling started has come back.
+    await requests.quiet();
 
     expect(await scopeCookie(page)).toBe(before);
   });

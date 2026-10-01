@@ -38,9 +38,9 @@ test("the link chip and its menu stay on a phone screen", async ({ page }) => {
   expect(new URL(page.url()).pathname, "must be on /commitments").toBe(
     "/commitments"
   );
-  await page.waitForTimeout(1500);
-
+  // Wait for the chips themselves, not for a length of time.
   const chips = page.locator('button[class*="chip"]');
+  await expect(chips.first()).toBeVisible({ timeout: 30_000 });
   const count = await chips.count();
   expect(count, "Benson has linked commitments to look at").toBeGreaterThan(0);
 
@@ -78,8 +78,17 @@ test("the link chip and its menu stay on a phone screen", async ({ page }) => {
   for (let i = 0; i < Math.min(count, 8); i++) {
     const chip = chips.nth(i);
     await chip.scrollIntoViewIfNeeded();
-    await chip.click();
-    await page.waitForTimeout(350);
+    // Open it and wait for the menu itself, retrying the click in case
+    // it lands before the chip's handler is attached (as openUserMenu
+    // does). Then two frames, so its position has been laid out.
+    const menu = page.getByRole("menu");
+    await expect(async () => {
+      await chip.click();
+      await expect(menu).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
+    await page.evaluate(
+      () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    );
     const m = (await page.evaluate(`(() => {
       const el = document.querySelector('[role="menu"]');
       if (!el) return null;
@@ -103,7 +112,7 @@ test("the link chip and its menu stay on a phone screen", async ({ page }) => {
       offscreen.push(`chip ${i}: ${JSON.stringify(m)}`);
     }
     await page.keyboard.press("Escape");
-    await page.waitForTimeout(200);
+    await expect(page.getByRole("menu")).toHaveCount(0, { timeout: 5_000 });
   }
   expect(offscreen, "menus that left the screen").toEqual([]);
 });
