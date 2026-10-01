@@ -175,8 +175,24 @@ export function AimeePanelChat({
           <ul className={styles.forYouList}>
             {notifications.map((n) => (
               <li key={n.id} className={styles.forYouItem}>
-                {forYouLabel(n) ? <span className={styles.forYouEyebrow}>{forYouLabel(n)}</span> : null}
-                <span className={styles.forYouTitle}>{n.title}</span>
+                {n.card ? (
+                  // The Guide's card (0241): which meeting, linking to
+                  // its summary; the strength; and the invitation.
+                  <>
+                    <Link href={n.card.meetingHref} className={styles.forYouMeeting}>
+                      {n.card.meetingLabel}
+                    </Link>
+                    <span className={`${styles.forYouTitle} ${styles.forYouHeadline}`}>{n.title}</span>
+                    {n.card.invitation ? (
+                      <span className={styles.forYouInvitation}>{n.card.invitation}</span>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    {forYouLabel(n) ? <span className={styles.forYouEyebrow}>{forYouLabel(n)}</span> : null}
+                    <span className={styles.forYouTitle}>{n.title}</span>
+                  </>
+                )}
                 {itemErrors[n.id] ? (
                   <span className={styles.forYouError} role="status">
                     {itemErrors[n.id].message}

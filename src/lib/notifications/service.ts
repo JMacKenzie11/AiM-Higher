@@ -1,5 +1,6 @@
 import "server-only";
 import { isAimsChampion } from "@/lib/guide/champion";
+import { invitationCard } from "./kinds";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -71,6 +72,10 @@ export type NotificationItem = {
   // dismiss should call markNotificationReadAction). Computed items
   // are never dismissible — they'd reappear on the next request.
   dismissible?: boolean;
+  // A Guide invitation's card (0241): which meeting, linking to its
+  // summary, and the invitation line under the headline. Absent on
+  // invitations raised before the card, which show as they did.
+  card?: { meetingLabel: string; meetingHref: string; invitation: string | null };
 };
 
 export async function getHeaderNotifications({
@@ -206,7 +211,7 @@ export async function getHeaderNotifications({
   // doesn't drag notifications from the other tenant along.
   const { data: persistedRows } = await supabase
     .from("notifications")
-    .select("id, kind, eyebrow, title, href, created_at")
+    .select("id, kind, eyebrow, title, href, created_at, payload")
     .eq("recipient_id", userId)
     .eq("company_id", companyId)
     .is("read_at", null)
@@ -219,6 +224,7 @@ export async function getHeaderNotifications({
     title: string;
     href: string;
     created_at: string;
+    payload: Record<string, unknown> | null;
   }>;
   // AN INVITATION IS FOR WHOEVER HOLDS THE CHAMPION SEAT NOW
   // (2026-09-29). Moving the seat does nothing to invitations already
@@ -238,6 +244,7 @@ export async function getHeaderNotifications({
       href: row.href,
       createdAt: row.created_at,
       dismissible: true,
+      card: invitationCard(row.kind, row.payload),
     });
   }
 

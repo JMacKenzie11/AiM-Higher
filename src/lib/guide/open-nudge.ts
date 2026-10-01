@@ -15,21 +15,24 @@ import { isAimsChampion } from "./champion";
 // redirects to the result) and Aimee's panel (which shows it in
 // place), so the two cannot open an invitation differently.
 //
-// Nothing is generated when the nudge is RAISED — a nudge is a
-// notification row and a headline, and that is all. The conversation
-// starts here, under the champion's own session, on their own
+// The card and Aimee's first message are written when the nudge is
+// RAISED (headline.ts), and checked then. The conversation starts here, under the champion's own session, on their own
 // client, which is what makes the agent's tools return what THEY can
 // see rather than what a background job could.
 //
-// ---- THE LINE THEY CLICKED IS AIMEE'S FIRST MESSAGE ----------------
+// ---- AIMEE'S FIRST MESSAGE WAS WRITTEN WITH THE CARD ---------------
 //
-// The headline is handed to createPracticeConversation as the
-// conversation's opener, persisted with no model call, the same way an
-// agent's scripted opener is. The champion answers the question they
-// already read, and the agent takes over from their reply. It used to
-// generate a second opener here, and that turn kept repeating the
-// line, leaving its subject, or breaking the voice rules the line had
-// been checked against when it was raised (dev, 2026-09-28).
+// The nudge's `opener` (0241) is handed to createPracticeConversation
+// and persisted with no model call, the same way an agent's scripted
+// opener is. It adds what the card could not: the moment, a quote,
+// why it matters, one question (Jason, 2026-09-29). It used to be the
+// headline itself; generating an opener HERE kept repeating the line,
+// leaving its subject, or breaking the voice rules (dev, 2026-09-28),
+// which is why it is written and checked with the card instead.
+//
+// A nudge with no opener (raised before 0241, or one whose opener
+// failed its checks) opens on the card's own words: the headline and
+// the invitation, which ends with the question they are answering.
 //
 // ---- OPENING TWICE ---------------------------------------------
 //
@@ -54,7 +57,7 @@ export async function openNudge(nudgeId: string): Promise<OpenNudgeResult> {
 
   const { data: nudge } = await db
     .from("guide_nudges")
-    .select("id, company_id, recipient_profile_id, meeting_id, state, conversation_id, headline")
+    .select("id, company_id, recipient_profile_id, meeting_id, state, conversation_id, headline, invitation, opener")
     .eq("id", nudgeId)
     .maybeSingle<{
       id: string;
@@ -64,6 +67,8 @@ export async function openNudge(nudgeId: string): Promise<OpenNudgeResult> {
       state: string;
       conversation_id: string | null;
       headline: string | null;
+      invitation: string | null;
+      opener: string | null;
     }>();
 
   // The select policy lets admins read these, so "found" is not the
@@ -114,7 +119,7 @@ export async function openNudge(nudgeId: string): Promise<OpenNudgeResult> {
   try {
     const result = await createPracticeConversation(practice.id, {
       debriefingMeetingId: nudge.meeting_id ?? undefined,
-      opener: nudge.headline ?? undefined,
+      opener: firstMessage(nudge) ?? undefined,
     });
     if (!result.ok) return { ok: false, message: result.message };
     conversationId = result.item.id;
@@ -146,4 +151,14 @@ export async function openNudge(nudgeId: string): Promise<OpenNudgeResult> {
 
   await markRead();
   return { ok: true, conversationId };
+}
+
+export function firstMessage(nudge: {
+  headline: string | null;
+  invitation?: string | null;
+  opener?: string | null;
+}): string | null {
+  if (nudge.opener) return nudge.opener;
+  const card = [nudge.headline, nudge.invitation].filter(Boolean).join(" ");
+  return card || null;
 }

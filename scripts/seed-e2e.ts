@@ -50,6 +50,19 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isEntryPoint } from "./lib/entry-point.ts";
+import { meetingLabel } from "../src/lib/guide/meeting-label.ts";
+
+// The fixture invitation. e2e/guide-champion.spec.ts checks the card
+// and the first message against it.
+const GUIDE_CARD = {
+  headline: "The team debated pricing openly and kept it constructive.",
+  invitation: "Want to look at what made that work?",
+  opener:
+    "When pricing came up, the team put the disagreement on the table and kept talking.\n\n" +
+    '"Let\'s argue about the numbers and keep it about the numbers."\n\n' +
+    "That gives the team a way to settle hard calls together.\n\n" +
+    "What made it easy to disagree that openly?",
+};
 
 const COMPANY_NAME = "E2E Fixture Co";
 
@@ -648,6 +661,7 @@ async function main() {
   // worse than one that resets its own fixture, and this is the
   // reset.
   const GUIDE_FILE = "e2e-guide-debrief.txt";
+
   // Select-then-insert rather than upsert. PostgREST resolves
   // `onConflict` against a unique constraint it can see, and this
   // table's has moved once already; a seed that breaks on a
@@ -708,9 +722,12 @@ async function main() {
       file_name: GUIDE_FILE,
       content_hash: "e2e-guide-fixture",
       meeting_title: "E2E Leadership Meeting",
+      // One line Aimee's first message quotes, as a real one would.
+      // The debrief agent reads the ANALYSIS, never this.
       transcript_text:
-        "Fixture transcript. The debrief agent reads the ANALYSIS, " +
-        "never this, so its content is deliberately uninteresting.",
+        "E2E Company Admin: Let's argue about the numbers and keep it " +
+        "about the numbers.\n\nE2E Function Lead: Then I'll say it: " +
+        "the price is too low.",
       status: "complete",
     })
     .select("id")
@@ -738,8 +755,12 @@ async function main() {
       recipient_profile_id: memberId,
       trigger_kind: "meeting_analyzed",
       meeting_id: guideMeeting!.id,
-      headline:
-        "The team disagreed openly about pricing and nobody took it personally.",
+      // The card (0241), written the way the Guide writes one: a
+      // strength, an invitation, and a first message that adds the
+      // moment and a quote rather than repeating the card.
+      headline: GUIDE_CARD.headline,
+      invitation: GUIDE_CARD.invitation,
+      opener: GUIDE_CARD.opener,
     })
     .select("id")
     .single<{ id: string }>();
@@ -750,10 +771,14 @@ async function main() {
     company_id: companyId,
     kind: "guide-nudge",
     eyebrow: "Aimee",
-    title:
-      "The team disagreed openly about pricing and nobody took it personally.",
+    title: GUIDE_CARD.headline,
     href: `/guide/nudge/${guideNudge!.id}`,
-    payload: { nudge_id: guideNudge!.id, meeting_id: guideMeeting!.id },
+    payload: {
+      nudge_id: guideNudge!.id,
+      meeting_id: guideMeeting!.id,
+      meeting_label: meetingLabel("E2E Leadership Meeting", new Date().toISOString().slice(0, 10)),
+      invitation: GUIDE_CARD.invitation,
+    },
   });
   if (notifyError) throw notifyError;
   console.log(`  guide nudge → ${memberEmail}, about "E2E Leadership Meeting"`);
