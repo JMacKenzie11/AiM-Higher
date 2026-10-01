@@ -63,3 +63,15 @@ describe("stripEmDashes", () => {
     expect(stripEmDashes(real)).not.toMatch(/[—–]/);
   });
 });
+
+// ChatView runs this on the text streamed so far (2026-09-29), so it
+// has to hold for every prefix, not only for the finished reply.
+describe("while a reply streams", () => {
+  it("never shows a dash at any point", () => {
+    const reply = "**The pricing review** — it moved. Your team — Dana and Ray — set a date. Next — the owner.";
+    for (let i = 1; i <= reply.length; i += 1) {
+      expect(stripEmDashes(reply.slice(0, i)), reply.slice(0, i)).not.toMatch(/[—–]/);
+    }
+    expect(stripEmDashes(reply)).toBe("**The pricing review**: it moved. Your team, Dana and Ray, set a date. Next, the owner.");
+  });
+});

@@ -15,6 +15,13 @@
 //   no result    of those, how many found nothing
 //   to page      clicks on "Continue on the Aimee page"
 //
+// A second table, voice rules (0244): replies SHOWN with a banned
+// phrase still in them, per week. Checked turns (a debrief reply, a
+// generated opener) are sent back once and counted when the shown one
+// still breaks a rule; ordinary replies, page and panel, are never
+// retried and counted whenever one does. Against every Aimee reply
+// that week, and the rules most often broken. Rule names only.
+//
 // ---- THE NUMBERS TO WATCH ---------------------------------------
 //
 // `no result` against `help`: a high share is help that is missing,
@@ -43,6 +50,66 @@ export type PanelEvent = {
 };
 export type PanelConversation = { id: string; company_id: string; created_at: string };
 export type PanelMessage = { conversation_id: string; created_at: string };
+
+export type RuleBreak = {
+  surface: "debrief_reply" | "opener" | "conversation";
+  origin: "page" | "panel" | null;
+  rules: string[];
+  created_at: string;
+};
+
+export type RuleWeek = {
+  week: string;
+  replies: number;
+  debrief: number;
+  opener: number;
+  page: number;
+  panel: number;
+};
+
+export function ruleWeeks(breaks: readonly RuleBreak[], repliesByWeek: ReadonlyMap<string, number>): RuleWeek[] {
+  const weeks = new Map<string, RuleWeek>();
+  const week = (w: string) => {
+    let r = weeks.get(w);
+    if (!r) {
+      r = { week: w, replies: repliesByWeek.get(w) ?? 0, debrief: 0, opener: 0, page: 0, panel: 0 };
+      weeks.set(w, r);
+    }
+    return r;
+  };
+  for (const w of repliesByWeek.keys()) week(w);
+  for (const b of breaks) {
+    const r = week(weekOf(b.created_at));
+    if (b.surface === "debrief_reply") r.debrief += 1;
+    else if (b.surface === "opener") r.opener += 1;
+    else if (b.origin === "panel") r.panel += 1;
+    else r.page += 1;
+  }
+  return [...weeks.values()].sort((a, b) => b.week.localeCompare(a.week));
+}
+
+export function topRules(breaks: readonly RuleBreak[], n = 5): Array<[string, number]> {
+  const counts = new Map<string, number>();
+  for (const b of breaks) for (const rule of b.rules) counts.set(rule, (counts.get(rule) ?? 0) + 1);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n);
+}
+
+export function ruleLines(weeks: readonly RuleWeek[], breaks: readonly RuleBreak[]): string[] {
+  const lines = ["", "  Voice rules still broken when shown (0244)"];
+  if (weeks.length === 0) return [...lines, "  No Aimee replies in this window on this instance."];
+  const cols: Array<[string, keyof RuleWeek, number]> = [
+    ["replies", "replies", 9],
+    ["debrief", "debrief", 9],
+    ["opener", "opener", 8],
+    ["page", "page", 6],
+    ["panel", "panel", 7],
+  ];
+  lines.push(`  ${"week".padEnd(12)}${cols.map(([h, , w]) => h.padStart(w)).join("")}`);
+  for (const r of weeks) lines.push(`  ${r.week.padEnd(12)}${cols.map(([, k, w]) => String(r[k]).padStart(w)).join("")}`);
+  const top = topRules(breaks);
+  lines.push(top.length > 0 ? `  Most often: ${top.map(([rule, k]) => `${rule} (${k})`).join(", ")}` : "  None broken.");
+  return lines;
+}
 
 export type WeekRow = {
   week: string;
@@ -166,7 +233,31 @@ async function main() {
         ? await admin.from("companies").select("id, name").in("id", companyIds)
         : { data: [] as Array<{ id: string; name: string }> };
       const names = new Map(((companies ?? []) as Array<{ id: string; name: string }>).map((c) => [c.id, c.name]));
-      return reportLines(rows, names);
+
+      const { data: breaks, error: breakError } = await admin
+        .from("voice_rule_breaks")
+        .select("surface, origin, rules, created_at")
+        .gte("created_at", since);
+      // Loud, like the panel table: 0244 not applied on this instance.
+      if (breakError) throw new Error(breakError.message);
+      // Every Aimee reply per week, counted, never read.
+      const repliesByWeek = new Map<string, number>();
+      for (let w = 0; w < weeks; w += 1) {
+        const start = new Date(weekOf(new Date(Date.now() - w * 7 * 86400_000).toISOString()));
+        const end = new Date(start.getTime() + 7 * 86400_000);
+        const { count, error } = await admin
+          .from("coaching_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("role", "assistant")
+          .gte("created_at", start.toISOString())
+          .lt("created_at", end.toISOString());
+        if (error) throw new Error(error.message);
+        if ((count ?? 0) > 0) repliesByWeek.set(weekOf(start.toISOString()), count ?? 0);
+      }
+      return [
+        ...reportLines(rows, names),
+        ...ruleLines(ruleWeeks((breaks ?? []) as RuleBreak[], repliesByWeek), (breaks ?? []) as RuleBreak[]),
+      ];
     },
     line: (lines) => `\n${lines.join("\n")}`,
   });
