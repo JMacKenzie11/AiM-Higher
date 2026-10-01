@@ -116,7 +116,13 @@ test("no page scrolls sideways on a phone", async ({ page }) => {
   for (const path of PAGES) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(1200);
+    // Measure once layout has settled: web fonts loaded, then two
+    // frames, so anything the page did on load has been laid out. A
+    // fixed 1.2 seconds stood here before.
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
     const r = (await page.evaluate(OFFENDERS)) as Result;
     // Where it ACTUALLY landed. A gated route redirects, and counting
     // a redirect as coverage of the route asked for is how a page

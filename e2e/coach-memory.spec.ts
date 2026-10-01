@@ -80,11 +80,17 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
     expect(reply.replace(/thinking|…|\./gi, "").trim().length).toBeGreaterThan(40);
   }).toPass({ timeout: 180_000 });
 
-  // The turn is stored by the route after the stream closes.
-  await page.waitForTimeout(2500);
+  // And wait for it to have FINISHED. Forty characters arrive while the
+  // reply is still streaming, and a read then got half a sentence: "so
+  // it looks like it's been running", with the commitment it was about
+  // to recall still to come (final run 1, 2026-09-30). The composer is
+  // disabled while a reply streams and comes back when the stream ends
+  // (ChatView, setSending(false)), so that is the signal.
+  await expect(composer).toBeEnabled({ timeout: 180_000 });
 
-  // AND THE THREAD STILL HOLDS IT. 2500ms was a guess, and twice it
-  // was not enough: the thread re-rendered before the turn was
+  // AND THE THREAD STILL HOLDS IT. The turn is stored by the route
+  // after the stream closes. A fixed 2500ms pause used to stand here
+  // as a guess, and twice it was not enough: the thread re-rendered before the turn was
   // persisted, dropped the un-persisted assistant bubble, and the
   // next read got back only the question. The test then failed
   // reporting that the coach had not recalled anything, which is a
