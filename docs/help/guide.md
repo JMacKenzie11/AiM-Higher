@@ -10,13 +10,28 @@ Most of the time you go to Aimee. Sometimes Aimee comes to you.
 Your company has named one person to lead its implementation of AiMS.
 That person is the **AiMS champion**, and Aimee coaches them through
 it. If that is you, Aimee will get in touch from time to time with
+::: panel
+something worth your attention. A number appears on Aimee's icon in
+the bottom-right corner, and the note is waiting under **For you**
+when you open her panel.
+:::
+::: no-panel
 something worth your attention, as a note in your notification bar.
+:::
 
 ## What you get today
 
 After a leadership meeting is summarised, Aimee invites the champion
+::: panel
+to talk it through. Click **Talk it through** under the note and a
+chat about that specific meeting opens right there in the panel,
+beside whatever page you are on. **Open on the Aimee page** above the
+chat takes it to the full page if you want more room.
+:::
+::: no-panel
 to talk it through. Clicking the note opens a chat about that
 specific meeting.
+:::
 
 That is the first of these, not the whole of it. More will follow as
 the implementation goes on.
@@ -28,7 +43,9 @@ the only reason. Aimee is not watching how you work, scoring you, or
 picking people out.
 
 If you would rather somebody else led it, a company admin can change
-the seat on the company's settings page, and Aimee follows it.
+the seat on the company's settings page, and Aimee follows it. Any
+invitation still waiting for you goes with the seat: once it moves,
+you won't see it any more.
 
 ## What happens in the chat
 
@@ -92,8 +109,13 @@ else. If you want somebody to read it, you share it deliberately,
 the same way you would any other.
 
 The record Aimee keeps of the invitation itself holds the date, the
+::: panel
+meeting it was about, and the one line you saw under For you. None of the conversation goes into it.
+:::
+::: no-panel
 meeting it was about, and the one line you saw in your notification
 bar. None of the conversation goes into it.
+:::
 
 ## Being the champion does not change what you can see
 
@@ -103,8 +125,14 @@ and nothing new has been opened to you.
 
 ## If you do not want it
 
+::: panel
+Click **Not now** underneath the note in Aimee's panel. It goes away
+and nothing happens.
+:::
+::: no-panel
 Click **Not now** underneath the note. It goes away and nothing
 happens.
+:::
 
 Aimee will be in touch again after the next meeting. If you would
 rather not be, ask a company admin to take you out of the champion

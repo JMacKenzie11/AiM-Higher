@@ -127,11 +127,21 @@ narrowly scoped:
 - **Attribution shows up automatically.** When a chat has any
   sharees, user bubbles show the sender's name and avatar so
   it's clear who said what.
+::: panel
+- **Aimee tells you when someone shares a chat with you.** A
+  number appears on Aimee's icon in the bottom-right corner, and
+  the chat is listed under **For you** in her panel with the
+  owner's name. **Open the chat** opens it right there in the
+  panel and clears it from the list. A chat about a person opens
+  on that person's coaching page instead.
+:::
+::: no-panel
 - **You'll get a notification when someone shares a chat with
   you.** A new item appears in the top-right notification bell
   with the owner's name and a link straight into the thread.
   Clicking it marks it read; the badge count updates on the next
   page load.
+:::
 - **Practice thread rules don't change.** The Functional Chart
   Builder practice is admin-only to *start*, but once a chart
   builder thread exists, a company admin can share it with a
@@ -171,6 +181,10 @@ open her panel beside the page you are on. On a computer the page
 stays where it is and you can keep working in it; on a phone the
 panel fills the screen until you close it.
 
+- **For you**, when there is something: an invitation from Aimee to
+  talk a meeting through (if you are your company's AiMS champion),
+  or a chat someone shared with you. The number on her icon counts
+  them.
 - **A conversation with Aimee.** She greets you and offers a few
   questions about the page you are on; click one to ask it. Or ask
   how to do something in the app, or anything on your mind. The panel picks up your last

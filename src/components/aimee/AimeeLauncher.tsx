@@ -7,6 +7,7 @@ import { trackClient } from "@/lib/analytics/track-client";
 import { recordPanelEventAction } from "@/lib/aimee/panel-actions";
 import { AimeeIcon } from "./AimeeIcons";
 import { AimeePanelChat } from "./AimeePanelChat";
+import type { NotificationItem } from "@/lib/notifications/service";
 import styles from "./AimeeLauncher.module.css";
 
 // AIMEE'S ICON AND PANEL, replacing the "?" help button in the same
@@ -60,7 +61,10 @@ export function isAimeeShortcut(e: Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "
   return e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && e.key === ".";
 }
 
-export function AimeeLauncher() {
+// notifications: Aimee's own (invitations to debrief a meeting, and
+// shared chats), split from the bell's by the layout
+// (notifications/kinds.ts). Their count is the icon's badge.
+export function AimeeLauncher({ notifications = [] }: { notifications?: NotificationItem[] }) {
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const phone = usePhone();
@@ -106,7 +110,13 @@ export function AimeeLauncher() {
         type="button"
         className={open && phone ? `${styles.launcher} ${styles.launcherHidden}` : styles.launcher}
         data-testid="corner-launcher"
-        aria-label={open ? "Close Aimee" : "Aimee"}
+        aria-label={
+          open
+            ? "Close Aimee"
+            : notifications.length > 0
+              ? `Aimee, ${notifications.length} waiting for you`
+              : "Aimee"
+        }
         aria-expanded={open}
         aria-controls="aimee-panel"
         title="Aimee (Ctrl+.)"
@@ -119,6 +129,11 @@ export function AimeeLauncher() {
         }}
       >
         <AimeeIcon />
+        {notifications.length > 0 ? (
+          <span className={styles.badge} aria-hidden="true" data-testid="aimee-badge">
+            {notifications.length}
+          </span>
+        ) : null}
       </button>
       <Drawer
         open={open}
@@ -133,7 +148,7 @@ export function AimeeLauncher() {
         fill
       >
         <div id="aimee-panel" className={styles.body}>
-          <AimeePanelChat active={open} composerRef={composer} focusOnLoad={!phone} />
+          <AimeePanelChat active={open} notifications={notifications} composerRef={composer} focusOnLoad={!phone} />
         </div>
       </Drawer>
     </>

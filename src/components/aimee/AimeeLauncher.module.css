@@ -80,19 +80,125 @@
   flex-direction: column;
 }
 
+/* The bar above the conversation. When a debrief or a shared chat is
+   open, its label takes the whole first line and the buttons sit on
+   the right below it; in 400px there is no room for both on one line
+   (Jason, 2026-09-29: the label was squeezed to one word a line). */
 .chatBar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
 .newButton {
   composes: btnSecondary from "../ui/ui.module.css";
+  font: var(--text-body-sm);
+  padding: var(--space-1) var(--space-3);
 }
 
 .chatNote {
   margin: 0;
   padding: var(--space-4);
   color: var(--text-muted);
+}
+
+.chatBarLabel {
+  flex: 1 1 100%;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+.chatBarLabel:empty {
+  display: none;
+}
+
+.chatBarActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* "For you": Aimee's invitations and shared chats, moved from the
+   bell (Step 5). Above the conversation, and only when there is
+   something in it. */
+.forYou {
+  flex: 0 0 auto;
+  max-height: 35%;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-inset);
+}
+
+.forYouHeading {
+  margin: 0 0 var(--space-2);
+  font: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.forYouList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.forYouItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.forYouEyebrow {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.forYouTitle {
+  font: var(--text-body);
+  color: var(--text);
+}
+
+.forYouError {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.forYouActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.forYouOpen {
+  composes: btnSecondary from "../ui/ui.module.css";
+}
+
+.forYouNotNow {
+  composes: btnGhost from "../ui/ui.module.css";
+}
+
+/* The count of what is waiting in "For you", on the icon itself. */
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--aims-danger);
+  color: var(--aims-white);
+  font: 600 12px/20px var(--font-sans, sans-serif);
+  text-align: center;
+  pointer-events: none;
 }

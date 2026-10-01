@@ -1,4 +1,5 @@
 import "server-only";
+import { isAimsChampion } from "@/lib/guide/champion";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -219,7 +220,16 @@ export async function getHeaderNotifications({
     href: string;
     created_at: string;
   }>;
+  // AN INVITATION IS FOR WHOEVER HOLDS THE CHAMPION SEAT NOW
+  // (2026-09-29). Moving the seat does nothing to invitations already
+  // sent, so the previous champion kept one they could not open. Only
+  // the current champion sees them, in the badge and in "For you".
+  const holdsSeat = persisted.some((r) => r.kind === "guide-nudge")
+    ? await isAimsChampion(userId, companyId)
+    : true;
+
   for (const row of persisted) {
+    if (row.kind === "guide-nudge" && !holdsSeat) continue;
     items.push({
       id: row.id,
       kind: row.kind as NotificationKind,

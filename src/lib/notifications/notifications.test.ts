@@ -69,14 +69,20 @@ function adminFromBuilder(_table: string) {
 }
 
 // Server (auth-scoped) client — used by markNotificationReadAction.
-// Supports .update({read_at}).eq().eq().is() chain.
+// Supports .update({read_at}).eq().eq().not().is() chain.
 function serverFromBuilder(_table: string) {
   return {
     update(patch: Record<string, unknown>) {
       const updateApi = {
-        _f: [] as Array<{ col: string; val: unknown; is?: boolean }>,
+        _f: [] as Array<{ col: string; val: unknown; is?: boolean; notIn?: string[] }>,
         eq(col: string, val: unknown) {
           this._f.push({ col, val });
+          return this;
+        },
+        // .not(col, "in", "(a,b)"), the PostgREST list form.
+        not(col: string, op: string, list: string) {
+          if (op !== "in") throw new Error(`fake: .not(${op}) unsupported`);
+          this._f.push({ col, val: null, notIn: list.replace(/^\(|\)$/g, "").split(",") });
           return this;
         },
         is(col: string, val: unknown) {
@@ -87,6 +93,7 @@ function serverFromBuilder(_table: string) {
           for (const row of db.notifications) {
             const matches = updateApi._f.every((f) => {
               const cell = (row as Record<string, unknown>)[f.col];
+              if (f.notIn) return !f.notIn.includes(String(cell));
               return cell === f.val;
             });
             if (matches) Object.assign(row, patch);
@@ -273,7 +280,7 @@ describe("markAllNotificationsReadAction", () => {
     id,
     recipient_id: recipient,
     company_id: "co_acme",
-    kind: id === "nudge" ? "guide-nudge" : "chat_shared",
+    kind: id.startsWith("nudge") ? "guide-nudge" : id.startsWith("shared") ? "chat_shared" : "champion-empty",
     title: "x",
     href: "/",
     eyebrow: null,
@@ -283,9 +290,16 @@ describe("markAllNotificationsReadAction", () => {
     created_at: "t",
   });
 
-  it("marks every one of the caller's unread rows read, and nobody else's", async () => {
+  it("marks the caller's unread bell rows read, and nobody else's", async () => {
+    vi.stubEnv("AIMEE_PANEL_FOR_EVERYONE", "true");
     const earlier = "2026-01-01T00:00:00.000Z";
-    db.notifications.push(row("nudge", "me", null), row("shared", "me", null), row("old", "me", earlier), row("theirs", "other", null));
+    db.notifications.push(
+      row("seat", "me", null),
+      row("nudge", "me", null),
+      row("shared", "me", null),
+      row("old", "me", earlier),
+      row("theirs", "other", null)
+    );
     requireProfileMock.mockResolvedValue({ profile: { id: "me", role: "team_member", company_id: "co_acme" } });
 
     const { markAllNotificationsReadAction } = await import("./actions");
@@ -293,9 +307,27 @@ describe("markAllNotificationsReadAction", () => {
 
     expect(res.ok).toBe(true);
     const byId = Object.fromEntries(db.notifications.map((n) => [n.id, n.read_at]));
-    expect(byId.nudge).not.toBe(null);
-    expect(byId.shared).not.toBe(null);
+    expect(byId.seat).not.toBe(null);
     expect(byId.old).toBe(earlier);
     expect(byId.theirs).toBe(null);
+    // Aimee's kinds live on her icon (Step 5): clearing the bell does
+    // not empty her badge unseen.
+    expect(byId.nudge).toBe(null);
+    expect(byId.shared).toBe(null);
+    vi.unstubAllEnvs();
+  });
+
+  it("without Aimee's panel, clears her kinds too, because the bell holds them", async () => {
+    vi.stubEnv("AIMEE_PANEL_FOR_EVERYONE", "");
+    db.notifications.push(row("nudge2", "me", null), row("shared2", "me", null), row("seat2", "me", null));
+    requireProfileMock.mockResolvedValue({ profile: { id: "me", role: "team_member", company_id: "co_acme" } });
+
+    const { markAllNotificationsReadAction } = await import("./actions");
+    expect((await markAllNotificationsReadAction()).ok).toBe(true);
+    const byId = Object.fromEntries(db.notifications.map((n) => [n.id, n.read_at]));
+    expect(byId.nudge2).not.toBe(null);
+    expect(byId.shared2).not.toBe(null);
+    expect(byId.seat2).not.toBe(null);
+    vi.unstubAllEnvs();
   });
 });
