@@ -451,6 +451,25 @@ describe("setCompanyFeaturesAction", () => {
     ]);
   });
 
+  it("leaves a feature that is not on the form alone, so only the seed can set e2e_testing", async () => {
+    // The fixture companies carry e2e_testing, which the settings form
+    // never shows. Saving their features must not strip it.
+    mocks.featuresSelectEq.mockResolvedValueOnce({
+      data: [{ feature: "strengths" }, { feature: "classroom" }, { feature: "e2e_testing" }],
+    });
+    const { setCompanyFeaturesAction } = await import("./actions");
+    const res = await setCompanyFeaturesAction("co_1", ["strengths"]);
+    expect(res).toEqual({ ok: true });
+    expect(mocks.featuresDeleteIn).toHaveBeenCalledWith("feature", ["classroom"]);
+  });
+
+  it("cannot switch e2e_testing on from the form", async () => {
+    const { setCompanyFeaturesAction } = await import("./actions");
+    await setCompanyFeaturesAction("co_1", ["strengths", "e2e_testing"]);
+    const inserted = (mocks.featuresInsert.mock.calls[0]?.[0] ?? []) as Array<{ feature: string }>;
+    expect(inserted.map((r) => r.feature)).not.toContain("e2e_testing");
+  });
+
   it("makes no writes when the desired set matches the existing set", async () => {
     mocks.featuresSelectEq.mockResolvedValueOnce({
       data: [{ feature: "strengths" }, { feature: "classroom" }],

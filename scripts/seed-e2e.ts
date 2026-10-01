@@ -240,8 +240,59 @@ async function main() {
   }
   console.log(`  company "${COMPANY_NAME}" → ${companyId}`);
 
+  // ---- the second fixture company, and the fixtures' place ------
+  //
+  // The company-order test swaps two companies and puts them back. It
+  // swaps these two, so no real company is ever moved (docs/e2e.md).
+  // Both sit at the end of the list, next to each other: positions just
+  // past the highest any other company holds. No other company's row
+  // is read for anything but that number, and none is written.
+  const SECOND_COMPANY_NAME = `${COMPANY_NAME} 2`;
+  const { data: existingSecond } = await admin
+    .from("companies")
+    .select("id")
+    .eq("name", SECOND_COMPANY_NAME)
+    .maybeSingle<{ id: string }>();
+  let secondCompanyId = existingSecond?.id ?? null;
+  if (!secondCompanyId) {
+    const { data, error } = await admin
+      .from("companies")
+      .insert({ name: SECOND_COMPANY_NAME, timezone: COMPANY_TIMEZONE, industry: "Testing" })
+      .select("id")
+      .single<{ id: string }>();
+    if (error) throw error;
+    secondCompanyId = data.id;
+  }
+  const { data: others } = await admin
+    .from("companies")
+    .select("sort_order")
+    .not("id", "in", `(${companyId},${secondCompanyId})`)
+    .not("sort_order", "is", null)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  const last = ((others ?? []) as Array<{ sort_order: number }>)[0]?.sort_order ?? 0;
+  for (const [id, position] of [[companyId, last + 1], [secondCompanyId, last + 2]] as const) {
+    const { error } = await admin
+      .from("companies")
+      .update({ sort_order: position, status: "active", deleted_at: null })
+      .eq("id", id);
+    if (error) throw error;
+  }
+  console.log(`  company "${SECOND_COMPANY_NAME}" → ${secondCompanyId}; both fixtures last in the list (${last + 1}, ${last + 2})`);
+
   // ---- features -----------------------------------------------
-  const features = [...FEATURES];
+  //
+  // e2e_testing on both fixtures and nowhere else: it gates the
+  // test-only agent (src/lib/practices/test-agent.ts). No screen can
+  // switch it on; this is the only place it is set.
+  const features = [...FEATURES, "e2e_testing"];
+  const { error: secondFeaturesError } = await admin
+    .from("company_features")
+    .upsert(
+      ["execution", "e2e_testing"].map((feature) => ({ company_id: secondCompanyId, feature })),
+      { onConflict: "company_id,feature" }
+    );
+  if (secondFeaturesError) throw secondFeaturesError;
   const { error: featuresError } = await admin
     .from("company_features")
     .upsert(
@@ -354,6 +405,64 @@ async function main() {
   }
   console.log(`  function "${LED_FUNCTION}" → led by ${leadEmail}`);
 
+  // ---- a small chart, with measures ------------------------------
+  //
+  // So the chart and measures specs write into THIS company and never
+  // into a copy of a client's. They used to scope into Benson Seafood
+  // and Geo-Sci, and a failed run left its throwaway functions on
+  // Benson's chart for good (five on dev by 2026-09-29).
+  //
+  //   Visionary            top level; the move spec's target parent
+  //     E2E Operations     two measures
+  //     E2E Sales          two measures
+  //
+  // Matched by title, so a rerun updates in place. Measure order is
+  // reset on every run, so a reorder spec that died halfway does not
+  // leave the next run starting from its half-moved state.
+  async function ensureFunction(title: string, parentId: string | null, sortOrder: number): Promise<string> {
+    const { data: found } = await admin
+      .from("functions")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("title", title)
+      .maybeSingle<{ id: string }>();
+    if (found?.id) {
+      const { error } = await admin
+        .from("functions")
+        .update({ parent_function_id: parentId, sort_order: sortOrder, archived: false })
+        .eq("id", found.id);
+      if (error) throw error;
+      return found.id;
+    }
+    const { data, error } = await admin
+      .from("functions")
+      .insert({ company_id: companyId, title, parent_function_id: parentId, sort_order: sortOrder })
+      .select("id")
+      .single<{ id: string }>();
+    if (error || !data) throw error ?? new Error(`could not create ${title}`);
+    return data.id;
+  }
+  async function ensureMeasures(functionId: string, descriptions: string[]): Promise<void> {
+    for (const [i, description] of descriptions.entries()) {
+      const { data: found } = await admin
+        .from("success_measures")
+        .select("id")
+        .eq("function_id", functionId)
+        .eq("description", description)
+        .maybeSingle<{ id: string }>();
+      const { error } = found?.id
+        ? await admin.from("success_measures").update({ sort_order: i + 1, archived: false }).eq("id", found.id)
+        : await admin.from("success_measures").insert({ function_id: functionId, description, sort_order: i + 1 });
+      if (error) throw error;
+    }
+  }
+  const visionaryId = await ensureFunction("Visionary", null, 100);
+  const operationsId = await ensureFunction("E2E Operations", visionaryId, 110);
+  const salesId = await ensureFunction("E2E Sales", visionaryId, 120);
+  await ensureMeasures(operationsId, ["E2E jobs dispatched on time (%)", "E2E jobs closed per week"]);
+  await ensureMeasures(salesId, ["E2E quotes sent per week", "E2E quotes won (%)"]);
+  console.log(`  chart → Visionary, E2E Operations, E2E Sales, with two measures each`);
+
   // ---- guide assignment ---------------------------------------
   const { error: assignmentError } = await admin
     .from("guide_assignments")
@@ -363,6 +472,39 @@ async function main() {
     );
   if (assignmentError) throw assignmentError;
   console.log(`  guide assignment → ${adminEmail} covers "${COMPANY_NAME}"`);
+
+  // ---- the test-only agent, reset to its code default ------------
+  //
+  // The agent-version specs publish versions of this agent and nothing
+  // else (src/lib/practices/test-agent.ts). Its row carries the
+  // e2e_testing feature so it appears only inside the fixtures, and
+  // both version pointers go back to null before every run, so a run
+  // that was stopped halfway never leaves the next one a live test
+  // version or a stranded draft. Old versions stay; they are history.
+  {
+    const TEST_AGENT_SLUG = "e2e-version-test";
+    const { data: category } = await admin
+      .from("agent_categories")
+      .select("id")
+      .eq("slug", "facilitation")
+      .single<{ id: string }>();
+    const { error } = await admin.from("agents").upsert(
+      {
+        slug: TEST_AGENT_SLUG,
+        category_id: category?.id,
+        title: "E2E version test agent",
+        description: "Used by the browser tests. Shown only inside the E2E fixture companies.",
+        allowed_roles: [],
+        feature: "e2e_testing",
+        archived: false,
+        live_version_id: null,
+        draft_version_id: null,
+      },
+      { onConflict: "slug" }
+    );
+    if (error) throw error;
+    console.log(`  agent "${TEST_AGENT_SLUG}" → code default, fixtures only`);
+  }
 
   // ---- Clear what the specs LEAVE BEHIND -------------------------
   //
@@ -397,6 +539,17 @@ async function main() {
   console.log(
     `  cleared ${(cleared ?? []).length} coaching conversation(s) left by earlier test runs`
   );
+
+  // The chart specs' throwaway functions, when a run failed before
+  // deleting its own. Fixture company only, and only these prefixes.
+  const { data: clearedFns, error: fnClearError } = await admin
+    .from("functions")
+    .delete()
+    .eq("company_id", companyId)
+    .or("title.like.E2E add %,title.like.E2E move %")
+    .select("id");
+  if (fnClearError) throw fnClearError;
+  console.log(`  cleared ${(clearedFns ?? []).length} chart function(s) left by earlier test runs`);
 
   // ---- a Foundation, so the summariser has values to notice ----
   //
@@ -575,15 +728,19 @@ async function main() {
   if (notifyError) throw notifyError;
   console.log(`  guide nudge → ${memberEmail}, about "E2E Leadership Meeting"`);
 
-  // The seat starts EMPTY on every seed. The spec fills it, reads
-  // what changed, and empties it again; starting from empty means a
-  // spec that died mid-way does not leave the next run asserting
-  // against a seat somebody else set.
+  // The invitation above goes to the member, so the member holds the
+  // champion seat, on every seed. It used to start EMPTY, which sent
+  // the invitation to somebody who was not the champion: on dev the
+  // member saw an invitation they could not open (2026-09-29), and an
+  // invitation now shows only to whoever holds the seat. Setting it
+  // here also means a champion spec that died mid-way does not leave
+  // the next run asserting against a seat somebody else set.
   const { error: seatError } = await admin
     .from("companies")
-    .update({ aims_champion_profile_id: null })
+    .update({ aims_champion_profile_id: memberId })
     .eq("id", companyId);
   if (seatError) throw seatError;
+  console.log(`  champion seat → ${memberEmail}, who holds the invitation`);
 
   // ---- the clone is an authoring instance --------------------
   //

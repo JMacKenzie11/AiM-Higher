@@ -48,7 +48,14 @@ export type ModuleFeature =
   // in the Function's outcomes / measures / decision rights /
   // competency indicators, then renders a publishable role
   // description with draft + version history.
-  | "role_descriptions";
+  | "role_descriptions"
+  // THE BROWSER TESTS' OWN FEATURE (2026-09-29). Switched on by
+  // seed:e2e for the two E2E fixture companies and nowhere else. It
+  // gates the test-only agent (lib/practices/test-agent.ts), so no real
+  // company's people ever see it. Deliberately NOT in the settings
+  // catalogue (lib/companies/features.ts): no screen can switch it on,
+  // and saving a company's features leaves it alone.
+  | "e2e_testing";
 
 // Entitlements read through a client the CALLER supplies.
 //

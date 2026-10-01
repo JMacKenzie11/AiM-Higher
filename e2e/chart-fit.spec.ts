@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // The org chart canvas is the size of the chart in it.
@@ -10,13 +10,19 @@ import type { Page } from "@playwright/test";
 //
 // The frame now takes its height from the tree it just fitted. What
 // is asserted here is the RELATIONSHIP — frame ≈ drawn chart + its
-// padding — rather than any particular number, because the numbers
-// are properties of whatever Benson's chart looks like this week.
+// padding, never below the 200px floor — rather than any particular
+// number. It runs on the fixture company's seeded chart (seed:e2e),
+// not a client's: it used to measure Benson's copy, which by
+// 2026-09-29 carried five functions failed test runs had left on it
+// and was fitted to a phone at 0.107 scale.
 //
 // Desktop is asserted too, and asserted to be UNCHANGED. On a wide
 // screen the tree is tall enough to fill the frame, so the height was
 // binding before and still is; this test is what says so if the fit
 // maths is touched again.
+
+// PanZoomTree's MIN_HEIGHT: the canvas never gets shorter than this.
+const MIN_FRAME = 200;
 
 const SIZES = [
   { width: 393, height: 852, label: "phone" },
@@ -56,7 +62,7 @@ async function scopeIn(page: Page) {
   await page.goto("/admin/companies");
   await page
     .getByTestId("scope-into-company")
-    .filter({ hasText: /^Benson Seafood$/ })
+    .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
     .click();
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
 }
@@ -88,11 +94,14 @@ test("the chart canvas is the size of the chart in it", async ({ page }) => {
     // padding is 12 a side on a phone and 32 on a desktop, so this
     // fails long before anyone would call it "drowning in the card"
     // and does not fail on a deep chart that legitimately fills the
-    // frame.
+    // frame. A chart shorter than the canvas's 200px floor
+    // (PanZoomTree MIN_HEIGHT) is allowed the space up to it: that
+    // space is the floor, chosen, not the fit going wrong.
+    const allowed = Math.max(96, MIN_FRAME - m.drawnH);
     expect(
       m.deadV,
       `${size.label}: ${m.deadV}px of empty canvas under the chart`
-    ).toBeLessThanOrEqual(96);
+    ).toBeLessThanOrEqual(allowed);
 
     // The canvas never drives the page sideways.
     expect(m.docW, `${size.label} scrolls sideways`).toBeLessThanOrEqual(m.vw);

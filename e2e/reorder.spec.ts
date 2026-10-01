@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Drag-to-reorder, on the two lists that have it.
@@ -123,7 +123,12 @@ test.describe("drag to reorder", () => {
   }) => {
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
-    await page.getByTestId("scope-into-company").first().click();
+    // The fixture company, never a copy of a client's. `.first()` was
+    // whichever company sorted first, which was a client's.
+    await page
+      .getByTestId("scope-into-company")
+      .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
+      .click();
     await expect(page).toHaveURL(/\/dashboard$/, { timeout: 30_000 });
     await page.goto("/issues");
 
@@ -206,43 +211,58 @@ test.describe("drag to reorder", () => {
   test("companies can be reordered, and the order is the instance's", async ({
     page,
   }) => {
+    // THE TWO FIXTURE COMPANIES, never a real one (docs/e2e.md). This
+    // used to move whichever company was first, a client's. seed:e2e
+    // puts E2E Fixture Co and E2E Fixture Co 2 next to each other at
+    // the end of the list; this swaps them, checks no other company's
+    // place changed, and swaps them back whatever happens.
+    const FIX_1 = FIXTURE_COMPANY_NAME;
+    const FIX_2 = `${FIXTURE_COMPANY_NAME} 2`;
+    const others = (order: string[]) => order.filter((n) => n !== FIX_1 && n !== FIX_2);
+
     await signIn(page, users.admin());
     await page.goto("/admin/companies");
 
     const before = await companyOrder(page);
-    test.skip(
-      before.length < 2,
-      "Reordering needs more than one company, and the handle is not rendered for one.",
-    );
-    const moved = before[0];
+    expect(before, "seed:e2e has not made E2E Fixture Co 2").toContain(FIX_2);
+    expect(
+      before.indexOf(FIX_2) - before.indexOf(FIX_1),
+      "the two fixtures must sit next to each other (seed:e2e)"
+    ).toBe(1);
 
-    await keyboardDrag(page, new RegExp(`reorder ${escapeRe(moved)}`, "i"));
+    try {
+      // A normal drag: the second fixture up one place.
+      await keyboardDragUp(page, new RegExp(`reorder ${escapeRe(FIX_2)}`, "i"));
+      await expect
+        .poll(async () => {
+          const now = await companyOrder(page);
+          return now.indexOf(FIX_2) === before.indexOf(FIX_1) && now.indexOf(FIX_1) === before.indexOf(FIX_2);
+        }, { timeout: 15_000 })
+        .toBe(true);
 
-    await expect
-      .poll(async () => (await companyOrder(page)).indexOf(moved), {
-        timeout: 15_000,
-      })
-      .toBe(1);
-
-    // Persisted, not just reordered in this tab. sort_order is a
-    // column on the company row (0203), so a reload is the test.
-    await settle(page);
-    await page.reload();
-    await expect
-      .poll(async () => (await companyOrder(page)).indexOf(moved), {
-        timeout: 30_000,
-      })
-      .toBe(1);
-
-    // PUT IT BACK. This is a shared clone and these are real company
-    // rows; a test that leaves the portfolio in a different order has
-    // changed something it did not own.
-    await keyboardDragUp(page, new RegExp(`reorder ${escapeRe(moved)}`, "i"));
-    await settle(page);
-    await page.reload();
-    await expect
-      .poll(async () => await companyOrder(page), { timeout: 30_000 })
-      .toEqual(before);
+      // Persisted, not just reordered in this tab: sort_order is a
+      // column on the company row (0203), so a reload is the test.
+      await settle(page);
+      await page.reload();
+      const after = await companyOrder(page);
+      expect(after.indexOf(FIX_2), "the new order was not saved").toBe(before.indexOf(FIX_1));
+      expect(after.indexOf(FIX_1), "the new order was not saved").toBe(before.indexOf(FIX_2));
+      // And no other company moved.
+      expect(others(after), "another company's place changed").toEqual(others(before));
+    } finally {
+      // PUT IT BACK, even when the test failed: drag the second fixture
+      // down again if it is still above the first.
+      await page.goto("/admin/companies");
+      const now = await companyOrder(page);
+      if (now.indexOf(FIX_2) < now.indexOf(FIX_1)) {
+        await keyboardDrag(page, new RegExp(`reorder ${escapeRe(FIX_2)}`, "i"));
+        await settle(page);
+        await page.reload();
+      }
+      await expect
+        .poll(async () => await companyOrder(page), { timeout: 30_000 })
+        .toEqual(before);
+    }
   });
 });
 

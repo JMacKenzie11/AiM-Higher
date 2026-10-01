@@ -115,6 +115,50 @@ and a test user with a known password in the production auth table is
 not a test user, it is a back door. The dev clone and production are
 one typo apart, so the script checks rather than trusts.
 
+## Specs write only into E2E Fixture Co
+
+**The rule: tests never change or move anything belonging to a real
+company or a real agent.** Not a row, not a name, not a place in a
+list, not a published version, not even for a moment and put back
+after. What a spec creates, it creates in the fixtures, and it removes
+what it created even when it fails.
+
+The dev clone holds copies of client companies. A spec may READ them
+(Benson Seafood's real plan is the long-title case the phone specs
+need), but anything a spec creates, renames, reorders or deletes goes
+in **E2E Fixture Co**, the company `seed:e2e` builds.
+
+This used to be looser. The chart specs created and deleted functions
+on Benson's chart, and a run that failed before its delete left the
+function there for good: five of them by 2026-09-29, enough to make
+Benson's chart unreadable on a phone and to fail `chart-fit`. The
+measures reorder ran on Geo-Sci, and the issue reorder on whichever
+company sorted first. All three now scope into the fixture, which the
+seed gives a small chart (Visionary, E2E Operations, E2E Sales) and two
+measures per area, and whose leftover "E2E add" and "E2E move"
+functions the seed clears.
+
+What the fixtures give the specs to change, instead of real data:
+
+- **E2E Fixture Co 2**, next to E2E Fixture Co at the end of the
+  company list. The company-order test swaps these two and checks that
+  no other company's place changed.
+- **The test-only agent** (`e2e-version-test`), which only the two
+  fixtures can see, through the `e2e_testing` feature the seed sets.
+  The agent-version and Agent Hub specs publish, rename and re-scope it
+  and nothing else. The seed resets it to its code default before every
+  run, so a run stopped halfway never leaves the next one a live test
+  version or a stranded draft.
+- The portfolio spec removes the company it creates, the app's way
+  (archive, then delete), even when it fails.
+
+Scope with the name, never with `.first()`:
+
+```ts
+.getByTestId("scope-into-company")
+.filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
+```
+
 ## Selectors
 
 Roles, labels and `data-testid`. **Never copy text.** The wording of
@@ -363,8 +407,9 @@ user role can create one and neither can a browser test.
 
 So that file needs a fresh `npm run seed:e2e` before each full run.
 The seed rebuilds the meeting, the analysis, the nudge and its
-notification from scratch, and empties the champion seat, which is
-also the state the spec expects to start from.
+notification from scratch, and puts the fixture member in the champion
+seat, since the invitation is theirs. An invitation shows only to
+whoever holds the seat, so an empty seat would hide it.
 
 Every other spec in the suite restores what it changed and does not
 need this.

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { TEST_ONLY_FEATURE } from "./test-agent";
 import { requireRole } from "@/lib/auth/current-user";
 import { refuseIfNotAuthoringInstance } from "@/lib/instances/primary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -206,10 +207,6 @@ export async function updateAgentAccessAction(
       return { ok: false, message: "That isn't a role this system has." };
     }
   }
-  if (fields.feature && !VALID_COMPANY_FEATURES.has(fields.feature)) {
-    return { ok: false, message: "That isn't a feature this system has." };
-  }
-
   const supabase = await db();
 
   // Read before write, because this drawer models ONE predicate and
@@ -217,9 +214,19 @@ export async function updateAgentAccessAction(
   // would revoke them silently — see mergeAccessPredicates.
   const { data: current } = await supabase
     .from("agents")
-    .select("access_predicates")
+    .select("access_predicates, feature")
     .eq("id", id)
-    .maybeSingle<{ access_predicates: string[] | null }>();
+    .maybeSingle<{ access_predicates: string[] | null; feature: string | null }>();
+
+  // THE TEST-ONLY FEATURE (lib/practices/test-agent.ts). The test agent
+  // keeps it through any save, whatever the drawer sends, so its
+  // access can never be widened to every company by a save; and no
+  // other agent can be given it.
+  const keepsTestFeature = current?.feature === TEST_ONLY_FEATURE;
+  if (keepsTestFeature) fields = { ...fields, feature: TEST_ONLY_FEATURE };
+  else if (fields.feature && !VALID_COMPANY_FEATURES.has(fields.feature)) {
+    return { ok: false, message: "That isn't a feature this system has." };
+  }
 
   const { error } = await supabase
     .from("agents")
