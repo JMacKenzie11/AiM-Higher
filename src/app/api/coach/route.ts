@@ -335,8 +335,16 @@ export async function POST(req: NextRequest): Promise<Response> {
     // so a practice declaring a tool the coach also has cannot send
     // Anthropic two definitions with one name — which is an API
     // error, not a precedence question.
+    //
+    // FROM THE PINNED CONFIG, not the code registry. The conversation
+    // runs the agent version it was pinned to (resolveRuntimeConfig):
+    // its prompt, model and token ceiling already came from there, and
+    // its tools have to as well. Reading the registry's list meant a
+    // tool change published in the Agent Hub never reached a
+    // conversation, and an agent that exists only in the Hub got no
+    // tools at all (investigation, 2026-09-28).
     ...resolvePracticeTools(
-      practice?.tools,
+      agentConfig?.tools,
       convo.company_id,
       convo.revising_role_id ?? null,
       convo.debriefing_meeting_id ?? null
