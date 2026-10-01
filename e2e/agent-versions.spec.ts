@@ -142,11 +142,31 @@ async function publishChip(page: Page, slug: string, marker: string) {
   await d.getByRole("button", { name: /review and publish/i }).click();
   await expect(d.getByTestId("agent-config-diff")).toBeVisible();
   await d.getByLabel(/^publish notes$/i).fill(`e2e: chips to ${marker}`);
-  await d.getByTestId("agent-config-publish").click();
 
-  await expect(
-    panel(page, "agent-config").getByTestId("agent-config-source")
-  ).toContainText(/running version/i, { timeout: 20_000 });
+  // Wait for THIS publish to land, then for the drawer to show it.
+  //
+  // "Running version" alone is already true when an earlier version is
+  // live, so it passed the instant the button was clicked, the test
+  // pressed Escape and navigated, and that cancelled the publish: the
+  // new version never went live and its chip never appeared (final
+  // runs, 2026-09-30: the publish request ended with status -1). The
+  // button saves the draft and then publishes it, and only the publish
+  // carries the notes, so the publish is the request with this note.
+  // Then the source line must change from what it said before.
+  const source = panel(page, "agent-config").getByTestId("agent-config-source");
+  const sourceBefore = (await source.textContent()) ?? "";
+  const published = page.waitForResponse(
+    (r) =>
+      r.request().method() === "POST" &&
+      r.request().headers()["next-action"] !== undefined &&
+      (r.request().postData() ?? "").includes(`e2e: chips to ${marker}`),
+    { timeout: 30_000 }
+  );
+  await d.getByTestId("agent-config-publish").click();
+  expect((await published).ok(), "the publish failed").toBe(true);
+
+  await expect(source).toContainText(/running version/i, { timeout: 20_000 });
+  await expect(source).not.toHaveText(sourceBefore, { timeout: 20_000 });
   await page.keyboard.press("Escape");
 }
 
