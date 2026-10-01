@@ -4,62 +4,29 @@ title: Strengths
 
 # Strengths
 
-The AiMS strengths assessment: a short set of questions that produces
-a personal profile of how your energy is configured. Not a grading
-exercise — a signal about where your best work already lives.
+The AiMS strengths assessment: a short set of questions that gives you a personal profile of where your energy is. It shows where your best work already lives.
 
 ## What you can do here
 
-::: role team_member
-As a team member, you can:
-
-- **Take the assessment** — start at `/strengths/welcome`. About
-  ten to twelve minutes. Your results land at `/strengths/results`.
-- **Read your results** — the summary explains the shape of your
-  profile in AiMS language. Low scores aren't weaknesses; they're
-  signals about where energy is better spent elsewhere.
-- **Coach on your results** — the summary opens a coaching
-  conversation grounded in the profile.
-:::
+- **Take the assessment.** Start from *My Strengths assessment*. It takes about ten to twelve minutes.
+- **Read your results.** The summary explains the shape of your profile in AiMS language.
+- **Talk your results through with your coach.** The results page has *Start a conversation*, which opens a coaching conversation about your profile.
 
 ::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can also:
-
-- **Build a team for a mission** — `/strengths/teams` composes
-  people around a mission type and shows how energy configures
-  for it. Not a ranking — the final call is yours.
-- **Get a team recommendation** — `/strengths/teams/recommend`
-  suggests a team shape for a mission you describe.
+- **Build a team for a mission.** On *Strengths teams*, click *Create a team*, name it and pick a mission type. Then add people and see how the team's energy lines up for that mission. The final call is yours.
+- **Get a team recommendation.** Describe a mission and get a suggested team shape.
 :::
 
 ## How to take the assessment
 
-1. Open `/strengths/welcome`.
-2. Rate the statements, choose between paired options, and answer
-   the free-text questions. Some you'll agree with strongly,
-   others you won't — both are useful signal.
-3. Finish. Results generate in the background and land at
-   `/strengths/results`.
-
-## How to build a team (admins and guides)
-
-1. Open `/strengths/teams`.
-2. Click *Create a team*, name it, and pick a mission type.
-3. Compose members from the roster; the view shows how the
-   team's energy configures for the mission.
+1. Open *My Strengths assessment* and click *Start the assessment*.
+2. Rate the statements, choose between paired options, and answer the written questions. Agreeing strongly and disagreeing are both useful.
+3. Finish. Your results appear on your results page once they're ready.
 
 ## Common questions
 
-**Is a low score bad?** No. It's a signal about where your energy
-is better spent elsewhere. The whole picture matters, not any
-single answer.
+**Is a low score bad?** No. A low score shows where your energy is better spent elsewhere. The whole picture matters more than any single answer.
 
-**Can I retake the assessment?** The welcome page bounces you
-straight to your results if there's a completed run on file, and
-to *continue* if one's in progress. Contact a system admin if you
-need a fresh run.
+**Can I take it again?** Once you've finished, the assessment page takes you straight to your results. If you stopped partway, it takes you back to where you left off. You can't restart it yourself. If you need a fresh start, ask AiMS.
 
-**Who sees my results?** Your results are visible to you and to
-admins on your company (the team view uses the same underlying
-profile). Your coaching conversation about your results is private
-to you.
+**Who sees my results?** You and your company's admins. Your coaching conversation about your results is private to you.

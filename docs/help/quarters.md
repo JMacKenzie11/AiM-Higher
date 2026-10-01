@@ -4,58 +4,38 @@ title: Quarters
 
 # Quarters
 
-Every quarter for this company: a label (e.g. "Q1 2026"), start
-and end dates, and a status. *Open* means Plan and Dashboard read
-from it; *closed* means it's history. One quarter can be open at
-a time per company.
-
-## What you can do here
+Every quarter for your company, with its label (for example "Q1 2026"), its start and end dates, and whether it's open or closed. The open quarter is the one Goals & Priorities and the Dashboard show. A closed quarter is history.
 
 ::: role team_member
-As a team member, you can:
+## What you can do here
 
-- **See the full quarter history** in the *All quarters* table —
-  read-only.
+- **See every quarter** in the *All quarters* table.
 :::
 
 ::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can also:
+## What you can do here
 
-- **Open the next quarter** — the *Open next quarter* card
-  suggests a label and dates rolled forward from the latest
-  quarter on file. Only enabled when no quarter is currently
-  open (close the current one first).
-- **Close the current quarter** — from the row actions in the
-  *All quarters* table. Closing frees up the slot so you can
-  open the next one.
-- **Reopen a closed quarter** — rare, but allowed for correcting
-  end-of-quarter data.
-:::
+- **Open the next quarter.** The *Open next quarter* card suggests a label and dates following on from the latest quarter. It's only available when no quarter is open.
+- **Close the open quarter** with *Close* on its row in *All quarters*. You'll be asked to confirm.
+- **Reopen a closed quarter** with *Reopen* on its row, for example to correct end-of-quarter numbers.
 
 ## How to open the next quarter
 
-1. If a quarter is currently open, close it first (row action in
-   the table).
-2. In *Open next quarter*, review the suggested label and dates.
-   Change them if your company's cadence doesn't follow the
-   calendar quarter.
-3. Save. The new quarter becomes the open quarter and the
-   Dashboard + Plan flip to read from it.
+1. If a quarter is open, close it first.
+2. In *Open next quarter*, check the suggested label and dates. Change them if your company doesn't follow calendar quarters.
+3. Save. The new quarter is now the open one, and Goals & Priorities and the Dashboard show it.
+:::
+
+::: role portfolio_admin
+## What you can do here
+
+See every quarter in the *All quarters* table. Changes are made by the company's own people.
+:::
 
 ## Common questions
 
-**Do Priorities carry forward when a quarter closes?** Yes — the
-priority record persists with owner and title intact. Follow the
-Goals & Priorities page's cascade if you want to keep it, or archive it if
-it's done.
+**What happens to a quarter when it's closed?** It's frozen. Its actions and commitments stay visible in history, but it no longer appears in the current quarter picker.
 
-**Do resolved commitments keep their historical link when I
-close?** Yes. Resolved commitments keep the priority link they
-had at resolve time so past-quarter progress history stays
-correct. Open commitments become Operational (unlinked) on a
-planning-cycle reset.
+**Why can only one quarter be open?** Goals & Priorities, the Dashboard and your follow-through numbers all read from the open quarter. Two at once would make them unclear.
 
-**Why can't I have two quarters open at once?** Metrics,
-Dashboard, and Plan all read from *the* open quarter. Overlapping
-would make follow-through, on-track counts, and progress
-ambiguous.
+**Does a finished commitment keep its priority?** Yes. A commitment that's been closed out keeps the priority it had, so past progress stays correct.

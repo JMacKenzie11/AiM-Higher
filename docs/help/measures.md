@@ -4,396 +4,137 @@ title: Critical Success Factors
 
 # Critical Success Factors
 
-One list per function.
+The numbers each function is held to, week by week, in one table grouped by function. Each critical success factor has a name, an optional target, and a number someone puts in each week.
 
-A **Critical Success Factor** is something a function is held to, week
-by week. "Total factored pipeline." "Zero lost time incidents."
-"Percentage of reports accepted first submission." It has a name, a
-target, and a number you put in each week.
+For example: "Zero lost time incidents" or "Percentage of reports accepted first submission".
 
-There used to be a second level underneath, called a KPI. It is gone.
-We never worked with anyone at both levels, and in practice one
-company's critical success factors were measurable weekly items while
-another's were aspirations with the measurable part filed beneath
-them. One level, one column of targets, one row per thing you track.
+::: role team_member
+## What you can do here
 
-Everything is grouped by function, because a function head owns the
-numbers their function is held to.
+- **Read every function.** Everyone at your company can see every function's numbers.
+- **Log your function's numbers.** If you lead a function, you get an input box on its rows. Type this week's value and click **Save** above the table.
+- **Run your own function's list.** As a function's lead you can also add a critical success factor, change a target, edit its settings and archive rows you've outgrown. On other functions you see the numbers but no boxes or edit controls.
+- **Reorder your function's rows.** Drag a row by its handle.
+- **Connect a measure to a spreadsheet**, for a function you lead, when your company has External Measures turned on.
 
-## What is on the page
+If you don't lead a function, the page is read only for you.
+:::
 
-**One table, laid out like the spreadsheet.** Functional Area, Owner,
-Critical Success Factor, Frequency, Target, then one column per week.
-Functional Area and Owner are written once per function and span its
-rows.
+::: role company_admin,aims_guide,system_admin
+## What you can do here
 
-**Weeks are named by the day they start.** A column headed *14* is
-the week beginning Monday 14 September. A week belongs to the month
-it starts in, so the week beginning Monday 28 September sits under
-September even though it runs into October. Monthly measures follow
-the same rule: September's number is due in the week beginning 28
-September, because that is September's last week.
+Everything a function's lead can do, on every function:
 
-**It opens on this week.** A rolling twelve months of weeks are
-available; the current month is open and scrolled into view, with the
-earlier ones collapsed to a single column each and pushed off to the
-left. Click a
-month to open it, and click it again to fold it away. This week's
-column is tinted, because it is the only one that takes a value.
+- **Log a value for anyone**, in any week on the page, not just the two open ones. Correcting an old number is something you just do.
+- **Add, edit and archive** critical success factors in any functional area.
+- **Reorder rows** within a functional area, and **reorder whole functional areas** by dragging the handle beside the area's name.
+- **Connect any measure to a spreadsheet**, when your company has External Measures turned on.
+:::
 
-A collapsed month shows its name and nothing else. Any summary it
-could show, the last week or an average, would be a number nobody
-entered sitting in a row of numbers people did.
+::: role portfolio_admin
+## What you can do here
 
-**An admin can edit any week on the page.** Company admins, system
-admins and guides get an input on every column, not just the open
-ones, so correcting an old number is something you do rather than
-something you ask for. The tinting still marks the two weeks everyone
-is working to.
+Read every function's critical success factors, targets and weekly numbers. Changes are made by the company's own people.
+:::
 
-**Show on Company Dashboard** decides whether a critical success
-factor gets a chart on the Dashboard. It is on by default, so nothing
-disappears from the Dashboard until you turn it off. The table here
-always shows everything; the Dashboard is the glance, so turn it off
-for the measures that do not belong on the page people open first.
+## Reading the table
 
-**A function only appears on the Dashboard if something under it is
-switched on.** Turn off every measure in a function and the whole
-card goes, rather than staying as an empty box with the function's
-name on it.
+It's laid out like a spreadsheet: Functional Area, Owner, Critical Success Factor, Frequency, Target, then one column per week. Functional Area and Owner are written once per function.
 
-A measure with no target still gets a chart. There is simply no
-target line drawn across it.
+**Weeks are named by the day they start.** A column headed *14* is the week beginning Monday 14 September. A week belongs to the month it starts in, so the week beginning Monday 28 September sits under September even though it runs into October.
 
-**A monthly measure gets one box for the whole month.** It stretches
-across that month's columns, and you can put the number in whenever
-you have it rather than waiting for month end. There is only one box,
-so there is no way to end up with two different numbers for a month.
+**It opens on this week.** You can reach a rolling twelve months. The current month is open, and earlier months are folded to one column each. Click a month to open it, and click again to fold it. A folded month shows only its name.
 
-**Two weeks take a value: this one and the one that just closed.**
-A week stays open until the end of the following week, so a number
-you were asked for on Tuesday can still be entered any time up to
-the next Friday. That is exactly the window the reminder gives you.
+**Two weeks take a value: this one and the one that just closed.** Both are tinted. A week stays open until the end of the following week, so a number asked for on Tuesday can go in any time up to the next Friday. After that it locks and is there to read.
 
-Once the next Saturday comes round, the older week locks and is there
-to read, for everyone except an admin.
+**The count beside Save** only counts your own rows, for the week that just closed, since that's the one with a deadline. For example: *"2 of 6 still to log for the week beginning 31 Aug."* If you have nothing to log, it says nothing.
 
-The count above the table chases **the week that just closed**, since
-that is the one with a deadline. The current week is there to fill in
-as you go and is not late yet.
+**The scrollbar sits above the table** and moves only the week columns. Drag it, click the track to jump, or use the arrows at either end to move about a month at a time.
 
-**The scrollbar sits above the table**, starting where the week
-columns do. It moves only the weeks, which is the only part that
-scrolls, and it is at the top so you do not have to reach the bottom
-of a long list to use it. Drag it, click the track to jump, or use
-the arrow at either end to move about a month at a time.
-
-**On a phone the whole table slides.** There is no room to hold
-Functional Area, Owner and the name still while the weeks move past
-them: those five columns are wider than the screen on their own. So
-the table scrolls in one piece, and it opens on the names rather than
-on this week, because a screen of numbers with no row labels beside
-them tells you nothing. Swipe left to reach the current week.
-
-**The 13-week board is on the Dashboard**, not here, in a card with
-the same name as this page. It sits under *What's worth knowing
-today* and shows every measure against its target across every
-function, in two views: *Timeline* rolls each function's week into a
-single cell so you can see who has been drifting, and *Grid* breaks
-each function into per-measure sparklines. It appears once at least
-one value has been logged.
-
-## Who sees what
-
-Everyone in the company reads every function. These are the company's
-commitments to itself, and someone who cannot see what their own
-function is held to cannot align to it.
-
-Writing is narrower, and it works per function rather than per person:
-
-- **The function's owner** runs their own function: they type this
-  week's values, add critical success factors, change targets and
-  archive rows they have outgrown. On every other function they see
-  the numbers, not input boxes, and no pencil or bin.
-- **Admins and guides** do all of that on any function.
-- **Everyone else** reads. No inputs, no save, no edit controls.
-
-So a function head is a reader on most of this page and runs their
-own row of it, at the same time.
-
-Owners could always type the weekly value and could not change what
-was being measured, which is the practical reason these lists went
-stale: the person who knows a target is wrong was not the person who
-could fix it.
-
-## Saving
-
-One **Save** button above the table, and it only ever saves
-the functions you can write to. It used to be a button per function,
-which was the same guarantee expressed by putting a control on every
-card; with one table there is one button, and it covers exactly the
-rows that have a box on them for you.
-
-The line beside it counts only your own: *"2 of 6 still to log for
-the week beginning 31 Aug."* If you have nothing to log, it says
-nothing.
-
-## Adding and editing
-
-**Add a critical success factor** from the button beside *Save this
-week*. It opens the same panel the pencil does, so the name, the
-target, the value type, the direction and how often it is expected
-are all set in one go. Admins choose any functional area from the
-list; an owner sees their own.
-
-It used to be two steps, a name first and the measurement afterwards.
-That made sense when a critical success factor was a heading with the
-measurable part underneath it. With one level, a row added without a
-target is a row somebody has to come back to.
-
-Each row has a **pencil** and a **bin** in their own column, to the
-left of the name. They appear only on functions you can write to.
-
-**Connecting a measure to a spreadsheet** sits at the bottom of that
-same panel, when the company has the external data entitlement on.
-The fields are laid out like the ones above them and are there
-without opening anything.
-
-It is on the add panel too, and it is never required. A connection
-needs a measure to attach to, so the panel stays open on the row you
-just added and the fields become live at that point. Close it and the
-measure is already saved.
-
-The panel slides in from the right and leaves the table readable
-behind it. Close it with **Cancel**, the **✕**, the Escape key, or by
-clicking outside.
-
-The pencil opens that measure's settings in a panel at the side of
-the screen: name, target, value type, direction and how often to
-update. The table stays
-readable behind it. Close it with **Cancel**, the **✕**, the Escape
-key, or by clicking anywhere outside it.
-
-## Targets
-
-**A target is optional.** Some results are named before anyone has
-worked out what good looks like, and forcing a number at that point
-produces a made-up one. A measure with no target still collects
-values and still appears on the board; its cells read as *no target
-set* rather than on or off.
-
-The Target column makes those rows easy to spot, which is the point.
-A list with several blank targets is usually a list worth pruning.
-
-**Changing a target does not rewrite the past.** A week is judged
-against the target that was in force when that week closed, so
-lowering a target changes this week forward and leaves the weeks
-already logged exactly as they were. A change takes effect from the
-week you are in: change it on Wednesday and the week containing that
-Friday uses the new number.
-
-The grid marks the week a target moved with a line down the left of
-the cell, so a step in a row has a stated reason rather than looking
-like the data changed. Hover it to see what it moved from and to.
+**On a phone the whole table slides.** It opens on the names, so swipe left to reach the current week.
 
 ## How often a measure is expected
 
-Every measure has an update frequency: **every week**, **every two
-weeks**, or **every month**. It has its own column, so you can see a
-row's rhythm without opening anything.
+Each measure is due **every week**, **every two weeks**, or **every month**. The Frequency column shows which.
 
-**A monthly measure is expected in the last week of its month.**
-Monthly numbers close with the month, so that is where its box
-appears and where the system looks for it.
+- **Monthly** measures get one box that stretches across the month's columns. Put the number in whenever you have it. It's due in the month's last week.
+- **Every two weeks** counts from the week the measure was created, not the calendar.
+- A week a measure wasn't due is shaded, not marked missing, and nobody is chased for it.
 
-**Every two weeks counts from the measure**, not the calendar, since
-there is no calendar equivalent of a fortnight. It runs every second
-week from the one it was created in.
+## Adding and editing
 
-**A week a measure was not due is left blank, not marked missing.** A
-monthly row is empty three weeks in four, and those cells are shaded
-rather than empty so it reads as "not this week" rather than "nobody
-did this". Nothing chases you for them.
+**Add a critical success factor** opens a panel at the side where you set everything at once: functional area, name, target, value type, direction, units, how often to update, and whether it shows on the company dashboard. Each row has a **pencil** to open the same panel and a **bin** to archive it. You only see these on functions you can change.
 
-## What happens when a number is late or bad
+Close the panel with **Cancel**, the **✕**, the Escape key, or by clicking outside it.
 
-A job runs on **Tuesday morning** and looks back at the week that
-just finished, at every measure that was due in it.
+**Archiving** takes a measure off the page and keeps its past weekly values on file.
 
-Tuesday, not the weekend: the week closes on Friday, and you have
-through the end of Monday to put last week's numbers in before
-anything is raised. Nothing is created over a weekend.
+## Targets
 
-**No value logged** shows a **reminder in the notification bell** on
-Friday for the person who leads the function: *"Log this week's
-numbers."* It is a reminder and nothing more — no commitment is
-created, nothing appears on anybody's list, and nothing goes overdue.
+**A target is optional.** A measure with no target still collects values and still gets a chart, with no target line. A list with several blank targets is usually worth tidying up.
 
-You are only asked about a week that has ended, and only when the
-number really is missing. If somebody logged it, or it came in from a
-connected spreadsheet, nobody is chased.
+**Changing a target doesn't rewrite the past.** Each week is judged against the target in force when it closed. A change applies from the week you're in. The grid marks the week a target moved with a line down the left of the cell. Hover it to see the old and new target.
 
-This used to open a commitment instead, *"Log last week's value for
-[measure]"*, due the coming Friday. It was removed on 23 September
-2026: a commitment is a promise somebody made, and one the system
-wrote because a number had not been typed yet sat in the same list as
-the real ones and went red when it passed.
+## Value types and units
 
-**A value below target** raises an **issue**: *"Off target: [measure]
-(42 vs. target 55)."* Missing a target is a business problem, not an
-admin task. It belongs where the team discusses problems, not on
-someone's to-do list. The desired outcome is left blank for the team
-to fill in.
+Each measure has a **Value type**:
 
-You get **one issue per measure**, not one a week. A measure that
-stays below target keeps the same issue open, showing the number from
-when it was first raised. Resolve it and it can be raised again later
-if the measure slips back.
+- **Number** shows what you entered: 38.6
+- **Currency ($)** shows $1,234
+- **Percent** shows 13%
+- **Yes/No** shows what you typed: Yes, Green
 
-## Connecting a measure to a spreadsheet
+If a number shows without the % or $ you expected, change the value type.
 
-If your company has External Measures switched on, a critical success
-factor can take its weekly number from a Google Sheet instead of
-someone typing it.
+**Units** is for big numbers, on Number and Currency only. Set it to *Millions* and you type 18 to mean eighteen million, and the page shows $18M. Set the target the same way.
 
-**Who can set that up:** an admin, your AiMS guide, or the person who
-leads the function the measure belongs to. A Lead can do it for their
-own function's measures and no others.
-
-**Keyed to a week.** You name two column headings: the one holding the
-dates, and the one holding the number. It finds the row for the week
-and reads the value across from it.
-
-Any date inside the week works — Monday, Friday, or the day the report
-was run. If several rows fall in one week, it takes the **last** one.
-So a sheet with a row per day gives you the last day's figure, not the
-week's total: if you need a weekly total, put a weekly row in the
-sheet.
-
-Headings are matched by name, not by column letter, so inserting a
-column does not quietly point it at the wrong one.
-
-## How a number is written, and how it reads
-
-Each critical success factor has a **Value type**:
-
-- **Number** — shows what you entered: `38.6`
-- **Currency ($)** — shows `$1,234`
-- **Percent** — shows `13%`
-- **Yes/No** — shows what you typed: `Yes`, `Green`
-
-If a number is showing plainly when you expected a `%` or a `$`, the
-value type is the thing to change. It is on the add/edit panel.
-
-**Units**, beside it, is for big numbers. Set it to *Millions* and
-you type `18` where you mean eighteen million: the box stays small,
-and the page shows `$18M`. What is stored is always the real figure,
-so if that measure is ever connected to a spreadsheet the number
-coming in lines up with the ones people typed.
-
-Set the target the same way. On a millions measure a target of `18`
-means eighteen million.
-
-Units only appears for Number and Currency. A percentage in millions
-is not a thing, and yes/no has no size.
-
-**A yes/no measure has no direction.** "Higher is better" is not a
-question you can answer about *Yes*, so that setting disappears when
-you choose Yes/No, and the Target column shows `Yes` rather than
-`≥ Yes`.
+A Yes/No measure has no direction, so that setting disappears and the target shows as Yes.
 
 ## Putting things in order
 
-**Drag a critical success factor by the handle** between the Owner
-and its description to move it within its functional area. Anyone who
-can edit that area's measures can reorder them: an admin, a guide, or
-the function's Lead.
+Drag a critical success factor by its handle to move it within its functional area. With the keyboard, focus the handle and press the up or down arrow. The order you set is what everyone sees, on every device.
 
-**Drag a functional area by the handle beside its name** to move the
-whole block. That one is for admins and guides, because the order of
-the areas is the shape of the chart rather than a property of one
-team's list. The keyboard works here too: focus the handle and press
-the up or down arrow.
+::: role company_admin,aims_guide,system_admin
+Drag a functional area by the handle beside its name to move the whole block. It moves among the areas at the same level of the chart. It can't move to a different level, because that changes the chart itself.
+:::
 
-A functional area moves among the areas that sit alongside it in the
-chart. It cannot be dragged to a different level, because that is a
-change to the chart rather than to this page.
+## The company dashboard
 
-**The order is saved and it is everyone's.** It is not a per-person
-view: what you drag into place is what the next person sees, on every
-device, until somebody moves it again.
+**Show on company dashboard** decides whether a measure gets a chart on the Dashboard. It's on by default. This page always shows everything.
 
-## Archiving
+A function only appears on the Dashboard if at least one of its measures is switched on.
 
-Archiving takes a measure off the page and keeps it on file. Nothing
-cascades, because nothing sits underneath a measure any more, and
-nothing hard-deletes, so past weekly values survive.
+The Dashboard also has a 13-week board with the same name as this page, under *What's worth knowing today*. *Timeline* rolls each function's week into one cell so you can see who's drifting. *Grid* shows a small chart for each measure. It appears once at least one value has been logged.
 
-## What Success Tracking changes
+## Connecting a measure to a spreadsheet
 
-Nothing on this page. Everyone gets the week columns, the Target
-field and the save button, whether the setting is on or off, and
-what you personally may type is decided by which functions you
-lead.
+When your company has External Measures turned on, a measure can take its weekly number from a Google Sheet instead of someone typing it. The fields are at the bottom of the add and edit panel. They're never required. On a new measure, they become usable once the measure is saved, and the panel stays open so you can fill them in.
 
-Success Tracking is about what happens on its own, when nobody has
-asked for anything:
+You name two column headings: the one holding dates and the one holding the number. It finds the row for the week and reads the number across from it.
 
-- the Friday reminder for a measure you lead and have not logged
-- an Issue raised automatically from a below-target value
+- Any date inside the week works: Monday, Friday, or the day the report was run.
+- If several rows fall in one week, it takes the **last** one. A sheet with a row per day gives you the last day's figure, not the week's total. If you need a weekly total, put a weekly row in the sheet.
+- Headings are matched by name, not column letter, so inserting a column won't point it at the wrong one.
 
-It is off for every company today, so neither fires. Turn it on in
-company settings when you want the chasing.
+## Success Tracking
 
-There was a third until 23 September 2026 — a commitment raised for a
-value nobody entered. The reminder covers it, without putting a
-promise nobody made on somebody's list. Every measure now gets that
-reminder; there is no longer a per-measure switch to turn it off.
+Success Tracking is a company setting. It doesn't change anything on this page. When it's on:
 
-It used to work the other way round: with it off, the week columns
-disappeared and the page became a list you could never record a
-number against. That changed on 19 September 2026.
+- On Friday, the person who leads a function gets a reminder in the notification bell for any measure they haven't logged: *"Log this week's numbers."* It's a reminder only. Nothing lands on anyone's commitments.
+- On Tuesday morning, a measure that came in below target for the week just finished raises an issue on Issues/Solutions: *"Off target: [measure] (42 vs. target 55)."* You get one issue per measure, and it stays open while the measure stays below target. Once it's resolved, it can be raised again if the measure slips back.
 
-## Where values are logged
-
-Here, on this page, in the row itself. That is the only place.
-
-There used to be two others: a card on the dashboard and a
-single-measure page you reached by clicking a measure's name. Both
-have gone. The dashboard card listed only part of the list, so
-filling it in left the rest outstanding without saying so, and the
-single-measure page asked you to open a whole screen to type one
-number that already had a box on this one.
-
-What still tells you when something is outstanding: the notification
-bell counts what you have left this week.
+Nobody is chased for a number that was logged or came in from a connected spreadsheet.
 
 ## Common questions
 
-**What happened to my KPIs?** They became critical success factors,
-keeping their name, their target and every week already logged. They
-sit in the same list, in the same order, directly under whatever they
-used to sit beneath.
+**Where do I log a number?** Here, in the row itself. This is the only place values are entered.
 
-**Some of my rows disappeared.** A statement was removed only where a
-measure underneath it was already saying the same thing in a form you
-can put a number against, and only when the statement itself had no
-target, no logged week and no connected spreadsheet. Nothing was
-deleted; anything removed is archived and can be brought back.
+**How do I know what I still have to log?** The count beside Save, and the notification bell.
 
-**Are these the old Outcomes and Key Success Measures?** Yes, by way
-of two renames. An outcome became a critical success factor, a key
-success measure became a KPI, and now there is one level holding
-both.
+**Why can I see functions I have nothing to do with?** The numbers a company holds itself to are shared with everyone. You can read every function and type only into the ones you can change.
 
-**Where did the add-measure flow on the chart page go?** Here. The
-chart function page shows a summary and links back. The chart stays a
-chart.
+**Where did KPIs go?** There's one level now. What used to be a KPI is a critical success factor, with its target and every logged week kept.
 
-**Why can I see functions I have nothing to do with?** Because the
-numbers a company holds itself to are not private to the person who
-reports them. You can read every function; you can only type into
-your own.
-
-**Do guides have admin access?** Yes, on their assigned companies.
-They can add, rename and archive, and log values for anyone.
+::: role company_admin,aims_guide,system_admin
+**Do guides have admin access here?** Yes, on the companies they're assigned to. They can add, edit and archive, and log values for anyone.
+:::

@@ -4,162 +4,73 @@ title: Functional Chart
 
 # Functional Chart
 
-The org, in one view: who owns what. Every function has a leader,
-responsibilities they're on the hook for, and critical success factors
-with a target for what "healthy" looks like. When *Role Descriptions*
-is on for the company, each
-function also has Decision Rights, Competency Indicators, and a Role
-Description panel that assembles it all into a publishable document.
-
-## What you can do here
+Your company's structure in one view: every function, who's in the seat, and what they're responsible for. When Role Descriptions is on for your company, each function also has Decision Rights, Competency Indicators and a role description built from them.
 
 ::: role team_member
-As a team member, you can:
+## What you can do here
 
-- **See the chart** — every function, who's in the seat, and what they
-  own.
-- **Open a function** to see its full detail: responsibilities,
-  critical success factors, and (where enabled) decision rights and
-  competency indicators.
+- **See the chart.** Every function, who leads it, and its roles and responsibilities.
+- **Open a function.** Click its box to see everything it owns, including decision rights and competency indicators where your company has them.
 :::
 
 ::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can:
+## What you can do here
 
-- **Add or delete functions** to grow / shape the tree. A new function
-  is built entirely in the add panel, responsibilities and all.
-- **Assign seats**: one person per function, in the panel's Details
-  section.
-- **Edit a function without leaving the chart**: click any function
-  box and its detail opens in a panel from the right.
-- **Edit responsibilities and critical success factors**, all inline
-  in the panel or on the function page.
-- **Add Decision Rights and Competency Indicators** (Role Descriptions
-  feature on) with the same inline pattern.
-- **Use the Role Description Creator**, under *People* in the agent
-  list. She works from this chart and your One-Page Plan and
-  asks you the rest. The old per-list *Suggest…* buttons are gone;
-  the agent replaced them.
-- **Publish a Role Description**: the panel at the bottom of the
-  function page assembles the sections into a shareable doc. Saved
-  ones are listed on [Team](./people.md), below Add a person.
-:::
+- **Add a function**, responsibilities and all, without leaving the chart.
+- **Edit a function in place.** Click its box and its detail opens in a panel on the right.
+- **Choose who's in the seat.** One person per function.
+- **Add and edit responsibilities**, and with Role Descriptions on, decision rights and competency indicators.
+- **Delete a function**, along with everything under it.
+- **Write a role description with Aimee.** Open the *Role Description Creator* under *People* in Ask Aimee. It works from this chart and your One-Page Plan and asks you the rest.
+- **Publish a role description** from the *Role Description* card at the bottom of a function. Published ones are listed on Team, below *Add a person*.
 
 ## How to add a function
 
-1. On the chart, click *Add function* at the top of the chart card. It
-   opens a panel from the right; Escape, the X, or a click outside
-   closes it.
-2. Fill in the whole box here: the name, which function it sits under,
-   who's in the seat, and its roles and responsibilities. Type a
-   responsibility and press Enter, or click *Add*, to put it on the
-   list. The trash icon takes one off again.
-3. Every function carries *Lead, Track, Decide* whether you add
-   anything or not, which is why it's already on the list.
-4. Click *Add function*. The panel closes and the new box is on the
-   chart with its responsibilities on it. You don't leave the chart.
-5. Anything still sitting in the *Add a responsibility* box when you
-   save is dropped. Press Enter first to keep it.
-6. New companies start with **Visionary** and **Integrator** seed boxes
-   at the top. Build under them.
+1. Click *Add function* at the top of the chart card. A panel opens on the right.
+2. Fill in the name, which function it sits under, who's in the seat, and its responsibilities. Type a responsibility and press Enter, or click *Add*, to put it on the list. The bin icon takes one off.
+3. *Lead, Track, Decide* is already on the list. Every function has it.
+4. Click *Add function*. The panel closes and the new box is on the chart.
+
+Anything still in the *Add a responsibility* box when you save is dropped. Press Enter first to keep it.
+
+New companies start with **Visionary** and **Integrator** boxes at the top. Build under them.
 
 ## How to edit a function
 
-::: role company_admin,aims_guide,system_admin
-1. Click the function's box on the chart. Its detail opens in a panel
-   from the right, over the chart: the name, where it sits, who's in
-   the seat, responsibilities, and (Role Descriptions on) decision
-   rights and competency indicators.
-2. **Details** holds the name, *Sits under* and *In the seat*. Change
-   what you need and click *Save changes*. Nothing is written until
-   you do, and the button stays greyed out until there's something to
-   save.
-3. Pick *Top level (no parent)* under *Sits under* to pull a function
-   out from under another one. A function can't be moved under itself
-   or under one of its own sub-functions, so neither appears on the
-   list.
-4. **Responsibilities save as you go.** Adding one or deleting one
-   takes effect straight away, with no Save button involved. The
-   trash icon means gone.
-5. Escape, the X, or a click outside closes the panel. If you have
-   unsaved details, it asks first. The chart is still behind it, in
-   the same place you left it.
-6. The *Sub-functions* list moves the panel to another function
-   without closing it.
-7. Critical success factors aren't here. They live on *Critical
-   Success Factors*, which is where you log against them too.
-:::
-
-::: role team_member
-Clicking a function box opens its page, with everything the function
-owns on it.
-:::
+1. Click the function's box. Its detail opens in a panel over the chart.
+2. **Details** holds the name, *Sits under* and *In the seat*. Change what you need and click *Save changes*. The button stays grey until there's something to save.
+3. To move a function to the top, choose *Top level (no parent)* under *Sits under*. A function can't sit under itself or one of its own sub-functions, so those aren't offered.
+4. Responsibilities save as you go. Adding or deleting one takes effect straight away.
+5. The *Sub-functions* list jumps the panel to another function without closing it.
+6. Escape, the X or a click outside closes the panel. If you have unsaved details, it asks first.
 
 ## How to assign a seat
 
-1. Open a function.
-2. Click the *In the seat* editor.
-3. Pick from the roster. The seat holder is the single person
-   accountable for that function (Lead / Track / Decide are all one
-   seat, one person).
+Open the function, then pick someone under *In the seat*. The seat holder is the one person accountable for the function: Lead, Track and Decide are all theirs.
 
-## How to add a critical success factor
+## How to publish a role description
 
-1. On the function detail page, type into the *Add a critical success
-   factor* row at the bottom of the Critical Success Factors section:
-   description, target, value type (number, percent, yes-no). Enter to
-   save; focus jumps back for the next one.
-2. Direction defaults to *higher is better* and the reminder stays on.
-   Both are editable per row via the row's Edit affordance.
+1. Open the function and scroll to the *Role Description* card at the bottom.
+2. Check the readiness list: Title, Responsibilities, Critical Success Factors with targets, Decision Rights and Competency Indicators. Fill any gaps.
+3. Click *Create role description* the first time. After that it reads *View role description*.
 
-As you type, a coaching panel appears with amber hints when the measure
-reads as vague ("Do your best") or when the target and value type don't
-line up. Every hint is advisory; Save stays enabled regardless.
+The role description page has its own help.
+:::
 
-## How to publish a Role Description
+::: role portfolio_admin
+## What you can do here
 
-::: role company_admin,aims_guide,system_admin
-1. In the function's panel, or on its page, scroll to the *Role
-   Description* card at the bottom.
-2. Check the 5-section readiness list (Title, Responsibilities, Critical
-   Success Factors with targets, Decision Rights, Competency
-   Indicators).
-   Fill any gaps.
-3. Click *Create role description →* the first time. It flips to *View
-   role description →* once cached.
-
-See the [Role description
-help](./chart.function._id.role-description.md) for what happens on the
-assembled page.
+See the chart and open any function to read what it owns. Changes are made by the company's own people.
 :::
 
 ## Common questions
 
-**What happens when I delete a function?** Hard delete. It cascades to
-sub-functions, critical success factors, measures, and recorded weekly
-values. A confirmation dialog spells out the cascade before the click
-lands. Delete from the panel and the panel closes onto the chart with
-the box gone.
+**Where are the critical success factors?** On the *Critical Success Factors* page. That's where you add them and log this week's value, and you can also log from the dashboard.
 
-**Why can't I hard-delete a critical success factor?** They only
-archive from the UI, so past-quarter weekly entries stay intact.
+::: role company_admin,aims_guide,system_admin
+**What happens when I delete a function?** It's gone for good, with its sub-functions, outcomes, measures and recorded values. A confirmation spells out what goes with it before anything happens. If you delete from the panel, it closes onto the chart with the box gone.
 
-**Do measures need a target?** No, and every company can set one.
-Some results are named before anyone has worked out what good looks
-like, and a measure with no target still collects values; its cells
-read as *no target set* rather than on or off.
+**Can AiMS Guides edit the chart?** Yes. On the companies they're assigned to, guides can change anything an admin can: seats, responsibilities, decision rights, competency indicators and the role description.
 
-**Where do I log this week's value?** On *Critical Success Factors* or
-the dashboard, not here. The function page is for describing the
-critical success factor; the *Critical Success Factors* page is for
-logging against it.
-
-**Do AiMS Guides have admin access?** Yes. On the companies they're
-assigned to, guides can edit anything an admin can: seats, R&R,
-critical success factors, metrics, decision rights, competencies and
-the role description.
-
-**Where did the Suggest buttons go?** Replaced by the *Role
-Description Creator* agent, under *People* in Ask Aimee. A list of options
-beside one field couldn't see the rest of your chart or your plan;
-the agent can, and asks about the seat specifically.
+**Where did the Suggest buttons go?** The *Role Description Creator* in Ask Aimee does that job now. It can see your whole chart and plan, and asks about the seat.
+:::

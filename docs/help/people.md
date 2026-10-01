@@ -4,144 +4,75 @@ title: Team
 
 # Team
 
-Everyone on the company roster — name, position, role, and status.
-Click a name to open that person's scorecard (their commitments,
-Follow-Through Rate, and 12-week trend).
-
-## What you can do here
+Everyone at your company, with their position, role, status, open commitments and Follow-Through Rate. Click a name to open that person's scorecard: their commitments, Follow-Through Rate this quarter and the last 12 weeks.
 
 ::: role team_member
-As a team member, you can:
+## What you can do here
 
-- **See the full roster** (read-only) — name, position, role,
-  status.
-- **Open a teammate's scorecard** by clicking their name — you'll
-  see their commitments and Follow-Through Rate this quarter.
-- **See your own scorecard** with the *Details* and *Strengths*
-  cards in read-only form.
+- **See everyone on the team** and how their week is going.
+- **Open anyone's scorecard** by clicking their name.
+- **See your own scorecard.** From there, *Edit my profile* and *Edit my strengths* take you to where you change your own details.
+- **Coach someone who reports to you.** If people report to you, a *Coach* button sits on their row and on their scorecard. It opens private coaching notes about them.
+- **Read your company's role descriptions** in the list at the bottom of the page.
 :::
 
-::: role company_admin,aims_guide,system_admin,portfolio_admin
-- **Add a person** — name, email, position, role. Choose to send
-  the invite email now or keep them *pending* to pre-stage the
-  roster.
+::: role company_admin,system_admin
+## What you can do here
+
+- **Add a person.** Fill in their name, email, position (optional) and role, *Member* or *Company Admin*. Tick *Send invite email now* to invite them straight away, or leave it unticked to add them as *pending* and invite them later.
+- **Send an invite or copy the invite link** from the *⋯* menu on a pending person's row.
+- **Edit anyone's Details and Strengths** on their scorecard. The cards at the top become editable, with a Save button.
+- **Coach anyone at the company.** Click *Coach* on their row or their scorecard.
+- **Deactivate someone.** They can't sign in any more, and their commitments and history stay. *Reactivate* brings them back.
+- **Delete someone.** This removes their sign-in, their private coaching notes and their strengths assessment, and can't be undone. Their commitments stay as *Unassigned*, and the numbers they logged keep their history. Deactivate unless you really need them gone.
+- **Remove a portfolio admin from this company.** A portfolio admin on your team shows on the list as *team member*, or as *company admin* if a system admin has made them this company's admin. Their menu offers *Remove from this company* instead of Delete. It ends their access here and leaves their account, their other companies and everything they own here as it is.
 :::
 
-::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can also:
+::: role aims_guide
+## What you can do here
 
-- **Edit anyone's Details and Strengths** — the top-of-page cards
-  become editable with a Save button.
-- **Coach a direct report or anyone in your company** — from the
-  quick-view drawer or the scorecard page.
-- **Deactivate** — stops sign-in without deleting history.
-- **Delete** — removes sign-in + profile permanently. See below.
-- **Remove a portfolio admin from this company.** Somebody who runs
-  the wider group of companies can join your team here. They appear on
-  this list as *team member*, or as *company admin* if a system admin
-  has made them this company's admin. Their row's menu offers *Remove from
-  this company* instead of Delete: it ends their access here and
-  leaves their account, their other companies and everything they
-  own in this one exactly as they are. You cannot deactivate or
-  re-invite them from this page, because their account is not this
-  company's to change.
+- **See everyone on the team** and how their week is going.
+- **Open anyone's scorecard** by clicking their name.
+- **Revise any of the company's role descriptions** with Aimee, from the list at the bottom of the page.
+
+Adding, editing and removing people is done by the company's own admins.
 :::
 
 ::: role portfolio_admin
-You can add people to any company on the instance, and that is
-where it stops: no editing, no deactivating, no deleting. You can
-staff a company; the people in it are not yours to rewrite.
+## What you can do here
 
-You can also only create **team members and company admins** — not
-another portfolio admin, and not a system admin. Those are minted
-by a system admin from the platform dashboard.
+- **See everyone on the team** and open anyone's scorecard.
+- **Add a person.** Fill in their name, email, position and role. You can add a *Member* or a *Company Admin*. Tick *Send invite email now* to invite them straight away, or leave it unticked to add them as *pending*.
+
+Editing, deactivating and deleting people is done by the company's own admins. Portfolio admins and system admins are set up by a system admin.
 :::
 
-## How to add a person
+## Role Descriptions
 
-::: role company_admin,aims_guide,system_admin,portfolio_admin
-1. Fill in name, email, position, and role in the *Add a person*
-   form.
-2. Decide: **Send invite now** (they get an email with a sign-in
-   link) or **leave pending** (you can send later, or delegate
-   the action to another admin).
-3. Save. The person shows up in the roster immediately.
-:::
+At the bottom of the page is every role description your company has saved, newest first. Click one to read it without leaving the page.
 
-## How to deactivate vs delete
+A role description says what one seat owns, what it's held to each week, what it can decide, and what excellence looks like in it. You write one with Aimee: ask for the **Role Description Creator**, under **People** in the agent list.
+
+Each row is a role, showing its newest version, the day it was saved and who saved it. Roles that aren't on the Functional Chart show up here too, and this is the only place they do.
 
 ::: role company_admin,aims_guide,system_admin
-- **Deactivate** — the row action toggles them to *inactive* and
-  stops sign-in. Confirms first via a dialog. History is preserved.
-  Use this by default.
-- **Delete** — removes both sign-in and profile. Can't be undone.
-  Their commitments stay on file as Unassigned; weekly numbers
-  they logged and any team they were on keep their history; their
-  private coaching notes and strengths assessment are removed
-  with them.
+To change one, open it and click *Revise with Aimee*. She loads what's there and asks what you'd like to change. Saving adds a new version and keeps the old ones.
+:::
 
-Rule of thumb: deactivate unless you specifically need the user
-gone from the record. Deactivate is reversible; delete is not.
+::: role team_member
+If you lead a function on the chart, you can change any of your company's role descriptions: open one and click *Revise with Aimee*. She loads what's there and asks what you'd like to change. Saving adds a new version and keeps the old ones.
 :::
 
 ## Common questions
 
-**Who sees my scorecard?** Your numbers are visible to system
-admins, your company admins, and your direct manager. A note at
-the top of your own scorecard tells you this.
+::: role team_member
+**Who can see coaching notes about me?** Only the person who wrote them. You can't see them either.
+:::
 
-**Who sees the coaching notes about me?** Whoever wrote the
-note — and only them. Notes are private per author; never visible
-to you.
+**Why isn't my role description here?** It's only saved when you press Save on the card Aimee gives you.
 
-**Why does *Missed* mean "past its due date"?** That's what the
-app calls a commitment resolved after its due date. Used to read
-"Closed" but that came across as "finished" — the current word is
-more honest.
+**Can I revise one somebody else wrote?** Yes, if you can revise role descriptions at all. You won't see their conversation with Aimee: she works from the saved document.
 
-## Role Descriptions
+**Does saving overwrite the last version?** No. Every save adds a version.
 
-Below *Add a person* you'll find every role description your company
-has saved, newest first. Click a row to read the whole thing without
-leaving the page.
-
-A role description says what one seat owns, what it is held to week
-by week, what it can decide, and what excellence looks like in it.
-You write one with Aimee: pick **Role Description Creator** from the
-agent list, under **People**.
-
-Each row is a **role**, not a version. A role you've rewritten four
-times is one row showing the newest version's number, the day it was
-saved and who saved it.
-
-**Roles that aren't on the Functional Chart appear here too**, and
-this is the only place they do. That's the point of the list. A role
-description for a seat on the chart is also on that function's page;
-one for a role you deliberately kept off the chart would otherwise
-have nowhere to be found.
-
-**Common questions**
-
-**How do I change one?** Open the row and click *Revise with
-Aimee*. She loads what's there and asks what you want to change,
-rather than starting the interview again. Saving writes the next
-version and keeps the current one.
-
-**Can I revise one somebody else wrote?** Yes. You don't need their
-conversation, and you won't see it: the document is what gets picked
-up, not the chat. Coaching conversations stay private to whoever
-held them.
-
-**Who can change them?** Admins, assigned guides, and anyone who
-heads up a function on the chart. If you lead a function you can
-revise any of your company's role descriptions, not only your own
-seat's. Everyone else can read them.
-
-**Does saving overwrite the last one?** No. Every save adds a
-version and nothing is ever written over.
-
-**Why isn't my role description here?** Nothing is saved until you
-press Save on the card Aimee hands you. She proposes; you decide.
-
-**Can I get a Word file?** Yes, from the card in the conversation.
-Download and Copy both work whether or not you've saved.
+**Can I get a Word file?** Yes, from the card in your conversation with Aimee. Download and Copy work whether or not you've saved.

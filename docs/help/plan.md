@@ -4,151 +4,81 @@ title: Goals & Priorities
 
 # Goals & Priorities
 
-The quarter's cascade: Focus Areas at the top, Goals under them, and
-Quarterly Priorities under those. Each priority carries the
-commitments that will move it forward.
+Your company's plan for the quarter: Focus Areas at the top, Goals under them, and Quarterly Priorities under those. Each priority carries the commitments that move it forward.
 
-**The Goal in the middle is optional.** A Quarterly Priority can sit
-straight under a Focus Area when that Focus Area is a one-quarter
-push rather than a multi-year theme.
+## Reading the plan
 
-## What you can do here
+Each Priority shows how many commitments are still **open** on it, which is what's left to do. The bar beside it shows how much is already done. That's why a Priority can say "1 open commitment" and 50% at the same time.
+
+A commitment that repeats weekly counts once for every week it's closed out, so a standing commitment kept for six weeks moves the bar six times.
+
+The Goal in the middle is optional. A Priority can sit straight under a Focus Area when that Focus Area is just this quarter's push. Priorities placed that way sit beside the Goals under their Focus Area, and count toward its progress the same way a Goal does.
+
+**Standalone** rows, below the plan, are rows that aren't linked to anything above them yet. A Priority whose Goal was archived lands there too, marked **Original goal archived**, so it isn't mistaken for something nobody got round to linking. Once it's linked to a current Goal or Focus Area, the label goes.
 
 ::: role team_member
-As a team member, you can:
+## What you can do here
 
-- **See the cascade.** How the quarter's Priorities ladder up to
-  Goals and Focus Areas.
-- **Open a Priority** by clicking its title to see the owner,
-  progress, and its **Action Plan**, the commitments feeding it. The
-  line under each Priority counts the commitments still **open** on
-  it, so it reads as what is left to do. The bar beside it says how
-  much is already done, which is why a Priority can show "1 open
-  commitment" and 50% at the same time. A commitment set to repeat
-  weekly counts **once for each week it has been resolved**, so a
-  standing commitment kept for six weeks moves the bar six times
-  rather than sitting at zero until the day somebody stops it.
-- **Come back to where you were.** The back link on any detail page
-  returns you to this page positioned on the row you came from, and
-  opens its Focus Area if you had it collapsed. From a Priority, that
-  link goes to whichever row it hangs off, its Goal or its Focus
-  Area, here in the cascade rather than to that row's own page.
+- **See how the work fits together.** Follow each Priority up to its Goal and Focus Area.
+- **Open a row.** Click any Focus Area, Goal or Priority to see its owner, its progress and, for a Priority, its **Action Plan**: the commitments feeding it.
+- **Update your own.** If you own a Goal or Priority, or sponsor a Focus Area, you can set its status on its page: *Not started*, *On track*, *Behind*, *Complete* or *Ongoing*.
+- **Get back to where you were.** The back link on a row's page brings you back here to the row you came from, and opens its Focus Area if you'd collapsed it.
+
+Adding a Focus Area, Goal, Priority or commitment here is done by your company admin.
 :::
 
-::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can also:
+::: role company_admin,system_admin
+## What you can do here
 
-- **Add a Commitment** without leaving this page. *Add commitment*
-  sits last in the toolbar, where a commitment sits in the cascade:
-  the row reads Focus Area, Goal, Quarterly Priority, Commitment, in
-  the order a plan is built. Pick the Priority it belongs to from the
-  list, which is grouped by what each Priority sits under, and the
-  commitment appears on that Priority and on the Commitments board.
-  The button is absent until at least one Priority exists to attach
-  one to.
-- **Add anywhere in the cascade.** The toolbar shows *Add focus
-  area*, *Add goal*, and (with an open quarter) *Add quarterly
-  priority*. Each one opens a panel that slides in from the right;
-  Escape, the X, or a click outside closes it, and it closes itself
-  once the row is added. On a phone the four buttons sit behind a
-  single *Add* to keep the plan itself on screen; tap it to show
-  them. If the parent above doesn't exist yet, leave the picker on
-  *Not linked (yet)*. The new row lands in a *Standalone* section
-  below the cascade and can be linked later from the row itself.
-- **Add a Priority straight to a Focus Area.** Open a Focus Area in
-  the cascade and use its *Add quarterly priority*, next to *Add
-  goal*. The same pair sits at the bottom of the Focus Area's own
-  page, and opening one closes the other, so you are only ever
-  filling in one form at a time. Use it when the Focus Area is this quarter's work rather than
-  a multi-year theme, so you aren't inventing a Goal that repeats the
-  Focus Area's name back at you.
-- **Choose what a Priority sits under.** The *Parent* picker lists
-  Goals and Focus Areas together in one list. It appears on the add
-  panel, on the Priority's own Edit form, and on any Standalone row.
-  A Priority sits under **one** of them: picking a Focus Area clears
-  the Goal it was under, and the other way round.
-- **Change a Priority's status.** On the Priority detail page, the
-  status picker flips a Priority to on-track / at-risk / complete /
-  done.
-- **Start a new planning cycle** (system admins only) via *Companies
-  → this company → Planning cycle*. Details below.
+- **Add to the plan.** The toolbar has *Add focus area*, *Add goal*, *Add quarterly priority* (once a quarter is open) and *Add commitment* (once there's a Priority to attach it to). Each opens a panel on the right. It closes when the row is added, or press Escape, click the X or click outside it. On a phone the buttons sit behind a single *Add*.
+- **Add a Priority straight to a Focus Area.** Open the Focus Area and use its *Add quarterly priority*, next to *Add goal*. The same pair sits at the bottom of the Focus Area's own page.
+- **Add a commitment from here.** *Add commitment* asks which Priority it belongs to, grouped by what each one sits under. It then shows on that Priority and on Commitments.
+- **Choose what a Priority sits under.** The *Parent* picker lists Goals and Focus Areas together. A Priority sits under one of them: picking a Focus Area clears its Goal, and the other way round. You'll find it on the add panel, on the Priority's *Edit priority* form, and on any Standalone row.
+- **Add something before its parent exists.** Leave the picker on *Not linked (yet)*. The row lands under Standalone and you can link it later from the row itself.
+- **Edit, complete or archive a row.** Open it and use its *Edit* button or *Archive*. Goals and Priorities also have *Mark complete*. Archiving takes a row off the plan; its commitments stay in history.
 :::
 
-## How to build the cascade top-down
+::: role aims_guide
+## What you can do here
 
-The plan reads best built from the top: Focus Areas first, then
-whatever belongs under each one.
-
-1. Add Focus Areas that describe the quarter's key themes.
-2. Add Goals under each Focus Area, **or skip this step** for a Focus
-   Area whose whole life is this quarter.
-3. With a quarter open, add Quarterly Priorities under each Goal, or
-   straight under a Focus Area that has no Goals.
-
-**When to skip the Goal.** A Goal is a year-shaped commitment. If a
-Focus Area exists for this quarter only, which is common in a
-company's first cycle, a Goal underneath it would just repeat the
-Focus Area's name. Put the Priorities straight on the Focus Area
-instead.
-
-Priorities added that way sit **beside** the Goals under their Focus
-Area rather than underneath them, and count toward its progress the
-same way a Goal does. One Goal and one Priority under the same Focus
-Area each count once, however many Priorities that Goal holds.
-
-Standalone rows are a landing pad for messy real-world sequencing
-rather than the default shape. Link them later from the row's own
-picker.
-
-A row lands there for either of two reasons: it was added with no
-parent, **or its parent has been archived.** An archived Goal is off
-the plan, so the Priorities under it become standalone rather than
-disappearing with it.
-
-The second case is labelled **Original goal archived**, on the row
-and on the Priority's own page, so it is not mistaken for something
-nobody got round to linking. Those pages also stop offering a link
-back to the archived Goal, because following one would land you on
-something the plan no longer shows.
-
-**Link the row to a current Goal or Focus Area and the label goes.**
-It is worked out from the row itself rather than stored, so there is
-nothing to clear. Un-archiving the Goal puts the row back under it
-and removes the label the same way.
-
-## How to open the next planning cycle
-
-::: role system_admin
-System-admin only. On the company settings page → *Planning cycle*.
-Archives every active Focus Area, Goal, and Priority so the team can
-build the next cycle from a clean canvas. Nothing is deleted; every
-record stays on file.
-
-- Open commitments become **Operational** (unlinked).
-- Resolved commitments keep their historical link so past-quarter
-  progress stays intact.
+- **Read the plan** and open any Focus Area, Goal or Priority to see its owner, progress and Action Plan.
+- **Edit, complete or archive a Priority** from its own page with *Edit priority*, *Mark complete* and *Archive*.
 :::
 
-::: role company_admin,aims_guide
-Ask a system admin to run the planning-cycle rollover from company
-settings when the team is ready for a clean canvas.
+::: role portfolio_admin
+## What you can do here
+
+Read the plan and open any row to see its owner, progress and Action Plan. Changes are made by the company's own people.
+:::
+
+::: role company_admin,system_admin
+## How to build the plan
+
+Build from the top down.
+
+1. Add the Focus Areas: the big themes the company is working on.
+2. Add Goals under each Focus Area, or skip them for a Focus Area that only lasts this quarter.
+3. With a quarter open, add Quarterly Priorities under each Goal, or straight under a Focus Area that has no Goals.
+
+Skip the Goal when it would only repeat the Focus Area's name back to you. That's common in a company's first quarter.
+
+## Starting the strategy again
+
+After an annual planning session, when the team is rewriting the strategy, use **Start the strategy again** on your company settings page. It archives every Focus Area, Goal and Priority so you can build from a clean page. Nothing is deleted. Open commitments become Operational: still open, no longer linked to a Priority. Closed ones keep their link, so past progress still shows.
+
+This isn't how you move to the next quarter. For that, use *Roll the quarter* on the same page, which carries unfinished Priorities forward.
 :::
 
 ## Common questions
 
-**Why can't I add a Priority?** A Priority needs an open quarter. If
-none is open, you'll see an empty state and a link to `/quarters` to
-start one.
+**Why is there nowhere to add a Priority?** A Priority needs an open quarter. If none is open, the plan says so.
 
-**Do priorities carry forward when a quarter closes?** Yes.
-Priorities carry through with owner and title intact.
+::: role company_admin,system_admin
+Use *Open your first quarter* or *Open next quarter* in the toolbar to start one.
+:::
 
-**Do I have to create a Goal?** No. A Focus Area can hold Goals,
-Priorities, or both. A plan with no Goals at all is a complete plan,
-and the AiMS Implementation score treats it as one.
+**What happens to Priorities when the quarter ends?** When the quarter is rolled, every Priority that isn't complete moves into the next quarter with its owner and title. Completed ones stay in the quarter they were finished in.
 
-**Do I have to archive the whole cycle to close individual items?**
-No. Every Focus Area, Goal, and Priority has its own Archive and Mark
-complete actions on its detail page. A Focus Area often outlives the
-Goals inside it, so closing a Goal while leaving its Focus Area open
-is a common move.
+**Do we have to have Goals?** No. A Focus Area can hold Goals, Priorities or both. A plan with no Goals at all is complete, and the AiMS Implementation score treats it that way.
+
+**Can one thing be closed without closing the whole plan?** Yes. Every Focus Area, Goal and Priority can be archived on its own page, and Goals and Priorities can be marked complete there too. A Focus Area often outlives the Goals inside it, so closing a Goal and keeping its Focus Area open is normal.

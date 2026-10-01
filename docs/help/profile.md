@@ -4,102 +4,56 @@ title: Your profile
 
 # Your profile
 
-Your self-serve page for the fields you control: photo, name,
-position, strengths, superpowers, password, and what Aimee remembers
-about you. Role and company assignment live with admins: they aren't
-editable here.
+Where you change your own photo, name, position, strengths and password, and see what Aimee remembers about you.
 
 ## What you can do here
 
-- **Add or change your photo** — click *Add photo* (or *Change
-  photo*) in the Photo card, pick a file, then drag and zoom
-  inside the circle to position it the way you want. Only the
-  visible circle is saved. Photo shows up in the sidebar and
-  wherever your name appears.
-- **Update your name and position** — feeds the roster display
-  and the coach's context about who you are.
-- **Edit your Strengths & Superpowers** — a few words about what
-  you're strong at and what people say you're uniquely good at.
-  Aimee uses these to tailor conversations.
-- **Change your password** — at least 8 characters. You stay
-  signed in on this device.
-- **See and manage your Memory** — the few things Aimee has noted
-  from your conversations, plus anything you've asked it to
-  remember. Add, delete, or open the full list.
+- **Add or change your photo.** It shows in the sidebar and wherever your name appears.
+- **Update your name and position.** They show on the Team list, and Aimee uses them to know who you are.
+- **Edit your Strengths & superpowers:** what you're strong at, and what people say you're uniquely good at. Aimee uses these to tailor your conversations, and they show on your scorecard.
+- **See and manage what Aimee remembers** under **Memory**.
+- **Change your password.**
+
+Your role and company aren't changed here.
+
+::: role team_member
+Ask your company admin if either needs changing.
+:::
 
 ## How to set your photo
 
-1. Scroll to *Photo*.
-2. Click *Add photo* and pick a PNG, JPG, or WebP under 2 MB.
-3. In the modal, drag the image to reposition and use the slider
-   (or scroll wheel) to zoom. The dashed circle shows exactly
-   what will be saved.
-4. Click *Save photo*. It appears immediately in the sidebar.
+1. Click *Add photo* (or *Change photo*) and pick a PNG, JPG or WebP file.
+2. Drag the image to position it, and use the slider or your scroll wheel to zoom. The dashed circle shows exactly what will be saved.
+3. Click *Save photo*. It appears in the sidebar straight away.
 
-Remove it later with *Remove photo* under the preview.
+The saved photo has to be under 2 MB. Cropping often brings a slightly large file under the limit. To take it down, click *Remove photo*.
 
 ## How to update your strengths
 
-1. Scroll to *Strengths & Superpowers*.
-2. Type into the trailing empty row — a new empty row appears as
-   you go, so adding several is a keyboard-only motion.
-3. Save at the bottom of the section.
+Type into the empty row at the end of the list. A new empty row appears as you go, so you can add several without reaching for the mouse. Then save.
 
 ## Memory
 
-The Memory card shows the most recent things Aimee has noted from
-your conversations, newest first. Each line is dated and labelled
-with where it came from:
+Memory shows what Aimee has noted from your conversations, newest first, ten at a time. Use *Previous* and *Next* to see the rest. Each line is dated and says where it came from:
 
-- **You said** is something you actually told Aimee.
-- **Aimee inferred** is a read on it, not something you stated.
-- **You asked me to remember** is something you added yourself.
+- **You said:** something you told Aimee.
+- **Aimee inferred:** her read on something, not something you said.
+- **You asked me to remember:** something you added yourself.
 
-**To add one**, type it into the box and click *Add a memory*. It's
-kept as-is and carried into every conversation, rather than fading
-the way the noted ones do. You can also just ask in conversation:
-*"remember that I want every plan checked against cash before
-headcount"*.
+**To add one,** type it in the box and click *Add a memory*. It's kept as written and carried into every conversation. You can also just ask Aimee in a conversation, for example *"remember that I want every plan checked against cash before headcount"*.
 
-**To edit one**, click the pencil on the row, change the wording,
-and save. The label stays as it was, because correcting a line
-doesn't change where it came from, and the date stays as when it
-first appeared. The row is marked *edited* so you can tell it isn't
-as first written.
+**To edit one,** click the pencil on the row, change the wording and save. The label and date stay as they were, and the row is marked *edited*.
 
-**To delete one**, click the bin on the row and confirm. It's gone
-from the database and won't be used in future conversations. There's
-no undo.
+**To delete one,** click the bin and confirm. Aimee won't use it again. There's no undo.
 
-**Everything is here**, ten at a time, newest first. Use *Previous*
-and *Next* under the table to move through them. You never leave this
-page to read your own memory.
+Aimee never keeps notes about health or medical matters, or about family and personal life, even if you ask. She'll say so and offer to note the work side instead.
 
-Two things are never saved, even if you ask directly: health and
-medical, and family and personal life. Aimee says so and offers the
-work-shaped version instead.
-
-**Only you can read any of it.** Not your manager, not a company
-admin, not your AiMS guide, and not a system administrator at AiMS.
+Only you can read your Memory. Not your manager, your company admin, your AiMS Guide, or anyone at AiMS.
 
 ## How to change your password
 
-1. Scroll to *Change password*.
-2. Enter the new password (8+ characters).
-3. Save. Your session on this device stays live.
+Enter a new password of at least 8 characters and save. You stay signed in on this device.
 
 ## Common questions
 
-**Why can't I change my role or company here?** Those are admin
-concerns. Ask a company admin (or a system admin) to update either.
-
-**Who sees what I put here?** Your photo, name, and position feed
-the roster (everyone on the company). Your Strengths & Superpowers
-feed the coach and appear on your own scorecard's Strengths card;
-admins on your company can see them. Your password is yours alone,
-and so is your Memory: nobody else on the platform can read it.
-
-**What file types work for the photo?** PNG, JPG, and WebP up to
-2 MB. The crop step re-encodes to PNG regardless of the source
-format, so a slightly-too-big source file often still fits once
-cropped.
+**Who sees what I put here?** Your photo, name and position show to everyone at your company. Your strengths show on your scorecard and help Aimee coach you. Your password and your Memory are yours alone.
