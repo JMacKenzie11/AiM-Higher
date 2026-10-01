@@ -211,6 +211,8 @@ export type PortfolioAdminAccess = {
   companyIds: string[];
   /** Open commitments they own, per company id. Shown before removal. */
   openCommitmentsByCompany: Record<string, number>;
+  /** Of companyIds, those switched on as company admin (0245). */
+  adminCompanyIds: string[];
 };
 
 // One row per portfolio admin for the Company access card.
@@ -237,7 +239,7 @@ export async function loadPortfolioAdminAccess(): Promise<
   const [{ data: assignmentRows }, { data: openRows }] = await Promise.all([
     supabase
       .from("portfolio_assignments")
-      .select("portfolio_admin_id, company_id")
+      .select("portfolio_admin_id, company_id, acts_as_company_admin")
       .in("portfolio_admin_id", ids),
     supabase
       .from("commitments")
@@ -248,14 +250,22 @@ export async function loadPortfolioAdminAccess(): Promise<
   ]);
 
   const byAdmin = new Map<string, string[]>();
+  const adminByAdmin = new Map<string, string[]>();
   for (const row of (assignmentRows ?? []) as Array<{
     portfolio_admin_id: string;
     company_id: string;
+    acts_as_company_admin?: boolean | null;
   }>) {
     byAdmin.set(row.portfolio_admin_id, [
       ...(byAdmin.get(row.portfolio_admin_id) ?? []),
       row.company_id,
     ]);
+    if (row.acts_as_company_admin === true) {
+      adminByAdmin.set(row.portfolio_admin_id, [
+        ...(adminByAdmin.get(row.portfolio_admin_id) ?? []),
+        row.company_id,
+      ]);
+    }
   }
 
   const openByAdmin = new Map<string, Record<string, number>>();
@@ -273,5 +283,6 @@ export async function loadPortfolioAdminAccess(): Promise<
     fullName: r.full_name,
     companyIds: byAdmin.get(r.id) ?? [],
     openCommitmentsByCompany: openByAdmin.get(r.id) ?? {},
+    adminCompanyIds: adminByAdmin.get(r.id) ?? [],
   }));
 }

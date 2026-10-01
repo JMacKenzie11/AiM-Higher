@@ -26,6 +26,10 @@ export type PeopleRosterRow = Profile & {
   // their account off the instance and every other company on it,
   // and that is not what a company admin tidying their team means.
   viaAssignment: boolean;
+  // For someone here through an assignment: whether a system admin
+  // switched it on as company admin (0245). Off, they are on the team
+  // and own their work; on, they are this company's admin.
+  assignedAsAdmin: boolean;
 };
 
 export type PeopleRoster = {
@@ -55,11 +59,16 @@ export async function getPeopleRoster(
       .order("full_name"),
     supabase
       .from("portfolio_assignments")
-      .select("portfolio_admin_id")
+      .select("portfolio_admin_id, acts_as_company_admin")
       .eq("company_id", companyId),
   ]);
 
   const members = (profiles ?? []) as Profile[];
+  const adminAssigned = new Set(
+    ((assignmentRows ?? []) as Array<{ portfolio_admin_id: string; acts_as_company_admin?: boolean | null }>)
+      .filter((r) => r.acts_as_company_admin === true)
+      .map((r) => r.portfolio_admin_id)
+  );
   const assignedIds = (
     (assignmentRows ?? []) as Array<{ portfolio_admin_id: string }>
   )
@@ -129,6 +138,7 @@ export async function getPeopleRoster(
     openCount: openByOwner.get(profile.id) ?? 0,
     keepRate: keepRateByOwner.get(profile.id) ?? null,
     viaAssignment: assignedSet.has(profile.id),
+    assignedAsAdmin: assignedSet.has(profile.id) && adminAssigned.has(profile.id),
   }));
 
   return { people };
