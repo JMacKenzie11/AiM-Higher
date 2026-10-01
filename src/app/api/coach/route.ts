@@ -33,6 +33,15 @@ import {
 } from "@/lib/guide/reply-checks";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { GENERAL_MODE_PREAMBLE } from "@/lib/coach/general-preamble";
+import {
+  checkFirstReply,
+  describeFirstReplyFaults,
+  firstReplyFaultCount,
+  firstReplyRetryInstruction,
+  firstReplyRules,
+} from "@/lib/coach/first-reply-checks";
+import { STRENGTH_CHECK_MODEL, skippedStrength } from "@/lib/coach/strength-check";
 import { trackAfter } from "@/lib/analytics/track";
 import {
   loadPracticePrompt,
@@ -425,11 +434,23 @@ export async function POST(req: NextRequest): Promise<Response> {
   // rule every time, invented quotes included (reply-checks.ts). The
   // cost is the typing effect: the reader sees "Thinking…" until the
   // checked turn arrives whole. Everything else streams.
+  //
+  // And the FIRST reply of a plain Aimee conversation (2026-09-30): her
+  // name, a stock "That's X, especially..." acknowledgement and two asks
+  // in one question got through the instructions about half the time
+  // (first-reply-checks.ts). Later replies stream.
+  const isFirstPlainReply =
+    convo.mode === "general" &&
+    !practice &&
+    !convo.debriefing_meeting_id &&
+    history.every((m) => m.role !== "assistant");
   const checkedTurn: CheckedTurnKind | null = isGenerateOpener
     ? "opener"
     : convo.debriefing_meeting_id
       ? "debrief reply"
-      : null;
+      : isFirstPlainReply
+        ? "first reply"
+        : null;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -676,8 +697,25 @@ export async function POST(req: NextRequest): Promise<Response> {
         // in currentMessages; it is rewriting a paragraph, not
         // gathering anything.
         if (checkedTurn && assistantText.length > 0) {
-          const check = await turnCheckFor(checkedTurn, supabase, convo);
-          const first = check(assistantText);
+          const check = await turnCheckFor(checkedTurn, supabase, convo, {
+            client,
+            userText: [...history].reverse().find((m) => m.role === "user")?.content ?? "",
+            // The strength check's own calls (a smaller model), logged
+            // as part of this turn at that model's rates. Every cost
+            // report sums all rows whatever their purpose, and turns are
+            // counted from messages, so "turn" adds the cost without a
+            // new purpose (which would need a fleet migration).
+            logUsage: (usage) =>
+              void logCoachTokenUsage({
+                conversationId,
+                companyId: convo.company_id,
+                purpose: "turn",
+                model: STRENGTH_CHECK_MODEL,
+                usage,
+              }),
+          });
+          const first = await check(assistantText);
+          let kept = first;
           if (first.count > 0) {
             console.log(
               `[coach] ${checkedTurn} retry for ${conversationId}: ${first.describe}`
@@ -713,9 +751,10 @@ export async function POST(req: NextRequest): Promise<Response> {
               // the first in place: a blank turn is worse than one
               // with a fault in it. "Better" is fewer faults, so a
               // retry that fixes two and keeps one still wins.
-              const second = check(retried);
+              const second = await check(retried);
               if (retried.length > 0 && second.count < first.count) {
                 assistantText = retried;
+                kept = second;
               }
               if (retried.length === 0 || second.count > 0) {
                 console.error(
@@ -735,11 +774,19 @@ export async function POST(req: NextRequest): Promise<Response> {
           // week of data rather than a guess.
           // Dashes out of a checked turn too, before it is sent.
           assistantText = stripEmDashes(assistantText);
-          const shown = check(assistantText);
+          // A first reply's check includes a model call (the named
+          // strength), so its result is reused rather than asked for a
+          // third time; dashes are not among its rules.
+          const shown =
+            checkedTurn === "first reply" ? { ...kept, rules: [...kept.rules] } : await check(assistantText);
           // Counted, not retried, on top of the turn's own check: opening
           // with her name and the contrast phrases (2026-09-29), from
           // the same list ordinary replies are counted against.
-          const counted = [...new Set([...shown.rules, ...bannedRulesIn(assistantText)])];
+          const counted = [...new Set([...shown.rules, ...bannedRulesIn(
+              assistantText,
+              [...history].reverse().find((m) => m.role === "user")?.content ?? ""
+            ),
+          ])];
           if (counted.length > shown.rules.length) {
             shown.count += counted.length - shown.rules.length;
             shown.rules = counted;
@@ -1017,25 +1064,6 @@ async function loadVoiceOnlyBase(): Promise<string> {
   return fs.readFile(voicePath, "utf8");
 }
 
-// Injected ahead of leadership-coach.md in general (Ask Aimee) mode.
-// Shifts persona (Aimee, AiMS Leadership Coach), disables all
-// person-data assumptions, and hardens the confabulation rule for the
-// no-subject case. Kept inline rather than in a second .md file so
-// the base prompt stays a single source of truth.
-const GENERAL_MODE_PREAMBLE = `You are Aimee, the AiMS Leadership Coach.
-
-Introduce yourself as Aimee, the AiMS Leadership Coach, when a natural moment arises — do not belabor the name.
-
-There is no subject on file for this conversation. The participant brings the situation in-thread. They may be reflecting on themselves, working through an issue with someone else, weighing a decision, or preparing for a conversation. Follow their lead rather than assuming which of those it is.
-
-You have no data about any specific person the participant mentions — no commitments, no scorecard, no strengths profile, nothing. Do not call any person-data tools. Do not reference commitments, scorecards, or strengths unless the participant has shared that information in this conversation.
-
-If asked what you know about a person, say plainly that you have no information about them and invite the participant to share what they'd like you to know. Never invent a profile, history, or details about a person.
-
-Use whatever company-level context is provided below (purpose, values, focus areas). If a section is sparse or absent, proceed without it and never fabricate company detail.
-
-Otherwise, follow the coaching approach in the base prompt below — help the participant lay out the situation before offering any diagnosis.`;
-
 function buildMessages(
   history: ReadonlyArray<Pick<CoachingMessage, "role" | "content">>,
   contextPrefix: string
@@ -1061,7 +1089,7 @@ function buildMessages(
 
 // ---- Checked turns -----------------------------------------------
 
-type CheckedTurnKind = "opener" | "debrief reply";
+type CheckedTurnKind = "opener" | "debrief reply" | "first reply";
 
 type TurnCheckResult = { count: number; describe: string; instruction: string; rules: string[] };
 
@@ -1073,10 +1101,26 @@ type TurnCheckResult = { count: number; describe: string; instruction: string; r
 async function turnCheckFor(
   kind: CheckedTurnKind,
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  convo: CoachingConversation
-): Promise<(text: string) => TurnCheckResult> {
+  convo: CoachingConversation,
+  firstReply: { client: Anthropic; userText: string; logUsage: (usage: Anthropic.Usage) => void }
+): Promise<(text: string) => Promise<TurnCheckResult>> {
+  if (kind === "first reply") {
+    // The strength check is a model call (strength-check.ts), so it
+    // runs only when the person's message has a turn in it, and fails
+    // open after 2.5 seconds.
+    return async (text) => {
+      const f = checkFirstReply(text);
+      f.skippedStrength = await skippedStrength(firstReply.client, firstReply.userText, text, firstReply.logUsage);
+      return {
+        count: firstReplyFaultCount(f),
+        describe: describeFirstReplyFaults(f),
+        instruction: firstReplyRetryInstruction(f),
+        rules: firstReplyRules(f),
+      };
+    };
+  }
   if (kind === "opener") {
-    return (text) => {
+    return async (text) => {
       const f = checkOpener(text);
       return {
         count: faultCount(f),
@@ -1094,7 +1138,7 @@ async function turnCheckFor(
         .maybeSingle<{ transcript_text: string | null }>()
     : { data: null };
   const transcript = meeting?.transcript_text ?? "";
-  return (text) => {
+  return async (text) => {
     const f = checkDebriefReply(text, transcript);
     return {
       count: replyFaultCount(f),
