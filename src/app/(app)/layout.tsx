@@ -5,6 +5,7 @@ import {
 } from "@/components/sidebar/nav-group-state";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { AimeeLauncher } from "@/components/aimee/AimeeLauncher";
+import { OpenRecordProvider } from "@/components/aimee/OpenRecord";
 import { HelpWidget } from "@/components/help/HelpWidget";
 import { seesAimeePanel } from "@/lib/aimee/panel-audience";
 import { requireProfile } from "@/lib/auth/current-user";
@@ -169,13 +170,17 @@ export default async function AppLayout({
             initialCollapsed={initialCollapsed}
             initialCollapsedGroups={initialCollapsedGroups}
           />
-          <div className={styles.main}>{children}</div>
-          {/* Aimee's icon and panel, in place of the "?" help button:
-              a conversation with Aimee, who answers from the help.
-              System admins only until AIMEE_PANEL_FOR_EVERYONE is on
-              (panel-audience.ts); everyone else keeps the "?" until
-              then. docs/investigations/aimee-panel.md. */}
-          {seesAimeePanel(role) ? <AimeeLauncher /> : <HelpWidget />}
+          {/* What a drawer has open, shared with Aimee's panel (Step 4):
+              the page underneath and the panel both sit inside it. */}
+          <OpenRecordProvider>
+            <div className={styles.main}>{children}</div>
+            {/* Aimee's icon and panel, in place of the "?" help button:
+                a conversation with Aimee, who answers from the help.
+                System admins only until AIMEE_PANEL_FOR_EVERYONE is on
+                (panel-audience.ts); everyone else keeps the "?" until
+                then. docs/investigations/aimee-panel.md. */}
+            {seesAimeePanel(role) ? <AimeeLauncher /> : <HelpWidget />}
+          </OpenRecordProvider>
         </div>
       </PostHogProvider>
     </InstanceProvider>

@@ -42,6 +42,14 @@ function docFor(entry: PageEntry, docs: readonly HelpDoc[]): HelpDoc | null {
   return null;
 }
 
+// A page's title and purpose as this role's help gives them, for any
+// page, linkable or not (Aimee's panel names the page it is open on).
+// Null when this role has no help for it.
+export async function pageSummaryFor(entry: PageEntry, role: Role): Promise<{ title: string; purpose: string } | null> {
+  const doc = docFor(entry, await loadAllHelpFor(role));
+  return doc ? { title: entry.title ?? doc.title, purpose: purposeOf(doc.markdown) } : null;
+}
+
 // The template opens with a one-sentence purpose under the title.
 export function purposeOf(markdown: string): string {
   const para = markdown

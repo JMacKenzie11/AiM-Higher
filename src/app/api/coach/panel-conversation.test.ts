@@ -31,6 +31,13 @@ vi.mock("@/lib/coach/service", async (orig) => ({
   getAccessForConversation: async () => "owner",
 }));
 vi.mock("@/lib/practices/resolve", () => ({ resolveAgent: async () => h.practice }));
+// Nothing in a chat turn may read with the service role: a record the
+// panel describes is read under the person's own session (Step 4).
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdminClient: async () => {
+    throw new Error("the service role was used in a chat turn");
+  },
+}));
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => ({
     from(table: string) {
@@ -51,7 +58,10 @@ vi.mock("@/lib/supabase/server", () => ({
       };
       b.maybeSingle = async () => ({ data: row(), error: null });
       b.single = async () => ({ data: row(), error: null });
-      b.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(res);
+      // The thread so far: the one message just sent, so the latest
+      // user turn (where page context rides) exists.
+      const list = table === "coaching_messages" ? [{ role: "user", content: "Where do I add a priority?" }] : [];
+      b.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: list, error: null }).then(res);
       return b;
     },
   }),
@@ -94,16 +104,20 @@ beforeEach(() => {
   h.inserts = [];
 });
 
-async function send() {
+async function send(extra: Record<string, unknown> = {}) {
   const req = new Request("http://localhost/api/coach", {
     method: "POST",
-    body: JSON.stringify({ conversationId: "conv1", userMessage: "Where do I add a priority?" }),
+    body: JSON.stringify({ conversationId: "conv1", userMessage: "Where do I add a priority?", ...extra }),
   });
   await (await POST(req as never)).text();
   const call = h.stream.mock.calls[0][0];
+  const messages = call.messages as Array<{ role: string; content: string }>;
   return {
     tools: (call.tools as Array<{ name: string }>).map((t) => t.name),
     system: (call.system as Array<{ text: string }>).map((b) => b.text).join("\n"),
+    // The array is the route's own and grows after the call, so find
+    // the user turn rather than taking the last entry.
+    lastUser: String([...messages].reverse().find((m) => m.role === "user" && typeof m.content === "string")?.content ?? ""),
   };
 }
 
@@ -138,5 +152,31 @@ describe("a conversation started in Aimee's panel", () => {
       found: expect.any(Boolean),
     });
     expect(JSON.stringify(events[0].payload)).not.toContain("priority");
+  });
+
+  it("is told about the page beside it, and a page conversation is not", async () => {
+    const pageContext = { path: "/plan", record: null };
+    h.origin = "panel";
+    const panel = await send({ pageContext });
+    expect(panel.lastUser).toContain("<current_page>");
+    expect(panel.lastUser).toContain("(/plan)");
+
+    vi.clearAllMocks();
+    h.stream.mockImplementation(() => streamOf("Fine."));
+    h.origin = "page";
+    const page = await send({ pageContext });
+    expect(page.lastUser).not.toContain("<current_page>");
+  });
+
+  it("describes no record the session's own client did not return", async () => {
+    // The fake session answers no row for a function, which is what
+    // RLS does with another company's. Aimee hears the page, not the
+    // record, and the service role (mocked to throw) is never asked.
+    h.origin = "panel";
+    const { lastUser } = await send({
+      pageContext: { path: "/chart", record: { pattern: "/chart/function/[id]", id: "11111111-1111-4111-8111-111111111111" } },
+    });
+    expect(lastUser).toContain("<current_page>");
+    expect(lastUser).not.toMatch(/Open function/);
   });
 });

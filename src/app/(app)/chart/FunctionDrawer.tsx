@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Drawer } from "@/components/ui/Drawer";
+import { useOpenRecord } from "@/components/aimee/OpenRecord";
 import {
   createFunctionCompetencyAction,
   createFunctionDecisionRightAction,
@@ -72,6 +73,10 @@ export function FunctionDrawer({
   onSwitch: (id: string) => void;
 }) {
   const router = useRouter();
+  // Aimee's panel can read the function open here (Step 4). Only the
+  // pattern and id are shared; the server loads it under the person's
+  // own session.
+  useOpenRecord("/chart/function/[id]", functionId);
   const [detail, setDetail] = useState<FunctionDrawerDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();

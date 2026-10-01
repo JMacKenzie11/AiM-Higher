@@ -40,6 +40,15 @@
    (Jason, 2026-09-29; it used to push the page left). */
 .side {
   width: min(400px, 100vw);
+  /* Above another drawer's scrim: Aimee's panel stays usable while
+     /chart's function editor is open. */
+  z-index: 62;
+}
+
+/* And that other drawer moves over to sit beside Aimee's panel rather
+   than under it. */
+:global(html[data-aimee-panel="open"]) .panel:not(.side) {
+  right: min(400px, 100vw);
 }
 
 /* KEPT MOUNTED MEANS KEPT IN THE DOM, so `hidden` has to actually
