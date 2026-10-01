@@ -147,6 +147,56 @@ lives in the production project**, so a hostname with a domain under it
 would reach for production. `CONTROL_PLANE_*` is blanked on that server
 too, so an accidental lookup fails loudly instead of connecting.
 
+## Why a full run compiles everything first
+
+`next dev` compiles a page the first time it is asked for, and by
+default throws it away after a minute unused. A compile that lands
+while another page is rendering fails that render with `Cannot read
+properties of undefined (reading 'call')`. Over a 30-minute run that
+hit a different test or two every time, and each one passed when run
+alone (2026-09-29).
+
+So `e2e/global-setup.ts` signs in as the system admin, scopes into
+E2E Fixture Co and requests every page under `src/app/(app)` once before the
+first test, and `next.config.ts` keeps compiled pages for four hours
+in dev (`onDemandEntries`). The warm-up takes a few minutes on a cold
+server and seconds on a warm one. Production builds are unaffected:
+they compile everything up front.
+
+**Restart the dev server every quarter of the suite.** Every page
+compiled and kept costs memory: measured on 2026-09-29, `next dev` sits
+at about 8 GB after the warm-up and climbs to about 11 GB after ten
+minutes of tests. It gives itself half the machine's memory (16 GB on a
+32 GB Mac) and restarts itself at 80% of that ("Server is approaching the
+used memory threshold, restarting"), which drops every compiled page and
+fails whatever was loading, usually as a timeout or a test sent back to
+sign-in. A half of the suite reaches that; a quarter does not. So a full
+run is four shards, each on a freshly started server, each with its own
+warm-up:
+
+```sh
+for n in 1 2 3 4; do
+  # stop the server on 3200, start `npm run dev`, wait for /sign-in
+  npx playwright test --project=chromium --shard=$n/4
+done
+```
+
+Do not raise the memory limit with NODE_OPTIONS: next dev already sets
+it to half the machine's memory, so a smaller number lowers it, and a
+larger one only delays the restart while the machine starts swapping.
+
+Two rules for specs, from the same investigation:
+
+- **Wait on what the product writes, never on the clock.** Coach
+  memory is written by a background model call that takes about six
+  seconds, longer under load. `coach-memory.spec.ts` reloads the
+  Memory page until the expected lines appear, with a time limit,
+  instead of pausing and reading once.
+- **Write only into E2E Fixture Co.** A spec that fails before its
+  clean-up step leaves its rows behind, and in a copy of a client's
+  company that is the client's data with test rows in it. See "Specs
+  write only into E2E Fixture Co".
+
 ## Running the live-credential specs
 
 Two specs need more than a browser: they need a real model and, in one

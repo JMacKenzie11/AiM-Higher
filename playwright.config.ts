@@ -59,6 +59,8 @@ const UNRESOLVED_BASE_URL = `http://localhost:${UNRESOLVED_PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  // Compiles every page before the first test (e2e/global-setup.ts).
+  globalSetup: "./e2e/global-setup.ts",
   // Serial by default. These share one database and one dev server,
   // and several of them assert on a cookie that is per-context but
   // backed by shared rows. Parallelism here buys seconds and costs
