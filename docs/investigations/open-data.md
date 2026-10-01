@@ -269,9 +269,12 @@ none of the three (green). And a control that must pass: a summary
 about "sales pipeline health" and a "diagnostic review".
 
 **Rows already stored.** Production holds 41 conversation analyses
-written before this rule (and no theme rows). *Recommendation:* delete
-them and let the job rebuild under the new rule, rather than trying to
-scrub them after the fact. That is a production write, on Jason's go.
+written before this rule (no theme rows; PromiseOne has none). Jason's
+decision (2026-10-01): **keep them, delete nothing.** The job skips a
+conversation that already has an analysis, so these 41 stay as they
+were written, outside the anonymous rule, and remain visible to system
+admins on the dashboard. Every analysis written after phase B is
+anonymous.
 
 **The wording,** in the spec and in the help, wherever the product
 describes Aimee's privacy: "Only the person who started a conversation
@@ -291,7 +294,7 @@ Aimee that month is that person's conversation, whatever the wording.
 Topic and timing do the rest: "worried about a key hire leaving" in a
 six-person company, the week after someone resigned, needs no name.
 
-*Recommendations:*
+*Decided (Jason, 2026-10-01): all four, as written.*
 - **A minimum crowd for the company view.** A company appears in the
   filter only when at least 5 different people had conversations there
   in the period shown. Below that, its themes count only towards "all
@@ -520,8 +523,11 @@ tests, which stay first.
   migration, per instance, on his go.
 
 **Phase B. Close the conversation gaps.**
-- Insights and themes jobs: kept, made anonymous (§2a), with the
-  company view limits and the restated principle in spec and help.
+- Insights and themes jobs: kept, made anonymous (§2a), with the four
+  dashboard limits (a company needs 5 people in the period, a quoted
+  sentence needs 3 people across 2 companies, no finer than a month on
+  a company view, no single conversations) and the restated principle
+  in spec and help. The 41 existing analyses are kept as they are.
 - Per-company usage only (decision 2).
 - Debrief invitations readable by the recipient only (decision 3).
 - Drop `coach_memory_metadata`; revoke the share checks from `anon`;
@@ -554,7 +560,5 @@ on the server.
 
 **Still open:**
 - PostHog session recording: Jason is checking.
-- Deleting the 41 stored conversation analyses (§2a): a production
-  write, on Jason's go.
 
 Docs: this file is the investigation. No product behaviour changed.
