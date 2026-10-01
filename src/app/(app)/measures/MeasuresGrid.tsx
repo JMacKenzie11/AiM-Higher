@@ -30,7 +30,7 @@ import { formatWeekBeginning, mondayOf } from "@/lib/dates";
 import {
   formatMeasureValue,
   parseTypedNumber,
-  toEntryNumber,
+  toEntryText,
 } from "@/lib/measures/value-format";
 import uiStyles from "@/components/ui/ui.module.css";
 import {
@@ -163,7 +163,11 @@ function pinnedColumns(authoring: boolean) {
 // fill whatever is left, so the open month lands exactly against the
 // pinned block.
 const CLOSED_MONTH_WIDTH = 44;
-const MIN_WEEK_WIDTH = 72;
+// Room for seven characters in the value box ("12345.6", "152.73"),
+// with the box's 7ch minimum in measures.module.css: 7ch at 13px is
+// about 55px, plus 10px of box padding and border, plus 8px of cell
+// padding.
+const MIN_WEEK_WIDTH = 74;
 
 // A new measure, before anything is typed. The column defaults,
 // restated here so the form has something to control.
@@ -1667,12 +1671,18 @@ function isDueInWeek(row: GridRow, week: string): boolean {
 // What goes IN the input box, which is the measure's own unit rather
 // than what is stored. A millions measure holding 18000000 shows 18,
 // because 18 is what somebody typed and what they expect to find.
+//
+// THOUSANDS AND MILLIONS SHOW TWO DECIMALS AT MOST (Jason, 2026-10-01).
+// A thousands measure holding 152727 showed 152.727, a figure nobody
+// typed: the sheet pull stores whole units. Rounded to 152.73 by
+// toEntryText, the same as everywhere else the value appears
+// (formatMeasureValue). Plain numbers keep what was entered.
 function valueAt(row: GridRow, week: string): string {
   const cell = row.cells.find((c) => c.weekEnding === week);
   if (!cell?.value) return "";
   if (row.valueType === "text") return cell.value.text ?? "";
   if (cell.value.number == null || !Number.isFinite(cell.value.number)) return "";
-  return String(toEntryNumber(cell.value.number, row.valueType, row.scale));
+  return toEntryText(cell.value.number, row.valueType, row.scale);
 }
 
 function ChevronIcon({ direction }: { direction: "left" | "right" }) {

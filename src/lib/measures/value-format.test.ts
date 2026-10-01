@@ -124,3 +124,20 @@ describe("what arrives from a form", () => {
     expect(parseScale(null)).toBe("plain");
   });
 });
+
+describe("toEntryText", () => {
+  it("shows thousands and millions to two decimals at most", async () => {
+    const { toEntryText } = await import("./value-format");
+    // Benson's Total Pounds Received, week ending 2026-09-25.
+    expect(toEntryText(152727, "number", "thousands")).toBe("152.73");
+    expect(toEntryText(18000000, "number", "millions")).toBe("18");
+    expect(toEntryText(21670000, "currency", "millions")).toBe("21.67");
+    expect(toEntryText(1500, "number", "thousands")).toBe("1.5");
+  });
+
+  it("keeps a plain number exactly as entered", async () => {
+    const { toEntryText } = await import("./value-format");
+    expect(toEntryText(38.625, "number", "plain")).toBe("38.625");
+    expect(toEntryText(95894, "number", "plain")).toBe("95894");
+  });
+});
