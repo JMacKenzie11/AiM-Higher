@@ -85,12 +85,15 @@ export async function getPlatformPulse(): Promise<PlatformPulse> {
         .from("coaching_messages")
         .select("id", { count: "exact", head: true })
         .gte("created_at", since7)
-        .eq("role", "assistant"),
+        .eq("role", "assistant")
+        // Openers hidden by an agent swap (0239) were never read.
+        .is("hidden_at", null),
       admin
         .from("coaching_messages")
         .select("id", { count: "exact", head: true })
         .gte("created_at", since30)
-        .eq("role", "assistant"),
+        .eq("role", "assistant")
+        .is("hidden_at", null),
       admin
         .from("coach_token_usage")
         .select("cost_usd_cents")
@@ -373,7 +376,10 @@ export async function getPracticeAdoption(): Promise<PracticeAdoptionRow[]> {
   const { data: countsData } = await admin
     .from("coaching_messages")
     .select("conversation_id")
-    .in("conversation_id", convoIds);
+    .in("conversation_id", convoIds)
+    // Openers hidden by an agent swap (0239) are not part of the
+    // conversation anybody saw.
+    .is("hidden_at", null);
   const perConvoMsgCount = new Map<string, number>();
   for (const m of (countsData ?? []) as Array<{ conversation_id: string }>) {
     perConvoMsgCount.set(
