@@ -274,7 +274,8 @@ async function main() {
     .from("companies")
     .select("id")
     .eq("name", SECOND_COMPANY_NAME)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string }>()
+    .then(orThrow(`"${SECOND_COMPANY_NAME}"`));
   let secondCompanyId = existingSecond?.id ?? null;
   if (!secondCompanyId) {
     const { data, error } = await admin
