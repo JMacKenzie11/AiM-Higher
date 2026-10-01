@@ -5,148 +5,61 @@ roles: [team_member, company_admin, system_admin, aims_guide]
 
 # When Aimee gets in touch
 
-Most of the time you go to Aimee. Sometimes Aimee comes to you.
+How Aimee gets in touch with your company's AiMS champion, and what happens when she does.
 
-Your company has named one person to lead its implementation of AiMS.
-That person is the **AiMS champion**, and Aimee coaches them through
-it. If that is you, Aimee will get in touch from time to time with
+Your company names one person to lead its implementation of AiMS: the **AiMS champion**. Aimee coaches that person through it.
+
 ::: panel
-something worth your attention. A number appears on Aimee's icon in
-the bottom-right corner, and the note is waiting under **For you**
-when you open her panel.
+When she has something worth your attention, a number appears on her icon in the bottom-right corner, and the note is waiting under **For you** when you open her panel.
 :::
 ::: no-panel
-something worth your attention, as a note in your notification bar.
+When she has something worth your attention, a note appears in your notification bell.
 :::
 
-## What you get today
+## What you can do here
 
-After a leadership meeting is summarised, Aimee invites the champion
 ::: panel
-to talk it through. The note names the meeting and its day (click the
-name to read its summary), one thing the team did well, and a short
-question. Click **Talk it through** under the note and a
-chat about that specific meeting opens right there in the panel,
-beside whatever page you are on. **Open on the Aimee page** above the
-chat takes it to the full page if you want more room.
+- **Talk a meeting through.** After a leadership meeting is summarised, Aimee invites you to talk it through. The note names the meeting and its day, one thing the team did well, and a short question. Click **Talk it through** under the note and a chat about that meeting opens in the panel, beside whatever page you're on.
+- **Read the meeting first.** Click the meeting's name on the note to open its summary.
+- **Give it more room.** **Open on the Aimee page** above the chat moves it to the full Ask Aimee page.
 :::
 ::: no-panel
-to talk it through. Clicking the note opens a chat about that
-specific meeting.
+- **Talk a meeting through.** After a leadership meeting is summarised, Aimee invites you to talk it through. Click the note in your notification bell and a chat about that meeting opens.
 :::
+- **Pass on it.** Click **Not now** under the note. It goes away and nothing else happens.
 
-That is the first of these, not the whole of it. More will follow as
-the implementation goes on.
-
-## Why you got this
-
-Your company named you the AiMS champion in company settings. It is
-the only reason. Aimee is not watching how you work, scoring you, or
-picking people out.
-
-If you would rather somebody else led it, a company admin can change
-the seat on the company's settings page, and Aimee follows it. Any
-invitation still waiting for you goes with the seat: once it moves,
-you won't see it any more.
+::: role company_admin,system_admin
+- **Choose the champion.** Set or change the seat under *AiMS champion* on the company settings page. You can pick any active person at the company, or leave it empty. Aimee follows whoever holds it, and an invitation still waiting for the person before goes with the seat.
+:::
 
 ## What happens in the chat
 
-Aimee opens with the moment in the meeting where it happened, one
-thing somebody said there, why it matters, and a question. Answer it
-and she picks up from there, having read the meeting summary. The conversation is about how the meeting went:
-what worked, where it got stuck, whether decisions ended up with an
-owner and a date.
+Aimee opens with the moment in the meeting where it happened, one thing somebody said there, why it matters, and a question. Answer it and she carries on, having read the meeting summary. The conversation is about how the meeting went: what worked, where it got stuck, and whether decisions ended up with an owner and a date. Three or four exchanges is a good one.
 
-Three or four exchanges is a good one. There is no form to fill in.
+Nothing is created from the chat. Aimee can't add commitments, raise issues or change the meeting summary from here. If you decide to do something, do it in the usual place.
 
-**Nothing is created from it.** Aimee cannot add commitments, raise
-issues, or change your meeting summary from this chat. If you decide
-to do something, you still do it in the usual place. If Aimee says
-something back to you that sounds like it has been logged, it has
-not been.
-
-The chat is private to you, like every other conversation you start.
-It appears in your Ask Aimee list afterwards.
+The chat is private to you, like every conversation you start with Aimee, and it appears in your Ask Aimee list afterwards.
 
 ## What Aimee looks at
 
-Worth knowing before you reply to her, because a coach you cannot
-see the edges of is a coach people hedge with.
+- **The meeting summary.** In the chat she reads the written summary and the commitments that came out of it. The one line she quotes when she opens was checked against the recording when the note was written, so it's what was actually said.
+- **What you can already see.** Past commitments and whether they were kept, the scorecard trend, issues and how they were worked, and earlier plans. She sees exactly what you'd see opening those pages yourself.
+- **What she remembers about you.** You can read and delete it under **Memory** on your profile page.
 
-**The meeting summary.** In the chat, Aimee reads the written summary
-of the meeting and the commitments that came out of it. The one line
-she quotes in her first message was picked when the note was written
-and checked against the recording, so it is what was actually said.
+She can't read anyone else's conversations, and nobody can read yours.
 
-**The shared record, the same as you see it.** Past commitments and
-whether they were met, the scorecard trend, issues and how they were
-worked, previous plans. All of it runs under your own account, so
-Aimee sees exactly what you would see if you opened those pages, and
-nothing you could not.
+## Common questions
 
-**What she remembers about you.** Ask Aimee keeps notes about your
-own coaching over time. Those are yours. You can read them and
-delete them at **Ask Aimee → What Aimee remembers**.
+**Why did I get this?** Your company named you the AiMS champion. That's the only reason. Being the champion doesn't change what you can see or do anywhere else in AiMS.
 
-**Not other people's conversations.** Aimee cannot read anybody
-else's chats, and nobody can read yours.
+**Who else gets these?** Nobody. It's one person per company. If a commitment in the summary belongs to someone else, they aren't told Aimee mentioned it to you.
 
-## Who gets these
+**What if I missed one?** Only the latest invitation stays open. If two meetings are summarised before you get to either, you're invited about the newer one. You can always read any meeting summary yourself from **Meetings**.
 
-Only the AiMS champion. One person per company.
-
-Not the leadership team, not the people named in the meeting, not
-your manager. If a commitment in the summary belongs to somebody
-else, they are not told that Aimee mentioned it to you.
-
-Your company's admins can see **that** invitations were sent and
-whether they were opened. They cannot see what was said in the
-chat.
-
-## What stays private
-
-The debrief conversation is private to you, the same as every other
-conversation you start. It shows in your Ask Aimee list and nowhere
-else. If you want somebody to read it, you share it deliberately,
-the same way you would any other.
-
-The record Aimee keeps of the invitation itself holds the date, the
-::: panel
-meeting it was about, and the one line you saw under For you. None of the conversation goes into it.
-:::
-::: no-panel
-meeting it was about, and the one line you saw in your notification
-bar. None of the conversation goes into it.
+::: role team_member,aims_guide
+**What if I'd rather not be the champion?** Ask a company admin to change the seat. Leaving it empty is fine: nobody is contacted and nothing else changes. Any invitation still waiting for you goes with the seat, so once it moves you won't see it any more.
 :::
 
-## Being the champion does not change what you can see
-
-The seat is about who Aimee works with. It grants nothing and takes
-nothing away: everything you could open before, you can open now,
-and nothing new has been opened to you.
-
-## If you do not want it
-
-::: panel
-Click **Not now** underneath the note in Aimee's panel. It goes away
-and nothing happens.
+::: role company_admin,system_admin
+**What if I'd rather not be the champion?** Change the seat on the company settings page, or leave it empty. With nobody in the seat, nobody is contacted and nothing else changes.
 :::
-::: no-panel
-Click **Not now** underneath the note. It goes away and nothing
-happens.
-:::
-
-Aimee will be in touch again after the next meeting. If you would
-rather not be, ask a company admin to take you out of the champion
-seat. Leaving the seat empty is a normal thing to do: nobody is
-contacted and nothing else changes.
-
-## If you miss one
-
-Nothing is lost. Only the most recent invitation is live at any
-time, so if two meetings are summarised before you get to either,
-you are invited about the newer one. The older note goes quiet
-rather than stacking up.
-
-You can always open any meeting summary yourself from **Meetings**
-and read it without the chat.

@@ -2,48 +2,26 @@
 title: Published role description version
 ---
 
-# Role description — version _n_
+# Published role description version
 
-A frozen snapshot of the role description as it was published on
-this date. Every section here is read-only — no Edit, Regenerate,
-or Publish affordances. To make a change, go back to the live role
-description and either edit the prose sections there or publish a
-new version.
+A published version of a role description, exactly as it read on the day it was published. Nothing on this page can be edited.
 
 ## What you can do here
 
-- **Read the frozen document** — Position Summary and Why This
-  Role Matters are the exact text from when this version was
-  published, including any manual overrides live at that time.
-  Chart-driven sections (Critical Success Factors with their targets, Key Responsibilities,
-  Decision Rights, Competency Indicators) also reflect the state
-  at publish time. The live chart can change under them without
-  affecting this snapshot.
-- **Download the .docx** — pulls this specific version as a Word
-  file. The filename carries the version number so archived
-  copies stay distinguishable.
-- **Back to the live role description** — the top-left crumb
-  returns to the live view. The Versions section there lists
-  every published version if you want to browse others.
+- **Read the version.** Every section shows what it said when it was published. Changes to the Functional Chart since then don't touch it. The top of the page shows who published it and when, and any note they added.
+- **Download it.** Where there's a *Download* button, it saves this version as a Word file with the version number in the file name.
+- **Go back.** The link at the top left returns to the current role description, where the *Versions* list shows every published version.
 
-## Who can see and manage versions
+To change the role description, go back to the current one.
 
-Anyone signed in with visibility on the function can view any
-published version and download its .docx. Deleting a version is
-admin-only and happens from the Versions list on the live role
-description page.
+::: role company_admin,aims_guide,system_admin
+## Deleting a version
+
+Delete a version from the *Versions* list on the current role description. It's permanent. Other versions and the current role description aren't affected.
+:::
 
 ## Common questions
 
-**Why does this look different from the live doc?** This is a
-snapshot from when it was published. The live doc has moved on —
-sections may have been edited, the underlying chart entities may
-have changed, or the AI draft may have been regenerated.
+**Why does this look different from the current role description?** This is how it read when it was published. The current one may have been edited since, or the Functional Chart behind it may have changed.
 
-**Can I download the current live version instead?** Yes — the
-live role description page has its own *Download* button.
-
-**A version was deleted — can I recover it?** No. Version delete
-is permanent; the snapshot goes with it. Other versions and the
-live draft are unaffected. Publish a fresh version any time to
-reset.
+**Can I download the current role description instead?** Yes. The current role description has its own *Download* button.

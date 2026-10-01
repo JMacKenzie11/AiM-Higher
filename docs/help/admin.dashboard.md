@@ -5,83 +5,32 @@ roles: [system_admin]
 
 # Platform
 
-Cross-company view of what's live, what's active, and what needs
-attention. Numbers refresh on page load; themes and cost cards run
-off nightly jobs.
+A view across every company: what's in use, who's active, and which companies need attention. The numbers update each time you load the page. Coaching themes and spend update overnight.
 
 ## What you can do here
 
-- **Skim the pulse strip** — four platform-wide numbers over the
-  last 7 days: active users (people who sent a coach message),
-  coaching turns, new companies, and token spend.
-- **Scan Needs attention** — companies flagged on one of three
-  coach-chat signals: no coach conversations in 14+ days, coach
-  conversations dropped from 4+ (30 days) to zero this week, or
-  Follow-Through Rate under 40% over the last 30 days. Click a
-  row to scope into that company. Meeting-transcript ingest is a
-  separate pipeline and doesn't count as coach activity here.
-- **Read Top coaching themes** — five themes clustered nightly
-  from recent conversation titles and openings. Populates after
-  the first nightly run at 06:00 UTC.
-- **Compare Conversations per company** — top eight by 30-day
-  thread count. Bars scale to the leader.
-- **Read Practice adoption** — one tile per registered practice:
-  Started (any conversation), Engaged (3+ messages, proxy for
-  going past the opener), Companies (distinct companies whose
-  users started this practice).
-- **Watch Token spend** — 7-day and 30-day totals plus a 30-day
-  daily ridge. Real invoiced Anthropic spend when the Admin API
-  workspace is configured; otherwise a local coach-only
-  estimator (marked *Estimated · coach only*).
-- **Sort the company activity table** — click any header. Users
-  = distinct people who sent a coach message in the window.
-  Conv. = coaching threads started. Practices = practice
-  conversations started (30 days). Follow-Through Rate =
-  kept-on-time ÷ (kept-on-time + kept-late + missed + open and
-  past due) over 30 days. An overdue commitment counts against
-  the rate; one not yet due is left out entirely. A weekly
-  repeating commitment counts once per week resolved.
-
-- **Add a system admin** — the *System admins* card at the
-  bottom. They belong to no company, which is why they appear here
-  rather than on any company's Team page. They get the ordinary
-  invitation and set their own password.
-- **Add a portfolio admin** — the *Portfolio admins* card beneath
-  it. A portfolio admin **reads every company on this instance and
-  writes none of their content.** What they can do is run the
-  container around those companies: create a company, set its
-  settings and features, archive it, and invite people into
-  company roles. They cannot delete a company, and they cannot
-  create another portfolio admin or a system admin — only you can,
-  from this page. Their home is `/portfolio`. Every time one of
-  them opens a company, and every administrative action they take,
-  is recorded.
+- **Read the pulse strip.** Four numbers for the last 7 days, with the 30 day figure underneath: active users (people who sent Aimee at least one message), coaching turns (one message and its reply), new companies, and spend.
+- **Work through Needs attention.** A company shows here when nobody there has talked with Aimee in 14 days or more, when its conversations dropped from 4 or more in the last 30 days to none this week, or when its Follow-Through Rate is under 40% over the last 30 days (the same figure as *Keep rate* in Company activity). Meetings coming in don't count as activity. Click a row to open that company.
+- **Read Top coaching themes.** The five most common themes across recent conversations. It fills in after its first overnight run.
+- **Compare Conversations per company.** The eight companies with the most conversations in the last 30 days. A long conversation still counts as one.
+- **Read Practice adoption.** One tile per practice, for the last 30 days: *started* (conversations begun), *engaged* (3 or more messages, a sign the person got past the opening) and *companies* (how many companies used it).
+- **Watch Token spend.** Totals for 7 and 30 days, a daily chart for the last 30 days, and the average cost of an Aimee conversation started in the panel and on the Aimee page.
+- **Sort Company activity.** Click any heading to sort, and click a company to open it. *Users* is people who messaged Aimee in the period. *Conv.* is conversations started. *Practices* is practice conversations started in the last 30 days. *Keep rate* is the share of commitments kept (late ones included) out of those kept or missed in the last 30 days.
+- **Explore Coaching insights.** What leaders are working through with Aimee, filtered by company and date range: how much she's used, day by day, then *Themes*, *Friction signals* (where leaders sounded stuck or frustrated) and *Product opportunities* (things people asked the product to do). Clearing the filters brings back everything.
+- **Add a system admin** in the *System admins* card. System admins belong to no company, which is why they're listed here and not on a company's People page. They get the usual invitation and set their own password. Company admins are invited from their company's page under Companies.
+- **Add a portfolio admin** in the *Portfolio admins* card. A portfolio admin reads every company and changes none of their work. They can create companies, set a company's settings and features, archive a company, and invite people into company roles. They can't delete a company or create another portfolio admin or system admin: only you can, from here. Every company they open and every change they make is recorded.
 
 ## Common workflows
 
-- **Call list for the week** — start in Needs attention. Every
-  row is a candidate for outreach.
-- **Find quiet companies** — sort the activity table by *Last
-  active*.
-- **Sense-check what people are working on** — read Top coaching
-  themes.
-- **Catch cost creep** — watch the Token spend daily ridge for
-  spikes.
+- **This week's call list.** Start with Needs attention. Every row is someone to get in touch with.
+- **Find quiet companies.** Sort Company activity by *Last active*.
+- **See what people are working on.** Read Top coaching themes and Coaching insights.
+- **Catch rising costs.** Watch the daily chart in Token spend for spikes.
 
 ## Common questions
 
-**Why isn't per-company cost shown?** Anthropic's Admin API
-doesn't segment cost by AiMHigher companies. The card gives the
-platform total; a per-company breakdown isn't available.
+**Why isn't cost shown per company?** The invoice only gives a total for the whole platform, so there's no split by company.
 
-**Why is Token spend empty?** The chart fills in from the day the
-Anthropic workspace was configured, not retroactively. First-run
-gaps also apply to Themes (empty until the first nightly
-clustering job).
+**Why does Token spend say *Estimated*?** It's worked out from usage rather than taken from the invoice. When it says *Real*, it's the invoiced amount.
 
-**Estimator vs. real spend?** With the workspace env vars unset,
-Token spend is a rough estimate from the local coach token log —
-it under-counts non-coach model calls (meeting analyzer, RD
-generator, strengths narrative, dashboard brief). Set
-`ANTHROPIC_ADMIN_KEY` and `ANTHROPIC_WORKSPACE_ID` in Vercel to
-switch to real invoiced numbers.
+**Why is a card empty?** Token spend fills in from the day billing was connected, not before. Top coaching themes stays empty until its first overnight run. The *Themes* part of Coaching insights needs at least three conversations to work from.

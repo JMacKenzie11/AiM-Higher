@@ -4,122 +4,79 @@ title: AiMS Implementation
 
 # AiMS Implementation
 
-A live read on how consistently the AiMS disciplines are being practiced
-across the company. Everyone in the company sees the same view — the
-Scorecard is transparent by design. Numbers are computed on every page
-load; the sparklines behind them come from the weekly Sunday snapshot.
+How consistently your company is practising the AiMS disciplines, scored out of 10. Everyone in the company sees the same page.
 
-## Setup checklist at the top
-
-If you have admin authority on this company (system admin, company
-admin, or an assigned AiMS Guide), a *Set up {company}* card renders
-above the discipline tiles. It stays visible even after every step is
-ticked off, so the page keeps working as a shared map of the operating
-disciplines.
-
-Five ordered steps, each auto-checking as its condition becomes true:
-
-1. **Build the team** — add people and build the functional chart.
-2. **Invite the team** — send invitations to everyone on the roster.
-3. **Open a quarter** — the wrapper every commitment lives in.
-4. **Start the weekly rhythm** — a commitment logged in the last 14
-   days.
-5. **Track Issues / Solutions** — an issue logged in the last 14 days.
-
-Team members don't see this card — it's only for people who can act on
-the steps.
-
+::: role team_member
 ## What you can do here
 
-- **Read the overall score** and the 26-week arc under the hero.
-- **Read each discipline's card** — score, trend arrow vs. 90 days ago,
-  sparkline, and the evidence lines the score was built from.
-- **See what to fix** — the Accountability Chart card lists the specific
-  functions missing a Lead, a critical success factor, or a measure.
-- **Hover the `?` on any card** for the exact scoring rubric.
-- **Click through** from any card to the page that improves the score
-  (Foundation, Chart, Plan, Commitments, Measures, Meetings).
+- **Read the overall score** and the line under it showing the last 26 weeks.
+- **Read each discipline's card.** You'll see its score, an arrow comparing it with 90 days ago, a small trend line, and the evidence the score came from.
+- **See how a card is scored.** Hover the *?* beside its name.
+- **Go and improve it.** Each card links to the page where that work happens.
+:::
+
+::: role company_admin,aims_guide,system_admin
+## What you can do here
+
+- **Work through the setup checklist.** The *Set up {company}* card at the top has five steps, and each one ticks itself off when it's done:
+  1. **Build the team:** add people and build the Functional Chart.
+  2. **Invite the team:** send invitations to everyone on the roster.
+  3. **Open a quarter:** every commitment lives inside one.
+  4. **Start the weekly rhythm:** log a commitment in the last 14 days.
+  5. **Track Issues / Solutions:** log an issue in the last 14 days.
+
+  The card stays up once everything's ticked, so it works as a map of the disciplines. Team members don't see it.
+- **Read the overall score** and each discipline's card: its score, an arrow comparing it with 90 days ago, a small trend line, and the evidence behind it.
+- **Find what to fix.** The Accountability chart card names the functions that are missing a Lead or a critical success factor.
+- **See how a card is scored.** Hover the *?* beside its name.
+- **Go and improve it.** Each card links to the page where that work happens.
+:::
+
+::: role portfolio_admin
+## What you can do here
+
+Read the overall score and every discipline's card, the same view the company sees. The setup checklist only shows in companies where you've taken company admin access.
+:::
 
 ## What's scored
 
-Eight disciplines, each 0–10:
+Eight disciplines, each out of 10:
 
-- **Foundation** — purpose, vision, at least three core values, and
-  at least three differentiators on the One-Page Plan. Four things,
-  2.5 points each. State-based (no trend line).
-- **Accountability chart** — every function has a Lead assigned, at
-  least one critical success factor, and at least one measure.
-  State-based. LTD Track/Decide always sit with the Lead, so they're not
-  scored.
-- **Strategic plan** — an open quarter with a populated cascade (2-point
-  baseline), plus how well goals and quarterly priorities close
-  on their due dates (4 points each). Fresh plans with nothing past-date
-  get full credit for the closure halves. A populated cascade means
-  focus areas and quarterly priorities: goals are optional, so a plan
-  that runs priorities straight off its focus areas is not penalised
-  for having none.
-- **Execution** — 30-day follow-through rate on commitments, minus aging
-  (open more than 14 days past due). Deleted and parked commitments
-  don't count toward either half. Priority linkage is deliberately
-  not scored.
-- **Success tracking** — every measure has a target, has been logged in
-  the last 7 days. Scored
-  for every company. It used to be skipped unless the Success Tracking
-  setting was on; that setting is about automatic reminders now, not
-  about whether you track, so it no longer decides this.
-- **Weekly leadership meeting** — a meeting is happening most weeks
-  (rolling 8) and the facilitation reviews are landing well. Only scored
-  when Meeting Facilitation Review is on.
-- **Solution seeking** — how well the team runs the AiMS 4Ws (What /
-  Want / Way / Who-by-when) on surfaced issues over the rolling 8 weeks.
-  Not scored until issues appear.
-- **Appreciative practice** — the positive-framing signal from meeting
-  reviews plus counts of appreciations, generative questions, and
-  reframes. Not scored until at least one v2 review has run.
+- **Foundation:** a purpose statement, a vision, at least three core values and at least three differentiators on the One-Page Plan. 2.5 points each. It only checks they're filled in, so there's no trend arrow.
+- **Accountability chart:** every function has a Lead and at least one critical success factor. No trend arrow either.
+- **Strategic plan:** an open quarter with focus areas and quarterly priorities in it, plus how well goals and priorities close by their due dates. Goals are optional, so a plan without them isn't marked down. A new plan with nothing past due gets full credit for closing on time.
+- **Execution:** your follow-through on commitments over the last 30 days, less a penalty for commitments still open more than 14 days past due. Deleted and parked commitments don't count.
+- **Success tracking:** every measure has a target and has a value logged in the last 7 days.
+- **Weekly leadership meeting:** a meeting happens most weeks (out of the last 8), and the facilitation reviews are good.
+- **Solution seeking:** how well the team works issues through the AiMS 4Ws (What, Want, Way, Who by when) over the last 8 weeks. It isn't scored until issues come up.
+- **Appreciative practice:** how positively meetings are framed, plus how often people show appreciation, ask generative questions and reframe problems. It isn't scored until a meeting has been reviewed.
 
-The **overall score** is a weighted average across the disciplines that
-actually scored — Planning and Execution weight double. Disciplines
-whose feature is off don't drag the average down; their weight is
-redistributed.
+The last three need Meeting Facilitation Review turned on.
 
-## Rolling and trajectory
+The **overall score** is an average of the disciplines that have a score. Strategic plan and Execution count double. A discipline that isn't scored doesn't pull the average down.
 
-Every metric is rolling by construction — drop off for a month and the
-score reflects it; improve across 30 days and it climbs. Each card also
-carries an arrow vs. 90 days ago so you can distinguish "low but
-climbing" from "high but sliding."
+## What isn't scored
 
-## What isn't scored (and why)
-
-- **Meeting attendance.** Transcripts don't reliably map speaker names
-  to profiles, so we leave attendance out rather than score it
-  inconsistently.
-- **Text quality of Foundation entries.** The score checks that the
-  surfaces are filled in, not whether the purpose statement is well
-  written — that's a coaching conversation.
-- **Meaningfulness of individual measures.** We check targets exist and
-  get logged; a coach reviews whether a measure fits the critical
-  success factor.
+- **Meeting attendance.** Names in a recording don't reliably match people in AiMS, so it's left out.
+- **How well your Foundation is written.** The score checks it's filled in. How good it is belongs in a coaching conversation.
+- **Whether each measure is the right one.** The score checks it has a target and gets logged.
 
 ## Common questions
 
-**Why is my score different today than yesterday?** It's computed live.
-If ten commitments closed this morning, Execution moves this afternoon.
+**Why is my score different from yesterday?** It's worked out fresh every time you open the page. If ten commitments were closed this morning, Execution has already moved.
 
-**Why did Execution jump on 14 September 2026?** A fix, not a change
-in how anyone worked. Deleted commitments were being counted against
-the aging half of this tile and should never have been — deleting one
-is meant to take it out of every count. Four companies had been
-scoring lower than they'd earned. Earlier weeks keep the numbers they
-were recorded with rather than being rewritten, so the trend line
-steps up once on that date.
-The Sunday snapshot only backs the sparkline.
+**What do the small trend lines show?** A score taken every Sunday, over the last 26 weeks.
 
-**Why is a discipline sitting at "Not enabled"?** The company's feature
-flag for that discipline is off. A system admin can flip Success
-Tracking or Meeting Facilitation Review from company settings; the tile
-activates on the next page load.
+**Why doesn't a card have a trend arrow?** There isn't enough history yet to compare with 90 days ago. It appears once there is.
 
-**Why don't I see a trend arrow?** There isn't a snapshot old enough to
-compare against yet. By week 3 or 4 there'll be enough history for the
-arrow to render.
+::: role team_member
+**Why does a card say *Not enabled*?** That part of AiMS isn't turned on for your company. Ask your company admin if you think it should be.
+:::
+
+::: role company_admin,aims_guide
+**Why does a card say *Not enabled*?** Meeting Facilitation Review is off for this company. A system admin can turn it on.
+:::
+
+::: role system_admin,portfolio_admin
+**Why does a card say *Not enabled*?** Meeting Facilitation Review is off for this company. Turn it on under *Features* on the company settings page, and the cards start scoring the next time the page loads.
+:::

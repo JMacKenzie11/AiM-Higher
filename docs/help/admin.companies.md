@@ -5,127 +5,81 @@ roles: [system_admin, aims_guide, portfolio_admin]
 
 # Companies
 
-The fleet view, reached from **Companies** at the top of the
-sidebar. System admins and portfolio admins see every company on the
-instance; AiMS Guides see only the companies they're assigned to.
-Click a company name to scope into it — the top nav flips to that
-company's context. Company admins don't have a list view — they're
-redirected straight to their own company's settings page.
+The list of companies you work with, from **Companies** in the sidebar. Click a company's name to open it and work inside it.
 
+## Reading the list
+
+Each row shows the company's timezone under its name, how many people it has, its open quarter, its Follow-Through Rate and whether it's active or archived. *Settings* on the row opens that company's settings page.
+
+::: role aims_guide
 ## What you can do here
 
-- **Open a company** — click its name in the list. Every module
-  (Week in Review, Goals & Priorities, Functional Chart, etc.)
-  then reads that company's data. Use *Exit* in the user menu to
-  drop back out.
-- **Put the list in the order you want** — drag the handle at the
-  left of a row. The order is saved for everyone, not just for you,
-  and it is the order companies appear in everywhere they are
-  listed. System admins and portfolio admins can do this; guides
-  see the same list and cannot change its order. The handle only
-  appears when there is more than one company.
-- **Open a company's settings** — the per-row *Settings* link
-  goes to `/admin/companies/[id]` for that company.
-- **Roll the quarter** — on the company's settings page, in the
-  **Quarter** card. It closes the open quarter, opens the next, and
-  moves every priority that is not complete into it, so nobody has
-  to retype unfinished work. Completed priorities stay where they
-  were finished, so the closed quarter keeps saying what the team
-  actually landed.
+- **See the companies you coach.** Only the ones you're assigned to are listed.
+- **Open a company.** Click its name. The menu then shows that company's pages: Dashboard, Goals & Priorities, Commitments and the rest.
+- **Open its settings** with *Settings* on the row.
+:::
 
-  The label and dates are suggested and you can change them. A
-  quarter holds this company's priorities and nothing else depends
-  on it, so rolling late costs nothing: commitments, measures and
-  the weekly rhythm all carry on regardless.
+::: role portfolio_admin
+## What you can do here
 
-  **This is not the same as "Start the strategy again"** further
-  down that page. That one archives Focus Areas and Goals as well,
-  and is for after an annual planning session when the team is
-  rewriting the strategy rather than continuing it.
+- **See every company in your portfolio**, and click a name to open it. Inside a company you can read everything; changes to its work are made by its own people.
+- **Put the list in order.** Drag the handle at the left of a row. The order is saved for everyone and used wherever companies are listed. The handle only shows when there's more than one company.
+- **Create a company** with the form below the list. See *Creating a company* below.
+- **Open its settings** with *Settings* on the row. That's where you set its industry, timezone and features, and archive it.
+:::
 
-### System admins only
+::: role system_admin
+## What you can do here
 
-- **Create a new company** — the form below the list creates the
-  company, seeds its default Visionary/Integrator functions, opens
-  the current calendar quarter, and turns on the features you
-  pick. Every module (Execution Platform, Strengths, Success
-  Tracking, Meeting Facilitation Review, Classroom, Role
-  Descriptions) is available at creation; toggle them later on
-  the company's settings page. Industry is optional at creation
-  and editable afterwards.
-- **Archive or reactivate a company** — row-level actions. Archive
-  hides the company from picker lists and stops sign-ins;
-  reactivate restores it.
-- **Delete an archived company** — the *Delete* button only appears
-  on rows that are already archived (the archive step is the
-  safety on "delete a live tenant by accident"). See *Deleting an
-  archived company* below for what happens under the hood.
-- **Manage AiMS Guides** — the *Guides* card invites external
-  coaches and sets each one's caseload. Every guide has a row
-  with a checkbox per company: tick the ones they coach, untick
-  the ones they don't, press *Update*. A guide needs at least
-  one company, so you can't untick them all (delete the guide
-  instead).
-  **Unticking a company releases any open commitments that guide
-  owns in it** to *Unassigned*, so somebody there can pick them
-  up. Once their access is gone they can no longer resolve that
-  work, and the card shows the count beside the company before
-  you press anything. Commitments they already resolved keep
-  their name.
-- **Give a system admin a coaching caseload** — the mini-form
-  below the Guides card assigns an existing sysadmin to one or
-  more companies. No invite is sent (they already have an
-  account); their row shows a *System admin* badge. Unticking
-  all of a sysadmin's companies is fine — their access is
-  role-based, not assignment-based.
-- **View a guide's Guide HQ** — the row-level button on each
-  guide opens their `/hq` read-only. Every mutation control is
-  disabled; jump into a company from there to act.
-- **Route unrouted meetings** — the platform transcripts panel
-  at the bottom lists any meeting that didn't match a company
-  alias. Route it or dismiss it.
+- **See every company**, and click a name to open it. Use *Exit* in the user menu to come back out.
+- **Put the list in order.** Drag the handle at the left of a row. The order is saved for everyone and used wherever companies are listed. The handle only shows when there's more than one company.
+- **Create a company** with the form below the list.
+- **Archive or reactivate a company** from its row. Archiving stops its people signing in and hides it from company pickers. Nothing is lost.
+- **Delete an archived company.** *Delete* only appears once a company is archived, so a live company can't be deleted in one click.
+- **Manage AiMS Guides** in the Guides card.
+- **Send unmatched meetings to the right company** under Unrouted meetings.
+:::
 
-## Deleting an archived company
+::: role system_admin,portfolio_admin
+## Creating a company
 
-The *Delete* button on an archived row is a soft delete. The
-company disappears from every list, picker, and scoped surface,
-but nothing is actually removed from the database:
+Give it a name, a timezone and at least one feature. Industry is optional and can be changed later. The new company starts with Visionary and Integrator functions on its chart and the current quarter open. You can turn features on or off later on its settings page.
+:::
 
-- **All underlying data stays intact** — people, functions,
-  commitments, meetings, transcripts, coaching conversations,
-  scorecard snapshots. Nothing is dropped or cascaded.
-- **Recovery is SQL-only.** There's no in-app restore. If a
-  company needs to come back, an engineer clears the delete
-  timestamp on the row and it reappears on the list.
-- **Two-step by design.** The Delete button only shows on archived
-  rows, so an active tenant can't be soft-deleted in one click.
-  Archive first, confirm the tenant really is done, then delete.
+::: role system_admin
+## Managing AiMS Guides
 
-The confirm dialog spells out the same thing so no one presses
-Delete under a misunderstanding.
+Each guide has a row with a tick box for every company. Tick the companies they coach, untick the ones they don't, and press *Update*. A guide needs at least one company. If they've stopped coaching, delete the guide instead.
+
+**Unticking a company hands back any open commitments that guide owns there.** They become *Unassigned* so someone at the company can pick them up. The row shows the count beside the company before you press anything. Commitments they already closed out keep their name.
+
+The ⋯ menu on a guide's row has *Resend invite*, *Copy invite link* and *Delete guide*.
+
+Use **Add a guide** to invite a new one. **Give a system admin a coaching caseload** assigns an existing system admin to companies without sending an invite. Their row shows a *System admin* badge, and unticking all their companies is fine, because they can reach every company anyway.
+
+## Unrouted meetings
+
+A meeting lands here when its file name doesn't match one company's transcript aliases. Pick the company and press *Route + analyze*, or dismiss it. The card only shows when there's something in it.
+
+## Deleting a company
+
+*Delete* removes the company from every list and picker in the app. There's no way to restore it from inside the app. Archive first, make sure the company really is finished, then delete.
+:::
 
 ## Common questions
 
-**I'm a portfolio admin — why is my home `/portfolio` and not this
-page?** Both list every company on the instance; Portfolio adds the
-numbers that say how each one is doing, and it is where the
-*Create a company* form lives for you. This page stays reachable and
-is the system admin's and guide's version of the same idea.
+::: role aims_guide
+**Why can't I create or archive companies?** Those are done by AiMS system admins. You work inside the companies you coach.
+:::
 
+::: role portfolio_admin
+**Why is my home Portfolio and not this page?** Both list every company. Portfolio adds the numbers that show how each one is doing. This page is here too if you want it.
 
+**Can I delete a company?** No. You can archive it from its settings page. Deleting is for system admins.
+:::
 
-**Why do guides see so much less?** Guides can't create,
-archive, or manage guides. Those actions are system-admin only
-by design.
+::: role system_admin
+**Where do I roll a company's quarter?** On its settings page, in the **Quarter** card.
 
-**Where did the *Attention* column go?** It never had a number
-behind it — computing one meant a live scorecard for every
-company on every page load — so it showed "—" for every guide,
-which reads as "nothing needs attention" rather than "this was
-never worked out". The attention queue itself is live on each
-guide's `/hq`, where it actually drives behaviour.
-
-**A company admin landed here.** They're auto-redirected to
-their own company's settings page — `/admin/companies` isn't a
-list view for them, it's an entry point that resolves to their
-one company.
+**A company admin opened Companies.** They go straight to their own company's settings page. They don't get a list.
+:::

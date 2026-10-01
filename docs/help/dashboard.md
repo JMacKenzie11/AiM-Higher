@@ -4,111 +4,84 @@ title: Week in Review
 
 # Week in Review
 
-Your daily read on the company: Follow-Through Rate this quarter in the
-hero band, four secondary stats (Strategic Progress, On Track, Open This
-Week, Commitment Clarity) below, then an AI brief and the operating
-panels.
+Your company's daily read: how this quarter and this week are going. Follow-Through Rate sits at the top, with four more numbers under it and the operating panels below.
 
-## What you can do here
+## The numbers at the top
+
+- **Follow-Through Rate:** of the commitments closed this quarter, the share kept on time. A weekly repeating commitment counts once for each week it ran.
+- **Strategic Progress:** average progress across your Focus Areas this quarter. Only commitments tied to a priority count here.
+- **On Track:** how many of the open quarter's priorities are on track or complete, out of the total.
+- **Open This Week:** commitments due by Friday that are still open.
+- **Commitment Clarity:** of the commitments checked this quarter, the share with both a clear timeline and a clear finish line.
+
+Hover or tab to a label with a dotted underline for a one-line definition.
+
+## The panels
+
+- **Critical Success Factors:** the last 13 weeks of every measure against its target, across every function. It shows once at least one value has been logged.
+- **Wins this week, Streaks in flight, Where a conversation could help:** measures that hit target in the week just ended, measures at or above target for three weeks or more in a row, and measures that have dipped over the last three weeks. Each appears only when there's something to show.
+- **Focus Areas:** each one with its sponsor, status and progress. Click one to open it.
+- **Follow-Through Rate Trend:** the last 12 weeks.
+- **Where to lend support:** everyone, sorted by Follow-Through Rate, lowest first. Click a name to open their scorecard.
 
 ::: role team_member
-As a team member, you can:
+## What you can do here
 
-- **See the company's follow-through** and the operating panels (Wins,
-  Streaks, Where a conversation could help) — anyone in the company sees
-  these.
-- **See what you still owe this week** — the notification bell counts
-  the critical success factors you have not logged, and links
-  straight to them. Logging itself happens on Critical Success Factors,
-  not here.
-- **Close the loop on your commitments** — the *This week* strip links
-  straight into Commitments with the filter pre-applied.
-- **Refresh the AI brief** if the summary looks stale — click *Refresh
-  brief*. It regenerates at most once every few hours.
+- **See how the company is doing** this quarter and this week.
+- **Open a Focus Area** or a person's scorecard from the panels.
+- **Coach someone who reports to you.** A *Coach* link sits beside their name under *Where to lend support*.
+- **Keep up with what you owe.** The bell at the top counts commitments due today. On Fridays it also reminds you about numbers you haven't logged for functions you lead. Log them on **Critical Success Factors**, under Workspace.
 :::
 
-::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can also:
+::: role company_admin,system_admin
+## What you can do here
 
-- **Jump to a stalled action** — click any Priority in the progress
-  panel to open its detail page and see what's blocking it.
+Everything above, plus:
 
-The *Set up {company}* checklist lives on **AiMS Implementation**
-(`/scorecard`) now, not here. Head there when you want to see the map of
-the operating disciplines.
+- **Read the week in review.** *What's worth knowing today* sits at the top of the panels: a short written summary of the week so far.
+- **See recent wins:** the last commitments closed on time this quarter, with the priority each was linked to.
+- **Coach anyone** from the *Coach* link under *Where to lend support*.
+- **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to company settings to fix it.
 :::
 
-## Where logging this week's numbers went
+::: role aims_guide
+## What you can do here
 
-The dashboard used to carry a *This week's numbers* card with inline
-inputs. It was removed on 4 September 2026.
+- **See how the company is doing** this quarter and this week.
+- **Open a Focus Area** or a person's scorecard from the panels.
+- **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to company settings to fix it.
+:::
 
-It listed only part of the list, so someone who filled it in and saved
-still had the rest outstanding, with nothing on the card saying so. It
-also duplicated a job that **Critical Success Factors**
-now does better, with a save per function and a line telling you how
-many you have left.
+::: role portfolio_admin
+## What you can do here
 
-Log this week's numbers on **Workspace → Critical Success Factors**.
-The notification bell will tell you when you have some outstanding.
+Read every number and panel, the same view the company sees.
+:::
 
-## Critical Success Factors
+## Reading the Critical Success Factors board
 
-The 13-week board, under *What's worth knowing today*, when Success
-Tracking is on and at least one value has been logged. Same name as
-the page under **Workspace** where the values are logged. Every measure against its target
-across every function, thirteen weeks at a time.
+There are two views. **Timeline** rolls each function's week into one square, so you can spot which functions are drifting. **Grid** shows a small trend line for each measure.
 
-Two views. *Timeline* rolls each function's week into a single cell,
-so you can see which functions have been drifting. *Grid* breaks each
-function into a sparkline per measure, for when you want the detail.
+Each Timeline square is one function in one week, counting the measures that have a target:
 
-Each Timeline square is one function in one week, read across the
-measures under it that have a target:
+- **All on target:** every one logged, and every one met.
+- **At least one missed:** something came in under target. This outranks everything else, so a missed square can still hold numbers that were fine.
+- **Some not logged:** nothing missed yet, but some numbers are still blank.
+- **Nothing logged:** the week is empty.
+- **No targets set:** nothing under this function has a target.
 
-- **All on target** — every one of them logged, every one of them met.
-- **At least one missed** — something came in under its target. This
-  wins over everything else, so a red square can still contain
-  numbers that were fine.
-- **Some not logged** — nothing has missed, but the week is not
-  finished: some numbers are in and on target, the rest are blank.
-- **Nothing logged** — the week is empty.
-- **No targets set** — nothing under this function has a target, so
-  there is nothing to be on or off.
-
-Hover a square for the count behind it.
-
-The line at the top summarises what is inside, *"3 functions off
-target this week."* Click it to close the board; whether you leave it
-open or closed is remembered for next time.
-
-## How to interpret the hero stats
-
-- **Follow-Through Rate** — kept-on-time as a % of resolved commitments
-  this quarter. The primary weekly signal. A commitment set to repeat
-  weekly counts once for each week resolved in the quarter, so a
-  standing commitment carries the weight of the weeks it actually ran.
-- **Strategic Progress** — average % across Focus Areas.
-- **On Track** — count of priorities currently on-track / complete out
-  of total priorities in the open quarter.
-- **Open This Week** — commitments due this Friday still open.
-- **Commitment Clarity** — % of assessed commitments where both the
-  deadline and success criteria read as clear.
-
-Any stat with a dotted-underline label has a one-sentence definition on
-hover or keyboard focus.
+Hover a square to see the count behind it. The line at the top sums it up, for example *3 functions off target this week*. Click it to close or open the board, and it stays that way next time.
 
 ## Common questions
 
-**Where's the *Set up {company}* checklist?** It moved to AiMS
-Implementation (`/scorecard`). Same five steps, same auto-ticking, and
-it stays visible once complete as a shared map of the operating
-disciplines.
+**Where do I log this week's numbers?** On **Critical Success Factors**, under Workspace. It saves one function at a time and tells you how many you have left.
 
-**Why is a generative card (Wins, Streaks, etc.) missing?** Those only
-appear when there's real data behind them. Empty quarter → empty card,
-by design.
+**Why is a panel missing?** Panels only appear when there's something behind them. An empty quarter means empty panels.
 
-**The AI brief says "no brief yet".** Either the coach API key isn't
-configured for this environment, or there's not enough activity yet this
-week. Ping a system admin.
+::: role company_admin,aims_guide,system_admin
+**Where's the setup checklist?** On **AiMS Implementation**.
+:::
+
+::: role company_admin,system_admin
+**The week in review says *No brief yet*.** It appears once there's enough activity this week. If it stays empty, ask a system admin.
+:::

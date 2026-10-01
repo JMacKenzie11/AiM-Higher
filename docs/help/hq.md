@@ -5,76 +5,38 @@ roles: [system_admin, aims_guide]
 
 # Guide HQ
 
-Your home base as an AiMS Guide (or a system admin carrying a
-coaching caseload). Everything on this page is scoped to your own
-guide assignments — a system admin with three assignments sees
-exactly those three, not every company on the platform.
+Your home base as an AiMS Guide: your own commitments, the companies that need you this week, and a brief to prepare each coaching session. It covers only the companies you're assigned to guide.
 
 ## What you can do here
 
-- **Resolve your own commitments** — *My commitments* lists every
-  commitment you own across every company; a company chip on each
-  row tells you which tenant it belongs to. Same resolve,
-  reschedule, and park mechanics as `/commitments`.
-- **Scan Needs your attention** — the row-by-row call list for
-  the week. Each row names the specific signal (Scorecard drop,
-  low Follow-Through Rate, weak facilitation review, priority
-  more than 14 days past due, unrouted transcript matching this
-  company's alias). Ranked by severity.
-- **Read Your companies** — one compact row per assigned company:
-  Scorecard, Follow-Through Rate, open quarter, last completed
-  meeting date. Click the name to scope into the company.
-- **Skim Recent activity** — the last few notable events across
-  the caseload (analysis finished, review landed, quarter opened
-  or closed).
-- **Generate a Session Brief** — click *Prepare for {company}*
-  on any row in Your companies. Pulls the last meeting, its
-  growth edges, commitments since, scorecard delta, and the
-  attention queue into a one-page brief. Every generation is
-  kept as history; *Copy* pushes it to your clipboard.
+- **Close out your own commitments.** *My commitments* lists every commitment you own, across all your companies, with the company named on each row. Close out, reschedule and park work the same as on Commitments.
+- **See who needs you.** *Needs your attention* is your call list for the week, most urgent first. Each row names the reason: a scorecard drop, a low or falling Follow-Through Rate, a weak facilitation review, a priority more than 14 days past due, or a meeting recording that looks like it belongs to that company but hasn't been matched to it.
+- **Check your companies.** *Your companies* has one row each: scorecard, Follow-Through Rate, open quarter and the date of the last finished meeting.
+- **See what's happened lately.** *Recent activity* shows the latest meetings summarised, reviews finished, and quarters opened or closed.
+- **Prepare for a session.** Click *Prepare for {company}* on a row in *Your companies*.
 
 ## How to prepare for a coaching session
 
 1. Find the company in *Your companies*.
 2. Click *Prepare for {company}*.
-3. Read the brief. Copy it to your clipboard, or scroll to prior
-   briefs on the same panel to compare week over week.
+3. Read the brief. It pulls together the last meeting and what it showed, commitments since, how the scorecard has moved, and anything needing attention. Click *Copy* to put it on your clipboard.
 
-## How to scope into a company
+Every brief is kept, so you can scroll back to earlier ones for the same company and compare.
 
-Click the company name in *Your companies* or in a *Needs your
-attention* row. From that point the sidebar flips to that
-company's Week in Review, Functional Chart, Goals & Priorities,
-and so on. Come back to Guide HQ (or hit *Exit* in the user menu)
-to drop back to your caseload view.
+## How to work inside a company
 
-**Clicking a company is the only thing that moves you.** Nothing
-else does it as a side effect — not opening a page, not a link
-being prefetched, and no longer opening a coaching conversation
-that belongs to another company. Reading a chat used to switch
-you into its tenant for the next eight hours, so the Dashboard
-link afterwards took you somewhere you had not asked to go. It
-doesn't any more: the chat reads correctly and your scope stays
-where you put it.
+Click the company's name in *Your companies* or on a *Needs your attention* row. The sidebar then shows that company's pages: Week in Review, Functional Chart, Goals & Priorities and so on.
 
-**Signing in always starts you unscoped**, and a scope is tied to
-you personally — a shared browser cannot hand your scope to
-whoever signs in next.
+Only clicking a company moves you into it. Opening a page or a conversation from another company doesn't. If you guide just one company, you're taken into it automatically.
+
+::: role system_admin
+To step back out, use *Exit {company}* in the user menu.
+:::
 
 ## Common questions
 
-**Why does Guide HQ hide the company sidebar links?** Guide HQ
-is unscoped by design — landing here clears any company scope
-you were in so the sidebar hides company-only links. Click a
-company to re-scope in.
+**Why can't I reassign a commitment or link it to a priority from My commitments?** Those need the company's own page. Open Commitments inside that company.
 
-**Why can't I reassign a commitment from My commitments?**
-Priority linking and reassign are disabled here because they need
-per-company context. Use the company's own Commitments page.
-
-**I'm a system admin with no assignments — why am I seeing a
-notice?** Guide HQ scopes to your own guide assignments, even for
-sysadmins. Zero assignments = a distinct empty state rather than
-"every company." Your own commitments still show up so you can
-act on them. A system admin's access to a company never changes
-based on whether they're assigned as a guide.
+::: role system_admin
+**I have no companies assigned. Why the notice?** Guide HQ only shows companies you're assigned to guide, even for a system admin. Your own commitments still show, and your access to every company is unchanged.
+:::

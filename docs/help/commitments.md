@@ -4,189 +4,59 @@ title: Functional Commitments
 
 # Functional Commitments
 
-Every commitment your team has made, one week at a time. Rows are
-*owned*, *dated*, and in one of four states: **open**, **kept on
-time**, **kept, but late**, or **missed**. Late keeps use the same
-success check as on-time keeps with a small clock badge — the
-signal is "did the work," not "failed."
+Every commitment your team has made, week by week: who owns it, when it's due, and whether it got done.
 
-## What you can do here
+## Reading the list
+
+Each commitment has an owner, a due date and a status: *open*, *kept on time*, *kept, but late*, or *missed*. Late still means the work got done, after the due date, and it shows with a small clock.
+
+The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
+
+**Strategic** commitments are attached to a quarterly priority. **Operational** ones aren't, even when they're tied to an issue or a function. The *Type* filter shows one or the other.
 
 ::: role team_member
-As a team member, you can:
+## What you can do here
 
-- **Add and resolve your own commitments** — the always-live
-  add row is at the bottom of *This week*.
-- **See your own row set** pinned in a *Yours this week* section
-  at the top of the page.
-- **Mark your commitments kept, kept-late, or reschedule** them.
-- **Reassign a row you own** by clicking the owner name — an
-  inline dropdown opens, pick the new owner, done. Same picker
-  the Issues page uses.
+- **Add a commitment.** Use the add row at the bottom of *This week*. Your own are also pinned at the top under *Yours this week*.
+- **Close one out.** Click the circle on the left of your commitment and choose *Mark kept*. Once it's past its due date, the choice is *Mark kept (late)*.
+- **Move it.** *Reschedule* picks a new date. *Park* sets it aside so it doesn't count either way, and *Bring back* returns it with a new date.
+- **Hand it to someone else.** Click the owner's name on your commitment and pick the new owner.
+- **Change your mind.** After you close one out, *Undo* stays on screen for 30 seconds.
 :::
 
 ::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can also:
+## What you can do here
 
-- **Resolve any commitment on the team's behalf** — kept, kept
-  late, or missed, in one click, no reason required. Reason
-  requirements only apply to owners resolving their own rows.
-- **Reschedule any commitment** — including past-due dates — in
-  one click without a reason.
-- **Reassign a commitment** by clicking the owner name on any
-  row. The inline dropdown opens; pick a new owner. Same picker
-  the Issues page uses.
-- **Give a commitment to your AiMS Guide.** The owner list is your
-  company's people plus anyone assigned to work with you, so a
-  guide can carry a commitment like anyone else. They appear in
-  the dropdown once they are assigned to your company, and drop
-  out of it if that assignment ends.
-- **Force-classify a past-due keep as on-time** for retroactive
-  corrections (via the resolve menu). Every admin-driven
-  resolution is stamped with the resolving role so coaching
-  context can tell "no reason given" from "resolved by admin".
+Everything a team member can do with their own commitments, for anyone's:
+
+- **Close out, reschedule or reassign any commitment** in one click, without giving a reason.
+- **Mark a commitment missed** when it didn't happen. Owners don't have this; they reschedule or park instead.
+- **Give a commitment to your AiMS Guide.** Guides assigned to your company are in the owner list.
+- **Correct a late one to on time** from the circle's menu, when it really was done on time.
 :::
 
-## How to read a row
+::: role portfolio_admin
+## What you can do here
 
-Every row group (Needs attention, This week, prior weeks,
-Parking lot) has a labelled column header above it:
-**Commitment / Assigned to / Priority / Due date / Status**.
-The header matches the Issues page so the two surfaces read as
-siblings. On narrow screens the row grid collapses to a stacked
-layout and the header hides.
+Read every commitment and filter the list. Changes are made by the company's own people.
+:::
 
-## The order things appear in
+## Repeating commitments
 
-**Soonest due first.** The live list reads as a queue: whatever is due
-earliest sits at the top, whether it is yours or someone else's, and
-anything overdue is above everything that is not. Commitments sharing
-a due date are grouped by person, so a given day still reads as a
-tidy block rather than a shuffle.
-
-Prior weeks are listed newest first, and the Parking lot sits at the
-bottom.
-
-## How to filter the list
-
-**Status** narrows by where a commitment stands. **Type** splits the
-list two ways, and the word is worth pinning down:
-
-- **Strategic** — the commitment is attached to a priority.
-- **Operational** — it isn't.
-
-Operational means **"no priority attached"**, not "no link at all".
-A commitment tied to an issue or to a functional area is linked to
-something, but not to a priority, so it files under Operational. That
-is the same thing its *Priority* column is telling you: a *From
-issue* pill sits there instead of a priority because an issue is
-neither a priority nor attached to one.
-
-## How to resolve a commitment
-
-Click the circle at the left of the row to open the menu. Options
-change based on state:
-
-- **Open (on time):** Mark kept · Reschedule · Park
-- **Open (overdue):** Mark kept (late) · Reschedule · Park
-- **Parked:** Bring back
-- **Kept or Missed:** Reopen
-
-A *Marked kept · Undo* chip stays visible for **30 seconds** after
-each resolve — a misclick in a meeting is easy to reverse.
-
-Notice there's no *Mark missed* in the menu. If the work got
-done, use *Mark kept (late)*. If it didn't happen this week,
-either *Reschedule* (you'll do it later) or *Park* (set aside).
-Missed still exists as a state — it's used by the ongoing-weekly
-rollover and by admin tooling — but owners don't reach it from
-the row menu.
-
-## How to add an ongoing (weekly) commitment
-
-1. In the add row, tick **Ongoing (weekly)** next to the date
-   picker.
-2. Save. The row shows a current due date; resolving it records
-   the resolution for that week and rolls the due date forward
-   seven days.
-3. To stop it repeating: click the *Ongoing (weekly)* chip on
-   the row itself — it converts back to a one-shot commitment
-   due at its current date.
-
-**Every week counts on its own.** An ongoing commitment is one row,
-but Follow-Through and the priority's progress bar count each week
-you resolve it, not the row. Keep it on time for six weeks and that
-is six on-time keeps; miss one and that week counts against you while
-the others still stand.
-
-## How to park a commitment
-
-Pick *Park* from the resolve menu. The row moves to the Parking
-Lot section at the bottom of the page and is excluded from every
-count, overdue check, and Needs Attention grouping. No reason
-required. Bring it back via *Bring back* — you'll pick a fresh
-due date and it re-enters the weekly flow.
+Tick **Ongoing (weekly)** when you add a commitment and it comes back every week. Closing it out records that week and moves the date on seven days. Each week counts on its own toward follow-through. To stop it repeating, click the *Ongoing (weekly)* tag on the commitment.
 
 ## Common questions
 
-**What's in *Needs attention*?** Anything past-week that's still
-open. Pinned red-titled section at the top. Header pill counts
-the same set.
+**Why don't late ones count toward my Follow-Through Rate?** Follow-Through Rate counts commitments kept on time. Everywhere else, a late one still shows the work got done.
 
-**Why is my Follow-Through Rate not counting late keeps?**
-Follow-Through Rate counts only *on-time keeps* in the numerator;
-late keeps and misses land in the denominator. Late keeps still
-show as "did the work" in every other view.
+**What's the coloured dot next to the circle?** It shows whether the commitment is clear: a due date someone agreed to, and a clear finish line. Green means both, red means at least one is missing, and hollow means it hasn't been checked yet. Click it to see why and to suggest clearer wording.
 
-**How does an ongoing commitment count?** Once per week resolved,
-not once per row. The week currently outstanding counts against you
-only if it is past its due date.
+**What does *By next meeting* mean?** Nobody named a date in the meeting it came from. Reschedule it to set a real one.
 
-**What's the clarity dot next to the resolve circle?** It shows
-whether the commitment has a deadline somebody actually agreed to
-and a well-defined finish line. Three states:
+**What's *From meeting*?** The commitment came from a meeting summary. If nobody said a date, it's due a week after the meeting.
 
-- **Green** — both hold.
-- **Red** — at least one does not, and it is worth a look. The due
-  date turns red too when the deadline is the half that failed:
-  the date is a placeholder the analyzer filled in because nobody
-  named one, not a date anyone committed to.
+**What's *From issue*?** It was made to solve an issue on Issues/Solutions. Click the tag to open the issue.
 
-When nobody in the meeting named a day, the due date reads **By next
-meeting** rather than a date. Reschedule it to set a real one, and
-from then on it shows the date you chose.
-- **Hollow** — nobody has judged it yet.
+**Can I change the priority on a finished commitment?** No. Once it's closed out, its priority stays as it was, so the priority's progress doesn't change after the fact.
 
-Click the dot and the clarity check slides in from the right. It
-shows the commitment's own words, the two questions, and a box for a
-rewording when one of them fails. Escape, the X, or a click outside
-closes it; the list behind it does not move while it is open.
-
-**Can I change which priority a resolved commitment links to?**
-No — priority linking is frozen once a commitment resolves, so
-priority progress history doesn't silently rewrite itself.
-
-**A row is tagged *From meeting* — what does that mean?** It was
-extracted from a meeting transcript. If no specific date was
-stated in the meeting, the extracted commitment defaults to
-**meeting date + 7 days**. Auto-creation depends on the
-*Automated Commitment Tracking* company feature.
-
-**What does the *From issue* pill in the Priority column mean?**
-That commitment was made against an issue on Issues/Solutions, and
-has no priority — an issue is not a priority, and is not attached to
-one. Click the pill to open that issue and see the whole thread of
-commitments on it. These used to
-be hidden from this page and are not any more: they always counted
-toward follow-through and the scorecard, so leaving them off the
-list you actually read meant being measured on work you could not
-see here.
-
-**Why is a *From issue* commitment filed under Operational?** The
-Operational filter means "no priority attached", not "no link at
-all". Commitments tied to a functional area sit there for the same
-reason.
-
-**Is a delete recoverable?** Not through the UI. Deletes are soft
-(the row is hidden from every list and metric), but there's no
-end-user recovery flow. Treat as final.
+**Can I get back a commitment I deleted?** No. Treat deleting as final.

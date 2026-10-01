@@ -5,94 +5,54 @@ roles: [system_admin]
 
 # Classroom authoring
 
-Create and update the shared library. Every lesson you publish
-appears in every company that has the Classroom feature turned on
-— there is no per-company copy.
+Where you write and update the shared Classroom library. Every lesson you publish shows in every company that has Classroom turned on. There's one library, not a copy per company.
 
 ## What you can do here
 
-- **Add a category** — the top card. Categories are the primary
-  grouping on the learner landing page; pick short, evergreen
-  names.
-- **Rename a category** — click its title on the classroom admin
-  page, edit, and press Enter (Escape cancels). Only the display
-  name changes; the slug stays put so any Ask-Aimee reference or
-  shared link keeps working.
-- **Add a lesson** — *+ New lesson* inside a category drops in a
-  draft you land on immediately to edit. Set the title,
-  description, and flip *Published* on when ready.
-- **Add a section to a lesson** — from the lesson edit page,
-  *+ New section*. Title only — pick something short; that's what
-  shows as the tab on the reader side.
-- **Author the section body** — rich text editor for headings,
-  lists, blockquotes, inline code, and **inline video embeds**.
-  Two ways to insert a video:
-    - Click the ▶ button in the toolbar and paste a YouTube or
-      Vimeo share URL.
-    - Or just paste a YouTube/Vimeo URL onto a blank line — the
-      editor auto-detects it and swaps the URL for a thumbnail
-      preview. Add a caption in the field beneath the thumbnail.
-  The player never loads while editing; you see a static
-  thumbnail so a section with 10 videos stays responsive.
-- **Insert images** — click the 🖼 button in the toolbar to pick
-  a file, paste a screenshot from your clipboard, or drag an
-  image onto the editor. PNG, JPG, GIF, and WebP up to 8 MB.
-  Click the image to select it, then drag the bottom-right
-  handle to resize (aspect ratio is preserved) or use the S/M/L
-  buttons for 33% / 66% / 100% container width.
-- **Align text and images** — the ⇤ ⇔ ⇥ toolbar buttons set
-  left / center / right alignment. With the caret in a paragraph
-  or heading they align the text; with an image selected they
-  align the image within the section.
-- **Insert a hyperlink** — select the text you want to link, then
-  click the 🔗 toolbar button and paste the URL. Only `https://`,
-  `http://`, and `mailto:` URLs are accepted; a bare domain like
-  `aims.institute` is auto-prefixed with `https://`. Click the
-  button again on already-linked text to edit the URL, or clear
-  the field to remove the link.
-- **Walk between sections while editing** — the left rail shows
-  the same tab list your readers will see, so click any sibling
-  section to jump to its editor.
-- **Attach supporting files** — PDFs, decks, worksheets. Cap of
-  25 MB per file. Files upload to a private bucket and download
-  through short-lived signed URLs.
-- **Reorder** — arrow buttons on both lesson and section rows.
+- **Add a category** with the top card. Categories group the lessons on the Classroom page, so short names that won't date work best.
+- **Rename a category.** Click its name, type the new one and press Enter. Escape cancels. The lesson links underneath don't change, so anything already shared keeps working.
+- **Add a lesson.** Click *New lesson* in a category, give it a title, and you're taken straight to its edit page. It starts as a draft. Add a description, which shows on the lesson's card in Classroom.
+- **Add a section.** On the lesson's edit page, click *New section* and give it a short title. That title is the tab readers see.
+- **Write the section.** The editor has headings, bold, italic, lists, quotes and links. The left rail shows the same tabs your readers will see, so click any section there to jump to it.
+- **Reorder** lessons and sections with the up and down arrows on their rows.
+- **Delete** a lesson or a section. You're asked to confirm first.
+
+## Adding videos
+
+Two ways:
+
+- Click *Insert YouTube or Vimeo video* in the toolbar and paste the video's share link.
+- Or paste a YouTube or Vimeo link on an empty line. The editor turns it into a video on its own.
+
+You'll see a still picture of the video while you edit, with a caption box underneath. A section can hold as many videos as it needs, anywhere in the text. Readers click each one to play it.
+
+## Adding images
+
+Click *Insert image* to pick a file, paste a screenshot, or drag an image onto the editor. PNG, JPG, GIF and WebP work, up to 8 MB each.
+
+Click an image to select it. Drag its bottom right corner to resize it (it keeps its shape), or use the *S*, *M* and *L* buttons for a third, two thirds or the full width.
+
+## Alignment and links
+
+The three alignment buttons set left, centre or right. With your cursor in a paragraph or heading they align the text; with an image selected they align the image.
+
+To add a link, select the text, click *Insert link* and paste the address. Links must start with https://, http:// or mailto:. Click the button again on linked text to change the address, or clear it to remove the link.
+
+## Attachments
+
+Add PDFs, slides or worksheets to a section, up to 25 MB each. Readers download them from the section.
 
 ## How to publish a lesson
 
-1. Create the lesson under the right category.
-2. Add each section — title, body (with any inline videos),
-   attachments.
-3. Preview the learner surface by loading it as any signed-in
-   user; the URL scheme is `/classroom/lessons/<lesson>` for the
-   landing section and `/classroom/lessons/<lesson>/<section>`
-   for a specific tab.
-4. Flip *Published* on for both the lesson and each section.
-   Drafts stay hidden from every consumer company even when the
-   feature flag is on.
+1. Create the lesson in the right category.
+2. Add each section: title, text, any videos and attachments.
+3. Tick *Published* on the lesson and on each section. Anything left as a draft stays hidden from every company.
+4. Open Classroom inside a company that has it turned on to check the lesson the way readers see it.
 
 ## Common questions
 
-**How are slugs handled?** Slugs are auto-generated from titles
-but editable. Once a slug is in the wild (mentioned in Ask
-Aimee recommendations, shared in a Slack link), think twice
-before changing it — those references won't rewrite themselves.
+**Why isn't a lesson showing for a company?** Either the lesson or its sections aren't published, or that company doesn't have Classroom turned on in its settings.
 
-**Where do videos live now?** Videos are inline nodes inside the
-section body — drop them wherever they belong in the flow. The
-"one video at the top of a training" slot from the earlier
-Classroom shape was retired in migration 0145; there's no
-top-of-section video field anymore.
+**Can a company hide one lesson?** No. The library is shared. A company either has Classroom turned on and sees all of it, or has it off and sees none.
 
-**Can a section have more than one video?** Yes — insert as many
-as the reader needs. Each renders as its own thumbnail with a
-click-to-play overlay so the initial page paint stays light.
-
-**Can a company opt out of a specific lesson?** No — the library
-is shared. Company-level scoping happens at the *Classroom*
-feature flag: turn the whole module off for a company and none
-of the library shows there.
-
-**Why does a lesson not show up for a company?** Either the
-lesson isn't published, or the company doesn't have the
-Classroom feature enabled on its settings page.
+**Should I change a lesson's Slug?** It's the last part of the lesson's web address, and it's made from the title when you create the lesson. Once people have the link, or Aimee has recommended the lesson, changing it breaks those links.

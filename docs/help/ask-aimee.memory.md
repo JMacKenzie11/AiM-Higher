@@ -4,129 +4,51 @@ title: Memory
 
 # Memory
 
-Once you've finished a conversation and moved on to another one, Aimee
-notes down the few things worth still knowing next time: what you said you'd do, a decision and
-what it turned on, something you noticed about how you work. Not a
-transcript, and not everything — a handful of lines.
+Everything Aimee has noted from your conversations, newest first. You can correct any of it or delete it.
 
-This page is all of it. Newest first, dated, each one linked to the
-conversation it came from.
+**What you tell Aimee stays between you and Aimee. No one else can read it. You can see everything Aimee remembers about you, and delete any of it, whenever you want.**
 
-The thread you're currently in is never the one being written down, so
-the newest conversation shows up here only after you've started or
-reopened another one.
+Your manager can't read it. Your company admin can't, your AiMS Guide can't, and nobody at AiMS can either.
 
-Find it on your **profile page**, in the Memory card: the few most
-recent, with a link to the full list. It used to be a sidebar item;
-it sits with your photo and your strengths now, because what Aimee
-remembers about you belongs with the other things that are you.
+## What gets noted
+
+Once you've finished a conversation and moved on to another one, Aimee notes the few things worth knowing next time: something you said you'd do, a decision and what it turned on, something you noticed about how you work. It's a handful of lines, not a transcript.
+
+The conversation you're in right now isn't noted yet. It shows up here once you've started or reopened another one.
+
+Aimee notes things from two kinds of conversation: talking to her directly, and coaching about someone on your team from the *Coach* button beside their name. Conversations run through an agent (Prepare a hard conversation, Ask great questions and the rest) aren't noted, and neither are conversations in Aimee's side panel. What you keep from an agent is the thing you built.
+
+## Where to find it
+
+This page, and the Memory card on your **profile page**. Both show the full list, ten at a time.
+
+## Reading a line
+
+Each line is labelled:
+
+- **You said.** Something you told Aimee, close to your words.
+- **Aimee inferred.** Her read on something, not what you stated. She offers these back as a question, not a conclusion. If one is wrong, tell her, or delete it here.
+- **You asked me to remember.** Something you asked her to keep.
 
 ## Adding something yourself
 
-The card has an **Add a memory** box. Anything you put there is kept
-as-is and carried into every conversation, rather than fading the way
-distilled memories do. You can also just ask in conversation:
-*"remember that I want every plan checked against cash before
-headcount"*. Aimee saves it and tells you what was saved, so you can
-correct it there and then.
+Use the **Add a memory** box on the Memory card on your profile page, or just ask in a conversation: *"remember that I want every plan checked against cash before headcount"*. Aimee saves it and tells you what she saved, so you can correct it there and then. Anything you add yourself goes into every conversation.
 
-Those show up labelled **You asked me to remember**.
+## Correcting or deleting
 
-Two things never get saved, even when you ask directly: health and
-medical, and family and personal life. Aimee says so in a sentence and
-offers the work-shaped version instead. If you mention a parent is in
-hospital until October, what can be kept is that you'll be stretched
-until October, with no reason attached.
-
-## What doesn't get remembered
-
-Conversations you run through an **agent** leave no memory: the
-Functional Chart Builder, Prepare a Hard Conversation, and the rest.
-Those are structured pieces of work, and what's worth keeping from
-them is the thing you built, not a summary of the answers you gave
-along the way.
-
-Two kinds are remembered: talking to Aimee directly, and coaching
-about someone on your team from the Coach button beside their name.
+- **Edit.** Click the pencil on a line, fix it, and save.
+- **Delete.** Click the trash can and confirm. It's gone for good and won't be used again. Nobody is told, and nobody else can delete your memories for you.
 
 ## How long it's kept
 
-Memories are kept until you delete them. There's no expiry and
-nothing ages out of the record. What changes over time is what gets
-carried for free: the recent ones ride along in every conversation
-automatically, and older ones stay in the list and remain reachable
-when something in the conversation calls for them. Anything you added
-yourself is always carried, not just the recent ones.
-
-## The promise
-
-**What you tell Aimee stays between you and Aimee. No one else can
-read it. You can see everything Aimee remembers about you, and delete
-any of it, whenever you want.**
-
-That is enforced in the database, not by a setting. Your manager can't
-read it. Your company admin can't. Your AiMS guide can't. Neither can
-a system administrator at AiMS — this is the one place in the product
-where the platform's highest role is refused along with everyone else.
-Support works from counts and dates, never content, unless you ask
-them to look at something with you.
-
-## You said, Aimee inferred
-
-Every line carries a label.
-
-- **You said** — something you actually told Aimee. Close to your words.
-- **Aimee inferred** — a read on it, not something you stated.
-
-The two are treated differently in conversation: the first is quoted
-back to you plainly, the second offered tentatively, as a question
-rather than a conclusion. If an inference is wrong, say so. It gets
-dropped, and you can delete the line here.
-
-## Deleting
-
-**Delete** on any row. One confirmation, then it's gone: removed from
-the database, and not used in any future conversation. There's no
-undo, no archive, and no record anywhere that you deleted it.
-
-Deleting is your call alone. Nobody is notified, nobody can see that
-it happened, and it isn't an admin action anyone else can perform for
-you or undo.
-
-## What isn't here
-
-There's no export and no way to share this page. That's deliberate:
-somewhere to hand your memory to a second person would undo the thing
-this page exists to show you.
+Until you delete it. Nothing expires. Recent lines, and anything you added yourself, go into every conversation. Older ones stay on the list and come back when the conversation calls for them.
 
 ## Common questions
 
-**What never gets written down?** Health and medical details — yours
-or anyone else's — and your family or personal life beyond what you
-explicitly tie to a work goal. If you explain a missed week by
-mentioning a hospital stay, the hospital stay isn't recorded.
+**What never gets written down?** Health and medical details, yours or anyone else's, and family or personal life. Aimee won't save them even if you ask, and she'll tell you so and offer a work version instead. If you mention a parent is in hospital until October, what can be kept is that you'll be stretched until October, with no reason attached.
 
-**Does it remember what I say about my team?** Yes. Who you're
-thinking of promoting, who you're worried about, a restructure you're
-weighing — that's coaching content and it's exactly what makes Aimee
-useful next time. It's protected by the same wall as everything else
-here: nobody but you can read it.
+**Does it remember what I say about my team?** Yes. Who you're thinking of promoting, who you're worried about, a restructure you're weighing: that's what makes Aimee useful next time. Only you can read it. The person you talked about can't see any of it, and health and family stay off the record for them too.
 
-**What about conversations about someone else?** Your coaching
-conversations, including coaching about members of your team, are
-part of your private memory. Only you can see it, and you can delete
-any of it.
+**Can I export or share my memory?** No. There's no export and no way to share this page.
 
-So if you say a team member keeps missing a handoff, that's
-remembered, and it comes back next time you sit down to think about
-them. Things Aimee worked out rather than heard from you are
-labelled **Aimee inferred**, so you can always tell what you actually
-said from what was guessed.
-
-The team member cannot see any of it, and neither can anyone else.
-Health and family stay off the record for the people you discuss
-exactly as they do for you: if you mention someone is having surgery,
-that isn't written down.
-
-**If I delete something, is it really gone?** Yes. It's deleted from
-the database, and the next conversation is assembled without it.
+**If I delete something, is it really gone?** Yes. The next conversation starts without it.
