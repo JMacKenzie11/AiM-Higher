@@ -7,6 +7,7 @@ import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
 import { findUnsupportedQuotes } from "@/lib/voice/quotes";
 import { personalDetailMatcher, PERSONAL_DETAIL_RULE, type PersonalDetailMatcher } from "@/lib/voice/personal-detail";
 import { attendeesFromSummary } from "@/lib/transcripts/attendees";
+import { callSettings } from "@/lib/transcripts/model";
 import { checkDebriefReply, describeReplyFaults } from "./reply-checks";
 import { meetingDayLabel } from "./meeting-label";
 
@@ -298,8 +299,9 @@ export async function generateInvitationCard(
         // Choosing the moment and finding a quotable line in a long
         // transcript is the hard part, so it thinks, with room to
         // answer after. A short budget with thinking on came back with
-        // no text at all (2026-09-29).
-        thinking: { type: "adaptive" },
+        // no text at all (2026-09-29). On Opus 5.5 at the lowest effort
+        // (transcripts/model.ts).
+        ...callSettings(input.model, "adaptive"),
         max_tokens: 8000,
         system: [{ type: "text", text: SYSTEM }],
         messages,

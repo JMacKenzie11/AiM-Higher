@@ -3,6 +3,7 @@ import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
 import { personalDetailMatcher } from "@/lib/voice/personal-detail";
+import { requestJson } from "@/lib/transcripts/model";
 
 // QUESTIONS, ON THE COACHING NOTES TAB.
 //
@@ -127,56 +128,54 @@ Four that qualified, from an invented company. They show the standard. Never reu
 
 ${VOICE_CORE}`;
 
-const TOOL: Anthropic.Tool = {
-  name: "record_questions",
-  description: "Record next week's questions and the best questions asked this week.",
-  input_schema: {
-    type: "object",
-    required: ["questions", "opened"],
-    properties: {
-      questions: {
-        type: "array",
-        minItems: 3,
-        maxItems: 3,
-        items: {
-          type: "object",
-          required: ["moment", "question"],
-          properties: {
-            moment: { type: "string" },
-            question: { type: "string" },
-          },
+// The answer's shape, asked for as structured output (transcripts/model.ts,
+// requestJson). Record next week's questions and the best questions asked this week.
+const QUESTIONS_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  required: ["questions", "opened"],
+  properties: {
+    questions: {
+      type: "array",
+      minItems: 3,
+      maxItems: 3,
+      items: {
+        type: "object",
+        required: ["moment", "question"],
+        properties: {
+          moment: { type: "string" },
+          question: { type: "string" },
         },
       },
-      opened: {
-        type: "array",
-        maxItems: 4,
-        description:
-          "Questions from THIS meeting that changed where the discussion went. None if none did.",
-        items: {
-          type: "object",
-          // EVIDENCE FIRST: where the discussion was heading, then where
-          // it went, and only then who asked. The same ordering that
-          // stopped the facilitation review writing verdicts before
-          // its evidence; without it the pick is made by form.
-          required: ["was_heading", "went", "asker", "asked", "opened"],
-          properties: {
-            was_heading: {
-              type: "string",
-              description: "Where the discussion was going just before the question.",
-            },
-            went: {
-              type: "string",
-              description:
-                "Where it went after, from the transcript. If it only got an answer and moved on, this question does not qualify: leave it out.",
-            },
-            asker: { type: "string", description: "Full name, exactly as the attendee list gives it." },
-            asked: {
-              type: "string",
-              description:
-                "Completes the sentence '<first name> asked ...'. A lightly cleaned paraphrase, no quotation marks.",
-            },
-            opened: { type: "string", description: "What it opened, in plain words. One short sentence." },
+    },
+    opened: {
+      type: "array",
+      maxItems: 4,
+      description:
+        "Questions from THIS meeting that changed where the discussion went. None if none did.",
+      items: {
+        type: "object",
+        // EVIDENCE FIRST: where the discussion was heading, then where
+        // it went, and only then who asked. The same ordering that
+        // stopped the facilitation review writing verdicts before
+        // its evidence; without it the pick is made by form.
+        required: ["was_heading", "went", "asker", "asked", "opened"],
+        properties: {
+          was_heading: {
+            type: "string",
+            description: "Where the discussion was going just before the question.",
           },
+          went: {
+            type: "string",
+            description:
+              "Where it went after, from the transcript. If it only got an answer and moved on, this question does not qualify: leave it out.",
+          },
+          asker: { type: "string", description: "Full name, exactly as the attendee list gives it." },
+          asked: {
+            type: "string",
+            description:
+              "Completes the sentence '<first name> asked ...'. A lightly cleaned paraphrase, no quotation marks.",
+          },
+          opened: { type: "string", description: "What it opened, in plain words. One short sentence." },
         },
       },
     },
@@ -298,17 +297,14 @@ export async function generateMeetingQuestions(
     `${input.speakerBlock}\n\n<transcript>\n${input.transcript.slice(0, 60000)}\n</transcript>`;
 
   const ask = async (messages: Anthropic.MessageParam[]): Promise<RawOut> => {
-    const res = await client.messages.create({
+    const { data } = await requestJson(client, {
       model: input.model,
-      thinking: { type: "disabled" },
       max_tokens: 1500,
-      system: [{ type: "text", text: SYSTEM }],
-      tools: [TOOL],
-      tool_choice: { type: "tool", name: TOOL.name },
+      system: SYSTEM,
+      schema: QUESTIONS_SCHEMA,
       messages,
     });
-    const block = res.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-    return unwrapRaw((block?.input as RawOut) ?? {});
+    return unwrapRaw(data && typeof data === "object" ? (data as RawOut) : {});
   };
 
   try {

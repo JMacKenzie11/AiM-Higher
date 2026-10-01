@@ -19,9 +19,10 @@ import type Anthropic from "@anthropic-ai/sdk";
 const usage = vi.hoisted(() => ({ log: vi.fn() }));
 vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: usage.log }));
 
-function toolResponse(input: Record<string, unknown>, stop_reason = "tool_use") {
+// The review arrives as structured output: JSON in a text block.
+function toolResponse(input: Record<string, unknown>, stop_reason = "end_turn") {
   return {
-    content: [{ type: "tool_use", name: "record_facilitation_review", input }],
+    content: [{ type: "text", text: JSON.stringify(input) }],
     usage: { input_tokens: 10, output_tokens: 10 },
     stop_reason,
   };

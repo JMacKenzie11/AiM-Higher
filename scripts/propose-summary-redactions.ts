@@ -42,7 +42,7 @@ import { forEachActiveInstance } from "@/lib/instances/for-each";
 import { personalDetailMatcher, findPersonalDetail, type PersonalDetailMatcher } from "@/lib/voice/personal-detail";
 import { redactAnalysis, rewordProse, settleTexts, mapStrings, type RedactableAnalysis } from "@/lib/transcripts/redact";
 import { rewordWithModel, type Reword } from "@/lib/transcripts/reword";
-import { summaryModel } from "@/lib/transcripts/model";
+import { transcriptModel } from "@/lib/transcripts/model";
 import type { CoverageReport } from "@/lib/transcripts/coverage";
 import { isEntryPoint } from "./lib/entry-point.ts";
 
@@ -271,7 +271,7 @@ async function main() {
     process.cwd()
   );
   const stamp = new Date().toISOString().slice(0, 10);
-  const reword = rewordWithModel(new Anthropic(), summaryModel());
+  const reword = rewordWithModel(new Anthropic(), transcriptModel());
 
   const summary = await forEachActiveInstance<{ checked: number; proposals: Proposal[]; file: string | null }>({
     job: "summary-redactions",

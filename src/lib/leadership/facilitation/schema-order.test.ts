@@ -35,12 +35,12 @@ const SOURCE = readFileSync(
   "utf8"
 );
 
-// The declared order of the tool schema's top-level properties.
+// The declared order of the schema's top-level properties.
 function schemaOrder(): string[] {
-  const start = SOURCE.indexOf("    properties: {\n");
-  expect(start, "the tool schema's properties block").toBeGreaterThan(-1);
-  const block = SOURCE.slice(start, SOURCE.indexOf("\n    },\n  },\n};", start));
-  return [...block.matchAll(/^ {6}([a-z_]+): \{/gm)].map((m) => m[1]);
+  const start = SOURCE.indexOf("\n  properties: {\n");
+  expect(start, "the schema's properties block").toBeGreaterThan(-1);
+  const block = SOURCE.slice(start, SOURCE.indexOf("\n  },\n};", start));
+  return [...block.matchAll(/^ {4}([a-z_]+): \{/gm)].map((m) => m[1]);
 }
 
 describe("facilitation review schema order", () => {
@@ -84,7 +84,7 @@ describe("facilitation review schema order", () => {
     // Not load-bearing for generation, but two different orders in
     // one schema is how the next person talks themselves into
     // "the order must not matter".
-    const req = SOURCE.slice(SOURCE.indexOf("    required: ["));
+    const req = SOURCE.slice(SOURCE.indexOf("\n  required: ["));
     const listed = [...req.slice(0, req.indexOf("],")).matchAll(/"([a-z_]+)"/g)]
       .map((m) => m[1]);
     const inBoth = order.filter((k) => listed.includes(k));

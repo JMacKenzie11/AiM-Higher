@@ -12,6 +12,7 @@ import { FACILITATION_REVIEW_VERSION } from "./types";
 import { isScoredReview } from "./scored";
 import { computeOverall } from "./score";
 import { PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
+import { requestJson, transcriptModel } from "@/lib/transcripts/model";
 
 // Second LLM pass on a meeting transcript. Runs after the summary +
 // commitment-extraction pipeline, only when the routed company has
@@ -31,7 +32,6 @@ import { PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
 // prompt.v2.md, extend the type shape, and add a version check in the
 // renderer. DB stays schemaless so history is preserved.
 
-const DEFAULT_MODEL = "claude-sonnet-5";
 // Room for the whole review. At 3500 a Geo-Sci review ran out in 3 of
 // 9 regression runs (2026-09-25): the executive summary is the LAST
 // field written (evidence first, verdicts last), so a cut-off review
@@ -87,7 +87,7 @@ export async function analyzeMeetingFacilitation(
 ): Promise<FacilitationReview | null> {
   const systemPrompt = await loadFacilitationPrompt();
   const useModel =
-    model || process.env.ANTHROPIC_FACILITATION_MODEL || DEFAULT_MODEL;
+    model || process.env.ANTHROPIC_FACILITATION_MODEL || transcriptModel();
 
   let unscored: FacilitationReview | null = null;
   for (let attempt = 1; attempt <= FACILITATION_ATTEMPTS; attempt += 1) {
@@ -148,12 +148,12 @@ async function requestFacilitationReview(
     attempt: number;
   }
 ): Promise<FacilitationReview | null> {
-  const response = await client.messages.create({
+  // Thinking off, or as low as the model allows (transcripts/model.ts).
+  const { data, message: response } = await requestJson(client, {
     model: useModel,
     max_tokens: MAX_TOKENS,
-    system: [{ type: "text", text: systemPrompt }],
-    tool_choice: { type: "tool", name: "record_facilitation_review" },
-    tools: [FACILITATION_TOOL],
+    system: systemPrompt,
+    schema: FACILITATION_SCHEMA,
     messages: [
       {
         role: "user",
@@ -189,17 +189,14 @@ async function requestFacilitationReview(
     return null;
   }
 
-  const toolUse = response.content.find(
-    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
-  );
-  if (!toolUse) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
     console.error(
-      `[facilitation] attempt ${attempt}/${FACILITATION_ATTEMPTS}: no tool call`
+      `[facilitation] attempt ${attempt}/${FACILITATION_ATTEMPTS}: no JSON answer`
     );
     return null;
   }
 
-  const raw = toolUse.input as Record<string, unknown>;
+  const raw = data as Record<string, unknown>;
   const review = normalizeReview(raw);
 
   // Unscored goes back to the loop, which retries it once and then
@@ -222,337 +219,334 @@ async function requestFacilitationReview(
 }
 
 // ----------------------------------------------------------------
-// Tool schema — Anthropic tool-use input_schema mirrors FacilitationReview
-// in types.ts. Keep the two in lock-step when iterating on the shape.
+// The review's schema mirrors FacilitationReview in types.ts. Keep
+// the two in lock-step when iterating on the shape.
 // ----------------------------------------------------------------
 
-const FACILITATION_TOOL: Anthropic.Tool = {
-  name: "record_facilitation_review",
-  description:
-    "Record the structured facilitation review of a leadership meeting. Emit exactly one call. Follow the generative-tone guardrails in the system prompt.",
-  input_schema: {
-    type: "object",
-    // Same order as `properties` below, for one reason: whoever
-    // reads this next should not have to hold two orders in mind.
-    required: [
-      "insufficient_transcript",
-      "fourws_audit",
-      "appreciation_moments",
-      "generative_questions",
-      "reframes",
-      "strengths",
-      "growth_edges",
-      "experiments",
-      "agenda_adherence",
-      "dimensions",
-      "executive_summary",
-    ],
-    properties: {
-    // ---- ORDER IS THE FIX --------------------------------------
-    //
-    // Tool-call JSON is emitted in the order this object declares,
-    // token by token, so a field written early is written before the
-    // model has done the work described by the fields after it.
-    //
-    // executive_summary and strengths used to sit ABOVE fourws_audit.
-    // The model therefore delivered its verdict first and its
-    // evidence second, and nothing went back to reconcile them.
-    // Benson Seafood, 2026-09-22, in one stored row:
-    //
-    //   executive_summary: "the 4Ws framework wasn't applied to any
-    //                       of the issues worked through"
-    //   fourws_audit:      8 issues, every one with at least one step,
-    //                      3 with all four
-    //
-    // The same row's "what worked" said the shuttle bus gap landed
-    // with clear next moves while its own audit marked it no Way and
-    // no Who/When. The audit was right both times: it is the field
-    // that got the thinking.
-    //
-    // So: EVIDENCE FIRST, VERDICTS LAST. The per-issue audit and the
-    // observed moments are gathered before anything summarises them,
-    // and overall + executive_summary come last, with the whole
-    // review already in the model's own context.
-    //
-    // schema-order.test.ts holds this. Reordering these keys is not
-    // cosmetic and will not be caught by types.
-      insufficient_transcript: {
-        type: "boolean",
-        description:
-          "True when the transcript is too sparse to assess the meeting. When true, all dimension scores must be null and missing_context should explain what's missing.",
-      },
-      missing_context: {
-        type: ["string", "null"],
-        description:
-          "Optional. One-line explanation of what's missing when insufficient_transcript is true.",
-      },
-      fourws_audit: {
-        type: "array",
-        minItems: 0,
-        maxItems: 10,
-        description:
-          "One row per issue the meeting worked through. Empty when no issues were discussed.",
-        items: {
-          type: "object",
-          required: [
-            "issue",
-            "has_what",
-            "has_want",
-            "has_way",
-            "has_who_when",
-          ],
-          properties: {
-            issue: {
-              type: "string",
-              description: "Short name for the issue as it came up.",
-            },
-            has_what: { type: "boolean" },
-            has_want: { type: "boolean" },
-            has_way: { type: "boolean" },
-            has_who_when: { type: "boolean" },
-            note: {
-              type: ["string", "null"],
-              description:
-                "When WANT, WAY or WHO/WHEN did not land: the question to ask next time about this issue, ending in a question mark. Never says a step was missed.",
-            },
-          },
-        },
-      },
-      appreciation_moments: {
-        type: "array",
-        minItems: 0,
-        maxItems: 8,
-        description:
-          "Specific moments where the team celebrated a win, thanked someone, or acknowledged progress. Paraphrase the quote and add a one-line 'why this counts' context.",
-        items: {
-          type: "object",
-          required: ["quote", "context"],
-          properties: {
-            quote: { type: "string" },
-            context: { type: "string" },
-          },
-        },
-      },
-      generative_questions: {
-        type: "array",
-        minItems: 0,
-        maxItems: 8,
-        description:
-          "A query intentionally framed to SHIFT the conversation away " +
-          "from problem-solving and toward the discovery of new " +
-          "possibilities, strengths, and shared aspirations. Three " +
-          "places they point, all counting equally: the best of the " +
-          "past ('when have we handled this well and what made it " +
-          "work'), what is working right now ('where is this already " +
-          "working', 'what should we protect'), and what we want most " +
-          "for the future ('what would better look like', 'what's the " +
-          "version we'd be proud of'). NOT diagnostic ('why did that " +
-          "fail', 'what's blocking us') however open it sounds — those " +
-          "keep the room on the problem; note that 'what's blocking " +
-          "us' and 'where is this already working' are both about now " +
-          "and only one shifts. NOT every forward-looking question: " +
-          "'what if we tried X' is a proposal with a question mark, " +
-          "still inside problem-solving. Paraphrase + one-line context.",
-        items: {
-          type: "object",
-          required: ["quote", "context"],
-          properties: {
-            quote: { type: "string" },
-            context: { type: "string" },
-          },
-        },
-      },
-      reframes: {
-        type: "array",
-        minItems: 0,
-        maxItems: 8,
-        description:
-          "Moments where a problem was turned into an opportunity, or a complaint was reshaped into a want. Paraphrase + one-line context.",
-        items: {
-          type: "object",
-          required: ["quote", "context"],
-          properties: {
-            quote: { type: "string" },
-            context: { type: "string" },
-          },
-        },
-      },
-      strengths: {
-        type: "array",
-        minItems: 0,
-        maxItems: 6,
-        // Written AFTER fourws_audit on purpose. A strength that
-        // says an issue "landed with clear next moves" while the
-        // audit marks it no Way and no Who/When is the same
-        // contradiction in a smaller box — and it happened.
-
-        items: {
-          type: "object",
-          required: ["title", "evidence"],
-          properties: {
-            title: {
-              type: "string",
-              description:
-                "Short phrase naming what worked (e.g. 'Strong check-in tone').",
-            },
-            evidence: {
-              type: "string",
-              description:
-                "One sentence tying it to something specific in the transcript.",
-            },
-          },
-        },
-      },
-      growth_edges: {
-        type: "array",
-        minItems: 0,
-        maxItems: 6,
-        items: {
-          type: "object",
-          required: ["dimension", "title", "evidence", "why_it_matters"],
-          properties: {
-            dimension: {
-              type: "string",
-              enum: [
-                "rhythm",
-                "accountability",
-                "alignment",
-                "positive_framing",
-              ],
-            },
-            title: {
-              type: "string",
-              description:
-                "Short phrase framed as an opportunity, not a critique.",
-            },
-            evidence: {
-              type: "string",
-              description:
-                "Cite the moment in the transcript. Depersonalize the subject (the meeting/the flow), not a named person.",
-            },
-            why_it_matters: {
-              type: "string",
-              description:
-                "One sentence on the outcome improvement, not the deficit.",
-            },
-          },
-        },
-      },
-      experiments: {
-        type: "array",
-        minItems: 0,
-        maxItems: 5,
-        items: {
-          type: "object",
-          required: ["action", "why", "next_step"],
-          properties: {
-            action: {
-              type: "string",
-              description:
-                "The forward-looking experiment (e.g. 'Time-box functional updates to 4 minutes each').",
-            },
-            why: {
-              type: "string",
-              description:
-                "Short outcome-focused reason. Never a critique of what didn't happen.",
-            },
-            next_step: {
-              type: "string",
-              description:
-                "Concrete first move for next week's meeting.",
-            },
-          },
-        },
-      },
-      agenda_adherence: {
-        type: "object",
-        required: ["score_out_of_5", "notes"],
-        properties: {
-          score_out_of_5: {
-            type: ["integer", "null"],
-            minimum: 0,
-            maximum: 5,
-            description:
-              "How many of the five agenda sections the meeting meaningfully covered.",
-          },
-          notes: { type: "string" },
-        },
-      },
-      dimensions: {
+// The answer's shape, asked for as structured output (transcripts/model.ts,
+// requestJson). Record the structured facilitation review of a leadership meeting. Emit exactly one call. Follow the generative-tone guardrails in the system prompt.
+const FACILITATION_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  // Same order as `properties` below, for one reason: whoever
+  // reads this next should not have to hold two orders in mind.
+  required: [
+    "insufficient_transcript",
+    "fourws_audit",
+    "appreciation_moments",
+    "generative_questions",
+    "reframes",
+    "strengths",
+    "growth_edges",
+    "experiments",
+    "agenda_adherence",
+    "dimensions",
+    "executive_summary",
+  ],
+  properties: {
+  // ---- ORDER IS THE FIX --------------------------------------
+  //
+  // Tool-call JSON is emitted in the order this object declares,
+  // token by token, so a field written early is written before the
+  // model has done the work described by the fields after it.
+  //
+  // executive_summary and strengths used to sit ABOVE fourws_audit.
+  // The model therefore delivered its verdict first and its
+  // evidence second, and nothing went back to reconcile them.
+  // Benson Seafood, 2026-09-22, in one stored row:
+  //
+  //   executive_summary: "the 4Ws framework wasn't applied to any
+  //                       of the issues worked through"
+  //   fourws_audit:      8 issues, every one with at least one step,
+  //                      3 with all four
+  //
+  // The same row's "what worked" said the shuttle bus gap landed
+  // with clear next moves while its own audit marked it no Way and
+  // no Who/When. The audit was right both times: it is the field
+  // that got the thinking.
+  //
+  // So: EVIDENCE FIRST, VERDICTS LAST. The per-issue audit and the
+  // observed moments are gathered before anything summarises them,
+  // and overall + executive_summary come last, with the whole
+  // review already in the model's own context.
+  //
+  // schema-order.test.ts holds this. Reordering these keys is not
+  // cosmetic and will not be caught by types.
+    insufficient_transcript: {
+      type: "boolean",
+      description:
+        "True when the transcript is too sparse to assess the meeting. When true, all dimension scores must be null and missing_context should explain what's missing.",
+    },
+    missing_context: {
+      type: ["string", "null"],
+      description:
+        "Optional. One-line explanation of what's missing when insufficient_transcript is true.",
+    },
+    fourws_audit: {
+      type: "array",
+      minItems: 0,
+      maxItems: 10,
+      description:
+        "One row per issue the meeting worked through. Empty when no issues were discussed.",
+      items: {
         type: "object",
         required: [
-          "rhythm",
-          "accountability",
-          "alignment",
-          "positive_framing",
+          "issue",
+          "has_what",
+          "has_want",
+          "has_way",
+          "has_who_when",
         ],
         properties: {
-          rhythm: {
-            type: "object",
-            required: ["score", "notes"],
-            properties: {
-              score: {
-                type: ["integer", "null"],
-                minimum: 0,
-                maximum: 10,
-              },
-              notes: { type: "string" },
-            },
+          issue: {
+            type: "string",
+            description: "Short name for the issue as it came up.",
           },
-          accountability: {
-            type: "object",
-            required: ["score", "notes"],
-            properties: {
-              score: {
-                type: ["integer", "null"],
-                minimum: 0,
-                maximum: 10,
-              },
-              notes: { type: "string" },
-            },
-          },
-          alignment: {
-            type: "object",
-            required: ["score", "notes"],
-            properties: {
-              score: {
-                type: ["integer", "null"],
-                minimum: 0,
-                maximum: 10,
-              },
-              notes: { type: "string" },
-            },
-          },
-          positive_framing: {
-            type: "object",
-            required: ["score", "notes"],
+          has_what: { type: "boolean" },
+          has_want: { type: "boolean" },
+          has_way: { type: "boolean" },
+          has_who_when: { type: "boolean" },
+          note: {
+            type: ["string", "null"],
             description:
-              "How well the meeting practised appreciative inquiry — celebrating wins, reframing problems as opportunities, asking generative questions vs. dwelling on deficits.",
-            properties: {
-              score: {
-                type: ["integer", "null"],
-                minimum: 0,
-                maximum: 10,
-              },
-              notes: { type: "string" },
-            },
+              "When WANT, WAY or WHO/WHEN did not land: the question to ask next time about this issue, ending in a question mark. Never says a step was missed.",
           },
         },
       },
-      // No `overall`. It is computed in code from the four parts
-      // (score.ts), never judged by the model: a judged overall never
-      // derived from the parts shown beside it.
-      executive_summary: {
-        type: "string",
-        description:
-          "LAST FIELD, written with the whole review above it in view. " +
-          "2–3 sentence read. Warm, specific to this meeting. If no " +
-          "meaningful analysis is possible, describe what's missing " +
-          "here as well. It must not contradict fourws_audit: do not " +
-          "say the 4Ws were or were not applied unless the rows above " +
-          "say so, and do not count issues — the audit already " +
-          "counted them.",
+    },
+    appreciation_moments: {
+      type: "array",
+      minItems: 0,
+      maxItems: 8,
+      description:
+        "Specific moments where the team celebrated a win, thanked someone, or acknowledged progress. Paraphrase the quote and add a one-line 'why this counts' context.",
+      items: {
+        type: "object",
+        required: ["quote", "context"],
+        properties: {
+          quote: { type: "string" },
+          context: { type: "string" },
+        },
       },
+    },
+    generative_questions: {
+      type: "array",
+      minItems: 0,
+      maxItems: 8,
+      description:
+        "A query intentionally framed to SHIFT the conversation away " +
+        "from problem-solving and toward the discovery of new " +
+        "possibilities, strengths, and shared aspirations. Three " +
+        "places they point, all counting equally: the best of the " +
+        "past ('when have we handled this well and what made it " +
+        "work'), what is working right now ('where is this already " +
+        "working', 'what should we protect'), and what we want most " +
+        "for the future ('what would better look like', 'what's the " +
+        "version we'd be proud of'). NOT diagnostic ('why did that " +
+        "fail', 'what's blocking us') however open it sounds — those " +
+        "keep the room on the problem; note that 'what's blocking " +
+        "us' and 'where is this already working' are both about now " +
+        "and only one shifts. NOT every forward-looking question: " +
+        "'what if we tried X' is a proposal with a question mark, " +
+        "still inside problem-solving. Paraphrase + one-line context.",
+      items: {
+        type: "object",
+        required: ["quote", "context"],
+        properties: {
+          quote: { type: "string" },
+          context: { type: "string" },
+        },
+      },
+    },
+    reframes: {
+      type: "array",
+      minItems: 0,
+      maxItems: 8,
+      description:
+        "Moments where a problem was turned into an opportunity, or a complaint was reshaped into a want. Paraphrase + one-line context.",
+      items: {
+        type: "object",
+        required: ["quote", "context"],
+        properties: {
+          quote: { type: "string" },
+          context: { type: "string" },
+        },
+      },
+    },
+    strengths: {
+      type: "array",
+      minItems: 0,
+      maxItems: 6,
+      // Written AFTER fourws_audit on purpose. A strength that
+      // says an issue "landed with clear next moves" while the
+      // audit marks it no Way and no Who/When is the same
+      // contradiction in a smaller box — and it happened.
+
+      items: {
+        type: "object",
+        required: ["title", "evidence"],
+        properties: {
+          title: {
+            type: "string",
+            description:
+              "Short phrase naming what worked (e.g. 'Strong check-in tone').",
+          },
+          evidence: {
+            type: "string",
+            description:
+              "One sentence tying it to something specific in the transcript.",
+          },
+        },
+      },
+    },
+    growth_edges: {
+      type: "array",
+      minItems: 0,
+      maxItems: 6,
+      items: {
+        type: "object",
+        required: ["dimension", "title", "evidence", "why_it_matters"],
+        properties: {
+          dimension: {
+            type: "string",
+            enum: [
+              "rhythm",
+              "accountability",
+              "alignment",
+              "positive_framing",
+            ],
+          },
+          title: {
+            type: "string",
+            description:
+              "Short phrase framed as an opportunity, not a critique.",
+          },
+          evidence: {
+            type: "string",
+            description:
+              "Cite the moment in the transcript. Depersonalize the subject (the meeting/the flow), not a named person.",
+          },
+          why_it_matters: {
+            type: "string",
+            description:
+              "One sentence on the outcome improvement, not the deficit.",
+          },
+        },
+      },
+    },
+    experiments: {
+      type: "array",
+      minItems: 0,
+      maxItems: 5,
+      items: {
+        type: "object",
+        required: ["action", "why", "next_step"],
+        properties: {
+          action: {
+            type: "string",
+            description:
+              "The forward-looking experiment (e.g. 'Time-box functional updates to 4 minutes each').",
+          },
+          why: {
+            type: "string",
+            description:
+              "Short outcome-focused reason. Never a critique of what didn't happen.",
+          },
+          next_step: {
+            type: "string",
+            description:
+              "Concrete first move for next week's meeting.",
+          },
+        },
+      },
+    },
+    agenda_adherence: {
+      type: "object",
+      required: ["score_out_of_5", "notes"],
+      properties: {
+        score_out_of_5: {
+          type: ["integer", "null"],
+          minimum: 0,
+          maximum: 5,
+          description:
+            "How many of the five agenda sections the meeting meaningfully covered.",
+        },
+        notes: { type: "string" },
+      },
+    },
+    dimensions: {
+      type: "object",
+      required: [
+        "rhythm",
+        "accountability",
+        "alignment",
+        "positive_framing",
+      ],
+      properties: {
+        rhythm: {
+          type: "object",
+          required: ["score", "notes"],
+          properties: {
+            score: {
+              type: ["integer", "null"],
+              minimum: 0,
+              maximum: 10,
+            },
+            notes: { type: "string" },
+          },
+        },
+        accountability: {
+          type: "object",
+          required: ["score", "notes"],
+          properties: {
+            score: {
+              type: ["integer", "null"],
+              minimum: 0,
+              maximum: 10,
+            },
+            notes: { type: "string" },
+          },
+        },
+        alignment: {
+          type: "object",
+          required: ["score", "notes"],
+          properties: {
+            score: {
+              type: ["integer", "null"],
+              minimum: 0,
+              maximum: 10,
+            },
+            notes: { type: "string" },
+          },
+        },
+        positive_framing: {
+          type: "object",
+          required: ["score", "notes"],
+          description:
+            "How well the meeting practised appreciative inquiry — celebrating wins, reframing problems as opportunities, asking generative questions vs. dwelling on deficits.",
+          properties: {
+            score: {
+              type: ["integer", "null"],
+              minimum: 0,
+              maximum: 10,
+            },
+            notes: { type: "string" },
+          },
+        },
+      },
+    },
+    // No `overall`. It is computed in code from the four parts
+    // (score.ts), never judged by the model: a judged overall never
+    // derived from the parts shown beside it.
+    executive_summary: {
+      type: "string",
+      description:
+        "LAST FIELD, written with the whole review above it in view. " +
+        "2–3 sentence read. Warm, specific to this meeting. If no " +
+        "meaningful analysis is possible, describe what's missing " +
+        "here as well. It must not contradict fourws_audit: do not " +
+        "say the 4Ws were or were not applied unless the rows above " +
+        "say so, and do not count issues — the audit already " +
+        "counted them.",
     },
   },
 };

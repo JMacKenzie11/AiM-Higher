@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
+import { callSettings } from "./model";
 
 // REWORDING A LINE WITHOUT THE PERSONAL DETAIL.
 //
@@ -56,7 +57,7 @@ export function rewordWithModel(
     try {
       const message = await client.messages.create({
         model,
-        thinking: { type: "disabled" },
+        ...callSettings(model, "off"),
         max_tokens: 2000,
         system: [{ type: "text", text: SYSTEM }],
         messages: [{ role: "user", content: JSON.stringify(texts) }],
