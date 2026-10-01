@@ -80,6 +80,7 @@ describe("time off and family", () => {
       "Jeff's daughter joined the sales team in May.",
       "Sam is out next week and his father covers the accounts.",
       "Sam took a trip to the warehouse.",
+      "Lee's trip to Toronto is booked for the client review.",
       "My father founded the company.",
       "I'm away next week; Lee has the Thursday call.",
     ]) {

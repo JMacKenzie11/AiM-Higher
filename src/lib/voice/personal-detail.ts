@@ -147,11 +147,11 @@ const REASON = "for|because(?: of)?|due to|to|with|visiting|attending|at";
 
 const anyOf = (words: readonly string[]) => `(?:${words.join("|")})`;
 
-// Where, after a holiday word: "on vacation in Mexico", "a trip to
-// Lisbon". Case-sensitive on the place, so "a trip to the warehouse"
-// passes.
+// Where, after a holiday word: "on vacation in Mexico". Case-sensitive
+// on the place. Not "trip": a trip to Toronto is as often a client
+// visit as a holiday (the 2026-10-01 proposals caught one).
 const HOLIDAY_PLACE =
-  /\b(?:[Vv]acation|[Hh]oliday|[Tt]rip|[Cc]ruise|[Gg]etaway)\s+(?:in|to|at)\s+(?:the\s+)?[A-Z][a-z]+/;
+  /\b(?:[Vv]acation|[Hh]oliday|[Cc]ruise|[Gg]etaway)\s+(?:in|to|at)\s+(?:the\s+)?[A-Z][a-z]+/;
 
 // After a name, he, she or I: a possessive or a verb of state. After
 // his / her / him / my: nothing more. Then up to four words, then the
