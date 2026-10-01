@@ -14,10 +14,11 @@ import type { Role } from "@/lib/types";
 //     (memory-actions.ts) and the route leaves remember_this out of
 //     its tools. Reading memory is allowed, so Aimee still knows them.
 //   - Aimee is told she is in the panel (below): short answers, and
-//     when it turns into real coaching, an offer to continue on the
-//     Aimee page, in a NEW conversation, where memory works as it
-//     always has. Never the same conversation, so its memory rules
-//     never change halfway through.
+//     that she cannot keep notes from here. She no longer offers a
+//     "Continue on the Aimee page" link when it turns into coaching
+//     (Jason, 2026-10-01: not wanted in a panel chat). If someone asks
+//     her to remember something, she says so and names the Aimee page,
+//     where memory works as it always has.
 
 export const CONTINUE_ON_PAGE_HREF = "/ask-aimee/new";
 
@@ -26,9 +27,6 @@ export const PANEL_PROMPT_BLOCK = [
   "This conversation is in your side panel, open beside the page the person is working on.",
   "Keep replies short: a few sentences, or a short list when there are steps.",
   "Nothing from this conversation goes into your memory of the person. If they ask you to remember something, say you cannot keep notes from the panel, and offer the Aimee page.",
-  "When the conversation turns into real coaching (working through a situation with someone, a decision they are weighing, their own growth as a leader), offer once to carry on where you can remember what matters, with this exact link on its own line:",
-  `[Continue on the Aimee page](${CONTINUE_ON_PAGE_HREF})`,
-  "Say it starts a new conversation there, which opens with what they have told you so far, so they do not need to repeat it. Do not offer it for questions about using the app.",
   "</panel>",
 ].join("\n");
 
