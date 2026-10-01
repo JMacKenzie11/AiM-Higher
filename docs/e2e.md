@@ -158,6 +158,7 @@ Scope with the name, never with `.first()`:
 .getByTestId("scope-into-company")
 .filter({ hasText: new RegExp(`^${FIXTURE_COMPANY_NAME}$`) })
 ```
+
 ### When a lookup fails, the seed stops
 
 The seed finds its fixtures by name and creates any it cannot find. A
