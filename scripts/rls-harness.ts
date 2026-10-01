@@ -4157,6 +4157,189 @@ export type WriteProbe = {
 };
 
 export const BATCHES: readonly Batch[] = [
+  // ---- 0247: measures and entries, Form D and per-command writes ----
+  //
+  // Behaviour-preserving by claim: who reads and who writes measures and
+  // their entries must not move. So no probe carries expectBefore, and
+  // any before/after disagreement reports SEMANTICS MOVED. What moves is
+  // the read cost: company_id on the row (Form D, no join), the guide
+  // set as one hoisted array, and the FOR ALL write rules split per
+  // command so a read no longer pays for them (docs: the 0247 header).
+  //
+  // Read counts are compared with what the caller's company really
+  // holds, counted as postgres in the fixture, so "the same before and
+  // after" is also "the right number".
+  {
+    n: "measures-form-d",
+    tables: ["success_measures", "success_measure_entries"],
+    migration: "0247_measures_form_d.sql",
+    judgesHoist: true,
+    indirectScope: {
+      success_measures: {
+        key: "id",
+        rows:
+          "select m.id as key, f.company_id from public.success_measures m " +
+          "join public.functions f on f.id = m.function_id",
+      },
+      success_measure_entries: {
+        key: "id",
+        rows:
+          "select e.id as key, f.company_id from public.success_measure_entries e " +
+          "join public.success_measures m on m.id = e.measure_id " +
+          "join public.functions f on f.id = m.function_id",
+      },
+    },
+    writeProbes: {
+      fixtures: `
+        select
+          lead.id     as lead,
+          c.id        as company,
+          own_m.id    as own_measure,
+          own_e.id    as own_entry,
+          other_e.id  as other_entry,
+          (select p.id from public.profiles p
+            where p.role = 'team_member' and p.status = 'active'
+              and p.company_id = c.id and p.id <> lead.id
+              and not exists (select 1 from public.functions f3
+                               where f3.company_id = c.id
+                                 and (f3.lead_id = p.id or f3.track_id = p.id))
+            limit 1)  as bystander,
+          (select p.id from public.profiles p
+            where p.role = 'company_admin' and p.status = 'active'
+              and p.company_id = c.id limit 1) as admin,
+          (select count(*) from public.success_measure_entries e3
+             join public.success_measures m3 on m3.id = e3.measure_id
+             join public.functions f4 on f4.id = m3.function_id
+            where f4.company_id = c.id)::text as company_entries,
+          (select count(*) from public.success_measures m4
+             join public.functions f5 on f5.id = m4.function_id
+            where f5.company_id = c.id)::text as company_measures
+        from public.functions own
+        join public.profiles lead on lead.id = own.lead_id
+        join public.companies c on c.id = own.company_id
+        join public.success_measures own_m on own_m.function_id = own.id
+        join public.success_measure_entries own_e on own_e.measure_id = own_m.id
+        join public.functions other on other.company_id = c.id and other.id <> own.id
+                                   and other.lead_id is distinct from lead.id
+                                   and other.track_id is distinct from lead.id
+        join public.success_measures other_m on other_m.function_id = other.id
+        join public.success_measure_entries other_e on other_e.measure_id = other_m.id
+        where lead.role = 'team_member' and lead.status = 'active'
+          and exists (
+            select 1 from public.profiles b
+             where b.role = 'team_member' and b.status = 'active'
+               and b.company_id = c.id and b.id <> lead.id
+               and not exists (select 1 from public.functions f3
+                                where f3.company_id = c.id
+                                  and (f3.lead_id = b.id or f3.track_id = b.id)))
+          and exists (
+            select 1 from public.profiles a
+             where a.role = 'company_admin' and a.status = 'active' and a.company_id = c.id)
+        order by own.id, own_m.id, own_e.id, other.id, other_e.id
+        limit 1;`,
+      probes: [
+        // ---- Reads: every caller sees exactly their company's rows ---
+        {
+          name: "a team member sees every entry in their company",
+          caller: "bystander",
+          sql: `select (count(*)::text = '$company_entries')::int as n
+                  from public.success_measure_entries;`,
+          expect: "1",
+        },
+        {
+          name: "a team member sees every measure in their company",
+          caller: "bystander",
+          sql: `select (count(*)::text = '$company_measures')::int as n
+                  from public.success_measures;`,
+          expect: "1",
+        },
+        {
+          name: "a function lead sees every entry in their company",
+          caller: "lead",
+          sql: `select (count(*)::text = '$company_entries')::int as n
+                  from public.success_measure_entries;`,
+          expect: "1",
+        },
+        {
+          name: "a company admin sees every entry in their company",
+          caller: "admin",
+          sql: `select (count(*)::text = '$company_entries')::int as n
+                  from public.success_measure_entries;`,
+          expect: "1",
+        },
+        // ---- Writes on entries: unchanged ----------------------------
+        {
+          name: "the lead updates an entry on their own function",
+          caller: "lead",
+          sql: `with u as (update public.success_measure_entries set value_text = value_text
+                            where id = '$own_entry'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "1",
+        },
+        {
+          name: "the lead adds an entry on their own function",
+          caller: "lead",
+          sql: `with i as (insert into public.success_measure_entries (measure_id, week_ending, value_text)
+                            values ('$own_measure'::uuid, '2099-12-25', '_probe') returning id)
+                select count(*)::int as n from i;`,
+          expect: "1",
+        },
+        {
+          name: "the lead cannot update another function's entry",
+          caller: "lead",
+          sql: `with u as (update public.success_measure_entries set value_text = value_text
+                            where id = '$other_entry'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "0",
+          provenBy: "admin",
+        },
+        {
+          name: "a team member who leads nothing cannot update an entry",
+          caller: "bystander",
+          sql: `with u as (update public.success_measure_entries set value_text = value_text
+                            where id = '$own_entry'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "0",
+          provenBy: "lead",
+        },
+        {
+          name: "a team member who leads nothing cannot delete an entry",
+          caller: "bystander",
+          sql: `with d as (delete from public.success_measure_entries
+                            where id = '$own_entry'::uuid returning id)
+                select count(*)::int as n from d;`,
+          expect: "0",
+          provenBy: "admin",
+        },
+        {
+          name: "the company admin updates any entry in the company",
+          caller: "admin",
+          sql: `with u as (update public.success_measure_entries set value_text = value_text
+                            where id = '$other_entry'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "1",
+        },
+        // ---- Writes on measures: unchanged ---------------------------
+        {
+          name: "the lead renames a measure on their own function",
+          caller: "lead",
+          sql: `with u as (update public.success_measures set description = description
+                            where id = '$own_measure'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "1",
+        },
+        {
+          name: "a team member who leads nothing cannot rename a measure",
+          caller: "bystander",
+          sql: `with u as (update public.success_measures set description = description
+                            where id = '$own_measure'::uuid returning id)
+                select count(*)::int as n from u;`,
+          expect: "0",
+          provenBy: "lead",
+        },
+      ],
+    },
+  },
   // ---- 0218: show on company dashboard -----------------------
   //
   // One column, no policy change, nothing reading it yet. There is no
