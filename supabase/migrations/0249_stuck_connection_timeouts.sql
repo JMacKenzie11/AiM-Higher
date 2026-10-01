@@ -1,0 +1,41 @@
+-- 0249: a database connection left in a failed transaction is ended by
+-- Postgres instead of being handed out again and again.
+--
+-- WHY. On the dev clone on 2026-09-30, one statement timeout landed on a
+-- COMMIT rather than on a query. PostgREST 14.5 (dev and production run
+-- the same) does not roll back after a failed COMMIT and returns the
+-- connection to its pool, so every request it then served failed with
+-- "current transaction is aborted": 152 of them in about a minute, sign-in
+-- included, 40 to 45% of all requests while it lasted. Nothing on the
+-- Postgres side ever ended it: idle_in_transaction_session_timeout and
+-- transaction_timeout were both off. Production can meet the same thing
+-- with any statement that runs close to the 8 second limit.
+--
+-- WHAT. Two settings on authenticator, the login PostgREST uses for every
+-- request (it then switches to anon, authenticated or service_role), and
+-- on no other role, so migrations and anything connecting as postgres
+-- are untouched:
+--
+--   idle_in_transaction_session_timeout = 2s
+--     The stuck connection sits idle inside its failed transaction between
+--     requests. A healthy request never pauses inside its transaction for
+--     more than milliseconds, so this ends the stuck one at its first
+--     two-second pause and touches nothing else.
+--
+--   transaction_timeout = 60s (Postgres 17)
+--     The backstop when traffic is steady and the stuck connection never
+--     pauses for two seconds: Postgres ends any transaction 60 seconds after
+--     it began. Every statement already stops at 8 seconds; the slowest
+--     statement through PostgREST on either instance takes 4.6 (its own
+--     schema load, pg_stat_statements, 2026-10-01).
+--
+-- Either way PostgREST sees a closed connection, drops it and opens a fresh
+-- one; the first request after the kill gets one error.
+--
+-- Role settings apply to NEW sessions. PostgREST's pooled connections pick
+-- them up as they are replaced, within its connection lifetime (30 minutes
+-- by default), so the change takes full effect gradually and needs no
+-- restart.
+
+alter role authenticator set idle_in_transaction_session_timeout = '2s';
+alter role authenticator set transaction_timeout = '60s';

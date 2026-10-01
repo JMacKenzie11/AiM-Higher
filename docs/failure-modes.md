@@ -1550,3 +1550,40 @@ on, its own work stays its own, and reads are unchanged.
 `is_admin_for()` in a write rule unless portfolio admins are meant to have
 the write; name the roles each write rule allows in a comment beside it.
 A harness case asserts what should happen, never what does.
+
+### E20. A failed COMMIT that poisons a pooled connection
+
+**What happened (found 2026-09-30, dev clone).** During a full e2e run,
+one statement timeout landed on a COMMIT rather than on a query. PostgREST
+14.5 does not roll back after a failed COMMIT. It returned the connection to
+its pool still inside the aborted transaction, and every request that
+connection served afterwards failed with "current transaction is aborted":
+152 of them in about a minute, sign-in included, 40 to 45% of all requests
+while it lasted. It looked like a dozen unrelated test failures.
+
+**Why nothing caught it.** Nothing on the Postgres side ends a connection
+that sits in a failed transaction: `idle_in_transaction_session_timeout` and
+`transaction_timeout` were both off on every instance. Production runs the
+same PostgREST and can meet the same thing with any statement that runs
+close to the 8 second limit.
+
+**What was checked before fixing (read only).** The slowest statement
+through PostgREST on production and PromiseOne takes 4.6 seconds
+(PostgREST's own schema load, `pg_stat_statements`, 2026-10-01), so a
+60 second ceiling on a whole transaction has room to spare.
+
+**Fixed by** 0249: `idle_in_transaction_session_timeout = 2s` and
+`transaction_timeout = 60s` on `authenticator` only. A healthy request
+never pauses inside its transaction for more than milliseconds, so the
+2 second limit ends only the stuck connection; the 60 second limit catches
+it when traffic is steady enough that it never pauses. PostgREST sees a
+closed connection, drops it and opens a fresh one. Role settings apply to
+new sessions, so the change takes full effect as pooled connections are
+replaced (30 minutes by default) and needs no restart. The harness check
+`stuck connection · authenticator timeouts` reads the role's settings on
+every run and fails if either is missing or if the 8 second statement limit
+moved.
+
+**The rule.** A pooled connection must have a way to die. When a fix
+depends on a role setting, the harness reads the setting rather than
+trusting the migration ran.
