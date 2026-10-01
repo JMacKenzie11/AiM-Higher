@@ -45,6 +45,10 @@ export function Drawer({
   keepMounted = false,
   labelledBy,
   name,
+  side = false,
+  trapFocus = false,
+  initialFocusRef,
+  testId = "drawer-panel",
 }: {
   open: boolean;
   onClose: () => void;
@@ -64,6 +68,24 @@ export function Drawer({
   // the keepMounted "Add function" panel, which is in the DOM even
   // when closed, and the function editor. `data-testid` matches both.
   name?: string;
+  // SIDE: beside the page rather than over it. No scrim, no
+  // aria-modal, a labelled complementary region rather than a dialog,
+  // so the page behind stays usable and in the tab order. Escape still
+  // closes it and focus still goes back where it came from. Aimee's
+  // panel on desktop (docs/investigations/aimee-panel.md, "A panel
+  // that does not block the page"). Every other drawer is modal.
+  side?: boolean;
+  // Keep Tab inside the panel: for a drawer that covers the whole
+  // screen, where the page behind cannot be seen (Aimee's panel on a
+  // phone).
+  trapFocus?: boolean;
+  // Where focus goes on open, instead of the panel itself.
+  initialFocusRef?: React.RefObject<HTMLElement | null>;
+  // The panel's data-testid. "drawer-panel" for the drawers a page
+  // opens, which specs find as THE drawer. Aimee's panel is on every
+  // page and kept mounted, so it takes its own, or every one of those
+  // specs would find two.
+  testId?: string;
 }) {
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -83,8 +105,12 @@ export function Drawer({
   // cleanup pulled focus back to the trigger, the effect pushed it
   // into the panel, on every keystroke in a form inside it.
   const onCloseRef = useRef(onClose);
+  const trapFocusRef = useRef(trapFocus);
+  const initialFocus = useRef(initialFocusRef);
   useEffect(() => {
     onCloseRef.current = onClose;
+    trapFocusRef.current = trapFocus;
+    initialFocus.current = initialFocusRef;
   });
 
   // Escape closes. Focus moves into the panel on open and back to
@@ -93,9 +119,24 @@ export function Drawer({
   useEffect(() => {
     if (!open) return;
     returnFocusTo.current = document.activeElement;
-    panelRef.current?.focus();
+    (initialFocus.current?.current ?? panelRef.current)?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Tab" && trapFocusRef.current && panelRef.current) {
+        const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => {
@@ -110,22 +151,24 @@ export function Drawer({
 
   return createPortal(
     <>
-      <div
-        className={styles.scrim}
-        hidden={!open}
-        onClick={onClose}
-        data-testid="drawer-scrim"
-        data-drawer-name={name}
-      />
+      {side ? null : (
+        <div
+          className={styles.scrim}
+          hidden={!open}
+          onClick={onClose}
+          data-testid="drawer-scrim"
+          data-drawer-name={name}
+        />
+      )}
       <div
         ref={panelRef}
         tabIndex={-1}
         hidden={!open}
-        className={styles.panel}
-        role="dialog"
-        aria-modal="true"
+        className={side ? `${styles.panel} ${styles.side}` : styles.panel}
+        role={side ? "complementary" : "dialog"}
+        aria-modal={side ? undefined : "true"}
         aria-labelledby={titleId}
-        data-testid="drawer-panel"
+        data-testid={testId}
         data-drawer-name={name}
       >
         <div className={styles.head}>

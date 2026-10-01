@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { trackClient } from "@/lib/analytics/track-client";
 import styles from "./HelpWidget.module.css";
+import { usePageHelp } from "./usePageHelp";
 
 // Floating help button, fixed to the bottom-right of every
 // authenticated page. Click opens a panel that fetches the
@@ -13,56 +14,16 @@ import styles from "./HelpWidget.module.css";
 // No content is preloaded — the fetch happens on open so the widget
 // stays cheap on pages nobody uses it on.
 
-type HelpState =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "loaded"; title: string; markdown: string }
-  | { kind: "empty" }
-  | { kind: "error"; message: string };
-
 export function HelpWidget() {
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
-  const [state, setState] = useState<HelpState>({ kind: "idle" });
+  const state = usePageHelp(pathname, open);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Reset content whenever the URL changes so the widget always
-  // reflects the current surface.
+  // Close whenever the URL changes; the help follows the page.
   useEffect(() => {
-    setState({ kind: "idle" });
     setOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    if (!open) return;
-    // Deliberately NOT including state.kind in the deps: the moment
-    // we call setState({kind:"loading"}) below, React re-runs this
-    // effect (deps changed), which fires the cleanup, which aborts
-    // the fetch we just started. Firing on [open, pathname] alone
-    // means one fetch per open per URL — exactly what we want.
-    const controller = new AbortController();
-    setState({ kind: "loading" });
-    fetch(`/api/help?pathname=${encodeURIComponent(pathname)}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (res.status === 204) {
-          setState({ kind: "empty" });
-          return;
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = (await res.json()) as { title: string; markdown: string };
-        setState({ kind: "loaded", title: data.title, markdown: data.markdown });
-      })
-      .catch((err) => {
-        if (err.name === "AbortError") return;
-        setState({
-          kind: "error",
-          message: err instanceof Error ? err.message : "Failed to load help.",
-        });
-      });
-    return () => controller.abort();
-  }, [open, pathname]);
 
   // Close on Escape / outside click.
   useEffect(() => {
@@ -130,6 +91,7 @@ export function HelpWidget() {
           });
         }}
         aria-label={open ? "Close help" : "Open help"}
+        data-testid="corner-launcher"
         aria-expanded={open}
       >
         {open ? "×" : "?"}

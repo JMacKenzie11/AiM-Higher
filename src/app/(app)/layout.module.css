@@ -46,3 +46,8 @@
     padding: var(--space-5) var(--page-gutter);
   }
 }
+
+/* AIMEE'S PANEL FLOATS OVER THE PAGE (Jason, 2026-09-29). It used to
+   push the page left to make room for itself; now the page keeps its
+   width and the panel sits over its right-hand edge, with no scrim, so
+   everything not under it stays usable. */

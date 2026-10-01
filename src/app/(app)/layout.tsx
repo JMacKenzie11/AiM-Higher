@@ -5,6 +5,7 @@ import {
 } from "@/components/sidebar/nav-group-state";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { HelpWidget } from "@/components/help/HelpWidget";
+import { AimeeLauncher } from "@/components/aimee/AimeeLauncher";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
@@ -168,7 +169,11 @@ export default async function AppLayout({
             initialCollapsedGroups={initialCollapsedGroups}
           />
           <div className={styles.main}>{children}</div>
-          <HelpWidget />
+          {/* Aimee's icon and panel replace the "?" for SYSTEM ADMINS
+              ONLY until the panel conversation (Step 3) has merged too;
+              then both are released to everyone together (Jason,
+              2026-09-28). docs/investigations/aimee-panel.md. */}
+          {session.profile.role === "system_admin" ? <AimeeLauncher /> : <HelpWidget />}
         </div>
       </PostHogProvider>
     </InstanceProvider>

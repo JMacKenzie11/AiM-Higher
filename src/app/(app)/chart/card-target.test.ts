@@ -78,7 +78,10 @@ describe("the chart's two drawers", () => {
     // Declared in the type AND destructured. Getting only the first
     // renders the attribute as undefined, which is a prop that type-
     // checks, builds, and silently is not there.
-    expect(houseDrawer).toMatch(/labelledBy,\s*\n\s*name,\s*\n\}: \{/);
+    // Destructured: `name,` in the parameter list, before its type.
+    // (Other props may follow it; Aimee's panel added side, trapFocus
+    // and initialFocusRef.)
+    expect(houseDrawer).toMatch(/labelledBy,\s*\n\s*name,\s*\n[\s\S]*?\}: \{/);
     expect(drawer).toContain('name="chart-function"');
     expect(addFunction).toContain('name="chart-add-function"');
   });

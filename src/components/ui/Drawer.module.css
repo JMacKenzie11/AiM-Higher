@@ -35,6 +35,13 @@
   will-change: transform;
 }
 
+/* The `side` prop: narrower, no scrim, not modal. It floats over the
+   right-hand edge of the page, which keeps its width and stays usable
+   (Jason, 2026-09-29; it used to push the page left). */
+.side {
+  width: min(400px, 100vw);
+}
+
 /* KEPT MOUNTED MEANS KEPT IN THE DOM, so `hidden` has to actually
    hide: .panel sets display: flex, which beats the user-agent rule
    for [hidden] on its own. Without this the closed drawer covers the
