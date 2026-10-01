@@ -8,6 +8,7 @@
 // or request and response bodies.
 
 import * as Sentry from "@sentry/nextjs";
+import { sentryEnabledOnServer } from "./src/lib/observability/sentry-enabled";
 import {
   DATA_COLLECTION,
   scrubEvent,
@@ -16,6 +17,16 @@ import {
 
 Sentry.init({
   dsn: "https://cfe4404b707a11cbf34a5f659d927ad6@o4511878465978368.ingest.us.sentry.io/4511878475415552",
+
+  // Vercel deployments only. Local dev, local builds and e2e runs use
+  // the dev database, which holds copies of client data; none of it
+  // may reach Sentry. See docs/deployment.md, "Error monitoring".
+  enabled: sentryEnabledOnServer({
+    VERCEL: process.env.VERCEL,
+    VERCEL_ENV: process.env.VERCEL_ENV,
+  }),
+  // "production" or "preview", so the two never mix in Sentry.
+  environment: process.env.VERCEL_ENV,
 
   // 10% of transactions traced — free tier + Vercel invocation
   // volume gets loud fast at 1.0. Bump per-route via tracesSampler

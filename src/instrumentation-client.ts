@@ -5,6 +5,10 @@
 import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
 import {
+  browserSentryEnvironment,
+  sentryEnabledForHostname,
+} from "@/lib/observability/sentry-enabled";
+import {
   DATA_COLLECTION,
   scrubEvent,
   scrubPersonalDataIntegration,
@@ -40,7 +44,22 @@ if (!posthogKey || !posthogHost) {
   posthog.register({ env: process.env.NODE_ENV });
 }
 
+// Sentry runs on Vercel deployments only. The browser cannot see
+// VERCEL, so it decides from the host the page was served on: off for
+// localhost, *.local and private LAN addresses (the dev server reached
+// from a phone). Local dev, local builds and e2e runs all use the dev
+// database, which holds copies of client data. See docs/deployment.md,
+// "Error monitoring".
+const sentryEnabled =
+  typeof window !== "undefined" &&
+  process.env.NEXT_PUBLIC_VERCEL_ENV !== "development" &&
+  sentryEnabledForHostname(window.location.hostname);
+
 Sentry.init({
+  enabled: sentryEnabled,
+  // "production" or "preview" when the Vercel build exposed it.
+  environment: browserSentryEnvironment(process.env.NEXT_PUBLIC_VERCEL_ENV),
+
   dsn: "https://cfe4404b707a11cbf34a5f659d927ad6@o4511878465978368.ingest.us.sentry.io/4511878475415552",
 
   // Session Replay is deliberately NOT listed here. Naming
@@ -102,7 +121,9 @@ Sentry.init({
 // to allow browser.sentry-cdn.com or replay silently stops working.
 // The catch below keeps that failure contained — errors, traces and
 // logs are unaffected by it.
-if (typeof window !== "undefined") {
+// Not attached at all when Sentry is off: the recorder would be
+// fetched from Sentry's CDN for nothing.
+if (sentryEnabled) {
   const attachReplay = async () => {
     try {
       const replayIntegration = await Sentry.lazyLoadIntegration(

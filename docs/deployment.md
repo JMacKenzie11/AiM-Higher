@@ -116,6 +116,36 @@ none: a partial set throws, naming what is missing.
 Define them **once**. A dotenv file lets a later assignment win, so a
 second copy further down the file silently overrides the first.
 
+## Error monitoring
+
+**Sentry runs on Vercel deployments only, labelled by environment.**
+Production events carry `environment: production`, preview events
+`environment: preview`, so the two never mix in one view.
+
+It is **off** for local dev, local production builds (`next build` then
+`next start`), and e2e runs. All of those talk to the dev database,
+which holds copies of client data, and every Sentry event can carry
+that data: error messages, stack traces, URLs, traces, logs and, in
+the browser, session replays. Off means nothing is sent at all.
+
+How each runtime decides, in `src/lib/observability/sentry-enabled.ts`:
+
+| Runtime | On when | `environment` |
+|---|---|---|
+| Server, Edge | `VERCEL=1` and `VERCEL_ENV` is not `development` | `VERCEL_ENV` |
+| Browser | the page's hostname is not localhost, `127.x`, `::1`, `*.local`, or a private LAN address (`10.x`, `172.16-31.x`, `192.168.x`) | `NEXT_PUBLIC_VERCEL_ENV`, else `production` |
+
+The browser cannot see `VERCEL`, hence the hostname rule. The LAN
+ranges are there because the dev server is opened from phones on the
+same network (`192.168.x.x:3200`). Session Replay is only attached when
+Sentry is on.
+
+A `vercel env pull` writes `VERCEL_ENV=development` into a local file;
+that is refused explicitly, so a pulled file cannot switch Sentry on.
+
+To see a Sentry event from a change, deploy a preview and look under
+the `preview` environment. There is no local switch, on purpose.
+
 ## Instance-prefixed variables belong to the provisioning tool
 
 `{PREFIX}_SUPABASE_URL`, `{PREFIX}_SUPABASE_ANON_KEY` and
