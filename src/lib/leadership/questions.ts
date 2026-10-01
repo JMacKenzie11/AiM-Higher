@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
+import { personalDetailMatcher } from "@/lib/voice/personal-detail";
 
 // QUESTIONS, ON THE COACHING NOTES TAB.
 //
@@ -51,15 +52,15 @@ export type QuestionFault = { index: number; faults: string[] };
 // naturally": a person's medical situation, lifted from the check-in
 // into coaching copy that admins, guides and the champion read. The
 // prompt forbids it; this catches the plain words for it, so a slip is
-// retried and then dropped rather than shown. Deliberately the obvious
-// words only: a check-in may be warm, and what it may not become is
-// somebody's health, family or private life on a page about their work.
-const PERSONAL =
-  /\b(hospital\w*|surger\w*|surgical|pregnan\w*|maternity|paternity|cancer|chemo\w*|diagnos\w*|illness|sick|injur\w*|doctor\w*|medical|medication|therap\w*|mental health|funeral|passed away|died|death|grie(?:f|ving)|bereave\w*|divorc\w*|grandchild\w*|grandbab\w*|baby|babies|newborn|birth)\b/i;
+// retried and then dropped rather than shown. A question is a short
+// line about one moment, with no business reason for a health word, so
+// it is held in "moment" mode: the words count anywhere. They live in
+// voice/personal-detail.ts, shared with the summary and the card.
+const personalDetail = personalDetailMatcher({ mode: "moment" });
 
 export function personalFault(text: string): string | null {
-  const m = PERSONAL.exec(text);
-  return m ? `mentions a personal or health detail ("${m[0]}")` : null;
+  const m = personalDetail(text);
+  return m ? `mentions a personal or health detail ("${m}")` : null;
 }
 
 export function questionFaults(q: string): string[] {

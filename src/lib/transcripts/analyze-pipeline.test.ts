@@ -174,3 +174,81 @@ describe("one failing call fails the meeting cleanly", () => {
     err.mockRestore();
   });
 });
+
+// Nothing about a person's private life in what the company reads
+// (voice/personal-detail.ts). On 2026-10-01, 13 of production's 40
+// summaries named somebody's health, family or a bereavement.
+describe("a summary never stores somebody's private life", () => {
+  const PERSONAL =
+    "## Attendees\n\n- Pat\n\n## Summary\n\nThe team agreed the quote goes out Friday. Pat was away for a doctor's appointment.";
+  const analysisCalls = () =>
+    h.create.mock.calls.map(([req]) => req).filter((req) => kindOf(req) === "analysis");
+  const stored = () =>
+    (h.writes.find((w) => w.table === "meeting_analyses" && w.op === "insert")?.payload ?? {}) as {
+      analysis_markdown?: string;
+      issues_json?: Array<{ title: string }>;
+    };
+
+  it("sends it back once, naming the sentence, and stores the rewrite", async () => {
+    let n = 0;
+    h.create.mockImplementation(async (req) =>
+      text(kindOf(req) === "analysis" ? (n++ === 0 ? PERSONAL : SUMMARY) : EXTRACTION)
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(analysisCalls()).toHaveLength(2);
+    const retry = analysisCalls()[1].messages;
+    expect(retry.at(-1).content).toContain(`"Pat was away for a doctor's appointment."`);
+    expect(stored().analysis_markdown).toContain("The team agreed the quote goes out Friday.");
+    expect(stored().analysis_markdown).not.toMatch(/doctor/);
+    warn.mockRestore();
+  });
+
+  it("takes the sentence out when the rewrite still has it, and the meeting completes", async () => {
+    h.create.mockImplementation(async (req) => text(kindOf(req) === "analysis" ? PERSONAL : EXTRACTION));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(analysisCalls()).toHaveLength(2);
+    expect(stored().analysis_markdown).toContain("The team agreed the quote goes out Friday.");
+    expect(stored().analysis_markdown).not.toMatch(/doctor/);
+    expect(h.writes.filter((w) => w.table === "meetings" && w.op === "update").at(-1)?.payload).toMatchObject({
+      status: "complete",
+    });
+    // The log says how many, never what.
+    expect(warn.mock.calls.flat().join(" ")).not.toMatch(/doctor/);
+    warn.mockRestore();
+  });
+
+  it("does not send a clean summary back", async () => {
+    h.create.mockImplementation(async (req) => text(kindOf(req) === "analysis" ? SUMMARY : EXTRACTION));
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(analysisCalls()).toHaveLength(1);
+    expect(stored().analysis_markdown).toBe(SUMMARY);
+  });
+
+  it("drops an issue that names it, and keeps the rest", async () => {
+    h.create.mockImplementation(async (req) =>
+      text(
+        kindOf(req) === "analysis"
+          ? SUMMARY
+          : JSON.stringify({ commitments: [], issues: [{ title: "Quote timing" }, { title: "Cover while Pat is on sick leave" }] })
+      )
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(stored().issues_json?.map((i) => i.title)).toEqual(["Quote timing"]);
+    warn.mockRestore();
+  });
+});

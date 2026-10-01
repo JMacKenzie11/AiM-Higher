@@ -11,6 +11,7 @@ import type {
 import { FACILITATION_REVIEW_VERSION } from "./types";
 import { isScoredReview } from "./scored";
 import { computeOverall } from "./score";
+import { PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
 
 // Second LLM pass on a meeting transcript. Runs after the summary +
 // commitment-extraction pipeline, only when the routed company has
@@ -803,5 +804,7 @@ async function loadFacilitationPrompt(): Promise<string> {
     "facilitation",
     "prompt.v2.md"
   );
-  return fs.readFile(file, "utf8");
+  // The review is read beside the summary, so it carries the same
+  // private-life rule in the same words (voice/personal-detail.ts).
+  return `${await fs.readFile(file, "utf8")}\n\n${PERSONAL_DETAIL_RULE}`;
 }
