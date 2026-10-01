@@ -11,6 +11,7 @@ import { listAgents, resolveAgent } from "@/lib/practices/resolve";
 import { resolveRuntimeConfig } from "@/lib/practices/version-config";
 import { practiceFeatureGate, practiceRoleGate } from "@/lib/practices/gate";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { openablePatternsFor } from "@/lib/pages/registry";
 import { getCurrentRoleDescription } from "@/lib/role-descriptions/roles-list";
 import { RoleDescriptionView } from "@/components/role-descriptions/RoleDescriptionView";
 import styles from "../revision.module.css";
@@ -227,6 +228,9 @@ export default async function AskAimeeChatPage({
       <MemorySweep openConversationId={conversation.id} />
       <ChatView
         conversation={conversation}
+        // The link check in replies: only pages this person can open
+        // render as links (pages/registry.ts).
+        openablePatterns={openablePatternsFor(session.profile.role, companyFeatures)}
         subjectName={null}
         subjectPosition={null}
         firstName={null}

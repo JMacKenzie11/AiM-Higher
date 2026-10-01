@@ -28,6 +28,7 @@ const LABELS: Record<string, string> = {
   scorecard_trajectory: "Checking the scorecard trend",
   search_classroom: "Searching the classroom",
   memory_lookup: "Recalling earlier conversations",
+  search_help: "Checking the help pages",
 };
 
 export function toolLabel(name: string): string {

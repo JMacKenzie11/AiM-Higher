@@ -14,6 +14,8 @@ import { MemorySweep } from "../../../ask-aimee/MemorySweep";
 import { ShareChatButton } from "../../../ask-aimee/[conversationId]/ShareChatButton";
 import type { Profile } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { openablePatternsFor } from "@/lib/pages/registry";
 
 type PageProps = {
   params: Promise<{ profileId: string; conversationId: string }>;
@@ -95,6 +97,10 @@ export default async function CoachChatPage({ params }: PageProps) {
 
       <ChatView
         conversation={conversation}
+        openablePatterns={openablePatternsFor(
+          session.profile.role,
+          await getCompanyFeatures(conversation.company_id)
+        )}
         subjectName={subject.full_name}
         subjectPosition={subject.position ?? null}
         firstName={firstName}

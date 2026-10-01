@@ -109,6 +109,22 @@ export function parseRoles(value: string | string[] | undefined, slug = "?"): Ro
   return list as Role[];
 }
 
+// Every help doc the role may see, with the role's sections only: the
+// same rules loadHelpForRoute applies to one page, applied to all of
+// them. What Aimee's help search and page index read (help/search.ts),
+// so she can never quote help the "?" would not show this person.
+export async function loadAllHelpFor(role: Role): Promise<HelpDoc[]> {
+  const files = (await fs.readdir(HELP_DIR)).filter((f) => f.endsWith(".md") && f !== "README.md");
+  const docs: HelpDoc[] = [];
+  for (const file of files.sort()) {
+    const doc = await readDoc(file.replace(/\.md$/, ""));
+    if (!doc) continue;
+    if (doc.roles && !doc.roles.includes(role)) continue;
+    docs.push({ ...doc, markdown: filterRoleSections(doc.markdown, role) });
+  }
+  return docs;
+}
+
 async function readDoc(slug: string): Promise<HelpDoc | null> {
   const file = path.join(HELP_DIR, `${slug}.md`);
   let source: string;

@@ -30,6 +30,11 @@ assuming it is gone.
 - **Start a conversation** — click *New conversation* on the
   Recent conversations card. Type your question and send, or
   attach an agent first (see below).
+- **Ask how to use the app.** In a plain Aimee conversation (no
+  agent attached), ask where something is or how to do it: "where do
+  I add a quarterly priority?" Aimee answers from the app's help
+  pages, the ones your role can read, and links you to the page. She
+  only links to pages you can open.
 - **Attach an agent to a chat** — inside any thread you own,
   click the **agent picker** to the right of the title. Pick
   "Ask Aimee" for open-ended thinking or a specific agent

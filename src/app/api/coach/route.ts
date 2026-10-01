@@ -11,6 +11,9 @@ import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
 import { toolLabel } from "@/lib/coach/tool-labels";
 import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
 import { buildGuideTools } from "@/lib/guide/agent-tools";
+import { formatHelpIndex, helpIndexFor } from "@/lib/help/search";
+import { makeSearchHelpTool } from "@/lib/help/tool";
+import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import {
   checkOpener,
   describeFaults,
@@ -297,7 +300,18 @@ export async function POST(req: NextRequest): Promise<Response> {
     practiceId: convo.practice_id,
     partnerProfileId: convo.partner_profile_id,
   });
-  const systemPromptText = await loadSystemPrompt(convo.mode, agentConfig);
+  // PLAIN AIMEE KNOWS THE APP. A general conversation with no agent
+  // gets the pages this person can open (in the system prompt, so it
+  // caches with it) and the search_help tool. Built from the session's
+  // own role and the company's features, never from the request.
+  // Agents keep their own focus: none of them is about using the app.
+  const plainAimee = convo.mode === "general" && !practice;
+  const helpFeatures = plainAimee ? await getCompanyFeatures(convo.company_id) : [];
+  const helpIndexBlock = plainAimee
+    ? formatHelpIndex(await helpIndexFor(session.profile.role, helpFeatures), session.profile.role)
+    : "";
+  const systemPromptText =
+    (await loadSystemPrompt(convo.mode, agentConfig)) + (helpIndexBlock ? `\n\n${helpIndexBlock}` : "");
 
   const client = new Anthropic({ apiKey });
   const personBlock = context.personContext ? `${context.personContext}\n\n` : "";
@@ -320,6 +334,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   // the feature is on — Aimee can recommend a training in Ask Aimee
   // conversations too. buildCoachTools handles the branch.
   const tools = [
+    ...(plainAimee ? [makeSearchHelpTool({ role: session.profile.role, features: helpFeatures })] : []),
     ...(await buildCoachTools({
       subjectProfileId:
         convo.mode === "about" ? convo.subject_profile_id ?? null : null,
