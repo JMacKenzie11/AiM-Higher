@@ -3161,6 +3161,117 @@ insert into public.portfolio_assignments (portfolio_admin_id, company_id) values
   };
 }
 
+// Aimee's counting tables take writes from a company's own people and
+// its ASSIGNED GUIDES, never from an assigned portfolio admin (0244).
+//
+// 0240 wrote aimee_panel_events' insert policy with is_guide_for(),
+// which since 0199 also admits an assigned portfolio_admin: a write
+// outside the role's closed list of four, reached through a function,
+// which is why rls:hazards (a matcher on policies naming the role)
+// did not see it. 0244 rewrites it with is_assigned_guide_for() and
+// gives voice_rule_breaks the same shape.
+//
+// Per table, three inserts of one's own row for the company:
+//   1. an assigned guide     must succeed
+//   2. a member of it        must succeed
+//   3. an assigned portfolio admin   must be refused
+// Red against 0240 alone (claim 3 on aimee_panel_events), green with
+// --pending 0244.
+async function aimeeCountsGuidesOnly(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const CO = ids.companyAdminCompany;
+  const uid = (tag: string) => `aaaa0244-0000-4000-8000-0000000000${tag}`;
+  const GUIDE = uid("01");
+  const PA = uid("02");
+  const MEMBER = uid("03");
+  const person = (id: string, name: string, role: string, company: string | null) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'active');`;
+  const seed = [
+    person(GUIDE, "Harness Counts Guide", "aims_guide", null),
+    person(PA, "Harness Counts PA", "portfolio_admin", null),
+    person(MEMBER, "Harness Counts Member", "team_member", CO),
+    `insert into public.guide_assignments (guide_id, company_id)
+       values ('${GUIDE}', '${CO}') on conflict do nothing;`,
+    `insert into public.portfolio_assignments (portfolio_admin_id, company_id)
+       values ('${PA}', '${CO}') on conflict do nothing;`,
+  ].join("\n");
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  const tables: Array<{ table: string; row: (who: string) => string }> = [
+    {
+      table: "aimee_panel_events",
+      row: (who) => `insert into public.aimee_panel_events (company_id, profile_id, kind)
+                       values ('${CO}', '${who}', 'opened');`,
+    },
+    {
+      table: "voice_rule_breaks",
+      row: (who) => `insert into public.voice_rule_breaks (company_id, profile_id, surface, origin, rules)
+                       values ('${CO}', '${who}', 'conversation', 'panel', array['the room']);`,
+    },
+  ];
+
+  // Did the insert land? Counted with the role reset, so a refused
+  // insert and an insert the caller cannot read back are told apart.
+  const lands = async (table: string, insert: string, who: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        [
+          "begin;", pending, seed,
+          "set local role authenticated;", claims(who),
+          insert,
+          "reset role;",
+          `select count(*)::int as n from public.${table} where profile_id = '${who}';`,
+          "rollback;",
+        ].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+
+  const lines: string[] = [];
+  let ok = true;
+  let tested = 0;
+  for (const { table, row } of tables) {
+    const [present] = await run<{ ok: boolean }>(
+      ["begin;", pending, `select to_regclass('public.${table}') is not null as ok;`, "rollback;"].join("\n")
+    );
+    if (!present?.ok) {
+      lines.push(`${table}: not on this schema`);
+      continue;
+    }
+    tested += 1;
+    const guide = await lands(table, row(GUIDE), GUIDE);
+    const member = await lands(table, row(MEMBER), MEMBER);
+    const pa = await lands(table, row(PA), PA);
+    const good = guide === 1 && member === 1 && pa === 0;
+    ok = ok && good;
+    lines.push(`${table}: assigned guide ${guide} (want 1), member ${member} (want 1), assigned portfolio admin ${pa} (want 0)`);
+  }
+
+  return {
+    name: "aimee-counts-guides-only",
+    hazard: "An assigned portfolio admin writes Aimee's counting tables",
+    wrong: "assigned portfolio admin inserts a row",
+    right: lines.join("; "),
+    ok: ok && tested > 0,
+    detail:
+      ok && tested > 0
+        ? "A company's own people and its assigned guides can record their own rows. An assigned portfolio admin cannot: its writes stay on its four tables."
+        : lines.join("; "),
+  };
+}
+
 // A company sees and ends a portfolio admin's assignment (0205).
 //
 // This reverses decision 5, so the case that used to assert the
@@ -10863,6 +10974,10 @@ async function main(): Promise<void> {
       "priorities-under-focus-areas",
       (r: Runner, i: Identities) =>
         prioritiesUnderFocusAreas(r, i, pendingSql),
+    ],
+    [
+      "aimee-counts-guides-only",
+      (r: Runner, i: Identities) => aimeeCountsGuidesOnly(r, i, pendingSql),
     ],
     [
       "portfolio-admin-four-tables-only",

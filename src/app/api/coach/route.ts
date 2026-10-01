@@ -14,6 +14,8 @@ import { buildGuideTools } from "@/lib/guide/agent-tools";
 import { formatHelpIndex, helpIndexFor } from "@/lib/help/search";
 import { makeSearchHelpTool } from "@/lib/help/tool";
 import { PANEL_PROMPT_BLOCK, recordPanelEvent } from "@/lib/aimee/panel";
+import { bannedRulesIn, recordRuleBreak } from "@/lib/aimee/rule-breaks";
+import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { describePageContext, parsePageContext } from "@/lib/aimee/page-context";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import {
@@ -629,6 +631,32 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
 
         let assistantText = combinedAssistantText.trim();
+
+        // ---- AN ORDINARY REPLY: DASHES OUT, THE REST COUNTED -----
+        //
+        // It streamed, so it was read as it arrived and cannot be
+        // retried (Jason, 2026-09-29). Dashes come out of the saved
+        // text here and of the shown text in ChatView, so the two
+        // agree. Anything else on the banned list is counted, never
+        // retried (rule-breaks.ts, 0244).
+        if (!checkedTurn && assistantText.length > 0) {
+          assistantText = stripEmDashes(assistantText);
+          const rules = bannedRulesIn(
+            assistantText,
+            [...history].reverse().find((m) => m.role === "user")?.content ?? ""
+          );
+          if (rules.length > 0) {
+            void recordRuleBreak(supabase, {
+              companyId: convo.company_id,
+              profileId: session.profile.id,
+              role: session.profile.role,
+              conversationId,
+              surface: "conversation",
+              origin: convo.origin === "panel" ? "panel" : "page",
+              rules,
+            });
+          }
+        }
         // Set when a parallel request saved this conversation's opener
         // first (the check just before the save).
         let savedOpener: CoachingMessage | null = null;
@@ -701,6 +729,30 @@ export async function POST(req: NextRequest): Promise<Response> {
                 err instanceof Error ? err.message : err
               );
             }
+          }
+          // Shown with a rule still broken: counted, with the rules
+          // (Jason, 2026-09-29), to decide on a second retry from a
+          // week of data rather than a guess.
+          // Dashes out of a checked turn too, before it is sent.
+          assistantText = stripEmDashes(assistantText);
+          const shown = check(assistantText);
+          // Counted, not retried, on top of the turn's own check: opening
+          // with her name and the contrast phrases (2026-09-29), from
+          // the same list ordinary replies are counted against.
+          const counted = [...new Set([...shown.rules, ...bannedRulesIn(assistantText)])];
+          if (counted.length > shown.rules.length) {
+            shown.count += counted.length - shown.rules.length;
+            shown.rules = counted;
+          }
+          if (shown.count > 0) {
+            void recordRuleBreak(supabase, {
+              companyId: convo.company_id,
+              profileId: session.profile.id,
+              role: session.profile.role,
+              conversationId,
+              surface: checkedTurn === "opener" ? "opener" : "debrief_reply",
+              rules: shown.rules,
+            });
           }
           if (checkedTurn === "opener") {
             // Two requests that both passed the check at the top: the
@@ -1011,7 +1063,7 @@ function buildMessages(
 
 type CheckedTurnKind = "opener" | "debrief reply";
 
-type TurnCheckResult = { count: number; describe: string; instruction: string };
+type TurnCheckResult = { count: number; describe: string; instruction: string; rules: string[] };
 
 // One check function per kind of held-back turn, the same shape for
 // both so the route runs one flow. A debrief reply's quotes are checked
@@ -1026,7 +1078,12 @@ async function turnCheckFor(
   if (kind === "opener") {
     return (text) => {
       const f = checkOpener(text);
-      return { count: faultCount(f), describe: describeFaults(f), instruction: openerRetryInstruction(f) };
+      return {
+        count: faultCount(f),
+        describe: describeFaults(f),
+        instruction: openerRetryInstruction(f),
+        rules: [...f.banned.map((h) => h.phrase), ...(f.joined.length > 0 ? ["two questions joined by and"] : [])],
+      };
     };
   }
   const { data: meeting } = convo.debriefing_meeting_id
@@ -1043,6 +1100,11 @@ async function turnCheckFor(
       count: replyFaultCount(f),
       describe: describeReplyFaults(f),
       instruction: replyRetryInstruction(f),
+      rules: [
+        ...f.banned.map((h) => h.phrase),
+        ...(f.denials.length > 0 ? ["affirming by denial"] : []),
+        ...(f.invented.length > 0 ? ["invented quote"] : []),
+      ],
     };
   };
 }

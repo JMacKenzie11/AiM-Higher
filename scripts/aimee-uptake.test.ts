@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reportLines, weekOf, weeklyRows } from "./aimee-uptake";
+import { reportLines, ruleLines, ruleWeeks, topRules, weekOf, weeklyRows, type RuleBreak } from "./aimee-uptake";
 
 describe("aimee:uptake", () => {
   it("puts a timestamp in the week starting that Monday", () => {
@@ -35,5 +35,32 @@ describe("aimee:uptake", () => {
 
   it("says so in words when there is nothing", () => {
     expect(reportLines([], new Map())).toEqual(["  No panel use or help searches in this window on this instance."]);
+  });
+});
+
+describe("voice rules still broken when shown", () => {
+  const breaks: RuleBreak[] = [
+    { surface: "debrief_reply", origin: null, rules: ["the room", "invented quote"], created_at: "2026-09-29T10:00:00Z" },
+    { surface: "conversation", origin: "panel", rules: ["the room"], created_at: "2026-09-30T10:00:00Z" },
+    { surface: "conversation", origin: "page", rules: ["X instead of Y"], created_at: "2026-09-22T10:00:00Z" },
+  ];
+  const replies = new Map([["2026-09-28", 40], ["2026-09-21", 12]]);
+
+  it("counts each surface per week against every reply that week", () => {
+    expect(ruleWeeks(breaks, replies)).toEqual([
+      { week: "2026-09-28", replies: 40, debrief: 1, opener: 0, page: 0, panel: 1 },
+      { week: "2026-09-21", replies: 12, debrief: 0, opener: 0, page: 1, panel: 0 },
+    ]);
+  });
+
+  it("names the rules most often broken", () => {
+    expect(topRules(breaks)).toEqual([["the room", 2], ["invented quote", 1], ["X instead of Y", 1]]);
+    expect(ruleLines(ruleWeeks(breaks, replies), breaks).at(-1)).toBe(
+      "  Most often: the room (2), invented quote (1), X instead of Y (1)"
+    );
+  });
+
+  it("says so when nothing was broken", () => {
+    expect(ruleLines(ruleWeeks([], replies), []).at(-1)).toBe("  None broken.");
   });
 });

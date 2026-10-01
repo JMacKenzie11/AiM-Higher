@@ -35,6 +35,7 @@ import {
   AgentPicker,
   type AgentAttachedInfo,
 } from "@/components/practices/AgentPicker";
+import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import styles from "../../coach.module.css";
 
 // The chat UI. Handles streaming SSE from /api/coach, renders the
@@ -1074,7 +1075,11 @@ function MessageBubble({
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {message.content}
+            {/* Dashes out of every reply as it is shown, streaming
+                included (Jason, 2026-09-29). Run on the whole text so
+                far, so a dash settles into its comma or colon as the
+                next word arrives; the route saves the same result. */}
+            {stripEmDashes(message.content)}
           </ReactMarkdown>
         )}
         {message.streaming && !isThinking ? (
