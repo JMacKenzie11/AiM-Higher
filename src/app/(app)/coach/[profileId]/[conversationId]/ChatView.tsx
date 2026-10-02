@@ -29,6 +29,7 @@ import type { Practice } from "@/lib/practices/registry";
 import { linkDecision } from "@/lib/pages/registry";
 import Link from "next/link";
 import { ScriptCard } from "@/components/practices/ScriptCard";
+import { CommitmentDraftCard } from "@/components/coach/CommitmentDraftCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
 import { RoleDescriptionCard } from "@/components/practices/RoleDescriptionCard";
 import {
@@ -63,6 +64,11 @@ type UiMessage = {
   // mid-token. Reported by the server, not guessed from the text.
   truncated?: boolean;
   error?: string | null;
+  // The saved row's id, for a reply streamed in this session (its `id`
+  // is a local one, kept as the React key). A card that saves against
+  // the message reads it (CommitmentDraftCard). Rows loaded with the
+  // page have their real id as `id`.
+  savedId?: string | null;
 };
 
 // Display info for someone whose messages appear in this thread.
@@ -460,10 +466,10 @@ export function ChatView({
               )
             );
           },
-          onDone: () => {
+          onDone: (savedId) => {
             setMessages((prev) => {
               const next = prev.map((m) =>
-                m.id === assistantId ? { ...m, streaming: false } : m
+                m.id === assistantId ? { ...m, streaming: false, savedId } : m
               );
               if (inPanel) {
                 const reply = next.find((m) => m.id === assistantId);
@@ -651,10 +657,10 @@ export function ChatView({
               )
             );
           },
-          onDone: () => {
+          onDone: (savedId) => {
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantId ? { ...m, streaming: false } : m
+                m.id === assistantId ? { ...m, streaming: false, savedId } : m
               )
             );
           },
@@ -1009,7 +1015,8 @@ function MessageBubble({
             isStreaming,
             conversationId,
             onFixProposal,
-            message.truncated === true
+            message.truncated === true,
+            message.savedId ?? (message.id.startsWith("local-") ? null : message.id)
           );
         }
       }
@@ -1094,9 +1101,20 @@ function renderCard(
   streaming: boolean,
   conversationId: string,
   onFixProposal?: (nudge: string) => void,
-  truncated = false
+  truncated = false,
+  // The saved message's id; null until it is saved.
+  messageId: string | null = null
 ): ReactNode {
   switch (name) {
+    case "CommitmentDraftCard":
+      return (
+        <CommitmentDraftCard
+          raw={raw}
+          streaming={streaming}
+          conversationId={conversationId}
+          messageId={messageId}
+        />
+      );
     case "ScriptCard":
       return <ScriptCard raw={raw} streaming={streaming} />;
     case "ChartProposalCard":
@@ -1168,7 +1186,8 @@ async function consumeSse(
     // The model ran out of room. The text simply stops, with no
     // marker in it, so this is the only honest way to know.
     onTruncated: () => void;
-    onDone: () => void;
+    // With the saved assistant message's id, when the server sent one.
+    onDone: (savedId: string | null) => void;
   }
 ): Promise<void> {
   const reader = body.getReader();
@@ -1236,7 +1255,11 @@ async function consumeSse(
         } else if (event === "truncated") {
           handlers.onTruncated();
         } else if (event === "done") {
-          handlers.onDone();
+          const id =
+            parsed && typeof parsed === "object" && "assistantMessageId" in parsed
+              ? (parsed as { assistantMessageId?: unknown }).assistantMessageId
+              : null;
+          handlers.onDone(typeof id === "string" ? id : null);
         }
       }
     }

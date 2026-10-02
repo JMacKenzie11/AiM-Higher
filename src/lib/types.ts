@@ -256,6 +256,9 @@ export type Commitment = {
   // Set when this row was created by the meeting-transcript analysis
   // pipeline. Null for hand-entered commitments.
   source_meeting_id: string | null;
+  // Set when it was saved from Aimee's draft card: the Aimee message
+  // the card was in (0255). Unique, so a card saves once.
+  coaching_message_id: string | null;
   // Clarity assessment — two booleans that answer "is this
   // commitment clear enough to keep?". Null means "unassessed" (a
   // different state from an explicit false). The analyzer may

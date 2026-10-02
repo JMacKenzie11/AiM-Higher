@@ -10944,6 +10944,79 @@ values ('${fresh}', '${ids.member}', 'assistant', 'an opener from the old agent'
   ];
 }
 
+// ---- A commitment saved from Aimee's draft, once (0255) ----------
+//
+// The leader saves the draft card's commitment under their own session
+// through the ordinary insert rules. 0255 adds the message it came from,
+// and three refusals:
+//
+//   once        a second commitment from the same message (unique)
+//   whose       a message in a conversation somebody else started
+//   which       a message that is not Aimee's (the leader's own turn)
+//
+// Granted: the member saves from Aimee's message in their own
+// conversation. Red before 0255: the column does not exist, so the
+// granted insert errors and the probe fails (E5).
+async function commitmentFromAimeeProbes(
+  run: Runner,
+  ids: Identities,
+  pending: string
+): Promise<GrantProbe[]> {
+  const mine = "a0255000-0000-4000-8000-000000000001";
+  const theirs = "a0255000-0000-4000-8000-000000000002";
+  const aimee = "a0255000-0000-4000-8000-0000000000a1";
+  const myTurn = "a0255000-0000-4000-8000-0000000000a2";
+  const theirAimee = "a0255000-0000-4000-8000-0000000000a3";
+  const setup = `${pending}
+insert into public.coaching_conversations (id, company_id, created_by, title, mode)
+values ('${mine}', '${ids.memberCompany}', '${ids.member}', 'harness 0255 mine', 'general'),
+       ('${theirs}', '${ids.memberCompany}', '${ids.companyAdmin}', 'harness 0255 theirs', 'general');
+insert into public.coaching_messages (id, conversation_id, created_by, role, content)
+values ('${aimee}', '${mine}', '${ids.member}', 'assistant', 'the draft'),
+       ('${myTurn}', '${mine}', '${ids.member}', 'user', 'yes, draft it'),
+       ('${theirAimee}', '${theirs}', '${ids.companyAdmin}', 'assistant', 'their draft');`;
+  const save = (message: string) => `insert into public.commitments
+      (company_id, owner_id, description, week_ending, due_date, status, coaching_message_id)
+    values ('${ids.memberCompany}', '${ids.member}', 'harness 0255', current_date + 7, current_date + 7, 'open', '${message}');`;
+  const count = `select count(*)::int as n from public.commitments where description = 'harness 0255';`;
+  const ask = async (stmt: string): Promise<string> => {
+    try {
+      const [row] = await run<{ n: number }>(asCaller(ids.member, setup, `${stmt}\n${count}`));
+      return String(row?.n ?? "no row");
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/duplicate key|unique/i.test(msg)) return "refused: already saved";
+      if (/your own Aimee conversation/i.test(msg)) return "refused: not your Aimee message";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+  const granted = await ask(save(aimee));
+  const twice = await ask(`${save(aimee)}\n${save(aimee)}`);
+  const notMine = await ask(save(theirAimee));
+  const notAimee = await ask(save(myTurn));
+  const ok =
+    granted === "1" &&
+    twice === "refused: already saved" &&
+    notMine === "refused: not your Aimee message" &&
+    notAimee === "refused: not your Aimee message";
+  return [
+    {
+      name: "commitment from Aimee's draft · owner, once",
+      granted: `member saves from Aimee's message in their own conversation: ${granted} (want 1)`,
+      withheld:
+        `the same message twice: ${twice} | ` +
+        `a message in a conversation another person started: ${notMine} | ` +
+        `the member's own turn rather than Aimee's: ${notAimee}`,
+      ok,
+      detail: ok
+        ? "the leader saves their draft once, only from Aimee's message in a conversation they started"
+        : granted.startsWith("ERROR") || granted !== "1"
+          ? "THE SAVE DOES NOT WORK: the member cannot save from their own draft (is 0255 applied?)"
+          : "the save is wider than intended",
+    },
+  ];
+}
+
 async function portfolioProbes(
   run: Runner,
   ids: Identities,
@@ -11703,6 +11776,7 @@ async function main(): Promise<void> {
   const probes = await grantProbes(run, ids, pendingSql);
   const portfolio = await portfolioProbes(run, ids, pendingSql);
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
+  const fromAimee = await commitmentFromAimeeProbes(run, ids, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -11712,7 +11786,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -11803,6 +11877,7 @@ async function main(): Promise<void> {
     probes.some((p) => !p.ok) ||
     panelEvents.some((p) => !p.ok) ||
     timeouts.some((p) => !p.ok) ||
+    fromAimee.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||

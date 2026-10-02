@@ -1,0 +1,135 @@
+/* CommitmentDraftCard: Aimee's draft of the leader's next step, saved
+   by the leader. Same frame as the other cards in a conversation. */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-3) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  margin: 0;
+  font: var(--text-eyebrow);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.label {
+  font: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.text {
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  color: var(--text);
+  width: 100%;
+  resize: vertical;
+  min-height: 3.5em;
+}
+
+.date {
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  height: var(--control-h-md);
+  max-width: 12rem;
+}
+
+.text:focus,
+.date:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.dueRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.linkButton {
+  composes: btnGhost btnSm from "../ui/ui.module.css";
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.primaryButton {
+  composes: btnPrimary from "../ui/ui.module.css";
+}
+
+.secondaryButton {
+  composes: btnSecondary from "../ui/ui.module.css";
+}
+
+.description {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text);
+}
+
+.saved {
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  background: color-mix(in srgb, var(--success) 6%, transparent);
+  border-radius: var(--radius-md);
+  font: var(--text-body-sm);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.saved p {
+  margin: 0;
+}
+
+.muted {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+  font: var(--text-body-sm);
+}
+
+.pending {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font: var(--text-body);
+  font-style: italic;
+  margin: var(--space-3) 0;
+}
