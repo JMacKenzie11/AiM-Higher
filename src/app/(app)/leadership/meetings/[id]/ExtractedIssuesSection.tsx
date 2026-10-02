@@ -11,6 +11,7 @@ import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./extracted.module.css";
 import { SimilarMatchBadge } from "./SimilarMatchBadge";
 import { DoneChip } from "./DoneChip";
+import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 
 // "Issues identified" section on the meeting summary. Every
 // extracted issue renders as a row with an Add-to-open-issues
@@ -116,7 +117,12 @@ function ExtractedIssueRowItem({
   return (
     <li className={styles.row}>
       <div className={styles.rowMain}>
-        <p className={styles.rowText}>{row.issue.title}</p>
+        <p className={styles.rowText}>
+          {row.issue.title}
+          {/* For the people who can add it; the row it becomes carries
+              the mark, and the tag goes when that row is reworded. */}
+          {canAdd && row.issue.needs_rewording ? <NeedsRewordingTag /> : null}
+        </p>
         {row.similar ? <SimilarMatchBadge match={row.similar} /> : null}
         {error ? (
           <p role="alert" className={styles.error}>

@@ -43,6 +43,7 @@ import {
 import styles from "../../../admin/companies/admin.module.css";
 import processingStyles from "./extracted.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 
 // Full meeting analysis + commitments the meeting spawned. Reached
 // from /leadership. Open to every same-company member; RLS on
@@ -88,7 +89,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       .maybeSingle<MeetingAnalysis>(),
     supabase
       .from("commitments")
-      .select("id, description, owner_id, due_date, due_date_defaulted")
+      .select("id, description, owner_id, due_date, due_date_defaulted, needs_rewording")
       .eq("source_meeting_id", id),
   ]);
 
@@ -131,6 +132,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     owner_id: string | null;
     due_date: string;
     due_date_defaulted: boolean | null;
+    needs_rewording: boolean | null;
   }>;
   // Reanalyze (and first-run) leave meeting.status in "pending" or
   // "analyzing" until the LLM call returns. The summary body renders
@@ -448,7 +450,11 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
                   borderBottom: "1px solid var(--border)",
                 }}
               >
-                <div style={{ fontWeight: 600 }}>{c.description}</div>
+                <div style={{ fontWeight: 600 }}>
+                  {c.description}
+                  {/* For the people who can reword it (0250). */}
+                  {c.needs_rewording && isAdmin ? <NeedsRewordingTag /> : null}
+                </div>
                 <div className={styles.mutedCell}>
                   {c.owner_id
                     ? rosterById.get(c.owner_id) ?? "Unknown"

@@ -57,6 +57,7 @@
  * PROD_SUPABASE_URL and CONTROL_PLANE_SUPABASE_URL by project ref.
  */
 
+import { randomUUID } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 
 import { createManagementClient } from "./lib/provisioning/supabase-management.ts";
@@ -10452,6 +10453,56 @@ async function meetingSummaryProbes(run: Runner, ids: Identities): Promise<Grant
   }];
 }
 
+// ---- A mark that only rewording clears (0250) ---------------------
+//
+// needs_rewording on commitments and issues is set when the row is
+// created and cleared only by changing its text. As a company admin,
+// who may edit both tables: an update that tries to clear the mark
+// without touching the text must leave it set, and an update to the
+// text must clear it. Red before 0250: the column does not exist.
+async function needsRewordingProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const commitment = randomUUID();
+  const issue = randomUUID();
+  const setup = [
+    pending,
+    `insert into public.commitments (id, company_id, description, week_ending, due_date, needs_rewording)
+       values ('${commitment}', '${ids.companyAdminCompany}', 'Cover while Lee is on sick leave', current_date, current_date, true);`,
+    `insert into public.issues (id, company_id, title, needs_rewording)
+       values ('${issue}', '${ids.companyAdminCompany}', 'Cover while Lee is on sick leave', true);`,
+  ].join("\n");
+  const read = async (assertion: string): Promise<string> => {
+    try {
+      const [row] = await run<{ n: number }>(asCaller(ids.companyAdmin, setup, assertion));
+      return String(row?.n ?? "no row");
+    } catch (err) {
+      return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+    }
+  };
+  const flag = (table: string, id: string) => `select needs_rewording::int as n from public.${table} where id = '${id}';`;
+  const commitmentForced = await read(
+    `update public.commitments set needs_rewording = false, status = status where id = '${commitment}'; ${flag("commitments", commitment)}`
+  );
+  const commitmentReworded = await read(
+    `update public.commitments set description = 'Cover Lee''s accounts this week' where id = '${commitment}'; ${flag("commitments", commitment)}`
+  );
+  const issueForced = await read(
+    `update public.issues set needs_rewording = false, rank = rank where id = '${issue}'; ${flag("issues", issue)}`
+  );
+  const issueReworded = await read(
+    `update public.issues set title = 'Cover Lee''s accounts this week' where id = '${issue}'; ${flag("issues", issue)}`
+  );
+  const ok = commitmentForced === "1" && commitmentReworded === "0" && issueForced === "1" && issueReworded === "0";
+  return [{
+    name: "needs rewording · only rewording clears it",
+    granted: `text changed clears it: commitment ${commitmentReworded} (want 0), issue ${issueReworded} (want 0)`,
+    withheld: `cleared without rewording: commitment ${commitmentForced} (want 1), issue ${issueForced} (want 1)`,
+    ok,
+    detail: ok
+      ? "a company admin clears the mark by rewording the text, and cannot clear it any other way"
+      : "THE MARK CAN BE CLEARED WITHOUT REWORDING, or rewording does not clear it (is 0250 applied?)",
+  }];
+}
+
 // ---- A stuck connection is ended (0249) -------------------------
 //
 // authenticator, the login PostgREST uses, must carry both timeouts, so
@@ -11347,12 +11398,13 @@ async function main(): Promise<void> {
   const portfolio = await portfolioProbes(run, ids, pendingSql);
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
+  const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...timeouts, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...timeouts, ...rewording, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -11443,6 +11495,7 @@ async function main(): Promise<void> {
     probes.some((p) => !p.ok) ||
     panelEvents.some((p) => !p.ok) ||
     timeouts.some((p) => !p.ok) ||
+    rewording.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);

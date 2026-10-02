@@ -24,6 +24,34 @@ export type RoutingResult =
   | { ok: true }
   | { ok: false; message: string };
 
+// Whether the meeting's record marks this text as needing rewording:
+// it mentions somebody's private life and could not be reworded
+// automatically (transcripts/redact.ts). Read from the record on the
+// server, never taken from the request, and carried onto the row the
+// item becomes (0250). Either list: an extracted commitment can be
+// added as an issue.
+async function markedInRecord(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  meetingId: string,
+  text: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("meeting_analyses")
+    .select("commitments_json, issues_json")
+    .eq("meeting_id", meetingId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{
+      commitments_json: Array<{ description: string; needs_rewording?: boolean }> | null;
+      issues_json: Array<{ title: string; needs_rewording?: boolean }> | null;
+    }>();
+  const wanted = text.trim();
+  return [
+    ...(data?.commitments_json ?? []).map((c) => ({ text: c.description, marked: c.needs_rewording })),
+    ...(data?.issues_json ?? []).map((i) => ({ text: i.title, marked: i.needs_rewording })),
+  ].some((item) => item.marked === true && item.text.trim() === wanted);
+}
+
 // ---- Extracted issue → new issue in the open list -----------
 export async function addExtractedIssueToOpenIssuesAction(
   meetingId: string,
@@ -80,6 +108,7 @@ export async function addExtractedIssueToOpenIssuesAction(
       title: trimmed,
       rank: nextRank,
       source_meeting_id: meetingId,
+      needs_rewording: await markedInRecord(supabase, meetingId, trimmed),
       created_by: session.profile.id,
     })
     .select("id")
@@ -161,6 +190,7 @@ export async function addExtractedIssueAsResolvedAction(
       // one resolved by any other route with no commitment attached.
       resolved_in_meeting: true,
       source_meeting_id: meetingId,
+      needs_rewording: await markedInRecord(supabase, meetingId, trimmed),
       created_by: session.profile.id,
     });
   if (error) return { ok: false, message: "Couldn't add that issue." };
@@ -271,6 +301,7 @@ export async function addExtractedCommitmentAction(input: {
     due_date_defaulted: input.dueDate !== null && input.dueDefaulted === true,
     status: "open",
     source_meeting_id: input.meetingId,
+    needs_rewording: await markedInRecord(supabase, input.meetingId, description),
   });
   if (error) return { ok: false, message: "Couldn't add that commitment." };
 
@@ -337,6 +368,9 @@ export async function convertExtractedCommitmentToIssueAction(
     title,
     rank: nextRank,
     source_meeting_id: meetingId,
+    // The full description, as the record holds it: the title is cut
+    // to 200 characters.
+    needs_rewording: await markedInRecord(supabase, meetingId, description),
     created_by: session.profile.id,
   });
   if (error) return { ok: false, message: "Couldn't create that issue." };

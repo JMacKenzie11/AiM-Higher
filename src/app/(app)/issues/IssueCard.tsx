@@ -27,6 +27,7 @@ import { splitThread } from "@/lib/issues/thread";
 import { CommitmentRow } from "../commitments/CommitmentRow";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import styles from "./issues.module.css";
+import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 
 // One issue = one row. Five columns match the /commitments visual
 // vocabulary: Issue | What we want | Commitment | Assigned To |
@@ -165,6 +166,8 @@ export function IssueCard({
 
       <div className={styles.cellIssue}>
         <IssueTitleEditor issue={issue} canEdit={canEdit} />
+        {/* For whoever can reword it (0250). */}
+        {issue.needs_rewording && canEdit ? <NeedsRewordingTag /> : null}
       </div>
 
       <div className={styles.cellWant}>

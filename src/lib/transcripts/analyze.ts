@@ -1296,6 +1296,8 @@ async function createCommitmentsFromExtraction(
       clarity_timeline: c.clarity_timeline,
       clarity_success: c.clarity_success,
       clarity_note: c.clarity_note,
+      // Carried from the meeting's record (redact.ts, 0250).
+      needs_rewording: c.needs_rewording === true,
     };
   });
 

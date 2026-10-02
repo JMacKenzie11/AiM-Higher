@@ -264,6 +264,10 @@ export type Commitment = {
   clarity_timeline: boolean | null;
   clarity_success: boolean | null;
   clarity_note: string | null;
+  // The description mentions somebody's private life and could not be
+  // reworded automatically: shown as "Needs rewording" to whoever can
+  // edit it, and cleared by the database when the text changes (0250).
+  needs_rewording: boolean;
   // Soft-delete: filtered from every UI + metric. Retention only for
   // future coaching-signal work — see migration 0139 rationale.
   deleted_at: string | null;
@@ -314,6 +318,8 @@ export type Issue = {
   // 0162 and the loader selects "*": before that migration runs the
   // field is simply absent, which reads as falsy.
   resolved_in_meeting?: boolean;
+  // As on Commitment, for the title (0250).
+  needs_rewording: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;

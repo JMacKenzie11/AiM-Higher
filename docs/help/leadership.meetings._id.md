@@ -34,6 +34,7 @@ A commitment where nobody named a day shows **By next meeting** instead of a dat
     - *Resolved in meeting* closes it straight away, for something the team already talked through. It lands on the resolved list on Issues/Solutions marked *Resolved in meeting*.
     - *Add to open issues* puts it on the open list on Issues/Solutions, where someone can add the desired outcome, a commitment and an owner.
   Whichever you click first wins, and clicking twice won't add it twice. A tick in a circle means it was closed in the room; a plus in a circle means it went on the list.
+- **Reword anything tagged *Needs rewording*.** It mentions something personal about someone, and AiMS couldn't reword it for you. Add it as usual. The commitment or issue it becomes carries the tag until someone edits its text on Commitments or Issues/Solutions.
 - **Read how the meeting was run.** When Meeting Facilitation Review is on, the *How the meeting was run* panel on Coaching notes shows what worked, growth edges and what to try next week. The score, the *Facilitation signal*, sits on the strip at the top.
 - **Take a question into next week.** *Questions worth asking next week* offers three, each built on something that went well. *Questions that opened things up* shows who asked the questions that changed where the discussion went, and what each one opened, in plain words. In the *4Ws audit*, a step the meeting didn't reach comes with the question to ask next time.
 

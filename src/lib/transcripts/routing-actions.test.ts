@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => {
   const prioritiesSelectMaybeSingle = vi.fn();
   const quartersSelectMaybeSingle = vi.fn();
   const functionsSelectMaybeSingle = vi.fn();
+  const analysesMaybeSingle = vi.fn();
 
   const fromBuilder = (table: string) => {
     if (table === "meetings") {
@@ -101,6 +102,13 @@ const mocks = vi.hoisted(() => {
         }),
       };
     }
+    if (table === "meeting_analyses") {
+      return {
+        select: () => ({
+          eq: () => ({ order: () => ({ limit: () => ({ maybeSingle: analysesMaybeSingle }) }) }),
+        }),
+      };
+    }
     if (table === "functions") {
       return {
         select: () => ({
@@ -131,6 +139,7 @@ const mocks = vi.hoisted(() => {
     prioritiesSelectMaybeSingle,
     quartersSelectMaybeSingle,
     functionsSelectMaybeSingle,
+    analysesMaybeSingle,
     serverClient,
     requireProfile,
     isAdminForCompany,
@@ -198,6 +207,7 @@ beforeEach(() => {
   mocks.commitmentsSelectMaybeSingle.mockResolvedValue({ data: null });
   mocks.commitmentsInsertResult.mockResolvedValue({ error: null });
   mocks.issuesInsertResult.mockResolvedValue({ error: null });
+  mocks.analysesMaybeSingle.mockResolvedValue({ data: null });
   mocks.issuesInsertSingle.mockResolvedValue({
     data: { id: "i_new" },
     error: null,
@@ -543,3 +553,51 @@ describe("convertExtractedCommitmentToIssueAction", () => {
     expect(mocks.commitmentsInsertPatch).not.toHaveBeenCalled();
   });
 });
+
+// ---- The needs-rewording mark (0250) -----------------------------
+// An item the meeting's record marks as needing rewording carries the
+// mark onto the row it becomes. Read from the record on the server,
+// never from the request.
+describe("carrying the needs-rewording mark from the meeting's record", () => {
+  const RECORD = {
+    commitments_json: [
+      { description: "Cover while Lee is on sick leave", needs_rewording: true },
+      { description: "Ship the report" },
+    ],
+    issues_json: [{ title: "Pat's family emergency", needs_rewording: true }, { title: "Quote timing" }],
+  };
+  const patchOf = (fn: typeof mocks.issuesInsertPatch) => fn.mock.calls[0]?.[0] as Record<string, unknown>;
+
+  beforeEach(() => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.analysesMaybeSingle.mockResolvedValue({ data: RECORD });
+  });
+
+  it("marks an issue added from a marked item, open or resolved, and not an unmarked one", async () => {
+    await addExtractedIssueToOpenIssuesAction("m_1", "Pat's family emergency");
+    expect(patchOf(mocks.issuesInsertPatch).needs_rewording).toBe(true);
+    mocks.issuesInsertPatch.mockClear();
+    await addExtractedIssueAsResolvedAction("m_1", "Quote timing");
+    expect(patchOf(mocks.issuesInsertPatch).needs_rewording).toBe(false);
+  });
+
+  it("marks a commitment added from a marked item, and an issue converted from one", async () => {
+    await addExtractedCommitmentAction({
+      meetingId: "m_1",
+      description: "Cover while Lee is on sick leave",
+      dueDate: "2026-08-25",
+      ownerId: "u_owner",
+      target: { type: "none" },
+    });
+    expect(patchOf(mocks.commitmentsInsertPatch).needs_rewording).toBe(true);
+    await convertExtractedCommitmentToIssueAction("m_1", "Cover while Lee is on sick leave");
+    expect(patchOf(mocks.issuesInsertPatch).needs_rewording).toBe(true);
+  });
+
+  it("ignores a meeting with no record", async () => {
+    mocks.analysesMaybeSingle.mockResolvedValue({ data: null });
+    await addExtractedIssueToOpenIssuesAction("m_1", "Pat's family emergency");
+    expect(patchOf(mocks.issuesInsertPatch).needs_rewording).toBe(false);
+  });
+});
+
