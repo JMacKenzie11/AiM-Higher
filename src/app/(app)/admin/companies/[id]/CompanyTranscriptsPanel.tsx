@@ -5,7 +5,6 @@ import type {
   TranscriptSource,
 } from "@/lib/types";
 import { ConnectCompanyFolderForm } from "./ConnectCompanyFolderForm";
-import { ConnectGoogleButton } from "@/app/(app)/admin/transcripts/ConnectGoogleButton";
 import { SourceRowActions } from "@/app/(app)/admin/transcripts/SourceRowActions";
 import { AliasEditor } from "./AliasEditor";
 import styles from "../admin.module.css";
@@ -21,16 +20,12 @@ export function CompanyTranscriptsPanel({
   sources,
   meetings,
   aliases,
-  flashConnected,
-  flashError,
 }: {
   companyId: string;
   connectedAccount: string | null;
   sources: TranscriptSource[];
   meetings: MeetingAdminRow[];
   aliases: TranscriptAlias[];
-  flashConnected: string | null;
-  flashError: string | null;
 }) {
   const meetingCountBySource = new Map<string, number>();
   for (const m of meetings) {
@@ -46,45 +41,21 @@ export function CompanyTranscriptsPanel({
         Meeting transcripts
       </h2>
 
-      {flashConnected ? (
-        <p className={styles.successMessage} role="status">
-          Connected as {flashConnected}.
-        </p>
-      ) : null}
-      {flashError ? (
-        <p className={styles.errorMessage} role="alert">
-          Couldn&rsquo;t connect: {flashError}
-        </p>
-      ) : null}
-
+      {/* The Google account itself is managed on the Connections page
+          (external connections plan, phase 3): one place for every
+          outside system, shown once. */}
       {!connectedAccount ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          <p className={styles.subtitleInline}>
-            Sign in with a Google account that has (or can be given) access to
-            this company&rsquo;s transcript folders. Each company connects its
-            own account, so folders can live under different Google Workspaces.
-          </p>
-          <div>
-            <ConnectGoogleButton
-              label="Connect Google account"
-              href={`/api/oauth/google/start?company_id=${companyId}`}
-            />
-          </div>
-        </div>
+        <p className={styles.subtitleInline}>
+          Connect a Google account on <Link href={`/admin/companies/${companyId}/connections`}>Connections</Link> first.
+          Each company connects its own account, so folders can live under different Google Workspaces.
+        </p>
       ) : (
         <>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-            <p className={styles.subtitleInline}>
-              Reading Drive as <strong>{connectedAccount}</strong>. Share each
-              transcript folder with that address (Viewer), then connect it below.
-            </p>
-            <div>
-              <ConnectGoogleButton
-                label="Reconnect / switch account"
-                href={`/api/oauth/google/start?company_id=${companyId}`}
-              />
-            </div>
-          </div>
+          <p className={styles.subtitleInline} style={{ marginBottom: "var(--space-3)" }}>
+            Reading Drive as <strong>{connectedAccount}</strong>. Share each transcript folder with that address
+            (Viewer), then connect it below. The account is managed on{" "}
+            <Link href={`/admin/companies/${companyId}/connections`}>Connections</Link>.
+          </p>
 
           {sources.length > 0 ? (
             <table className={styles.table}>

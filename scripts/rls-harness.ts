@@ -11122,7 +11122,9 @@ async function connectorContractProbes(run: Runner, pending: string): Promise<Gr
 //
 //   granted   the company's company admin saves a key for it, and reads
 //             the connection row (not the secret) back
-//   granted   an assigned guide saves one for their company
+//   granted   an assigned guide saves one for their company, and so does
+//             a portfolio admin a system admin switched on for it
+//   withheld  a portfolio admin only assigned to it
 //   withheld  a member of the company saves one
 //   withheld  the company admin saves one for another company
 //   withheld  a member reads the company's connection rows
@@ -11140,9 +11142,25 @@ async function connectionVaultProbes(
 ): Promise<GrantProbe[]> {
   const put = (company: string) =>
     `select public.connection_put('${company}', 'hubspot', 'harness-key-0257', '0257', 'harness portal', array['crm.objects.deals.read']) is not null as ok;`;
-  const ask = async (sub: string, stmt: string): Promise<string> => {
+  // Two portfolio admins assigned to the company admin's company: one a
+  // system admin switched on as its admin, one only assigned (0245).
+  // Seeded as postgres, which the switch's guard admits like a migration.
+  const SWITCHED_PA = "a0257000-0000-4000-8000-0000000000b1";
+  const ASSIGNED_PA = "a0257000-0000-4000-8000-0000000000b2";
+  const paSeed = [SWITCHED_PA, ASSIGNED_PA]
+    .map(
+      (id, i) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', null, 'Harness 0257 PA ${i}', 'portfolio_admin', 'active');
+insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin)
+values ('${id}', '${ids.companyAdminCompany}', ${i === 0 ? "true" : "false"});`
+    )
+    .join("\n");
+  const ask = async (sub: string, stmt: string, seed = ""): Promise<string> => {
     try {
-      const rows = await run<Record<string, unknown>>(asCaller(sub, pending, stmt));
+      const rows = await run<Record<string, unknown>>(asCaller(sub, `${pending}\n${seed}`, stmt));
       return JSON.stringify(rows[0] ?? {});
     } catch (err) {
       const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
@@ -11157,6 +11175,8 @@ async function connectionVaultProbes(
   const adminSaves = await ask(ids.companyAdmin, `${put(ids.companyAdminCompany)}\n${visible(ids.companyAdminCompany)}`);
   const guideSaves = await ask(ids.guide, `${put(ids.guideCompany)}\n${visible(ids.guideCompany)}`);
   const memberSaves = await ask(ids.member, put(ids.memberCompany));
+  const switchedPaSaves = await ask(SWITCHED_PA, `${put(ids.companyAdminCompany)}\n${visible(ids.companyAdminCompany)}`, paSeed);
+  const assignedPaSaves = await ask(ASSIGNED_PA, put(ids.companyAdminCompany), paSeed);
   const adminElsewhere = await ask(ids.companyAdmin, put(ids.otherCompany === ids.companyAdminCompany ? ids.memberCompany : ids.otherCompany));
   const memberReads = await ask(
     ids.member,
@@ -11205,7 +11225,9 @@ async function connectionVaultProbes(
   const ok =
     adminSaves === '{"n":1}' &&
     guideSaves === '{"n":1}' &&
+    switchedPaSaves === '{"n":1}' &&
     memberSaves === "refused: not an admin of that company" &&
+    assignedPaSaves === "refused: not an admin of that company" &&
     adminElsewhere === "refused: not an admin of that company" &&
     memberReads === '{"n":0}' &&
     readsSecret === "refused by privilege" &&
@@ -11220,9 +11242,11 @@ async function connectionVaultProbes(
       name: "connections · secrets in the vault",
       granted:
         `company admin saves and sees the row: ${adminSaves} | assigned guide: ${guideSaves} | ` +
+        `portfolio admin switched on for the company: ${switchedPaSaves} | ` +
         `removed, secrets left in the vault: ${removed} | Google tokens moved in, refresh token matching: ${moved}`,
       withheld:
-        `member saves: ${memberSaves} | company admin, another company: ${adminElsewhere} | ` +
+        `member saves: ${memberSaves} | portfolio admin only assigned: ${assignedPaSaves} | ` +
+        `company admin, another company: ${adminElsewhere} | ` +
         `member reads the rows: ${memberReads} | signed-in caller reads a secret: ${readsSecret} | ` +
         `reads the vault: ${readsVault} | inserts a row directly: ${insertsRow}`,
       ok,

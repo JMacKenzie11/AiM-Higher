@@ -5,7 +5,6 @@ import { cookies } from "next/headers";
 import { requireProfile } from "@/lib/auth/current-user";
 import {
   isAdminForCompany,
-  transcriptSourcesAllowed,
 } from "@/lib/auth/permissions";
 import { exchangeCodeAndPersist } from "@/lib/transcripts/providers/google-drive";
 import { APP_URL } from "@/lib/supabase/env";
@@ -24,7 +23,9 @@ const STATE_COOKIE = "google_oauth_state";
 
 export async function GET(req: NextRequest): Promise<Response> {
   const session = await requireProfile();
-  if (!transcriptSourcesAllowed(session.profile)) {
+  // Only these roles can ever manage a company's connections; the
+  // company check below decides which company.
+  if (!["system_admin", "company_admin", "aims_guide", "portfolio_admin"].includes(session.profile.role)) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -66,7 +67,8 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!isAdminForCompany(session.profile, companyId)) {
     return NextResponse.redirect(`${fallback}?oauth_error=forbidden`);
   }
-  const destination = `${APP_URL()}/admin/companies/${companyId}`;
+  // Back to the Connections page, where the Google card shows it.
+  const destination = `${APP_URL()}/admin/companies/${companyId}/connections`;
 
   try {
     const email = await exchangeCodeAndPersist(code, companyId, session.profile.id);
