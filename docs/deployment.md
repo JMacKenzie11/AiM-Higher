@@ -773,9 +773,11 @@ connected company to replace its key, and reconnect Google. The token
 never goes into a file in the repo, a command's arguments or its output
 (failure mode E3).
 
-**When.** Monday to Wednesday, never Friday or Saturday. That leaves
-days of ordinary transcript ingests on the new path before the Saturday
-14:00 UTC Sheets pull, and time to go back if they fail.
+**When.** Sunday to Wednesday: after one Saturday's Sheets pull has
+saved on the old path, and with at least three days before the next
+one (14:00 UTC). Never Thursday to Saturday. That leaves days of
+ordinary transcript ingests on the new path before Saturday, and time
+to go back if they fail. Planned for Sunday 2026-10-04 (Jason).
 
 **Steps, each on Jason's go:**
 
