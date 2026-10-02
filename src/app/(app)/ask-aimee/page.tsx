@@ -50,7 +50,7 @@ export default async function AskAimeePage() {
     <PageShell
       eyebrow="Coaching"
       title="Ask Aimee"
-      subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Conversations are private to you by default; you can invite specific people from your company as collaborators, and pick a guided agent from inside any chat."
+      subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. You can invite people from your company into a conversation, and pick a guided agent from inside any chat."
     >
       {/* Entering the surface with nothing open: every finished
           conversation is a candidate. */}

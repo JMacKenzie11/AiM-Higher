@@ -31,11 +31,13 @@ const ANALYTICS_READS: ReadonlyArray<{ file: string; expected: number }> = [
   // Three: conversation counts, message volume (joined), and agent
   // adoption.
   { file: "src/lib/admin/dashboard-service.ts", expected: 3 },
-  // Two: the per-agent buckets and the analyses window.
-  { file: "src/lib/admin/coaching-insights-service.ts", expected: 2 },
+  // Four: the per-agent buckets, the analyses window, and the two
+  // people counts behind the company-view limit (insights-privacy.ts):
+  // the company list and the selection's check.
+  { file: "src/lib/admin/coaching-insights-service.ts", expected: 4 },
 ];
 
-const TOTAL = 7;
+const TOTAL = 9;
 
 function read(file: string): string {
   return readFileSync(path.join(ROOT, file), "utf8");

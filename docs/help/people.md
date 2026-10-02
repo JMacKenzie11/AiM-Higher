@@ -66,7 +66,7 @@ If you lead a function on the chart, you can change any of your company's role d
 ## Common questions
 
 ::: role team_member
-**Who can see coaching notes about me?** Only the person who wrote them. You can't see them either.
+**Who can see coaching notes about me?** Only the person who wrote them. You can't see them either. AiMS reviews anonymised summaries of conversation themes to improve Aimee.
 :::
 
 **Why isn't my role description here?** It's only saved when you press Save on the card Aimee gives you.

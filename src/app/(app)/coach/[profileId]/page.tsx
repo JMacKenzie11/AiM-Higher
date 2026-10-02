@@ -69,9 +69,10 @@ export default async function CoachListPage({ params }: PageProps) {
       <MemorySweep openConversationId={null} />
 
       <PrivacyNote tone="private">
-        Only you can see the coaching threads you create about {firstName}.
-        Other admins and {firstName}&rsquo;s direct manager can create their
-        own separate threads — those stay private to their creator too.{" "}
+        Only the person who started a conversation can see it. AiMS reviews
+        anonymised summaries of conversation themes to improve Aimee. Other
+        admins and {firstName}&rsquo;s direct manager can start their own
+        threads about {firstName}, private to them in the same way, and{" "}
         {firstName} cannot see any of them.
       </PrivacyNote>
 

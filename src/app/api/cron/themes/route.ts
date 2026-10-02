@@ -5,6 +5,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { anonymiser } from "@/lib/aimee/anonymise";
+import { clusterThemes, type ThemeItem } from "@/lib/admin/themes-analysis";
 
 // Nightly themes-clustering job. Loads the most recent N coaching
 // conversations across the platform, feeds their auto-titles and
@@ -102,76 +104,46 @@ async function handle(req: NextRequest): Promise<Response> {
     }
   }
 
+  // ANONYMOUS (Jason, 2026-10-01): names come out of the titles and
+  // first messages before the model sees them, and the themes are
+  // checked before they are stored (aimee/anonymise.ts,
+  // admin/themes-analysis.ts).
+  const [{ data: people }, { data: companies }] = await Promise.all([
+    admin.from("profiles").select("full_name"),
+    admin.from("companies").select("name").is("deleted_at", null),
+  ]);
+  const anon = anonymiser({
+    people: ((people ?? []) as Array<{ full_name: string | null }>).flatMap((p) => (p.full_name ? [p.full_name] : [])),
+    companies: ((companies ?? []) as Array<{ name: string | null }>).flatMap((c) => (c.name ? [c.name] : [])),
+  });
   const lines = convos.map((c, i) => {
     const first = firstByConvo.get(c.id);
     const practice = c.practice_id ? ` [practice: ${c.practice_id}]` : "";
-    const excerpt = first ? ` — ${first}` : "";
-    return `${i + 1}. ${c.title}${practice}${excerpt}`;
+    const excerpt = first ? ` (${anon.scrub(first)})` : "";
+    return `${i + 1}. ${anon.scrub(c.title)}${practice}${excerpt}`;
   });
 
   const client = new Anthropic({ apiKey });
-  const prompt = `You will cluster a list of workplace coaching conversations into the top 5 themes.
-
-Rules:
-- Return EXACTLY 5 themes covering the largest share of the input.
-- Each theme label is 2-4 plain words a business owner would use out loud.
-- Each description is one sentence: what leaders are working on when they open this kind of conversation.
-- No therapy-speak, no consultant jargon, no metaphors. Say the literal thing.
-- Do not include a "miscellaneous" or "other" theme; force the fifth-most-common theme even if it is small.
-
-Return ONLY a JSON object with this exact shape (no code fences, no prose):
-{
-  "themes": [
-    { "label": "string", "count": integer, "description": "string" }
-  ]
-}
-
-Where "count" is your best estimate of how many of the input conversations fit each theme.
-
-Input (${convos.length} conversations):
-${lines.join("\n")}`;
-
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 900,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  // Log cost even if parsing fails below — we still burned tokens.
-  if (response.usage) {
-    void logCoachTokenUsage({
-      conversationId: null,
-      companyId: null,
-      purpose: "themes",
-      model: MODEL,
-      usage: response.usage,
-    });
-  }
-
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim();
-
-  type ThemeItem = { label: string; count: number; description: string };
   let themes: ThemeItem[] = [];
+  let anonymity = { retried: false, dropped: 0 };
   try {
-    const parsed = JSON.parse(text) as { themes?: unknown };
-    if (Array.isArray(parsed.themes)) {
-      themes = parsed.themes
-        .filter(
-          (t: unknown): t is ThemeItem =>
-            typeof t === "object" &&
-            t !== null &&
-            typeof (t as { label?: unknown }).label === "string" &&
-            typeof (t as { count?: unknown }).count === "number" &&
-            typeof (t as { description?: unknown }).description === "string"
-        )
-        .slice(0, 5);
-    }
+    const result = await clusterThemes(client, MODEL, lines, anon, (message) => {
+      // Log cost even if parsing fails below: we still burned tokens.
+      if (!message.usage) return;
+      void logCoachTokenUsage({
+        conversationId: null,
+        companyId: null,
+        purpose: "themes",
+        model: MODEL,
+        usage: message.usage,
+      });
+    });
+    themes = result.themes;
+    anonymity = { retried: result.retried, dropped: result.dropped };
   } catch (err) {
-    console.error("themes cron: JSON parse failed", { text, err });
+    // The parse error only, never the model's text: it is about
+    // people's conversations.
+    console.error("themes cron: JSON parse failed", { err: err instanceof Error ? err.message : String(err) });
     return new Response(
       JSON.stringify({ status: "error", reason: "model returned invalid JSON" }),
       { status: 502, headers: { "Content-Type": "application/json" } }
@@ -203,5 +175,7 @@ ${lines.join("\n")}`;
     themesWritten: themes.length,
     sourceCount: convos.length,
     themes: themes.map((t) => ({ label: t.label, count: t.count })),
+    // Counts only.
+    anonymity,
   });
 }

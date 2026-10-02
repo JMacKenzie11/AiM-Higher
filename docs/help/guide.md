@@ -28,7 +28,7 @@ Aimee opens with the moment in the meeting where it happened, one thing somebody
 
 Nothing is created from the chat. Aimee can't add commitments, raise issues or change the meeting summary from here. If you decide to do something, do it in the usual place.
 
-The chat is private to you, like every conversation you start with Aimee, and it appears in your Ask Aimee list afterwards.
+The chat is private to you. Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. It appears in your Ask Aimee list afterwards.
 
 ## What Aimee looks at
 
