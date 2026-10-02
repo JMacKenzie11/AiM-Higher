@@ -16,6 +16,7 @@ import {
   missingMappingFields,
   parseMapping,
   canBackfill,
+  type HubSpotMapping,
   type SheetWeeklyMapping,
 } from "./mapping";
 // Both parsers, and the split matters. The weekly preview below
@@ -31,6 +32,10 @@ import {
 import { failureSentence } from "./pull";
 import { pullMeasureWeek } from "./run";
 import { googleSheetReader } from "./sheets";
+import { hubspotReader } from "./hubspot-reader";
+import { HubSpotNotConnected, runHubSpotPull, type HubSpotPipeline } from "./hubspot-pull";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { loadConnection } from "@/lib/connections/vault";
 import { loadMeasureContext, type MeasureContext } from "./service";
 
 // The three things phase 1 lets a person do: pull a week, configure
@@ -163,6 +168,7 @@ export async function pullExternalMeasureAction(
     path: "caller",
     measureId,
     companyId: context.companyId,
+    timezone: context.timezone,
     weekEnding,
     mapping: context.mapping,
     rawSource: context.rawSource,
@@ -282,7 +288,10 @@ export async function setExternalSourceAction(
           : "That mapping is not a shape the reader understands.",
     };
   }
-  if (mapping.kind === "snapshot") {
+  if (mapping.connector === "hubspot" && !(await hasHubSpotKey(g.context.companyId))) {
+    return { ok: false, message: "This company has no HubSpot key yet. An admin adds one on Connections first." };
+  }
+  if (mapping.connector === "google_sheet" && mapping.kind === "snapshot") {
     const r = mapping.recipe;
     if (!isCellRef(r.cell)) {
       return { ok: false, message: `"${r.cell}" is not a cell reference like B7.` };
@@ -377,8 +386,11 @@ export async function verifyExternalSourceAction(
     };
   }
 
-  const reader = googleSheetReader(context.companyId);
   const weekEnding = thisFriday(context.timezone);
+  if (mapping.connector === "hubspot") {
+    return verifyHubSpot(context.companyId, mapping, weekEnding, context.timezone);
+  }
+  const reader = googleSheetReader(context.companyId);
 
   try {
     if (mapping.kind === "weekly") {
@@ -466,4 +478,73 @@ function verifyWeekly(
       ? `The week ending ${weekEnding} is on the sheet.`
       : `The week ending ${weekEnding} is NOT on the sheet yet. A pull today would record nothing.`,
   };
+}
+
+// ---- HubSpot -----------------------------------------------------------
+
+// Whether the company has a HubSpot key in the vault. Read with the
+// service role because the people who may map a measure (a function's
+// Lead among them) are not all people who may read connections; only
+// the yes or no leaves this function.
+async function hasHubSpotKey(companyId: string): Promise<boolean> {
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  return (await loadConnection(admin, companyId, "hubspot")) !== null;
+}
+
+// Verify reads HubSpot the way a pull would and writes nothing: for a
+// weekly measure, this week so far; for a snapshot, as it stands now.
+async function verifyHubSpot(
+  companyId: string,
+  mapping: HubSpotMapping,
+  weekEnding: string,
+  timezone: string
+): Promise<VerifyResponse> {
+  const d = await runHubSpotPull(hubspotReader(companyId), mapping, weekEnding, timezone);
+  if (d.outcome !== "written") {
+    const reason = d.outcome === "failed" ? failureSentence(d.reason) : "Nothing would be recorded.";
+    const said = d.outcome === "failed" && typeof d.detail.error === "string" ? ` HubSpot said: ${d.detail.error}` : "";
+    return { ok: false, message: `${reason}${said}` };
+  }
+  const rows: Array<{ label: string; value: string }> = [];
+  if (mapping.kind === "weekly") {
+    rows.push({ label: "Deals this week so far", value: String(d.detail.deals_counted ?? 0) });
+    rows.push({ label: "Of those, with no amount", value: String(d.detail.deals_without_amount ?? 0) });
+  } else {
+    for (const p of (d.detail.parts ?? []) as Array<{ deals: number; deals_without_amount: number; sum: number; value: string }>) {
+      rows.push({
+        label: p.value === "weighted_amount" ? "Weighted deals" : "Deals",
+        value: `${p.deals} (${p.deals_without_amount} with no amount), adding up to ${p.sum}`,
+      });
+    }
+  }
+  return {
+    ok: true,
+    description: describeMapping(mapping),
+    rows,
+    note:
+      mapping.kind === "weekly"
+        ? `This week so far reads ${d.value}. The scheduled pull records the whole week once it closes.`
+        : `Reads ${d.value} as it stands now.`,
+  };
+}
+
+// The company's HubSpot deal pipelines and their stages, for the mapping
+// form, so a stage is picked from a list rather than typed as an id.
+// Whoever may configure the measure may list them; the read uses the
+// company's own key, server side.
+export type PipelineList =
+  | { ok: true; pipelines: HubSpotPipeline[] }
+  | { ok: false; message: string };
+
+export async function hubspotPipelinesAction(measureId: string): Promise<PipelineList> {
+  const g = await adminGate(measureId);
+  if (!g.ok) return g;
+  try {
+    return { ok: true, pipelines: await hubspotReader(g.context.companyId).pipelines() };
+  } catch (err) {
+    if (err instanceof HubSpotNotConnected) {
+      return { ok: false, message: "This company has no HubSpot key yet. An admin adds one on Connections first." };
+    }
+    return { ok: false, message: `Couldn't read the pipelines from HubSpot: ${err instanceof Error ? err.message : String(err)}` };
+  }
 }

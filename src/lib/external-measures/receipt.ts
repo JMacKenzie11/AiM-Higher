@@ -85,6 +85,35 @@ export function buildReceipt(row: {
   ) as ReceiptView["outcome"];
 
   const lines: ReceiptLine[] = [];
+
+  // A HubSpot pull (phase 4): what was counted, never a deal's details.
+  if (d.connector === "hubspot") {
+    push(lines, "Deals counted", d.deals_counted);
+    push(lines, "Of those, with no amount", d.deals_without_amount);
+    push(lines, "Deals left out as another week", d.deals_outside_week);
+    if (Array.isArray(d.parts)) {
+      for (const part of d.parts as Array<{ value?: string; deals?: number; deals_without_amount?: number; sum?: number }>) {
+        lines.push({
+          label: part.value === "weighted_amount" ? "Weighted deals" : "Deals",
+          value: `${part.deals ?? 0} (${part.deals_without_amount ?? 0} with no amount), adding up to ${part.sum ?? 0}`,
+        });
+      }
+    }
+    if (Array.isArray(d.stage_ids)) push(lines, "Stages no longer in HubSpot", d.stage_ids);
+    if (d.missing === "pipeline") lines.push({ label: "Pipeline", value: "no longer in HubSpot" });
+    if (row.value_written !== null) lines.push({ label: "Recorded", value: String(row.value_written) });
+    push(lines, "What HubSpot said", d.error);
+    return {
+      outcome,
+      headline: HEADLINES[outcome],
+      problem: outcome === "failed" ? failureSentence(row.failure_reason ?? "") : null,
+      // The recipe is not in the receipt, so no description is rebuilt.
+      mapping: null,
+      lines,
+      at: row.created_at,
+    };
+  }
+
   push(lines, "Tab", d.tab);
 
   if (row.mapping_kind === "weekly") {

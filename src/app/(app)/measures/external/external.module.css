@@ -261,3 +261,25 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* HubSpot recipe fields (phase 4): a stage list to tick, and the small
+   text buttons that add or remove a part. */
+fieldset.field {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.linkButton {
+  composes: btnGhost btnSm from "../../../../components/ui/ui.module.css";
+  justify-self: start;
+}
