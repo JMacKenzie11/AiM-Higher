@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import styles from "../../../../admin/companies/admin.module.css";
 import transcriptStyles from "./transcript.module.css";
+import { turnsOf } from "@/lib/transcripts/turns";
 
 // A MEETING'S TRANSCRIPT, for everyone in the company (Jason,
 // 2026-10-01; phase D of docs/investigations/open-data.md). Company
@@ -21,13 +22,6 @@ import transcriptStyles from "./transcript.module.css";
 // the meeting page.
 
 type PageProps = { params: Promise<{ id: string }> };
-
-// "Name: words" lines get the name set apart, so a long transcript can
-// be followed by who is speaking. Anything else is shown as it is.
-function speakerOf(line: string): { speaker: string; words: string } | null {
-  const m = /^([^:\n]{1,60}):\s+(.*)$/.exec(line);
-  return m ? { speaker: m[1], words: m[2] } : null;
-}
 
 export default async function MeetingTranscriptPage({ params }: PageProps) {
   const session = await requireProfile();
@@ -55,7 +49,7 @@ export default async function MeetingTranscriptPage({ params }: PageProps) {
     redirect("/leadership");
   }
 
-  const lines = (meeting.transcript_text ?? "").split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const turns = turnsOf(meeting.transcript_text ?? "");
   const title = meeting.meeting_title ?? meeting.file_name;
 
   return (
@@ -80,24 +74,21 @@ export default async function MeetingTranscriptPage({ params }: PageProps) {
       </section>
       <div className={styles.content}>
         <section className={styles.card} aria-label="Transcript">
-          {lines.length === 0 ? (
+          {turns.length === 0 ? (
             <p className={styles.emptyLine}>This meeting has no transcript.</p>
           ) : (
             <div className={transcriptStyles.transcript}>
-              {lines.map((line, i) => {
-                const turn = speakerOf(line);
-                return (
-                  <p key={i} className={transcriptStyles.line}>
-                    {turn ? (
-                      <>
-                        <span className={transcriptStyles.speaker}>{turn.speaker}</span> {turn.words}
-                      </>
-                    ) : (
-                      line
-                    )}
-                  </p>
-                );
-              })}
+              {turns.map((turn, i) => (
+                <p key={i} className={transcriptStyles.line}>
+                  {turn.speaker ? (
+                    <>
+                      <span className={transcriptStyles.speaker}>{turn.speaker}</span> {turn.words}
+                    </>
+                  ) : (
+                    turn.words
+                  )}
+                </p>
+              ))}
             </div>
           )}
         </section>
