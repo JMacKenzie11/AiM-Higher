@@ -17,8 +17,17 @@ import type {
   ListedFile,
   TranscriptProvider,
 } from "../provider";
-import type { OAuthCredentials, TranscriptSource } from "@/lib/types";
+import type { TranscriptSource } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import {
+  GOOGLE_SCOPES,
+  loadConnection,
+  parseGoogleSecret,
+  readConnectionSecret,
+  refreshConnectionSecret,
+  saveConnectionSecretAsService,
+  type GoogleSecret,
+} from "@/lib/connections/vault";
 
 // OAuth-based Google Drive provider. The service-account path was
 // blocked by Google's Secure by Default managed policies (see
@@ -26,17 +35,19 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // /api/oauth/google/start; we store the resulting refresh token and
 // use it to mint access tokens per ingest cycle.
 //
+// THE TOKENS LIVE IN SUPABASE VAULT since 0257: the company's 'google'
+// connection, whose secret is the refresh token and the last access
+// token as JSON (connections/vault.ts). oauth_credentials, where they
+// were kept as plain text, is no longer read or written; a later
+// migration clears it once a Saturday's pulls have run from the vault.
+//
 // Clients share their transcript folder with the connected Google
 // account's email address (Viewer). That address is displayed on
 // /admin/transcripts once the connection is set up.
 
 // openid + email are required so the OIDC userinfo call in
 // exchangeCodeAndPersist returns the connected account address.
-const READONLY_SCOPES = [
-  "openid",
-  "email",
-  "https://www.googleapis.com/auth/drive.readonly",
-];
+const READONLY_SCOPES = GOOGLE_SCOPES;
 
 export const SUPPORTED_MIMES = new Set<string>([
   "application/vnd.google-apps.document", // Google Doc
@@ -76,7 +87,9 @@ export function buildConsentUrl(state: string): string {
 // Drive folders owned by different Google Workspaces.
 export async function exchangeCodeAndPersist(
   code: string,
-  companyId: string
+  companyId: string,
+  // Who connected it, for the connection's history.
+  actorProfileId: string | null = null
 ): Promise<string> {
   const client = getOAuthClient();
   const { tokens } = await client.getToken(code);
@@ -94,30 +107,22 @@ export async function exchangeCodeAndPersist(
   if (!email) throw new Error("Google didn't return the connected email.");
 
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { error: upsertError } = await admin
-    .from("oauth_credentials")
-    .upsert(
-      {
-        provider: "google_drive",
-        company_id: companyId,
-        account_email: email,
-        refresh_token: tokens.refresh_token,
-        access_token: tokens.access_token ?? null,
-        access_token_expires_at: tokens.expiry_date
-          ? new Date(tokens.expiry_date).toISOString()
-          : null,
-      },
-      { onConflict: "provider,company_id" }
-    );
-  // Supabase doesn't throw on DB errors — check and re-raise so the
-  // callback surfaces the real reason instead of a spurious "success"
-  // flash while the row was never written (e.g. migration 0110 not
-  // applied, so company_id doesn't exist yet).
-  if (upsertError) {
-    throw new Error(
-      `Couldn't store the Google credential: ${upsertError.message}`
-    );
-  }
+  const secret: GoogleSecret = {
+    refresh_token: tokens.refresh_token,
+    access_token: tokens.access_token ?? null,
+    access_token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+  };
+  // Throws with the database's reason, so the callback never flashes
+  // "connected" over a credential that was not stored.
+  await saveConnectionSecretAsService(admin, {
+    companyId,
+    connector: "google",
+    secret: JSON.stringify(secret),
+    hint: null,
+    accountLabel: email,
+    scopes: READONLY_SCOPES,
+    actorProfileId,
+  });
   return email;
 }
 
@@ -140,39 +145,35 @@ export async function googleAuthForCompany(
 
 async function authenticatedClient(companyId: string): Promise<OAuth2Client> {
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { data } = await admin
-    .from("oauth_credentials")
-    .select("*")
-    .eq("provider", "google_drive")
-    .eq("company_id", companyId)
-    .maybeSingle<OAuthCredentials>();
-  if (!data) {
+  const stored = parseGoogleSecret(await readConnectionSecret(admin, companyId, "google"));
+  if (!stored) {
     throw new Error(
       "This company hasn't connected a Google account yet. Connect one from its transcripts panel."
     );
   }
   const client = getOAuthClient();
   client.setCredentials({
-    refresh_token: data.refresh_token,
-    access_token: data.access_token ?? undefined,
-    expiry_date: data.access_token_expires_at
-      ? new Date(data.access_token_expires_at).getTime()
+    refresh_token: stored.refresh_token,
+    access_token: stored.access_token ?? undefined,
+    expiry_date: stored.access_token_expires_at
+      ? new Date(stored.access_token_expires_at).getTime()
       : undefined,
   });
   // Persist refreshed access tokens so subsequent runs skip the
-  // token endpoint round trip.
+  // token endpoint round trip. The refresh token is kept as it was.
   client.on("tokens", async (tokens) => {
     if (!tokens.access_token) return;
-    await admin
-      .from("oauth_credentials")
-      .update({
-        access_token: tokens.access_token,
-        access_token_expires_at: tokens.expiry_date
-          ? new Date(tokens.expiry_date).toISOString()
-          : null,
-      })
-      .eq("provider", "google_drive")
-      .eq("company_id", companyId);
+    const next: GoogleSecret = {
+      refresh_token: tokens.refresh_token ?? stored.refresh_token,
+      access_token: tokens.access_token,
+      access_token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+    };
+    try {
+      await refreshConnectionSecret(admin, companyId, "google", JSON.stringify(next));
+    } catch (err) {
+      // The next run refreshes again; never fail an ingest over a cache.
+      console.warn("[google] refreshed access token not stored:", err instanceof Error ? err.message : err);
+    }
   });
   return client;
 }
@@ -245,14 +246,7 @@ async function verifyFolderAccess(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/not found|404/i.test(msg)) {
-      const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-      const { data } = await admin
-        .from("oauth_credentials")
-        .select("account_email")
-        .eq("provider", "google_drive")
-        .eq("company_id", companyId)
-        .maybeSingle<Pick<OAuthCredentials, "account_email">>();
-      const acct = data?.account_email ?? "the connected account";
+      const acct = (await getConnectedGoogleAccount(companyId)) ?? "the connected account";
       throw new Error(
         `${acct} can't reach that folder. Share it with ${acct} as Viewer and try again.`
       );
@@ -363,11 +357,6 @@ export async function getConnectedGoogleAccount(
   companyId: string
 ): Promise<string | null> {
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const { data } = await admin
-    .from("oauth_credentials")
-    .select("account_email")
-    .eq("provider", "google_drive")
-    .eq("company_id", companyId)
-    .maybeSingle<Pick<OAuthCredentials, "account_email">>();
-  return data?.account_email ?? null;
+  const connection = await loadConnection(admin, companyId, "google");
+  return connection?.account_label ?? null;
 }

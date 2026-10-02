@@ -753,6 +753,69 @@ category contained and ends `PASS` only if an error event was captured
 and none of them appear. It does not see server or edge events, which
 leave Node directly.
 
+## Moving the Google tokens into the vault (0257)
+
+The move changes where every Sheets pull and every transcript ingest
+finds its Google credential. Jason (2026-10-02): Benson's numbers must
+not miss a week. Benson's Sheets measures are **snapshots**: a snapshot
+reads the sheet as it stands, so a missed Saturday cannot be backfilled
+later. Hence the timing and the checks.
+
+**The management token is the master key.** The Supabase Management
+API returns any project's Vault root key to whoever holds the account's
+management token, and `SUPABASE_MANAGEMENT_TOKEN` in `.env.provisioning`
+is such a token. Whoever has it can decrypt every connection secret on
+every instance: production, PromiseOne and the dev clone. **If this
+machine is ever lost or compromised, revoke that token first**, in the
+Supabase dashboard under Account → Access Tokens, before anything else.
+Then issue a new one, and treat every vault secret as exposed: ask each
+connected company to replace its key, and reconnect Google. The token
+never goes into a file in the repo, a command's arguments or its output
+(failure mode E3).
+
+**When.** Sunday to Wednesday: after one Saturday's Sheets pull has
+saved on the old path, and with at least three days before the next
+one (14:00 UTC). Never Thursday to Saturday. That leaves days of
+ordinary transcript ingests on the new path before Saturday, and time
+to go back if they fail. Planned for Sunday 2026-10-04 (Jason).
+
+**Steps, each on Jason's go:**
+
+1. **Before.** `npm run check:sheet-pulls -- --instance @ "Benson Seafood"`
+   reads Benson's mapped measures through the current path and writes
+   nothing. Keep the output. (2026-10-02: Total Pounds Received, 377557.)
+2. **The fleet.** `npm run migrate:instances -- --dry-run`, then apply
+   0257. It copies every Google row into the vault and leaves
+   `oauth_credentials` as it was, so the deployed code keeps working
+   whichever lands first.
+3. **Count it.** On each instance, read-only: the number of
+   `google_drive` rows in `oauth_credentials` equals the number of
+   `google` connections with a secret. Counts only, never a token.
+4. **Merge and deploy.** The new code reads the vault.
+5. **Right after.** Run the same check as step 1 against production.
+   The values should match the sheet as it stands now, read through the
+   vault. Open Benson's company page; it shows the connected Google
+   account, read from `connections`.
+6. **The next morning.** The transcript cron log shows ingests with no
+   "hasn't connected a Google account" errors.
+7. **Friday.** Run the step 1 check once more, ahead of Saturday's pull.
+8. **Saturday.** The pull receipts for Benson's measures say `written`.
+9. **After that Saturday, on a separate go:** a migration clears the
+   plaintext tokens from `oauth_credentials`. Until then they are the
+   way back.
+
+**The way back.** Revert the merge commit and redeploy. The old code
+reads `oauth_credentials`, which 0257 did not touch, so nothing else
+needs undoing. The vault copies can stay. Two things to know:
+
+- A company that **connects Google for the first time** between the
+  deploy and a revert is in the vault only, and has to connect again
+  after a revert.
+- **A failed snapshot pull cannot be fetched later for its week.** If a
+  Saturday pull fails, press *Pull now* on Benson's measure the same day,
+  after the fix or the revert, while the sheet still shows that week's
+  figure.
+
 ## Order of operations for a deploy
 
 **Dev is the rehearsal, not the cleanup.** The clone is a disposable

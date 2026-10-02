@@ -118,7 +118,8 @@ describe("GET /api/oauth/google/callback", () => {
 
     expect(mocks.exchangeCodeAndPersist).toHaveBeenCalledWith(
       "auth_code",
-      CO_ACME
+      CO_ACME,
+      expect.any(String)
     );
     expect(res.headers.get("location")).toBe(
       `http://localhost:3200/admin/companies/${CO_ACME}?oauth_connected=ops%40example.com`
@@ -135,7 +136,8 @@ describe("GET /api/oauth/google/callback", () => {
 
     expect(mocks.exchangeCodeAndPersist).toHaveBeenCalledWith(
       "auth_code",
-      CO_OTHER
+      CO_OTHER,
+      expect.any(String)
     );
   });
 
