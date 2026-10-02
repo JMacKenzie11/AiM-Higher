@@ -3,7 +3,6 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ROLES, type Role } from "@/lib/types";
-import { seesAimeePanel } from "@/lib/aimee/panel-audience";
 
 // Resolves an in-app help doc for a given URL pathname and caller
 // role. Docs live in `docs/help/*.md` and use a naming convention:
@@ -154,26 +153,14 @@ async function readDoc(slug: string): Promise<HelpDoc | null> {
 //
 // Anything outside a `::: role` block is shared with every role.
 //
-// Two more blocks follow Aimee's panel switch (panel-audience.ts), so a
-// page stays true for a reader who has the panel and one who has the
-// "?" button instead (Jason, 2026-09-30):
-//
-//   ::: panel
-//   Shown only to people who see Aimee's panel.
-//   :::
-//
-//   ::: no-panel
-//   Shown only to people who don't, yet.
-//   :::
-// Filtering happens server-side before the markdown ships to the
-// widget — other roles' content is never in the response body.
+// Filtering happens server-side before the markdown reaches Aimee:
+// other roles' content is never in what she reads.
 //
 // Fail-open on malformed blocks (an unclosed opener leaves its
 // content intact and logs a warning) — a broken doc still shows
 // something useful instead of blanking out mid-page.
 
 const ROLE_BLOCK_OPEN = /^:::\s+role\s+(.+?)\s*$/;
-const PANEL_BLOCK_OPEN = /^:::\s+(panel|no-panel)\s*$/;
 const ROLE_BLOCK_CLOSE = /^:::\s*$/;
 
 export function filterRoleSections(markdown: string, role: Role): string {
@@ -185,13 +172,6 @@ export function filterRoleSections(markdown: string, role: Role): string {
 
   for (const line of lines) {
     if (!inBlock) {
-      const panelMatch = line.match(PANEL_BLOCK_OPEN);
-      if (panelMatch) {
-        blockKeeps = seesAimeePanel(role) === (panelMatch[1] === "panel");
-        inBlock = true;
-        blockOpener = line;
-        continue;
-      }
       const match = line.match(ROLE_BLOCK_OPEN);
       if (match) {
         const allowed = match[1]
@@ -257,8 +237,8 @@ export async function loadHelpForRoute(
 //
 //   - frontmatter `roles:` naming a role that does not exist
 //   - a `::: role` block naming a role that does not exist
-//   - a `::: role`, `::: panel` or `::: no-panel` block opened and
-//     never closed, or a closer with no opener
+//   - a `::: role` block opened and never closed, or a closer with no
+//     opener
 export async function helpDocProblems(): Promise<string[]> {
   const problems: string[] = [];
   const files = (await fs.readdir(HELP_DIR)).filter((f) => f.endsWith(".md") && f !== "README.md");
@@ -273,11 +253,6 @@ export async function helpDocProblems(): Promise<string[]> {
     }
     let open = false;
     for (const [i, line] of body.split("\n").entries()) {
-      if (PANEL_BLOCK_OPEN.test(line)) {
-        if (open) problems.push(`help doc ${slug}: panel block opened inside another (line ${i + 1})`);
-        open = true;
-        continue;
-      }
       const opener = ROLE_BLOCK_OPEN.exec(line);
       if (opener) {
         if (open) problems.push(`help doc ${slug}: role block opened inside another (line ${i + 1})`);

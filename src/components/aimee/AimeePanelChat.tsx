@@ -8,7 +8,6 @@ import {
   newPanelChatAction,
   openAimeeNotificationAction,
   openPanelChatAction,
-  recordPanelEventAction,
   type PanelChat,
   type PanelOpenResult,
 } from "@/lib/aimee/panel-actions";
@@ -29,16 +28,12 @@ import styles from "./AimeeLauncher.module.css";
 //
 // It reopens the person's last conversation started in the panel
 // (lib/aimee/panel-actions.ts), and "New conversation" starts another.
-// A conversation started here never writes coach memory; when one
-// turns into coaching, Aimee offers a link to a new conversation on
-// the Aimee page, which is counted here when clicked.
+// A conversation started here never writes coach memory.
 //
 // "For you" (Step 5): Aimee's invitations to debrief a meeting, and
 // chats someone shared, which used to sit in the bell. Opening one
 // shows it here in place of the panel conversation; "Not now" on an
 // invitation records the decline exactly as the bell did.
-
-const CONTINUE_ON_PAGE = "/ask-aimee/new";
 
 type State =
   | { kind: "idle" }
@@ -147,21 +142,6 @@ export function AimeePanelChat({
       .finally(() => setBusy(false));
   };
 
-  // "Continue on the Aimee page" carries this conversation over, so the
-  // new one opens with a summary of what was said here.
-  const conversationId = state.kind === "ready" ? state.chat.conversation.id : null;
-  const linkHref = useCallback(
-    (href: string) =>
-      conversationId && href.split(/[?#]/)[0] === CONTINUE_ON_PAGE
-        ? `${CONTINUE_ON_PAGE}?continue=${conversationId}`
-        : href,
-    [conversationId]
-  );
-
-  const onInAppLink = useCallback((href: string) => {
-    if (href.split(/[?#]/)[0] === CONTINUE_ON_PAGE) void recordPanelEventAction("continue_on_page").catch(() => {});
-  }, []);
-
   const chat = state.kind === "ready" ? state.chat : null;
   const isPanelConversation = chat?.conversation.origin === "panel";
 
@@ -260,11 +240,8 @@ export function AimeePanelChat({
           subjectName={null}
           subjectPosition={null}
           firstName={null}
-          onInAppLink={onInAppLink}
-          // Page context, and carrying the conversation over to the
-          // Aimee page, are for the panel's own conversations only.
+          // Page context is for the panel's own conversations only.
           pageContext={isPanelConversation ? pageContext : undefined}
-          linkHref={isPanelConversation ? linkHref : undefined}
           panelGreeting={panelGreeting(chat.firstName)}
           panelSuggestions={suggestionsFor(pathname, chat.role)}
           composerRef={composerRef}

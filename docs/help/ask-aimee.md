@@ -63,7 +63,6 @@ Either way they see every message, from before and after they joined. You can sh
 
 Only you can invite people, change their access, remove them, rename the conversation or archive it. Anyone you've shared with can open the same button and click *Leave this chat*. Once a conversation is shared, each message shows who sent it.
 
-::: panel
 ## Aimee's panel, on every page
 
 Aimee's icon sits in the bottom-right corner of every page. Click it, or press **Ctrl + .** (Ctrl and the full stop, on a Mac too), to open her panel beside the page you're on. On a computer you can keep working in the page. On a phone the panel fills the screen until you close it.
@@ -77,10 +76,6 @@ Aimee's icon sits in the bottom-right corner of every page. Click it, or press *
 If you're your company's AiMS champion, *For you* also shows Aimee's invitations to talk a meeting through. Click *Talk it through* to start.
 
 Panel conversations are listed here with your others.
-:::
-::: no-panel
-When someone shares a conversation with you, a note appears in your notification bell with a link straight into it.
-:::
 
 ## Common questions
 

@@ -207,18 +207,11 @@ lives in the production project**, so a hostname with a domain under it
 would reach for production. `CONTROL_PLANE_*` is blanked on that server
 too, so an accidental lookup fails loudly instead of connecting.
 
-`aimee-panel-off.spec.ts` needs a third: Aimee's panel switched off,
-which is how production runs until `AIMEE_PANEL_FOR_EVERYONE` is set.
-It runs on 3202 with the variable blank and its own build output
-(`.next-e2e-panel-off`). The main server on 3200 has the panel **on**,
-which every other spec expects: Playwright sets
-`AIMEE_PANEL_FOR_EVERYONE=true` when it starts that server itself, and
-a server started any other way (a script, by hand) must set it too.
-
-The switched-off spec opens the seeded Guide invitation from the bell,
-which marks it read, and `guide-champion.spec.ts` opens the same one.
-So a full run reseeds, runs the `panel-off` project, reseeds again, then
-runs `chromium`.
+There used to be a third, on 3202, for Aimee's panel switched off
+(`aimee-panel-off.spec.ts`, project `panel-off`). The switch and that
+project were removed on 2026-10-02, when the panel became on for
+everyone. A full run no longer reseeds between projects, and a server
+started by hand needs no `AIMEE_PANEL_FOR_EVERYONE`.
 
 ## Why a full run compiles everything first
 
@@ -261,7 +254,7 @@ larger one only delays the restart while the machine starts swapping.
 ### Against a production build: `npm run e2e:prod`
 
 Opt-in since 2026-10-01. It builds the app once into `.next-e2e`
-(`npm run e2e:build`) and runs all three servers as `next start` on that
+(`npm run e2e:build`) and runs both servers as `next start` on that
 one build, each with its own environment. That is the build users get.
 There is nothing to compile mid-test, so global-setup skips the warm-up,
 the memory restart never comes, and no shards are needed: a full run

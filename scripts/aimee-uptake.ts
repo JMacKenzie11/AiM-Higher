@@ -13,7 +13,8 @@
 //                the rows are counted, their text is never selected
 //   help         help searches, from any plain Aimee conversation
 //   no result    of those, how many found nothing
-//   to page      clicks on "Continue on the Aimee page"
+//   to page      clicks on "Continue on the Aimee page", a link the
+//                panel offered until 2026-10-01 (#377); 0 since
 //
 // A second table, voice rules (0244): replies SHOWN with a banned
 // phrase still in them, per week. Checked turns (a debrief reply, a

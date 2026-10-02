@@ -9,23 +9,13 @@ How Aimee gets in touch with your company's AiMS champion, and what happens when
 
 Your company names one person to lead its implementation of AiMS: the **AiMS champion**. Aimee coaches that person through it.
 
-::: panel
 When she has something worth your attention, a number appears on her icon in the bottom-right corner, and the note is waiting under **For you** when you open her panel.
-:::
-::: no-panel
-When she has something worth your attention, a note appears in your notification bell.
-:::
 
 ## What you can do here
 
-::: panel
 - **Talk a meeting through.** After a leadership meeting is summarised, Aimee invites you to talk it through. The note names the meeting and its day, one thing the team did well, and a short question. Click **Talk it through** under the note and a chat about that meeting opens in the panel, beside whatever page you're on.
 - **Read the meeting first.** Click the meeting's name on the note to open its summary.
 - **Give it more room.** **Open on the Aimee page** above the chat moves it to the full Ask Aimee page.
-:::
-::: no-panel
-- **Talk a meeting through.** After a leadership meeting is summarised, Aimee invites you to talk it through. Click the note in your notification bell and a chat about that meeting opens.
-:::
 - **Pass on it.** Click **Not now** under the note. It goes away and nothing else happens.
 
 ::: role company_admin,system_admin

@@ -18,7 +18,7 @@
       "@/*": ["./src/*"]
     }
   },
-  // .next-e2e-unresolved and .next-e2e-panel-off are the other dev servers' build output (see
+  // .next-e2e-unresolved is the other dev server's build output (see
   // playwright.config.ts). Listed so `next dev` doesn't rewrite and
   // reformat this file every time the e2e suite runs.
   "include": [
@@ -27,8 +27,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next-e2e-unresolved/types/**/*.ts",
-    ".next-e2e/types/**/*.ts",
-    ".next-e2e-panel-off/types/**/*.ts"
+    ".next-e2e/types/**/*.ts"
   ],
   // scripts/ is checked by scripts/tsconfig.json instead, which is the
   // only place allowImportingTsExtensions is turned on. Excluded here

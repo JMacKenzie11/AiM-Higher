@@ -326,9 +326,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   const helpIndexBlock = plainAimee
     ? formatHelpIndex(await helpIndexFor(session.profile.role, helpFeatures), session.profile.role)
     : "";
-  // STARTED IN AIMEE'S PANEL (0240): short answers, no memory writes,
-  // and an offer to continue on the Aimee page when it turns into
-  // coaching (lib/aimee/panel.ts). Read from the row, so opening the
+  // STARTED IN AIMEE'S PANEL (0240): short answers and no memory
+  // writes (lib/aimee/panel.ts). Read from the row, so opening the
   // conversation on the Aimee page later changes nothing.
   const fromPanel = convo.origin === "panel";
   const systemPromptText =

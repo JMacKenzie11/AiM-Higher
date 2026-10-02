@@ -14,13 +14,9 @@ import type { Role } from "@/lib/types";
 //     (memory-actions.ts) and the route leaves remember_this out of
 //     its tools. Reading memory is allowed, so Aimee still knows them.
 //   - Aimee is told she is in the panel (below): short answers, and
-//     that she cannot keep notes from here. She no longer offers a
-//     "Continue on the Aimee page" link when it turns into coaching
-//     (Jason, 2026-10-01: not wanted in a panel chat). If someone asks
-//     her to remember something, she says so and names the Aimee page,
-//     where memory works as it always has.
-
-export const CONTINUE_ON_PAGE_HREF = "/ask-aimee/new";
+//     that she cannot keep notes from here. If someone asks her to
+//     remember something, she says so and names the Aimee page, where
+//     memory works as it always has.
 
 export const PANEL_PROMPT_BLOCK = [
   "<panel>",
@@ -30,7 +26,9 @@ export const PANEL_PROMPT_BLOCK = [
   "</panel>",
 ].join("\n");
 
-export type PanelEventKind = "opened" | "help_search" | "continue_on_page";
+// continue_on_page is still allowed by the table (0240) and counted by
+// aimee:uptake for the days the link existed; nothing records it now.
+export type PanelEventKind = "opened" | "help_search";
 
 // Counts panel use for `npm run aimee:uptake`. Records that something
 // happened and, for a search, whether it found anything. NEVER the

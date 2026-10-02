@@ -98,7 +98,6 @@ export default async function globalSetup(config: FullConfig) {
         .post(api, { data: "{", headers: { "content-type": "application/json" }, timeout: 180_000 })
         .catch(() => {});
     }
-    await page.request.get("/api/help?pathname=/plan", { timeout: 180_000 }).catch(() => {});
     console.log(`[global-setup] compiled ${pages.length} pages in ${Math.round((Date.now() - started) / 1000)}s`);
   } finally {
     await browser.close();

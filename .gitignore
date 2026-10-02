@@ -46,6 +46,7 @@ next-env.d.ts
 /playwright/.cache/
 .next-e2e-unresolved/
 .next-e2e/
+# The retired panel-off e2e server's output, if one is left on disk.
 .next-e2e-panel-off/
 
 # A clone of the private aimhigher-regression repo: expected values for

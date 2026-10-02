@@ -24,12 +24,10 @@ import styles from "./NavBand.module.css";
 // Computed items (dismissible=false) recompute from live state on
 // every render, so there's nothing to mark on click.
 //
-// AIMEE'S KINDS ARE HERE ONLY WITHOUT THE PANEL. For anyone who sees
-// Aimee's panel, invitations to debrief a meeting and shared chats show
-// on her icon and open in her panel, "Not now" included
-// (notifications/kinds.ts, components/aimee), and the layout hands this
-// bell everything else. Until AIMEE_PANEL_FOR_EVERYONE is on, everyone
-// else gets them here, as before the panel (panel-audience.ts).
+// AIMEE'S KINDS ARE NOT HERE. Invitations to debrief a meeting and
+// shared chats show on her icon and open in her panel, "Not now"
+// included (notifications/kinds.ts, components/aimee), and the layout
+// hands this bell everything else.
 //
 // ---- THE TRAY IS PORTALLED -------------------------------------
 //
