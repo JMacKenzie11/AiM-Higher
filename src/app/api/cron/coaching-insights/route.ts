@@ -5,14 +5,20 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { anonymiser } from "@/lib/aimee/anonymise";
+import { analyzeConversation, INSIGHTS_PROMPT_VERSION } from "@/lib/admin/insights-analysis";
 
 // Nightly per-conversation analysis job — Pass 2 feed for the
 // Coaching insights card.
 //
 // For each coaching_conversation without a matching row in
 // coaching_conversation_analyses AND with at least one user turn,
-// send the transcript to Haiku with a strict PII-strip prompt and
-// store a small structured summary (topics, friction, opportunity).
+// send the transcript to Haiku and store a small structured summary
+// (topics, friction, opportunity). ANONYMOUS (Jason, 2026-10-01):
+// names come out of the transcript before the model sees it, and the
+// answer is checked before it is stored (aimee/anonymise.ts,
+// admin/insights-analysis.ts). A conversation analysed before that
+// keeps its row and is not analysed again (Jason: keep the 41).
 // The dashboard reads those rows and aggregates in JS at read time
 // — no on-demand LLM call needed to refresh a filter view.
 //
@@ -30,21 +36,12 @@ export const maxDuration = 300;
 // Haiku, deliberately: this runs fleet-wide on a schedule and
 // the work is extraction rather than judgement.
 const MODEL = "claude-haiku-4-5";
-const PROMPT_VERSION = 1;
 const BATCH_LIMIT = 40;
 // Cap transcript payload so a runaway thread can't blow the token
 // budget for one row. Ten most-recent messages + 800 chars each is
 // plenty of signal for a summary + topic tags.
 const MAX_MSGS_PER_CONVO = 10;
 const MAX_CHARS_PER_MSG = 800;
-
-type AnalysisPayload = {
-  summary: string;
-  topics: string[];
-  friction_level: 0 | 1 | 2 | 3;
-  friction_signal: string | null;
-  opportunity: string | null;
-};
 
 export async function POST(req: NextRequest): Promise<Response> {
   return handle(req);
@@ -73,10 +70,11 @@ async function handle(req: NextRequest): Promise<Response> {
   // Pull the analysis-row IDs we already have so the outer query
   // can exclude them. Doing this in-JS keeps the SELECT simple
   // (PostgREST NOT-IN via a subquery is awkward).
+  // Any version: a conversation analysed before the anonymous rule is
+  // kept as it is, not analysed again.
   const { data: existingRows } = await admin
     .from("coaching_conversation_analyses")
-    .select("conversation_id")
-    .eq("prompt_version", PROMPT_VERSION);
+    .select("conversation_id");
   const analyzedIds = new Set(
     ((existingRows ?? []) as Array<{ conversation_id: string }>).map(
       (r) => r.conversation_id
@@ -137,10 +135,22 @@ async function handle(req: NextRequest): Promise<Response> {
     msgsByConvo.set(m.conversation_id, arr);
   }
 
+  // The roster and company names the transcripts are scrubbed of.
+  const [{ data: people }, { data: companies }] = await Promise.all([
+    admin.from("profiles").select("full_name"),
+    admin.from("companies").select("name").is("deleted_at", null),
+  ]);
+  const anon = anonymiser({
+    people: ((people ?? []) as Array<{ full_name: string | null }>).flatMap((p) => (p.full_name ? [p.full_name] : [])),
+    companies: ((companies ?? []) as Array<{ name: string | null }>).flatMap((c) => (c.name ? [c.name] : [])),
+  });
+
   const client = new Anthropic({ apiKey });
   let analyzed = 0;
   let skipped = 0;
   let errored = 0;
+  let retried = 0;
+  let dropped = 0;
 
   for (const c of batch) {
     const msgs = msgsByConvo.get(c.id) ?? [];
@@ -152,15 +162,29 @@ async function handle(req: NextRequest): Promise<Response> {
     // Take the last N messages so long threads still fit; a decisive
     // moment usually lands near the end.
     const tail = msgs.slice(-MAX_MSGS_PER_CONVO);
-    const transcript = tail
-      .map(
-        (m) =>
-          `${m.role.toUpperCase()}: ${m.content.slice(0, MAX_CHARS_PER_MSG)}`
-      )
-      .join("\n");
+    const transcript = anon.scrub(
+      tail
+        .map(
+          (m) =>
+            `${m.role.toUpperCase()}: ${m.content.slice(0, MAX_CHARS_PER_MSG)}`
+        )
+        .join("\n")
+    );
 
     try {
-      const payload = await analyzeOne(client, transcript);
+      const result = await analyzeConversation(client, MODEL, transcript, anon, (message) => {
+        if (!message.usage) return;
+        void logCoachTokenUsage({
+          conversationId: null,
+          companyId: null,
+          purpose: "insights_analysis",
+          model: MODEL,
+          usage: message.usage,
+        });
+      });
+      if (result.retried) retried += 1;
+      if (result.dropped.length > 0) dropped += 1;
+      const payload = result.payload;
       const { error: insertErr } = await admin
         .from("coaching_conversation_analyses")
         .insert({
@@ -173,7 +197,7 @@ async function handle(req: NextRequest): Promise<Response> {
           friction_signal: payload.friction_signal,
           opportunity: payload.opportunity,
           model: MODEL,
-          prompt_version: PROMPT_VERSION,
+          prompt_version: INSIGHTS_PROMPT_VERSION,
         });
       if (insertErr) {
         console.error("coaching-insights cron: insert failed", {
@@ -199,114 +223,7 @@ async function handle(req: NextRequest): Promise<Response> {
     analyzed,
     skipped,
     errored,
+    // Counts only: what was said is never logged.
+    anonymity: { retried, dropped },
   });
-}
-
-// PII-stripping + structured extraction. One Haiku call per convo.
-// The response is JSON-only; any parse failure is treated as a hard
-// error so we don't insert garbage.
-async function analyzeOne(
-  client: Anthropic,
-  transcript: string
-): Promise<AnalysisPayload> {
-  const prompt = `You are analyzing a workplace leadership coaching conversation. Return a structured summary suitable for cross-tenant reporting.
-
-PII RULE (non-negotiable): Replace every proper noun that could identify a person, company, product, or location with a generic role term:
-- People: "the leader", "a report", "a peer", "a manager", "a stakeholder", "a client"
-- Companies: "the company", "a supplier", "a customer"
-- Products: "the product", "a competing product"
-- Locations: "the region", "a site"
-If a name still appears in your output, you failed. Re-read before returning.
-
-Return ONLY a JSON object matching this schema — no code fences, no prose:
-{
-  "summary": "one plain sentence: what the leader was working on",
-  "topics": ["1-4 short tags in plain business language"],
-  "friction_level": 0,
-  "friction_signal": null,
-  "opportunity": null
-}
-
-friction_level scale:
- 0 = informational / neutral (asking a question, exploring)
- 1 = mild friction (some tension but making progress)
- 2 = frustrated (stuck on a specific issue, expressing frustration)
- 3 = stuck (repeated attempts, blocked, escalated)
-
-friction_signal: if level >= 1, a short phrase naming the friction (e.g. "unclear priorities", "accountability gap"). Otherwise null.
-
-opportunity: if the conversation surfaces a platform-product opportunity (a feature that would help), a short phrase. Otherwise null.
-
-topics: 1-4 short tags in plain business language — not therapy-speak, not consultant jargon.
-
-Transcript:
-${transcript}`;
-
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 400,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  if (response.usage) {
-    void logCoachTokenUsage({
-      conversationId: null,
-      companyId: null,
-      purpose: "insights_analysis",
-      model: MODEL,
-      usage: response.usage,
-    });
-  }
-
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim();
-
-  const parsed = JSON.parse(stripCodeFence(text)) as Partial<AnalysisPayload>;
-  if (typeof parsed.summary !== "string" || parsed.summary.length === 0) {
-    throw new Error("analyzeOne: missing summary");
-  }
-  if (!Array.isArray(parsed.topics)) {
-    throw new Error("analyzeOne: missing topics");
-  }
-  const topics = parsed.topics
-    .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
-    .slice(0, 4);
-  const rawLevel =
-    typeof parsed.friction_level === "number" ? parsed.friction_level : 0;
-  const friction_level = (Math.max(0, Math.min(3, Math.round(rawLevel))) as
-    | 0
-    | 1
-    | 2
-    | 3);
-  const friction_signal =
-    friction_level > 0 && typeof parsed.friction_signal === "string"
-      ? parsed.friction_signal.trim().slice(0, 120) || null
-      : null;
-  const opportunity =
-    typeof parsed.opportunity === "string" && parsed.opportunity.trim().length > 0
-      ? parsed.opportunity.trim().slice(0, 200)
-      : null;
-
-  return {
-    summary: parsed.summary.trim().slice(0, 500),
-    topics,
-    friction_level,
-    friction_signal,
-    opportunity,
-  };
-}
-
-// Haiku (and Sonnet) will wrap JSON in ```json ... ``` fences
-// even when the prompt says not to. Strip them defensively so a
-// single ignored instruction doesn't nuke the whole batch.
-function stripCodeFence(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed.startsWith("```")) return trimmed;
-  const withoutOpen = trimmed
-    .replace(/^```(?:json|JSON)?\s*/, "")
-    .replace(/```$/, "");
-  return withoutOpen.trim();
 }

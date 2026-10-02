@@ -124,7 +124,9 @@ export async function applyChartProposalAction(
       message:
         access === "read"
           ? "You have read-only access to this chat, so you can't apply it."
-          : "Not yours to apply.",
+          // No access at all reads exactly like no such conversation:
+          // a conversation is its owner's to know about (0251).
+          : "Couldn't find that conversation.",
     };
   }
 

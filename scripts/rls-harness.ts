@@ -9747,7 +9747,7 @@ values ('${ids.companyAdminCompany}', '${ids.companyAdmin}',
     withheld: `another member reads the table: ${nudgeReadAsOtherMember} | that member inserts one: ${nudgeInsert}`,
     ok: nudgeOk,
     detail: nudgeOk
-      ? "a nudge reaches its recipient and its company's admins, and no user role may create one"
+      ? "a nudge reaches its recipient, and no user role may create one"
       : !nudgeReadAsRecipient.includes("row(s) written")
         ? "THE RECIPIENT CANNOT READ THEIR OWN NUDGE: the notification would lead nowhere"
         : !memberControl.includes("row(s) written")
@@ -10451,6 +10451,189 @@ async function meetingSummaryProbes(run: Runner, ids: Identities): Promise<Grant
       ? "a team member's Aimee reads their own company's meeting summaries and none of another's"
       : "A TEAM MEMBER COULD READ ANOTHER COMPANY'S MEETINGS, or could not read their own, or the planted leak went unseen",
   }];
+}
+
+// ---- An Aimee conversation is its owner's alone (0251) -----------
+//
+// The principle (docs/investigations/open-data.md): only the person who
+// started a conversation can know it exists, read it or query its
+// history, unless they share it, for every role. Three checks:
+//
+//   1. As each role, against a conversation somebody else in a company
+//      the reader belongs to or is assigned to started: the
+//      conversation, its messages, its shares and the owner's memory
+//      all read 0. The owner reads them all; a colleague it was shared
+//      with reads the conversation and messages and no memory. A
+//      planted rule letting system admins read conversations must turn
+//      the system admin's row red, or a clean result means nothing.
+//   2. No function a signed-in user may call, other than the named
+//      owner checks, triggers and memory writes, reads the four
+//      tables. A planted one must be found.
+//   4. A debrief invitation is its recipient's: the company's admin, an
+//      assigned guide and a system admin read 0 of one addressed to
+//      somebody else in that company.
+//
+// (Check 3, no service-role read of conversations outside a named
+// list, is a source guard: src/lib/coach/conversation-privacy.test.ts.)
+async function conversationPrivacyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const [p] = await run<{
+    owner: string | null;
+    colleague: string | null;
+    guide_owner: string | null;
+    portfolio: string | null;
+    nudge_recipient: string | null;
+  }>(`
+    select
+      (select id::text from public.profiles where company_id = '${ids.companyAdminCompany}'
+         and status = 'active' and role = 'team_member' order by id limit 1) as owner,
+      (select id::text from public.profiles where company_id = '${ids.companyAdminCompany}'
+         and status = 'active' and role = 'team_member' order by id offset 1 limit 1) as colleague,
+      (select id::text from public.profiles where company_id = '${ids.guideCompany}'
+         and status = 'active' order by id limit 1) as guide_owner,
+      (select id::text from public.profiles where role = 'portfolio_admin' and status = 'active' limit 1) as portfolio,
+      (select id::text from public.profiles where company_id = '${ids.companyAdminCompany}'
+         and status = 'active' and id <> '${ids.companyAdmin}' order by id limit 1) as nudge_recipient;`);
+  const notProven = (name: string, why: string): GrantProbe => ({
+    name, granted: "not attempted", withheld: why, ok: false, detail: `NOT PROVEN: ${why}`,
+  });
+  const out: GrantProbe[] = [];
+
+  // ---- 1 ----
+  if (!p?.owner || !p.colleague || !p.guide_owner) {
+    out.push(notProven("aimee conversations · owner only, every role", "the clone has no two team members in the admin's company, or no profile in the guide's"));
+  } else {
+    const convo = randomUUID();
+    const guideConvo = randomUUID();
+    const seed = (id: string, company: string, owner: string) => `
+      insert into public.coaching_conversations (id, company_id, created_by, title, mode)
+        values ('${id}', '${company}', '${owner}', 'harness probe', 'general');
+      insert into public.coaching_messages (conversation_id, created_by, role, content)
+        values ('${id}', '${owner}', 'user', 'harness probe');
+      insert into public.coach_memories (profile_id, kind, content)
+        values ('${owner}', 'said', 'harness probe ${id}');`;
+    const setup = (extra = "") =>
+      [pending, seed(convo, ids.companyAdminCompany, p.owner!), seed(guideConvo, ids.guideCompany, p.guide_owner!), extra].join("\n");
+    const counts = (id: string, owner: string) => `select concat_ws(',',
+        (select count(*) from public.coaching_conversations where id = '${id}'),
+        (select count(*) from public.coaching_messages where conversation_id = '${id}'),
+        (select count(*) from public.coaching_conversation_shares where conversation_id = '${id}'),
+        (select count(*) from public.coach_memories where profile_id = '${owner}' and content = 'harness probe ${id}')) as n;`;
+    const read = async (sub: string, id: string, owner: string, extra = ""): Promise<string> => {
+      try {
+        const [row] = await run<{ n: string }>(asCaller(sub, setup(extra), counts(id, owner)));
+        return row?.n ?? "no row";
+      } catch (err) {
+        return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+      }
+    };
+    const share = `insert into public.coaching_conversation_shares (conversation_id, profile_id, access, created_by)
+      values ('${convo}', '${p.colleague}', 'read', '${p.owner}');`;
+    const plant = `create policy zz_harness_plant on public.coaching_conversations for select to authenticated
+      using ((select public.auth_role()) = 'system_admin');`;
+
+    const owner = await read(p.owner, convo, p.owner);
+    const sharee = await read(p.colleague, convo, p.owner, share);
+    const readers: Array<[string, string, string, string]> = [
+      ["team member", p.colleague, convo, p.owner],
+      ["company admin", ids.companyAdmin, convo, p.owner],
+      ["assigned guide", ids.guide, guideConvo, p.guide_owner],
+      ["system admin", ids.systemAdmin, convo, p.owner],
+    ];
+    if (p.portfolio) readers.push(["portfolio admin", p.portfolio, convo, p.owner]);
+    const refused: string[] = [];
+    let allZero = true;
+    for (const [who, sub, id, own] of readers) {
+      const n = await read(sub, id, own);
+      if (n !== "0,0,0,0") allZero = false;
+      refused.push(`${who} ${n}`);
+    }
+    const planted = await read(ids.systemAdmin, convo, p.owner, plant);
+    const ok = owner === "1,1,0,1" && sharee === "1,1,1,0" && allZero && planted.startsWith("1,");
+    out.push({
+      name: "aimee conversations · owner only, every role",
+      granted: `owner reads conversation,messages,shares,memory: ${owner} (want 1,1,0,1) | colleague it was shared with: ${sharee} (want 1,1,1,0)`,
+      withheld: `${refused.join(" | ")} (want 0,0,0,0 each) | planted system-admin rule: ${planted.startsWith("1,") ? "caught" : `missed (${planted})`}`,
+      ok,
+      detail: ok
+        ? "a conversation, its messages, shares and memory are its owner's, for every role, unless shared"
+        : "SOMEBODY BUT THE OWNER CAN READ A CONVERSATION OR ITS MEMORY, or the owner cannot, or the planted rule went unseen",
+    });
+  }
+
+  // ---- 2 ----
+  const allowed = [
+    "archive_convos_on_company_soft_delete",
+    "assert_coaching_share_same_company",
+    "has_coaching_share",
+    "has_coaching_write_share",
+    "hide_conversation_openers",
+    "is_coaching_conversation_owner",
+    "record_coach_memory",
+    "update_coach_memory",
+  ];
+  const sweep = async (extra = ""): Promise<string[]> => {
+    const rows = await run<{ f: string }>(
+      ["begin;", pending, extra, `select p.proname as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.prosecdef
+          and has_function_privilege('authenticated', p.oid, 'execute')
+          and p.prosrc ~ '(coaching_messages|coaching_conversations|coach_memories|coaching_conversation_shares)'
+          and p.proname not in (${allowed.map((a) => `'${a}'`).join(", ")})
+        order by 1;`, "rollback;"].join("\n")
+    );
+    return rows.map((r) => r.f);
+  };
+  const found = await sweep();
+  const plantedFn = await sweep(`create function public.zz_harness_leak() returns bigint language sql security definer
+    as $$ select count(*) from public.coaching_messages $$;
+    grant execute on function public.zz_harness_leak() to authenticated;`);
+  const sweepOk = found.length === 0 && plantedFn.includes("zz_harness_leak");
+  out.push({
+    name: "aimee conversations · no function around the rules",
+    granted: `named exceptions: ${allowed.length} (owner checks, triggers, memory writes)`,
+    withheld: `other functions reading conversations: ${found.length === 0 ? "none" : found.join(", ")} | planted one: ${plantedFn.includes("zz_harness_leak") ? "caught" : "missed"}`,
+    ok: sweepOk,
+    detail: sweepOk
+      ? "no function a signed-in user may call reads conversations, beyond the named exceptions"
+      : "A FUNCTION A USER MAY CALL READS CONVERSATIONS, or the sweep cannot see one",
+  });
+
+  // ---- 4 ----
+  if (!p?.nudge_recipient) {
+    out.push(notProven("debrief invitations · the recipient's alone", "no second profile in the admin's company"));
+  } else {
+    const nudge = randomUUID();
+    const nudgeSetup = `${pending}
+      insert into public.guide_nudges (id, company_id, recipient_profile_id, trigger_kind, headline)
+        values ('${nudge}', '${ids.companyAdminCompany}', '${p.nudge_recipient}', 'meeting_analyzed', 'harness probe');`;
+    const nudgeRead = async (sub: string): Promise<string> => {
+      try {
+        const [row] = await run<{ n: number }>(
+          asCaller(sub, nudgeSetup, `select count(*)::int as n from public.guide_nudges where id = '${nudge}';`)
+        );
+        return String(row?.n ?? "no row");
+      } catch (err) {
+        return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+      }
+    };
+    const recipient = await nudgeRead(p.nudge_recipient);
+    const admin = await nudgeRead(ids.companyAdmin);
+    const sysadmin = await nudgeRead(ids.systemAdmin);
+    // The guide is assigned to guideCompany, which may not be the
+    // admin's; the nudge is seeded in the admin's company, so the guide
+    // is asked only when that is the company it is assigned to.
+    const guide = ids.guideCompany === ids.companyAdminCompany ? await nudgeRead(ids.guide) : "0";
+    const nudgeOk = recipient === "1" && admin === "0" && sysadmin === "0" && guide === "0";
+    out.push({
+      name: "debrief invitations · the recipient's alone",
+      granted: `recipient reads it: ${recipient} (want 1)`,
+      withheld: `company admin ${admin}, system admin ${sysadmin}, assigned guide ${guide} (want 0 each)`,
+      ok: nudgeOk,
+      detail: nudgeOk
+        ? "an invitation, and so the debrief conversation it opens, is visible to its recipient only"
+        : "SOMEBODY ELSE CAN SEE A PERSON'S DEBRIEF INVITATION (is 0251 applied?)",
+    });
+  }
+  return out;
 }
 
 // ---- A mark that only rewording clears (0250) ---------------------
@@ -11399,12 +11582,13 @@ async function main(): Promise<void> {
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
+  const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...timeouts, ...rewording, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...timeouts, ...rewording, ...conversations, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -11496,6 +11680,7 @@ async function main(): Promise<void> {
     panelEvents.some((p) => !p.ok) ||
     timeouts.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
+    conversations.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);

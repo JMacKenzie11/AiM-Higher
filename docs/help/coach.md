@@ -26,7 +26,7 @@ Private coaching conversations with Aimee about one person on your team. You get
 
 ## Who can see a conversation
 
-Only the person who started it, and anyone they share it with. Other admins and the person's direct manager can start their own conversations about the same person, and those are private to them in the same way.
+Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. Anyone they share it with can see it too. Other admins and the person's direct manager can start their own conversations about the same person, and those are private to them in the same way.
 
 The person it's about never sees it unless the owner shares it with them.
 

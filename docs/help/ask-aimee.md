@@ -4,7 +4,7 @@ title: Ask Aimee
 
 # Ask Aimee
 
-A thinking partner for whatever you're working through: a decision, a conversation to prepare for, someone who isn't on AiMS, or your own leadership. Your conversations are private to you unless you invite someone in.
+A thinking partner for whatever you're working through: a decision, a conversation to prepare for, someone who isn't on AiMS, or your own leadership. Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. You can invite someone in.
 
 ## What you can do here
 
@@ -79,7 +79,7 @@ Panel conversations are listed here with your others.
 
 ## Common questions
 
-**Who can see my conversations?** Only you, unless you share one. Admins, your manager and AiMS Guides can't see them.
+**Who can see my conversations?** Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. If you share one, the people you share it with can see it too. Admins, your manager and AiMS Guides can't see them.
 
 **Where do I see what Aimee remembers?** In the Memory card on your profile page. You can correct or delete any of it.
 

@@ -3,6 +3,12 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { agentTitlesById } from "@/lib/practices/resolve";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import {
+  companiesWithEnoughPeople,
+  examplesAllowed,
+  scopeCompanyView,
+  type CompanyViewRefusal,
+} from "./insights-privacy";
 
 // Cross-company coaching-insights layer. Feeds the "Coaching
 // insights" card at the bottom of /admin/dashboard.
@@ -67,7 +73,10 @@ export type CoachingInsightsAdoption = {
   medianThreadLength: number;
   pastThreeExchanges: { count: number; pct: number };
   topAgents: AgentAdoptionRow[];
+  // Empty on a company view: no finer than a month (insights-privacy.ts).
   daily: DailyPoint[];
+  // Why a company view was not shown (insights-privacy.ts).
+  refused: CompanyViewRefusal;
 };
 
 export type CompanyOption = {
@@ -106,8 +115,24 @@ export function everythingInsightsFilters(): CoachingInsightsFilters {
 // rows (handled by the companies_hide_deleted policy at the DB
 // layer — the admin client bypasses RLS so we filter here too as
 // belt-and-braces).
-export async function listCoachingInsightsCompanies(): Promise<CompanyOption[]> {
+//
+// Only companies with enough people in the window to be shown on their
+// own (insights-privacy.ts, limit 1). The service checks again for
+// whatever window and selection the card later asks for.
+export async function listCoachingInsightsCompanies(
+  filters: CoachingInsightsFilters
+): Promise<CompanyOption[]> {
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const { startTs, endTs } = windowBounds(filters);
+  const { data: inWindow } = await admin
+    .from("coaching_conversations")
+    .select("company_id, created_by")
+    .eq("is_preview", false)
+    .gte("created_at", startTs)
+    .lt("created_at", endTs);
+  const eligible = companiesWithEnoughPeople(
+    (inWindow ?? []) as Array<{ company_id: string; created_by: string }>
+  );
   const { data } = await admin
     .from("companies")
     .select("id, name")
@@ -118,7 +143,51 @@ export async function listCoachingInsightsCompanies(): Promise<CompanyOption[]> 
     // reads exactly as it did before anybody dragged anything.
     .order("sort_order", { ascending: true, nullsFirst: false })
     .order("name", { ascending: true });
-  return ((data ?? []) as CompanyOption[]);
+  return ((data ?? []) as CompanyOption[]).filter((c) => eligible.has(c.id));
+}
+
+function windowBounds(filters: CoachingInsightsFilters): { startTs: string; endTs: string; days: number } {
+  // endIso is an inclusive day; the upper bound is the start of the
+  // next one, so a filter ending "2026-08-31" catches that whole day.
+  const startTs = `${filters.startIso}T00:00:00.000Z`;
+  const endExclusive = new Date(`${filters.endIso}T00:00:00.000Z`);
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+  const days = Math.max(
+    1,
+    Math.round((endExclusive.getTime() - Date.parse(startTs)) / (24 * 60 * 60 * 1000))
+  );
+  return { startTs, endTs: endExclusive.toISOString(), days };
+}
+
+// The companies a card query may cover: every live company for "All
+// companies", or the selection, held to the limits in
+// insights-privacy.ts. Soft-deleted companies never count.
+async function scopeForView(
+  admin: Awaited<ReturnType<typeof createSupabaseAdminClient>>,
+  filters: CoachingInsightsFilters,
+  startTs: string,
+  endTs: string,
+  days: number
+): Promise<{ scopedCompanyIds: string[]; refused: CompanyViewRefusal }> {
+  const { data: live } = await admin.from("companies").select("id").is("deleted_at", null);
+  const every = ((live ?? []) as Array<{ id: string }>).map((c) => c.id);
+  if (filters.companyIds.length === 0) return { scopedCompanyIds: every, refused: null };
+  const selected = filters.companyIds.filter((id) => every.includes(id));
+  // A selection of companies that are all gone is not "All companies".
+  if (selected.length === 0) return { scopedCompanyIds: [], refused: "people" };
+  const { data: inWindow } = await admin
+    .from("coaching_conversations")
+    .select("company_id, created_by")
+    .eq("is_preview", false)
+    .gte("created_at", startTs)
+    .lt("created_at", endTs)
+    .in("company_id", selected);
+  const view = scopeCompanyView(
+    selected,
+    days,
+    companiesWithEnoughPeople((inWindow ?? []) as Array<{ company_id: string; created_by: string }>)
+  );
+  return { scopedCompanyIds: view.companyIds, refused: view.refused };
 }
 
 // Main read for the card. Every query below uses the same
@@ -130,33 +199,14 @@ export async function getCoachingInsightsAdoption(
   const agentTitles = await agentTitlesById();
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
-  // Convert endIso (inclusive day) to an exclusive upper bound
-  // at start-of-next-day so a filter ending "2026-08-31" catches
-  // rows created that day right up to 23:59:59.999.
-  const startTs = `${filters.startIso}T00:00:00.000Z`;
-  const endExclusive = new Date(`${filters.endIso}T00:00:00.000Z`);
-  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-  const endTs = endExclusive.toISOString();
-  const days = Math.max(
-    1,
-    Math.round(
-      (endExclusive.getTime() - Date.parse(startTs)) / (24 * 60 * 60 * 1000)
-    )
-  );
-
-  // Resolve the company set. Empty selection = every active
-  // tenant; used for both the "in-scope" denominator and the
-  // convo filter below.
-  const { data: allCompanies } = await admin
-    .from("companies")
-    .select("id")
-    .is("deleted_at", null);
-  const everyCompanyId = ((allCompanies ?? []) as Array<{ id: string }>).map(
-    (c) => c.id
-  );
-  const scopedCompanyIds =
-    filters.companyIds.length > 0 ? filters.companyIds : everyCompanyId;
+  const { startTs, endTs, days } = windowBounds(filters);
+  // Empty selection = every live company; a selection is held to the
+  // limits in insights-privacy.ts.
+  const { scopedCompanyIds, refused } = await scopeForView(admin, filters, startTs, endTs, days);
   const companiesInScope = scopedCompanyIds.length;
+  // A company view is never broken down by day.
+  const companyView = filters.companyIds.length > 0;
+  if (refused) return emptyAdoption(filters, days, 0, refused);
 
   // Convos in the window, scoped to the filter. Always constrain
   // to scopedCompanyIds so soft-deleted tenants can't leak into
@@ -181,25 +231,7 @@ export async function getCoachingInsightsAdoption(
     created_at: string;
   }>);
 
-  if (convos.length === 0) {
-    return {
-      window: { startIso: filters.startIso, endIso: filters.endIso, days },
-      companiesInScope,
-      companiesActive: 0,
-      conversations: {
-        total: 0,
-        withUserTurn: 0,
-        withAgent: 0,
-        plainAimee: 0,
-      },
-      uniqueUsers: 0,
-      averageThreadLength: 0,
-      medianThreadLength: 0,
-      pastThreeExchanges: { count: 0, pct: 0 },
-      topAgents: [],
-      daily: buildDailySeries(filters.startIso, filters.endIso, new Map()),
-    };
-  }
+  if (convos.length === 0) return emptyAdoption(filters, days, companiesInScope, null);
 
   const convoIds = convos.map((c) => c.id);
 
@@ -338,7 +370,30 @@ export async function getCoachingInsightsAdoption(
           : 0,
     },
     topAgents,
-    daily: buildDailySeries(filters.startIso, filters.endIso, dailyBuckets),
+    daily: companyView ? [] : buildDailySeries(filters.startIso, filters.endIso, dailyBuckets),
+    refused: null,
+  };
+}
+
+function emptyAdoption(
+  filters: CoachingInsightsFilters,
+  days: number,
+  companiesInScope: number,
+  refused: CompanyViewRefusal
+): CoachingInsightsAdoption {
+  return {
+    window: { startIso: filters.startIso, endIso: filters.endIso, days },
+    companiesInScope,
+    companiesActive: 0,
+    conversations: { total: 0, withUserTurn: 0, withAgent: 0, plainAimee: 0 },
+    uniqueUsers: 0,
+    averageThreadLength: 0,
+    medianThreadLength: 0,
+    pastThreeExchanges: { count: 0, pct: 0 },
+    topAgents: [],
+    daily:
+      filters.companyIds.length > 0 ? [] : buildDailySeries(filters.startIso, filters.endIso, new Map()),
+    refused,
   };
 }
 
@@ -429,10 +484,14 @@ export type CoachingInsightsSynthesis = {
   // The UI shows this so a sysadmin knows how caught-up the
   // nightly job is.
   lastAnalyzedAt: string | null;
+  // Why a company view was not shown (insights-privacy.ts).
+  refused: CompanyViewRefusal;
 };
 
-type AnalysisRow = {
+export type AnalysisRow = {
   conversation_id: string;
+  // Who started the conversation: counted, never shown.
+  created_by: string;
   company_id: string;
   practice_id: string | null;
   summary: string;
@@ -452,16 +511,7 @@ export async function getCoachingInsightsSynthesis(
   filters: CoachingInsightsFilters
 ): Promise<CoachingInsightsSynthesis> {
   const agentTitles = await agentTitlesById();
-  const startTs = `${filters.startIso}T00:00:00.000Z`;
-  const endExclusive = new Date(`${filters.endIso}T00:00:00.000Z`);
-  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-  const endTs = endExclusive.toISOString();
-  const days = Math.max(
-    1,
-    Math.round(
-      (endExclusive.getTime() - Date.parse(startTs)) / (24 * 60 * 60 * 1000)
-    )
-  );
+  const { startTs, endTs, days } = windowBounds(filters);
 
   // Everything below is best-effort: if the analyses table isn't
   // there yet (migration not applied), if the schema drifted, or
@@ -477,21 +527,15 @@ export async function getCoachingInsightsSynthesis(
     // ids first, then hydrating analyses. Constrain to live
     // companies (or the explicit filter subset) so orphan chats
     // on soft-deleted tenants stay out of the synthesis.
-    const { data: liveCompanies } = await admin
-      .from("companies")
-      .select("id")
-      .is("deleted_at", null);
-    const everyCompanyId = ((liveCompanies ?? []) as Array<{ id: string }>).map(
-      (c) => c.id
-    );
-    const scopedCompanyIds =
-      filters.companyIds.length > 0 ? filters.companyIds : everyCompanyId;
+    const { scopedCompanyIds, refused } = await scopeForView(admin, filters, startTs, endTs, days);
+    if (refused) return emptySynthesis(filters, days, refused);
     if (scopedCompanyIds.length === 0) {
       return emptySynthesis(filters, days);
     }
+    // Who started each, for the example limit (insights-privacy.ts).
     const convoQuery = admin
       .from("coaching_conversations")
-      .select("id")
+      .select("id, created_by")
       // Previews excluded: an admin rehearsing a draft in the Agent
       // Hub is not usage. See migration 0229.
       .eq("is_preview", false)
@@ -503,9 +547,10 @@ export async function getCoachingInsightsSynthesis(
       console.error("getCoachingInsightsSynthesis: convo query failed", convosErr);
       return emptySynthesis(filters, days);
     }
-    const convoIds = ((convosData ?? []) as Array<{ id: string }>).map(
-      (c) => c.id
+    const startedBy = new Map(
+      ((convosData ?? []) as Array<{ id: string; created_by: string }>).map((c) => [c.id, c.created_by])
     );
+    const convoIds = [...startedBy.keys()];
 
     if (convoIds.length === 0) {
       return emptySynthesis(filters, days);
@@ -521,7 +566,10 @@ export async function getCoachingInsightsSynthesis(
       console.error("getCoachingInsightsSynthesis: analyses query failed", rowsErr);
       return emptySynthesis(filters, days);
     }
-    const rows = (rowsData ?? []) as AnalysisRow[];
+    const rows = ((rowsData ?? []) as Array<Omit<AnalysisRow, "created_by">>).map((r) => ({
+      ...r,
+      created_by: startedBy.get(r.conversation_id) ?? "",
+    }));
 
     if (rows.length === 0) {
       return emptySynthesis(filters, days);
@@ -534,7 +582,8 @@ export async function getCoachingInsightsSynthesis(
   }
 }
 
-function buildSynthesis(
+// Exported for its test (the example limit); pure.
+export function buildSynthesis(
   rows: AnalysisRow[],
   filters: CoachingInsightsFilters,
   days: number,
@@ -546,9 +595,21 @@ function buildSynthesis(
 ): CoachingInsightsSynthesis {
 
   // ---- Themes: normalize + bucket topics --------------------
+  // Each bucket remembers who and which companies are behind it, so a
+  // sentence is shown only from a theme wide enough to hide its author
+  // (insights-privacy.ts, limit 2). A summary emptied by the anonymous
+  // check is never an example.
+  type Behind = { people: Set<string>; companies: Set<string> };
+  const behind = (): Behind => ({ people: new Set(), companies: new Set() });
+  const note = (b: Behind, row: AnalysisRow) => {
+    b.people.add(row.created_by);
+    b.companies.add(row.company_id);
+  };
+  const shown = (b: Behind, examples: string[]) =>
+    examplesAllowed(b.people, b.companies) ? examples.filter((e) => e.trim().length > 0) : [];
   const themeBuckets = new Map<
     string,
-    { label: string; count: number; examples: string[] }
+    { label: string; count: number; examples: string[] } & Behind
   >();
   for (const row of rows) {
     const topics = (row.topics ?? []).filter(
@@ -565,9 +626,11 @@ function buildSynthesis(
         label: prettifyLabel(raw),
         count: 0,
         examples: [],
+        ...behind(),
       };
       bucket.count += 1;
-      if (bucket.examples.length < 3 && !bucket.examples.includes(row.summary)) {
+      note(bucket, row);
+      if (row.summary && bucket.examples.length < 3 && !bucket.examples.includes(row.summary)) {
         bucket.examples.push(row.summary);
       }
       themeBuckets.set(norm, bucket);
@@ -575,12 +638,13 @@ function buildSynthesis(
   }
   const themes: ThemeRow[] = Array.from(themeBuckets.values())
     .sort((a, b) => b.count - a.count)
-    .slice(0, MAX_THEMES);
+    .slice(0, MAX_THEMES)
+    .map((b) => ({ label: b.label, count: b.count, examples: shown(b, b.examples) }));
 
   // ---- Friction: only rows with level >= 1, group by signal ---
   const frictionBuckets = new Map<
     string,
-    { label: string; count: number; level: 1 | 2 | 3; examples: string[] }
+    { label: string; count: number; level: 1 | 2 | 3; examples: string[] } & Behind
   >();
   for (const row of rows) {
     if (row.friction_level < 1) continue;
@@ -593,22 +657,25 @@ function buildSynthesis(
       count: 0,
       level,
       examples: [],
+      ...behind(),
     };
     bucket.count += 1;
+    note(bucket, row);
     if (level > bucket.level) bucket.level = level;
-    if (bucket.examples.length < 3 && !bucket.examples.includes(row.summary)) {
+    if (row.summary && bucket.examples.length < 3 && !bucket.examples.includes(row.summary)) {
       bucket.examples.push(row.summary);
     }
     frictionBuckets.set(norm, bucket);
   }
   const friction: FrictionRow[] = Array.from(frictionBuckets.values())
     .sort((a, b) => b.count - a.count || b.level - a.level)
-    .slice(0, MAX_FRICTION);
+    .slice(0, MAX_FRICTION)
+    .map((b) => ({ label: b.label, count: b.count, level: b.level, examples: shown(b, b.examples) }));
 
   // ---- Opportunities: group by phrase ----------------------
   const opportunityBuckets = new Map<
     string,
-    { label: string; count: number; example: string }
+    { label: string; count: number; example: string } & Behind
   >();
   for (const row of rows) {
     const opp = row.opportunity?.trim();
@@ -618,15 +685,19 @@ function buildSynthesis(
       label: prettifyLabel(opp),
       count: 0,
       example: row.summary,
+      ...behind(),
     };
     bucket.count += 1;
+    note(bucket, row);
+    if (!bucket.example && row.summary) bucket.example = row.summary;
     opportunityBuckets.set(norm, bucket);
   }
   const opportunities: OpportunityRow[] = Array.from(
     opportunityBuckets.values()
   )
     .sort((a, b) => b.count - a.count)
-    .slice(0, MAX_OPPORTUNITIES);
+    .slice(0, MAX_OPPORTUNITIES)
+    .map((b) => ({ label: b.label, count: b.count, example: shown(b, [b.example])[0] ?? "" }));
 
   // ---- Heatmap: practice × top-N theme cross-tab ------------
   const topThemeLabels = themes.slice(0, HEATMAP_TOP_THEMES).map((t) => t.label);
@@ -695,12 +766,14 @@ function buildSynthesis(
       cells,
     },
     lastAnalyzedAt,
+    refused: null,
   };
 }
 
 function emptySynthesis(
   filters: CoachingInsightsFilters,
-  days: number
+  days: number,
+  refused: CompanyViewRefusal = null
 ): CoachingInsightsSynthesis {
   return {
     window: { startIso: filters.startIso, endIso: filters.endIso, days },
@@ -710,6 +783,7 @@ function emptySynthesis(
     opportunities: [],
     heatmap: { practices: [], themes: [], cells: [] },
     lastAnalyzedAt: null,
+    refused,
   };
 }
 

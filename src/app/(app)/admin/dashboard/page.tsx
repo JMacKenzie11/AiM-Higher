@@ -63,7 +63,7 @@ export default async function AdminDashboardPage() {
     getSignupStats(),
     getLatestThemes(),
     readAnthropicCostSummary(),
-    listCoachingInsightsCompanies(),
+    listCoachingInsightsCompanies(insightsInitialFilters),
     getCoachingInsightsAdoption(insightsInitialFilters),
     getCoachingInsightsSynthesis(insightsInitialFilters),
     listSystemAdmins(),

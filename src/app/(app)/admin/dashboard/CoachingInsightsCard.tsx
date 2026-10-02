@@ -78,8 +78,10 @@ export function CoachingInsightsCard({
         <div>
           <h2 className={styles.title}>Coaching insights</h2>
           <p className={styles.subtitle}>
-            What leaders are working through with the coach. Filter by
-            company and date range; clearing pulls back everything.
+            Anonymised summaries of what leaders are working through with
+            Aimee. A company is shown on its own only when at least five
+            people talked to Aimee there in the period, over a month or
+            more.
           </p>
         </div>
       </header>
@@ -94,6 +96,15 @@ export function CoachingInsightsCard({
       {error ? (
         <p role="alert" className={styles.errorNote}>
           {error}
+        </p>
+      ) : null}
+
+      {/* A company view the privacy limits refuse (insights-privacy.ts). */}
+      {adoption.refused || synthesis.refused ? (
+        <p role="status" className={styles.errorNote}>
+          {(adoption.refused ?? synthesis.refused) === "period"
+            ? "Choose a month or more to look at one company. Shorter periods show all companies together."
+            : "Fewer than five people talked to Aimee at these companies in this period, so they are not shown on their own. They still count in All companies."}
         </p>
       ) : null}
 

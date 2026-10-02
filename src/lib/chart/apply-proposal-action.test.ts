@@ -436,7 +436,9 @@ describe("applyChartProposalAction", () => {
     const res = await applyChartProposalAction(VALID_PROPOSAL, CONV_ID);
 
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/not yours/i);
+    // The same answer as a conversation that does not exist, even for a
+    // system admin: a conversation is its owner's to know about (0251).
+    if (!res.ok) expect(res.message).toBe("Couldn't find that conversation.");
     expect(mocks.functionsInsert).not.toHaveBeenCalled();
   });
 
