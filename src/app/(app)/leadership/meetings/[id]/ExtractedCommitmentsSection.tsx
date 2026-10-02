@@ -13,6 +13,7 @@ import uiStyles from "@/components/ui/ui.module.css";
 import styles from "./extracted.module.css";
 import { SimilarMatchBadge } from "./SimilarMatchBadge";
 import { DoneChip } from "./DoneChip";
+import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 
 // "Commitments identified" section on the meeting summary when
 // the company has automatic_commitment_tracking OFF. Each row
@@ -180,7 +181,11 @@ function ExtractedCommitmentRowItem({
   return (
     <li className={styles.row}>
       <div className={styles.rowMain}>
-        <p className={styles.rowText}>{row.commitment.description}</p>
+        <p className={styles.rowText}>
+          {row.commitment.description}
+          {/* As on the issues beside it. */}
+          {canAdd && row.commitment.needs_rewording ? <NeedsRewordingTag /> : null}
+        </p>
         <p className={styles.rowMeta}>
           {row.ownerName ?? "Unassigned"}
           {row.commitment.due_date

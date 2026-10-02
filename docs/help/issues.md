@@ -80,6 +80,8 @@ A meeting summary lists the unresolved questions the team raised under *Issues i
 - **Resolved in meeting.** It goes straight to *Resolved issues*. Use it when the team settled it in the room. The row then shows *Resolved in meeting*.
 
 Whichever you click first sticks. A *Possibly already captured* badge means something similar is already on Issues/Solutions or Commitments. Click it to see the match before you add a second one. It's only a hint, so add it anyway if it's different.
+
+An issue tagged *Needs rewording* mentions something personal about someone, and AiMS couldn't reword it for you. Add it as usual; it keeps the tag here until you edit the title so it says only what needs solving.
 :::
 
 ## Common questions

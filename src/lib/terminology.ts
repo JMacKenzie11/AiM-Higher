@@ -21,7 +21,8 @@ export type TermKey =
   | "priority"
   | "strategicFocusArea"
   | "clarity"
-  | "outcome";
+  | "outcome"
+  | "needsRewording";
 
 export type Term = {
   label: string;
@@ -68,6 +69,11 @@ export const TERMS: Record<TermKey, Term> = {
     label: "Critical Success Factor",
     definition:
       "A result your function must deliver to be successful, tracked with its own target and value. Most functions have two or three. Sometimes shortened to CSF.",
+  },
+  needsRewording: {
+    label: "Needs rewording",
+    definition:
+      "This mentions something personal about someone. Edit it to say only what is to be done, and the tag goes.",
   },
 };
 

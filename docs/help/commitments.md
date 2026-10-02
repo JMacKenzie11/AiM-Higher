@@ -41,6 +41,10 @@ Everything a team member can do with their own commitments, for anyone's:
 Read every commitment and filter the list. Changes are made by the company's own people.
 :::
 
+## Needs rewording
+
+A commitment from a meeting sometimes mentions something personal about someone, like why they were away. AiMS rewords those for you. When it can't, the commitment keeps its words and shows *Needs rewording* to its owner and to admins. Edit the text so it says only what is to be done, and the tag goes.
+
 ## Repeating commitments
 
 Tick **Ongoing (weekly)** when you add a commitment and it comes back every week. Closing it out records that week and moves the date on seven days. Each week counts on its own toward follow-through. To stop it repeating, click the *Ongoing (weekly)* tag on the commitment.

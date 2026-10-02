@@ -25,6 +25,7 @@ import { OwnerPicker } from "./OwnerPicker";
 import { ClarityChip, clarityState } from "./ClarityStrip";
 import { ClarityDrawer } from "./ClarityDrawer";
 import styles from "./commitments.module.css";
+import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 
 // A single commitment row.
 //
@@ -521,6 +522,8 @@ export function CommitmentRow({
             ) : (
               commitment.description
             )}
+            {/* For whoever can reword it (0250). */}
+            {commitment.needs_rewording && canEditDescription ? <NeedsRewordingTag /> : null}
             {companyLabel ? (
               <span
                 className={styles.fromMeetingChip}
