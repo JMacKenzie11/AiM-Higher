@@ -2794,6 +2794,12 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
 //   3. an assigned portfolio admin   must be refused
 // Red against 0240 alone (claim 3 on aimee_panel_events), green with
 // --pending 0244.
+//
+// 0254 adds the agent (practice_id) and the first reply as its own
+// surface, with no access change: the third row is the same three
+// inserts in that shape. Red against 0253 (the column and the surface
+// are refused, so the member's insert lands 0), green with --pending
+// 0254.
 async function aimeeCountsGuidesOnly(
   run: Runner,
   ids: Identities,
@@ -2823,7 +2829,7 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
   const claims = (sub: string) =>
     `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
 
-  const tables: Array<{ table: string; row: (who: string) => string }> = [
+  const tables: Array<{ table: string; label?: string; row: (who: string) => string }> = [
     {
       table: "aimee_panel_events",
       row: (who) => `insert into public.aimee_panel_events (company_id, profile_id, kind)
@@ -2833,6 +2839,12 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
       table: "voice_rule_breaks",
       row: (who) => `insert into public.voice_rule_breaks (company_id, profile_id, surface, origin, rules)
                        values ('${CO}', '${who}', 'conversation', 'panel', array['the room']);`,
+    },
+    {
+      table: "voice_rule_breaks",
+      label: "voice_rule_breaks, a first reply by agent (0254)",
+      row: (who) => `insert into public.voice_rule_breaks (company_id, profile_id, surface, practice_id, rules)
+                       values ('${CO}', '${who}', 'first_reply', 'role-description', array['a choice question']);`,
     },
   ];
 
@@ -2859,12 +2871,12 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
   const lines: string[] = [];
   let ok = true;
   let tested = 0;
-  for (const { table, row } of tables) {
+  for (const { table, label = table, row } of tables) {
     const [present] = await run<{ ok: boolean }>(
       ["begin;", pending, `select to_regclass('public.${table}') is not null as ok;`, "rollback;"].join("\n")
     );
     if (!present?.ok) {
-      lines.push(`${table}: not on this schema`);
+      lines.push(`${label}: not on this schema`);
       continue;
     }
     tested += 1;
@@ -2873,7 +2885,7 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
     const pa = await lands(table, row(PA), PA);
     const good = guide === 1 && member === 1 && pa === 0;
     ok = ok && good;
-    lines.push(`${table}: assigned guide ${guide} (want 1), member ${member} (want 1), assigned portfolio admin ${pa} (want 0)`);
+    lines.push(`${label}: assigned guide ${guide} (want 1), member ${member} (want 1), assigned portfolio admin ${pa} (want 0)`);
   }
 
   return {

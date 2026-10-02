@@ -16,12 +16,15 @@
 //   to page      clicks on "Continue on the Aimee page", a link the
 //                panel offered until 2026-10-01 (#377); 0 since
 //
-// A second table, voice rules (0244): replies SHOWN with a banned
-// phrase still in them, per week. Checked turns (a debrief reply, a
-// generated opener) are sent back once and counted when the shown one
-// still breaks a rule; ordinary replies, page and panel, are never
-// retried and counted whenever one does. Against every Aimee reply
-// that week, and the rules most often broken. Rule names only.
+// A second table, voice rules (0244, 0254): replies SHOWN with a voice
+// rule still broken (src/lib/aimee/voice-check.ts), per week. Held-back
+// turns (a debrief reply, a generated opener, the first plain reply)
+// are sent back once and counted when the shown one still breaks a
+// rule; ordinary replies, page and panel, are never retried and counted
+// whenever one does. Against every Aimee reply that week, the rules
+// most often broken, and each rule's share of each agent's replies:
+// that share is what decides whether a rule is sent back next. Rule
+// names only.
 //
 // ---- THE NUMBERS TO WATCH ---------------------------------------
 //
@@ -53,8 +56,11 @@ export type PanelConversation = { id: string; company_id: string; created_at: st
 export type PanelMessage = { conversation_id: string; created_at: string };
 
 export type RuleBreak = {
-  surface: "debrief_reply" | "opener" | "conversation";
+  surface: "debrief_reply" | "opener" | "first_reply" | "conversation";
   origin: "page" | "panel" | null;
+  // The agent (0254); null, or missing on rows from before it, for plain
+  // Aimee.
+  practice_id?: string | null;
   rules: string[];
   created_at: string;
 };
@@ -62,6 +68,7 @@ export type RuleBreak = {
 export type RuleWeek = {
   week: string;
   replies: number;
+  first: number;
   debrief: number;
   opener: number;
   page: number;
@@ -73,7 +80,7 @@ export function ruleWeeks(breaks: readonly RuleBreak[], repliesByWeek: ReadonlyM
   const week = (w: string) => {
     let r = weeks.get(w);
     if (!r) {
-      r = { week: w, replies: repliesByWeek.get(w) ?? 0, debrief: 0, opener: 0, page: 0, panel: 0 };
+      r = { week: w, replies: repliesByWeek.get(w) ?? 0, first: 0, debrief: 0, opener: 0, page: 0, panel: 0 };
       weeks.set(w, r);
     }
     return r;
@@ -81,7 +88,8 @@ export function ruleWeeks(breaks: readonly RuleBreak[], repliesByWeek: ReadonlyM
   for (const w of repliesByWeek.keys()) week(w);
   for (const b of breaks) {
     const r = week(weekOf(b.created_at));
-    if (b.surface === "debrief_reply") r.debrief += 1;
+    if (b.surface === "first_reply") r.first += 1;
+    else if (b.surface === "debrief_reply") r.debrief += 1;
     else if (b.surface === "opener") r.opener += 1;
     else if (b.origin === "panel") r.panel += 1;
     else r.page += 1;
@@ -96,10 +104,11 @@ export function topRules(breaks: readonly RuleBreak[], n = 5): Array<[string, nu
 }
 
 export function ruleLines(weeks: readonly RuleWeek[], breaks: readonly RuleBreak[]): string[] {
-  const lines = ["", "  Voice rules still broken when shown (0244)"];
+  const lines = ["", "  Voice rules still broken when shown (0244, 0254)"];
   if (weeks.length === 0) return [...lines, "  No Aimee replies in this window on this instance."];
   const cols: Array<[string, keyof RuleWeek, number]> = [
     ["replies", "replies", 9],
+    ["first", "first", 7],
     ["debrief", "debrief", 9],
     ["opener", "opener", 8],
     ["page", "page", 6],
@@ -109,6 +118,37 @@ export function ruleLines(weeks: readonly RuleWeek[], breaks: readonly RuleBreak
   for (const r of weeks) lines.push(`  ${r.week.padEnd(12)}${cols.map(([, k, w]) => String(r[k]).padStart(w)).join("")}`);
   const top = topRules(breaks);
   lines.push(top.length > 0 ? `  Most often: ${top.map(([rule, k]) => `${rule} (${k})`).join(", ")}` : "  None broken.");
+  return lines;
+}
+
+export const PLAIN_AIMEE = "plain Aimee";
+
+export function agentOf(b: Pick<RuleBreak, "practice_id">): string {
+  return b.practice_id ?? PLAIN_AIMEE;
+}
+
+// Each agent's most broken rules, as a share of that agent's replies in
+// the window: a rule right for a coaching reply can be wrong for an
+// agent's workflow step ("Does this look right, or would you like any
+// changes?"), so the two are never one figure.
+export function agentLines(
+  breaks: readonly RuleBreak[],
+  repliesByAgent: ReadonlyMap<string, number>,
+  n = 5
+): string[] {
+  if (breaks.length === 0) return [];
+  const byAgent = new Map<string, RuleBreak[]>();
+  for (const b of breaks) byAgent.set(agentOf(b), [...(byAgent.get(agentOf(b)) ?? []), b]);
+  const lines = ["  By agent, as a share of its replies:"];
+  for (const [agent, list] of [...byAgent].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))) {
+    const replies = repliesByAgent.get(agent) ?? 0;
+    const share = (k: number) => (replies > 0 ? `${Math.round((100 * k) / replies)}%` : `${k}`);
+    lines.push(
+      `    ${agent} (${replies} replies): ${topRules(list, n)
+        .map(([rule, k]) => `${rule} ${share(k)}`)
+        .join(", ")}`
+    );
+  }
   return lines;
 }
 
@@ -237,7 +277,7 @@ async function main() {
 
       const { data: breaks, error: breakError } = await admin
         .from("voice_rule_breaks")
-        .select("surface, origin, rules, created_at")
+        .select("surface, origin, practice_id, rules, created_at")
         .gte("created_at", since);
       // Loud, like the panel table: 0244 not applied on this instance.
       if (breakError) throw new Error(breakError.message);
@@ -255,9 +295,25 @@ async function main() {
         if (error) throw new Error(error.message);
         if ((count ?? 0) > 0) repliesByWeek.set(weekOf(start.toISOString()), count ?? 0);
       }
+      // Every Aimee reply in the window per agent, counted, never read.
+      const repliesByAgent = new Map<string, number>();
+      for (const agent of new Set(((breaks ?? []) as RuleBreak[]).map(agentOf))) {
+        const q = admin
+          .from("coaching_messages")
+          .select("id, coaching_conversations!inner(practice_id)", { count: "exact", head: true })
+          .eq("role", "assistant")
+          .gte("created_at", since);
+        const { count, error } =
+          agent === PLAIN_AIMEE
+            ? await q.is("coaching_conversations.practice_id", null)
+            : await q.eq("coaching_conversations.practice_id", agent);
+        if (error) throw new Error(error.message);
+        repliesByAgent.set(agent, count ?? 0);
+      }
       return [
         ...reportLines(rows, names),
         ...ruleLines(ruleWeeks((breaks ?? []) as RuleBreak[], repliesByWeek), (breaks ?? []) as RuleBreak[]),
+        ...agentLines((breaks ?? []) as RuleBreak[], repliesByAgent),
       ];
     },
     line: (lines) => `\n${lines.join("\n")}`,

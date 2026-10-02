@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reportLines, ruleLines, ruleWeeks, topRules, weekOf, weeklyRows, type RuleBreak } from "./aimee-uptake";
+import { agentLines, reportLines, ruleLines, ruleWeeks, topRules, weekOf, weeklyRows, type RuleBreak } from "./aimee-uptake";
 
 describe("aimee:uptake", () => {
   it("puts a timestamp in the week starting that Monday", () => {
@@ -43,21 +43,31 @@ describe("voice rules still broken when shown", () => {
     { surface: "debrief_reply", origin: null, rules: ["the room", "invented quote"], created_at: "2026-09-29T10:00:00Z" },
     { surface: "conversation", origin: "panel", rules: ["the room"], created_at: "2026-09-30T10:00:00Z" },
     { surface: "conversation", origin: "page", rules: ["X instead of Y"], created_at: "2026-09-22T10:00:00Z" },
+    { surface: "first_reply", origin: null, practice_id: "role-description", rules: ["a choice question"], created_at: "2026-09-30T11:00:00Z" },
   ];
   const replies = new Map([["2026-09-28", 40], ["2026-09-21", 12]]);
 
   it("counts each surface per week against every reply that week", () => {
     expect(ruleWeeks(breaks, replies)).toEqual([
-      { week: "2026-09-28", replies: 40, debrief: 1, opener: 0, page: 0, panel: 1 },
-      { week: "2026-09-21", replies: 12, debrief: 0, opener: 0, page: 1, panel: 0 },
+      { week: "2026-09-28", replies: 40, first: 1, debrief: 1, opener: 0, page: 0, panel: 1 },
+      { week: "2026-09-21", replies: 12, first: 0, debrief: 0, opener: 0, page: 1, panel: 0 },
     ]);
   });
 
   it("names the rules most often broken", () => {
-    expect(topRules(breaks)).toEqual([["the room", 2], ["invented quote", 1], ["X instead of Y", 1]]);
+    expect(topRules(breaks)).toEqual([["the room", 2], ["a choice question", 1], ["invented quote", 1], ["X instead of Y", 1]]);
     expect(ruleLines(ruleWeeks(breaks, replies), breaks).at(-1)).toBe(
-      "  Most often: the room (2), invented quote (1), X instead of Y (1)"
+      "  Most often: the room (2), a choice question (1), invented quote (1), X instead of Y (1)"
     );
+  });
+
+  it("gives each agent's rules as a share of that agent's replies, plain Aimee apart", () => {
+    expect(agentLines(breaks, new Map([["plain Aimee", 50], ["role-description", 4]]))).toEqual([
+      "  By agent, as a share of its replies:",
+      "    plain Aimee (50 replies): the room 4%, invented quote 2%, X instead of Y 2%",
+      "    role-description (4 replies): a choice question 25%",
+    ]);
+    expect(agentLines([], new Map())).toEqual([]);
   });
 
   it("says so when nothing was broken", () => {

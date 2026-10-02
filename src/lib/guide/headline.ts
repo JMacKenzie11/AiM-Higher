@@ -4,12 +4,11 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { VOICE_CORE } from "@/lib/voice/core";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { findBannedPhrases, describeHits } from "@/lib/voice/banned";
-import { findUnsupportedQuotes } from "@/lib/voice/quotes";
 import { personalDetailMatcher, PERSONAL_DETAIL_RULE, type PersonalDetailMatcher } from "@/lib/voice/personal-detail";
 import { attendeesFromSummary } from "@/lib/transcripts/attendees";
 import { callSettings } from "@/lib/transcripts/model";
 import { loadCoachingPrinciples } from "@/lib/coach/principles";
-import { checkDebriefReply, describeReplyFaults } from "./reply-checks";
+import { checkVoice, SENT_BACK } from "@/lib/aimee/voice-check";
 import { meetingDayLabel } from "./meeting-label";
 
 // THE CARD IS THE PRODUCT.
@@ -196,11 +195,10 @@ export function checkCard(
   if (o.length < 20) opener.push("the opener is missing");
   const quotes = o.match(/["“][^"”]+["”]/g) ?? [];
   if (quotes.length !== 1) opener.push(`the opener has ${quotes.length} quotes, not one`);
-  // Aimee's own words against the reply rules; a quote is somebody
-  // else's, and is checked against the transcript instead.
-  const ownWords = checkDebriefReply(withoutQuotes(o), "");
-  const invented = transcript ? findUnsupportedQuotes(o, transcript) : [];
-  const described = describeReplyFaults({ ...ownWords, invented });
+  // The rules a debrief reply is held to (aimee/voice-check.ts): Aimee's
+  // own words against the voice rules, and a quote, which is somebody
+  // else's, against the transcript.
+  const { describe: described } = checkVoice(o, SENT_BACK["debrief reply"], { transcript });
   if (described) opener.push(`the opener: ${described}`);
   if (SPEAKER_LABEL.test(o)) opener.push("the opener uses a speaker label");
   if (YOU_FOR_OTHERS.test(o)) opener.push(`the opener says "${o.match(YOU_FOR_OTHERS)![0]}" about people who may not be the reader`);
