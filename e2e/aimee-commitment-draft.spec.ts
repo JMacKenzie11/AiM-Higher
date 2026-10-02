@@ -18,7 +18,13 @@ async function sendIn(page: Page, text: string) {
   const before = await bubbles.count();
   const composer = page.getByPlaceholder("Ask Aimee…");
   await composer.fill(text);
-  await composer.press("Enter");
+  // Sent means the box cleared. After the second reply the conversation
+  // is named and the page refreshes, and an Enter pressed in that
+  // moment is lost with the text still in the box (first dev run).
+  await expect(async () => {
+    if ((await composer.inputValue()) === text) await composer.press("Enter");
+    await expect(composer).toHaveValue("", { timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
   await expect(bubbles).toHaveCount(before + 2, { timeout: 180_000 });
   await expect(composer).toBeEnabled({ timeout: 180_000 });
 }
