@@ -761,6 +761,18 @@ not miss a week. Benson's Sheets measures are **snapshots**: a snapshot
 reads the sheet as it stands, so a missed Saturday cannot be backfilled
 later. Hence the timing and the checks.
 
+**The management token is the master key.** The Supabase Management
+API returns any project's Vault root key to whoever holds the account's
+management token, and `SUPABASE_MANAGEMENT_TOKEN` in `.env.provisioning`
+is such a token. Whoever has it can decrypt every connection secret on
+every instance: production, PromiseOne and the dev clone. **If this
+machine is ever lost or compromised, revoke that token first**, in the
+Supabase dashboard under Account → Access Tokens, before anything else.
+Then issue a new one, and treat every vault secret as exposed: ask each
+connected company to replace its key, and reconnect Google. The token
+never goes into a file in the repo, a command's arguments or its output
+(failure mode E3).
+
 **When.** Monday to Wednesday, never Friday or Saturday. That leaves
 days of ordinary transcript ingests on the new path before the Saturday
 14:00 UTC Sheets pull, and time to go back if they fail.
