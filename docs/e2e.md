@@ -46,6 +46,22 @@ same project as production, the control plane or
 than trusting the delete. `npm run scrub:dev -- --dry-run` prints what
 it would remove, by provider, never the tokens themselves.
 
+**Since 0257 the secrets are in Supabase Vault too, and the clone can
+decrypt them.** The refresh copies the Vault key along with the data:
+on 2026-10-02 dev's key was production's. So the scrub also removes
+every connection secret, and then compares dev's Vault key with
+production's by fingerprint (never the keys). While they match it
+fails, and says so. Run it once more with `--rotate-key` to give dev a
+fresh key of its own. That is safe only because the secrets are already
+gone, and it is the only thing that flag does. It needs
+`SUPABASE_MANAGEMENT_TOKEN` and `PROD_SUPABASE_URL` from
+`.env.provisioning`.
+
+```bash
+npm run scrub:dev                    # credentials and vault secrets out
+npm run scrub:dev -- --rotate-key    # dev's own Vault key, after a refresh
+```
+
 Transcript sources are left alone: they carry folder ids, not secrets,
 and a source with no credential simply fails to ingest, which is
 correct on dev.
@@ -315,9 +331,9 @@ without having run, which is why the skip names what is missing.
 
 The setup is a genuine obstacle and worth stating plainly: **the dev
 clone has no Google credentials by design.** `npm run scrub:dev`
-deletes every `oauth_credentials` row after a refresh and that is not
-optional, because a clone of production carries live client refresh
-tokens. So a person has to connect a Google account to the fixture
+deletes every `oauth_credentials` row and every connection secret in
+the vault after a refresh, and that is not optional, because a clone of
+production carries live client refresh tokens. So a person has to connect a Google account to the fixture
 company on purpose before this spec can run, and that connection dies
 at the next refresh.
 

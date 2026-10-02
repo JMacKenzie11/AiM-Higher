@@ -74,3 +74,31 @@ describe("refusalReason", () => {
     ).toBeNull();
   });
 });
+
+// The Vault key check (0257): dev must not hold production's key, and
+// the script never handles the keys themselves, only fingerprints.
+import { fingerprint, keyVerdict, newRootKey, parseArgs } from "./scrub-dev-secrets.ts";
+
+describe("the Vault key check", () => {
+  it("calls a matching key production's, and a different one dev's own", () => {
+    expect(keyVerdict(fingerprint("a"), fingerprint("a"))).toBe("production's key");
+    expect(keyVerdict(fingerprint("a"), fingerprint("b"))).toBe("own key");
+  });
+
+  it("says unknown rather than guessing when a key could not be read", () => {
+    expect(keyVerdict(null, fingerprint("a"))).toBe("unknown");
+    expect(keyVerdict(fingerprint("a"), null)).toBe("unknown");
+  });
+
+  it("makes a fresh 64-character hex key each time", () => {
+    const a = newRootKey();
+    expect(a).toMatch(/^[0-9a-f]{64}$/);
+    expect(newRootKey()).not.toBe(a);
+  });
+
+  it("will not rotate on a dry run, and names an unknown argument", () => {
+    expect(parseArgs(["--dry-run", "--rotate-key"])).toHaveProperty("error");
+    expect(parseArgs(["--force"])).toEqual({ error: "Unknown argument --force. Options: --dry-run, --rotate-key." });
+    expect(parseArgs(["--", "--rotate-key"])).toEqual({ dryRun: false, rotateKey: true });
+  });
+});

@@ -13,7 +13,7 @@ import { APP_URL } from "@/lib/supabase/env";
 // Handles Google's redirect back after user consents. Verifies the
 // state cookie, extracts the target company id (embedded in state
 // by /api/oauth/google/start), exchanges the code for tokens,
-// persists the refresh token in oauth_credentials against that
+// persists the refresh token in the vault (0257) against that
 // company, and sends the operator back to the company page with a
 // success or error flash query param.
 
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const destination = `${APP_URL()}/admin/companies/${companyId}`;
 
   try {
-    const email = await exchangeCodeAndPersist(code, companyId);
+    const email = await exchangeCodeAndPersist(code, companyId, session.profile.id);
     return NextResponse.redirect(
       `${destination}?oauth_connected=${encodeURIComponent(email)}`
     );

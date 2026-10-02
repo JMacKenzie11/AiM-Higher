@@ -11013,6 +11013,127 @@ values ('${fresh}', '${ids.member}', 'assistant', 'an opener from the old agent'
   ];
 }
 
+// ---- Connections and their secrets in the vault (0257) -----------
+//
+// A company's connection secrets live in Supabase Vault and are reached
+// only through the connection_* functions. Claims, each against one
+// case, all as the caller:
+//
+//   granted   the company's company admin saves a key for it, and reads
+//             the connection row (not the secret) back
+//   granted   an assigned guide saves one for their company
+//   withheld  a member of the company saves one
+//   withheld  the company admin saves one for another company
+//   withheld  a member reads the company's connection rows
+//   withheld  a signed-in caller reads a secret through connection_secret,
+//             or reads vault.decrypted_secrets, or inserts a row directly
+//   removed   the company admin removes it, and the vault no longer holds it
+//   moved     every Google token in oauth_credentials is in the vault, the
+//             refresh token compared inside the database (never printed)
+//
+// Red before 0257: the functions do not exist, so the granted save errors.
+async function connectionVaultProbes(
+  run: Runner,
+  ids: Identities,
+  pending: string
+): Promise<GrantProbe[]> {
+  const put = (company: string) =>
+    `select public.connection_put('${company}', 'hubspot', 'harness-key-0257', '0257', 'harness portal', array['crm.objects.deals.read']) is not null as ok;`;
+  const ask = async (sub: string, stmt: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>(asCaller(sub, pending, stmt));
+      return JSON.stringify(rows[0] ?? {});
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/only a company's admins/i.test(msg)) return "refused: not an admin of that company";
+      if (/permission denied/i.test(msg)) return "refused by privilege";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+  const visible = (company: string) =>
+    `select count(*)::int as n from public.connections where company_id = '${company}' and connector = 'hubspot';`;
+
+  const adminSaves = await ask(ids.companyAdmin, `${put(ids.companyAdminCompany)}\n${visible(ids.companyAdminCompany)}`);
+  const guideSaves = await ask(ids.guide, `${put(ids.guideCompany)}\n${visible(ids.guideCompany)}`);
+  const memberSaves = await ask(ids.member, put(ids.memberCompany));
+  const adminElsewhere = await ask(ids.companyAdmin, put(ids.otherCompany === ids.companyAdminCompany ? ids.memberCompany : ids.otherCompany));
+  const memberReads = await ask(
+    ids.member,
+    `reset role; select public._connection_put('${ids.memberCompany}', 'hubspot', 'harness-key-0257', '0257', null, '{}', null);
+     set local role authenticated; ${visible(ids.memberCompany)}`
+  );
+  const readsSecret = await ask(ids.companyAdmin, `${put(ids.companyAdminCompany)}\nselect public.connection_secret('${ids.companyAdminCompany}', 'hubspot') is not null as got;`);
+  const readsVault = await ask(ids.companyAdmin, `select count(*)::int as n from vault.decrypted_secrets;`);
+  const insertsRow = await ask(
+    ids.companyAdmin,
+    `insert into public.connections (company_id, connector) values ('${ids.companyAdminCompany}', 'hubspot'); select 1 as n;`
+  );
+  const removed = await ask(
+    ids.companyAdmin,
+    `${put(ids.companyAdminCompany)}
+     create temp table if not exists harness_0257 as select secret_id from public.connections where company_id = '${ids.companyAdminCompany}' and connector = 'hubspot';
+     select public.connection_remove('${ids.companyAdminCompany}', 'hubspot');
+     reset role;
+     select count(*)::int as left from vault.secrets where id in (select secret_id from harness_0257);`
+  );
+
+  // The move, as postgres: every Google row is in the vault with the
+  // same refresh token. Counts only.
+  let moved = "";
+  try {
+    const [r] = await run<{ rows: number; matched: number }>(
+      [
+        "begin;",
+        pending,
+        `select (select count(*)::int from public.oauth_credentials where provider = 'google_drive') as rows,
+                (select count(*)::int
+                   from public.oauth_credentials o
+                   join public.connections c on c.company_id = o.company_id and c.connector = 'google'
+                   join vault.decrypted_secrets ds on ds.id = c.secret_id
+                  where o.provider = 'google_drive'
+                    and (ds.decrypted_secret::jsonb ->> 'refresh_token') = o.refresh_token) as matched;`,
+        "rollback;",
+      ].join("\n")
+    );
+    moved = `${r?.matched ?? "?"} of ${r?.rows ?? "?"}`;
+  } catch (err) {
+    moved = `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+  }
+  const [movedOf, movedRows] = moved.split(" of ");
+
+  const ok =
+    adminSaves === '{"n":1}' &&
+    guideSaves === '{"n":1}' &&
+    memberSaves === "refused: not an admin of that company" &&
+    adminElsewhere === "refused: not an admin of that company" &&
+    memberReads === '{"n":0}' &&
+    readsSecret === "refused by privilege" &&
+    readsVault === "refused by privilege" &&
+    insertsRow === "refused by privilege" &&
+    removed === '{"left":0}' &&
+    movedRows !== undefined &&
+    movedOf === movedRows;
+
+  return [
+    {
+      name: "connections · secrets in the vault",
+      granted:
+        `company admin saves and sees the row: ${adminSaves} | assigned guide: ${guideSaves} | ` +
+        `removed, secrets left in the vault: ${removed} | Google tokens moved in, refresh token matching: ${moved}`,
+      withheld:
+        `member saves: ${memberSaves} | company admin, another company: ${adminElsewhere} | ` +
+        `member reads the rows: ${memberReads} | signed-in caller reads a secret: ${readsSecret} | ` +
+        `reads the vault: ${readsVault} | inserts a row directly: ${insertsRow}`,
+      ok,
+      detail: ok
+        ? "a company's admins save and remove its secrets through the functions; nobody signed in reads one; every Google token is in the vault"
+        : adminSaves.startsWith("ERROR") || adminSaves.startsWith("refused")
+          ? "THE GRANT DOES NOT WORK: a company admin cannot save a secret (is 0257 applied?)"
+          : "the vault is wider than intended, or the move is incomplete",
+    },
+  ];
+}
+
 // ---- A commitment saved from Aimee's draft, once (0255) ----------
 //
 // The leader saves the draft card's commitment under their own session
@@ -11850,6 +11971,7 @@ async function main(): Promise<void> {
   const portfolio = await portfolioProbes(run, ids, pendingSql);
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
   const fromAimee = await commitmentFromAimeeProbes(run, ids, pendingSql);
+  const vaultProbes = await connectionVaultProbes(run, ids, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -11859,7 +11981,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -11951,6 +12073,7 @@ async function main(): Promise<void> {
     panelEvents.some((p) => !p.ok) ||
     timeouts.some((p) => !p.ok) ||
     fromAimee.some((p) => !p.ok) ||
+    vaultProbes.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||

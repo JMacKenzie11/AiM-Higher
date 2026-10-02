@@ -828,6 +828,16 @@ Under the caller's client, RLS still filters what the action can see, so a calle
 
 ---
 
+## 10c. Connections and the vault (0257) — PHASE 1 OF EXTERNAL CONNECTIONS
+
+The foundation for connecting outside systems (Google today, HubSpot next), from `docs/plans/external-connections.md`. Nothing a user sees changes yet: the Connections page is Phase 3.
+
+- **`connections`**: one row per company per connector (`google`, `hubspot`), with status, the account it reaches, its scopes, when it was last checked and the last error. **No secret in it.** It points at a secret in **Supabase Vault** (`vault.secrets`), which is encrypted with the project's own key. That key is held by Supabase outside the database, never in our code or environment. `secret_hint` (the last four characters of a key) is all a screen will ever show.
+- **Who**: a system admin, the company's own company admin, and anyone `is_content_admin_for()` admits (an assigned guide, or a portfolio admin a system admin switched on as that company's admin). That is `can_manage_connections(company)`, the same people `isAdminForCompany` admits in the app. They can read the rows. Nobody can read a secret: signed-in roles have no privilege on the vault schema at all. Only the `connection_*` functions write. `connection_put` and `connection_remove` are for those people, and a definer function checks the caller against the company named. The `_service` variants and `connection_secret` (the decrypted secret) are for the service role only: the Google sign-in callback, every Google read, and `scrub:dev`. `connection_events` records saved, replaced, removed and moved in, never the secret.
+- **The Google tokens moved in.** Every `oauth_credentials` row became a `google` connection whose secret is the refresh token and the last access token, as JSON (`src/lib/connections/vault.ts`). `exchangeCodeAndPersist`, `googleAuthForCompany` (used by transcripts and Sheets) and `getConnectedGoogleAccount` read and write the vault. A refreshed access token is written back with `connection_refresh_secret`, and a failure there never fails an ingest. **`oauth_credentials` is left in place, unread**, so the way back is a code revert. A later migration clears its plaintext tokens after a Saturday's Sheets pulls have run from the vault on production.
+- **The dev clone can decrypt what it copies.** Dev is made with Supabase's "Restore to a new project", which copies the Vault key. On 2026-10-02 dev's key matched production's (compared by fingerprint through the Management API, never the keys). So `npm run scrub:dev` now also removes every connection secret, one connection at a time. There is deliberately no remove-all function on any instance. It also fails while dev's key is production's, and `--rotate-key` gives dev its own key once its secrets are gone. PromiseOne has its own key.
+- **Checks.** Harness probe `connections · secrets in the vault` (red without 0257). A company admin and an assigned guide save, and see the row. A member, and a company admin acting for another company, are refused. A member reads no rows. Nobody signed in reads a secret, reads the vault or inserts a row directly. A removed secret leaves nothing in the vault. Every Google token is in the vault, its refresh token compared inside the database. `npm run check:sheet-pulls -- --dev|--instance <subdomain> "<company>"` reads a company's mapped Sheets measures through its Google connection, the way the Saturday pull does, and writes nothing. On 2026-10-02 it read Benson's dev measure (82.19) before and after the move, and a scheduled pull on dev wrote the same value from the vault.
+
 ## 11. Meeting Analysis Pipeline
 
 Ingest → analyse → extract commitments → optionally review facilitation → email participants — all from meeting transcripts dropped in a Google Drive folder.
@@ -1404,7 +1414,7 @@ Things intentionally not built (yet):
 - No push notifications, Slack, or mobile push. Transactional email is limited to (a) auth invitations & password reset, and (b) the per-meeting commitment digest to participants — no daily/weekly digests, no email notifications for the in-app bell. In-app notifications DO exist (see Section 16a), but stay inside the app.
 - No mobile apps (responsive web only).
 - No CSV / Excel import (seed scripts only). No CSV / PDF export or shareable-report surfaces.
-- No external integrations beyond Google Drive (no HRIS, Notion, Salesforce, QuickBooks, HubSpot).
+- No external integrations beyond Google (Drive transcripts and Sheets measures, §10b). HubSpot is planned (`docs/plans/external-connections.md`; §10c is its foundation). No HRIS, Notion, Salesforce or QuickBooks.
 - No public / customer-facing portal.
 - No time tracking, PTO, or performance-review workflows.
 - No survey engine.
