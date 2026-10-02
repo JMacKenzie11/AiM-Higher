@@ -10453,6 +10453,112 @@ async function meetingSummaryProbes(run: Runner, ids: Identities): Promise<Grant
   }];
 }
 
+// ---- Everyone in a company reads its content (0253) ---------------
+//
+// Phase D of docs/investigations/open-data.md: inside a company,
+// everyone reads all of its data except Aimee conversations. 0253 gave
+// the company's own people the read rules on the ten tables that were
+// still narrower than that. Check 5:
+//
+//   A team member of company A reads exactly what the database holds
+//   for A on every one of the ten (counted as postgres, the control),
+//   and nothing of company B's. One row of each is seeded in both
+//   companies inside the transaction, so an empty table on the clone
+//   cannot pass for the wrong reason. A person's raw strengths answers
+//   and assessment conversation stay their own (decision 6): the same
+//   member reads 0 of a colleague's. A planted rule opening one table
+//   to everyone must turn "another company" red.
+//
+// Red before 0253: the member reads 0 of A's.
+async function companyContentProbes(run: Runner, pending: string): Promise<GrantProbe[]> {
+  const name = "company content · everyone in the company reads it";
+  const [pick] = await run<{ a: string | null; member: string | null; colleague: string | null; measure_a: string | null; b: string | null; person_b: string | null; item: string | null }>(`
+    with a as (
+      select m.company_id, min(m.id::text) as measure from public.success_measures m
+      where exists (select 1 from public.profiles p where p.company_id = m.company_id and p.role = 'team_member' and p.status = 'active')
+        and (select count(*) from public.profiles p where p.company_id = m.company_id and p.status = 'active') >= 2
+      group by m.company_id order by m.company_id limit 1
+    )
+    select
+      (select company_id::text from a) as a,
+      (select id::text from public.profiles where company_id = (select company_id from a) and role = 'team_member' and status = 'active' order by id limit 1) as member,
+      (select id::text from public.profiles where company_id = (select company_id from a) and status = 'active'
+         and id <> (select id from public.profiles where company_id = (select company_id from a) and role = 'team_member' and status = 'active' order by id limit 1)
+         order by id limit 1) as colleague,
+      (select measure from a) as measure_a,
+      (select c.id::text from public.companies c where c.id <> (select company_id from a)
+         and exists (select 1 from public.profiles p where p.company_id = c.id and p.status = 'active') order by c.id limit 1) as b,
+      (select p.id::text from public.profiles p where p.company_id = (select c.id from public.companies c where c.id <> (select company_id from a)
+         and exists (select 1 from public.profiles q where q.company_id = c.id and q.status = 'active') order by c.id limit 1) and p.status = 'active' order by p.id limit 1) as person_b,
+      (select min(id) from public.strengths_items) as item;`);
+  if (!pick?.a || !pick.member || !pick.colleague || !pick.measure_a || !pick.b || !pick.person_b || !pick.item) {
+    return [{ name, granted: "not attempted", withheld: "the clone has no company with a measure, a team member and a colleague, or no second company", ok: false, detail: "NOT PROVEN" }];
+  }
+  const seedFor = (company: string, person: string, measure: string | null, n: number) => {
+    const asm = randomUUID();
+    const team = randomUUID();
+    return `
+      insert into public.company_features (company_id, feature) values ('${company}', 'strengths') on conflict do nothing;
+      insert into public.strengths_assessments (id, user_id, company_id, version, status) values ('${asm}', '${person}', '${company}', ${90000 + n}, 'completed');
+      insert into public.strengths_results (assessment_id, profile, summary, model) values ('${asm}', '{}', 'harness probe', 'harness');
+      insert into public.strengths_responses (assessment_id, item_id, value) values ('${asm}', '${pick.item}', 3);
+      insert into public.strengths_narrative_messages (assessment_id, role, content) values ('${asm}', 'user', 'harness probe');
+      insert into public.strengths_teams (id, company_id, name, mission_type) values ('${team}', '${company}', 'harness probe', 'general');
+      insert into public.strengths_team_members (team_id, profile_id) values ('${team}', '${person}');
+      insert into public.strengths_team_evaluations (team_id, roster_hash, signals) values ('${team}', 'harness', '{}');
+      insert into public.strengths_team_insights (company_id, narrative, stats, model) values ('${company}', 'harness probe', '{}', 'harness');
+      insert into public.dashboard_ai_briefs (company_id, brief_date, content) values ('${company}', '2099-01-0${n}', 'harness probe');
+      ${measure ? `insert into public.external_pull_log (measure_id, company_id, week_ending, mapping_kind, outcome) values ('${measure}', '${company}', '2099-01-02', 'snapshot', 'skipped_exists');` : ""}
+      insert into public.company_settings_events (company_id, field) values ('${company}', 'harness probe');
+      insert into public.company_feature_events (company_id, feature, action) values ('${company}', 'harness probe', 'enabled');`;
+  };
+  const setup = (extra = "") => [pending, seedFor(pick.a!, pick.colleague!, pick.measure_a, 1), seedFor(pick.b!, pick.person_b!, null, 2), extra].join("\n");
+  const TABLES = [
+    "strengths_assessments", "strengths_results", "strengths_teams", "strengths_team_members", "strengths_team_evaluations",
+    "strengths_team_insights", "dashboard_ai_briefs", "external_pull_log", "company_settings_events", "company_feature_events",
+  ];
+  const counts = (company: string) => `select concat_ws(',',
+      (select count(*) from public.strengths_assessments where company_id = '${company}'),
+      (select count(*) from public.strengths_results r join public.strengths_assessments a on a.id = r.assessment_id where a.company_id = '${company}'),
+      (select count(*) from public.strengths_teams where company_id = '${company}'),
+      (select count(*) from public.strengths_team_members m join public.strengths_teams t on t.id = m.team_id where t.company_id = '${company}'),
+      (select count(*) from public.strengths_team_evaluations e join public.strengths_teams t on t.id = e.team_id where t.company_id = '${company}'),
+      (select count(*) from public.strengths_team_insights where company_id = '${company}'),
+      (select count(*) from public.dashboard_ai_briefs where company_id = '${company}'),
+      (select count(*) from public.external_pull_log where company_id = '${company}'),
+      (select count(*) from public.company_settings_events where company_id = '${company}'),
+      (select count(*) from public.company_feature_events where company_id = '${company}')) as n;`;
+  // A colleague's raw answers and assessment conversation, which stay theirs.
+  const privateCounts = `select concat_ws(',',
+      (select count(*) from public.strengths_responses r join public.strengths_assessments a on a.id = r.assessment_id where a.user_id = '${pick.colleague}' and a.version = 90001),
+      (select count(*) from public.strengths_narrative_messages m join public.strengths_assessments a on a.id = m.assessment_id where a.user_id = '${pick.colleague}' and a.version = 90001)) as n;`;
+  const asMember = async (sql: string, extra = ""): Promise<string> => {
+    try {
+      const [row] = await run<{ n: string }>(asCaller(pick.member!, setup(extra), sql));
+      return row?.n ?? "no row";
+    } catch (err) {
+      return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+    }
+  };
+  const [truth] = await run<{ n: string }>(["begin;", setup(), counts(pick.a), "rollback;"].join("\n"));
+  const ownCompany = await asMember(counts(pick.a));
+  const otherCompany = await asMember(counts(pick.b));
+  const colleaguePrivate = await asMember(privateCounts);
+  const planted = await asMember(counts(pick.b), "create policy zz_harness_plant on public.dashboard_ai_briefs for select to authenticated using (true);");
+  const zero = TABLES.map(() => "0").join(",");
+  const plantedCaught = planted !== zero && !planted.startsWith("ERROR");
+  const ok = truth?.n === ownCompany && !ownCompany.split(",").includes("0") && otherCompany === zero && colleaguePrivate === "0,0" && plantedCaught;
+  return [{
+    name,
+    granted: `a team member reads, per table, ${ownCompany} of their company's ${truth?.n ?? "?"} (${TABLES.join(", ")})`,
+    withheld: `another company's: ${otherCompany} (want all 0) | a colleague's raw strengths answers, assessment chat: ${colleaguePrivate} (want 0,0) | planted rule opening one table: ${plantedCaught ? "caught" : `missed (${planted})`}`,
+    ok,
+    detail: ok
+      ? "everyone in a company reads its content, nobody reads another company's, and a person's raw strengths answers stay theirs"
+      : "A TEAM MEMBER CANNOT READ THEIR COMPANY'S CONTENT, or can read another company's, or a colleague's raw answers (is 0253 applied?)",
+  }];
+}
+
 // ---- An Aimee conversation is its owner's alone (0251) -----------
 //
 // The principle (docs/investigations/open-data.md): only the person who
@@ -11583,12 +11689,13 @@ async function main(): Promise<void> {
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
+  const companyContent = await companyContentProbes(run, pendingSql);
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...timeouts, ...rewording, ...conversations, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -11681,6 +11788,7 @@ async function main(): Promise<void> {
     timeouts.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
+    companyContent.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);
