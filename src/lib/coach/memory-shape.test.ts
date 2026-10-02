@@ -367,18 +367,6 @@ describe("selectSweepCandidates", () => {
 // never-written list, which was never about who the sentence is
 // about. It is about which categories are nobody's to keep.
 describe("filterVerdict, about-mode subjects", () => {
-  it("KEEPS the leader's observations and assessments of the subject", () => {
-    for (const content of [
-      "Said Marcus keeps missing the Thursday handoff",
-      "Marcus struggles with escalations",
-      "Is weighing whether Marcus is in the right role",
-      "Doubts whether Marcus is ready for the dispatch run",
-      "Marcus missed three deadlines",
-    ]) {
-      expect(filterVerdict(content)).toEqual({ keep: true });
-    }
-  });
-
   it("still refuses health about the SUBJECT, not just the participant", () => {
     for (const content of [
       "Marcus is out for surgery",
@@ -398,6 +386,50 @@ describe("filterVerdict, about-mode subjects", () => {
     expect(filterVerdict("Planning parental leave cover for Marcus")).toEqual({
       keep: true,
     });
+  });
+});
+
+// ---- About another person: the asker's goals and plan only ------
+//
+// Jason, 2026-10-01: memory from a conversation about someone else
+// records what the person asking intends, committed to, decided and
+// keeps avoiding. Never what they, or Aimee, think of the other person.
+// This used to keep "Said Marcus keeps missing the Thursday handoff";
+// it is the record the other person never agreed to.
+describe("applyNeverWrittenFilter, about another person", () => {
+  const SUBJECT = ["Marcus Bell", "Marcus"];
+  const memory = (content: string) => ({ kind: "said" as const, content });
+
+  it("drops what the asker or Aimee thinks of the other person", () => {
+    const { kept, dropped } = applyNeverWrittenFilter(
+      [
+        "Said Marcus keeps missing the Thursday handoff",
+        "Marcus struggles with escalations",
+        "Is weighing whether Marcus is in the right role",
+        "Doubts whether Marcus Bell is ready for the dispatch run",
+        "Marcus may be avoiding ownership of the run",
+      ].map(memory),
+      SUBJECT
+    );
+    expect(kept).toEqual([]);
+    expect(dropped.map((d) => d.reason)).toEqual(["about the other person", "about the other person", "about the other person", "about the other person", "about the other person"]);
+  });
+
+  it("keeps the asker's own intentions, commitments, decisions and patterns", () => {
+    const keep = [
+      "Committed to having the feedback conversation with Marcus before Friday",
+      "Keeps softening the message when talking to Marcus",
+      "Decided to ask Marcus what would help him own the Thursday handoff",
+      "Plans to agree the handoff checklist with Marcus on Monday",
+      "Wants to stop rescuing the dispatch run",
+    ];
+    const { kept } = applyNeverWrittenFilter(keep.map(memory), SUBJECT);
+    expect(kept.map((k) => k.content)).toEqual(keep);
+  });
+
+  it("leaves a conversation that is about nobody else as it was", () => {
+    const { kept } = applyNeverWrittenFilter([memory("Says the Q4 plan is too thin")]);
+    expect(kept).toHaveLength(1);
   });
 });
 

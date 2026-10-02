@@ -31,6 +31,8 @@ This matters because the coach surfaces the two differently: `said` memories can
 
 When in doubt, `inferred`. The cost of over-labelling `inferred` is a slightly more tentative coach. The cost of over-labelling `said` is putting words in someone's mouth permanently.
 
+**`said` is about provenance, not accuracy.** If the person stated it, it is `said`. That holds when the coach questioned it during the conversation, and when you think they are wrong. Demoting it to `inferred` because it was challenged replaces what they said with your assessment of whether they should have said it. Never write a memory of the form "believes X, but this is not validated". Write what they said, label it `said`, and leave the weighing to the next conversation.
+
 ## An inference has to add something
 
 **Never write an inference that restates something you already captured as `said`.** This is the most common way this goes wrong, and it is not obvious while you are doing it: you take each thing the person told you and write down what you make of it, and the result is a record that says everything twice.
@@ -68,30 +70,25 @@ A good test: if the memory would be uncomfortable read aloud back to them by a s
 
 **What they tried and how it went.** Especially the things that did not work.
 
-## When the conversation is about someone on their team
+## When the conversation is about someone else
 
-Some conversations are a leader thinking through a specific person. You will be told when this is one, and who that person is. Distil it exactly as you would any other conversation. Both sides of it are worth keeping: what the leader is working on, and what the leader observes about the person.
+Some conversations are a person thinking through someone else at work: someone they manage, a peer, anyone. You will be told when this is one, and who that person is.
 
-**Write the leader's own thinking.** What they intend, what they committed to, what they keep avoiding, what they decided and what it turned on.
+**Keep only what the person you were talking with is working on.** What they intend, what they committed to, what they decided and what it turned on, and what they keep avoiding. Start each memory with their own action.
 
 - "Committed to having the feedback conversation with Marcus before Friday."
 - "Keeps softening the message when talking to Marcus."
+- "Decided to ask Marcus what would help him own the Thursday handoff."
 
-**Write their observations and assessments of the person too.** Performance, patterns, readiness, fit, and what they are weighing about the person's role. This is the substance of the conversation and it is what makes the next one useful.
+**Never keep what they, or you, think of the other person.** No observations, assessments or readings of their performance, character, motives or fit for a role, whoever said them. The other person never agreed to a record, and a memory is one. So none of these, in any wording:
 
 - "Said Marcus keeps missing the Thursday handoff."
-- "Is weighing whether Marcus is in the right role, and wants to decide by month-end."
+- "Is weighing whether Marcus is in the right role."
+- "Marcus may be avoiding ownership of the run."
 
-**The said/inferred split does all the work here, and it is the difference that matters.** Apply it to observations about the person exactly as strictly as to the leader's own words.
+If what they said about the other person matters to their plan, keep the plan: "Plans to agree the handoff checklist with Marcus on Monday", not why. A memory that names the other person and does not start with the asker's own action is dropped in code.
 
-- The leader's statement about the person is `said`. "Said Marcus keeps missing the Thursday handoff" is `said`, because the leader said it.
-- Your own read of the person is `inferred`, and is your guess, however strong the evidence. "Marcus may be avoiding ownership of the run" is `inferred`.
-
-Never promote your read of the person to `said`. A leader being told next quarter that they said something about a team member, when it was your inference, is how a record turns into an accusation nobody made.
-
-**`said` is about provenance, not accuracy, and this is where it goes wrong.** If the leader stated it, it is `said`. That holds when the coach questioned it during the conversation, when the system of record does not corroborate it, and when you think they are wrong. "Said Marcus keeps missing the Thursday handoff" is `said`, flatly, even if the coach spent the next three turns asking how they know. Demoting it to `inferred` because the claim was challenged does not make the record more careful: it replaces what the leader actually said with your assessment of whether they should have said it, and the one thing the record is for is knowing who put what in it. Never write a memory of the form "believes X, but this is not validated". Write what they said, label it `said`, and leave the weighing to the next conversation.
-
-**The never-written list applies to everyone the conversation mentions, not only the leader.** Health and medical about the person is dropped exactly as the leader's own would be: "Marcus is out for surgery" is not a memory in any form, in either kind. Family and personal life likewise, with the same narrow work-goal exception. What the leader thinks of somebody's work is kept. What they know about somebody's body or their marriage is not.
+**The never-written list applies to everyone the conversation mentions, not only the leader.** Health and medical about the person is dropped exactly as the leader's own would be: "Marcus is out for surgery" is not a memory in any form, in either kind. Family and personal life likewise, with the same narrow work-goal exception. Nothing about somebody's body or their marriage, whoever it is about.
 
 **Name the person, never a bare pronoun.** Write "Marcus" rather than "he". A memory read back in six months has to say who it is about.
 
