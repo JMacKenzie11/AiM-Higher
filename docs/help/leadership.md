@@ -28,7 +28,7 @@ Your company's leadership meetings, newest first. Open one to read what was disc
 
 ## Common questions
 
-**Who can see these?** Everyone at your company can read the summaries. Only admins and guides see the facilitation scores and the original transcripts.
+**Who can see these?** Everyone at your company: the summaries, the facilitation scores, and each meeting's transcript (*Read the transcript* on the meeting page).
 
 **Why is nothing showing up?** Meetings come in from the Google Drive folders connected on your company settings page. Check a folder is connected and that the recording was saved into it.
 

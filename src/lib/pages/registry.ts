@@ -71,6 +71,7 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/commitments", roles: "all", feature: "execution", link: true },
   { pattern: "/leadership", roles: "all", feature: "execution", link: true },
   { pattern: "/leadership/meetings/[id]", roles: "all", feature: "execution", link: false },
+  { pattern: "/leadership/meetings/[id]/transcript", roles: "all", feature: "execution", link: false },
 
   // ---- Resources ----------------------------------------------------
   { pattern: "/ask-aimee", roles: "all", feature: null, link: true },
@@ -90,9 +91,11 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/strengths/welcome", roles: "all", feature: "strengths", link: true, title: "My Strengths assessment" },
   { pattern: "/strengths/assessment", roles: "all", feature: "strengths", link: false },
   { pattern: "/strengths/results", roles: "all", feature: "strengths", link: false },
-  { pattern: "/strengths/teams", roles: ADMINS, feature: "strengths", link: true, title: "Strengths teams" },
+  // Everyone in the company views teams (0253); building them stays
+  // with ADMINS, which is why recommend keeps its narrower list.
+  { pattern: "/strengths/teams", roles: "all", feature: "strengths", link: true, title: "Strengths teams" },
   { pattern: "/strengths/teams/recommend", roles: ADMINS, feature: "strengths", link: false },
-  { pattern: "/strengths/teams/[id]", roles: ADMINS, feature: "strengths", link: false },
+  { pattern: "/strengths/teams/[id]", roles: "all", feature: "strengths", link: false },
 
   // ---- Oversight ------------------------------------------------------
   { pattern: "/hq", roles: ["aims_guide", "system_admin"], feature: null, link: true },
