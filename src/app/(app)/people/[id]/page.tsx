@@ -7,7 +7,6 @@ import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolution
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserStrengths } from "@/lib/strengths/user-strengths";
 import { EditUserForm } from "./edit/EditUserForm";
 import { StrengthsEditor } from "@/components/strengths/StrengthsEditor";
@@ -170,18 +169,17 @@ export default async function PersonScorecardPage({ params }: PageProps) {
           <div style={{ marginTop: "var(--space-4)", display: "flex" }}>
             {isSelf ? (
               <PrivacyNote tone="private">
-                Your follow-through numbers here are visible to system admins,
-                your company admins, and your direct manager. Admins and your
-                direct manager can each keep private coaching notes about
-                your development — every note is visible only to whoever
-                wrote it, never to you.
+                Your follow-through numbers here are visible to everyone at
+                your company. Conversations with Aimee are different: only the
+                person who started a conversation can see it, so a
+                conversation someone has about you is theirs alone, and you
+                never see it. AiMS reviews anonymised summaries of
+                conversation themes to improve Aimee.
               </PrivacyNote>
             ) : (
               <PrivacyNote tone="managerial">
-                This scorecard is visible to system admins, company admins, and{" "}
-                {data.profile.full_name.split(" ")[0]}
-                &rsquo;s direct manager. {data.profile.full_name.split(" ")[0]}{" "}
-                can see their own scorecard too.
+                This scorecard is visible to everyone at the company,{" "}
+                {data.profile.full_name.split(" ")[0]} included.
               </PrivacyNote>
             )}
           </div>
@@ -335,10 +333,11 @@ function PersonStat({
   );
 }
 
-// Loads everything the inline Details + Strengths editors need for
-// an admin viewing someone else: the auth email (admin client), the
+// Loads everything the inline Details + Strengths sections need: the
+// person's sign-in email (through profile_email, which lets the
+// company's people, its guides and system admins see it; 0253), the
 // company roster for the reports-to picker, and the person's current
-// strengths list. Returns null if the subject has no company_id.
+// strengths list.
 async function loadEditorBundle(
   subjectId: string,
   profile: { company_id: string | null }
@@ -347,11 +346,10 @@ async function loadEditorBundle(
   roster: Array<Pick<Profile, "id" | "full_name">>;
   strengths: Awaited<ReturnType<typeof getUserStrengths>>;
 } | null> {
-  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
-  const [{ data: authUser }, strengths, rosterRes] = await Promise.all([
-    admin.auth.admin.getUserById(subjectId),
+  const [{ data: email }, strengths, rosterRes] = await Promise.all([
+    supabase.rpc("profile_email", { p_profile_id: subjectId }),
     getUserStrengths(subjectId),
     profile.company_id
       ? supabase
@@ -365,7 +363,7 @@ async function loadEditorBundle(
   ]);
 
   return {
-    email: authUser?.user?.email ?? "",
+    email: typeof email === "string" ? email : "",
     roster: (rosterRes.data ?? []) as Array<Pick<Profile, "id" | "full_name">>,
     strengths,
   };

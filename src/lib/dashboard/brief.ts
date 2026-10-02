@@ -58,6 +58,23 @@ const PROMPT_HASH = crypto
 const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 400;
 
+// The most recent brief already written for the company, for someone
+// who reads it and does not generate it. Everyone in a company reads
+// the brief (0253, phase D of docs/investigations/open-data.md);
+// generating and storing it stays with the admins, so a team member's
+// visit never makes a model call or a write.
+export async function getLatestDashboardBrief(companyId: string): Promise<DashboardBrief | null> {
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data } = await supabase
+    .from("dashboard_ai_briefs")
+    .select("content, generated_at, brief_date")
+    .eq("company_id", companyId)
+    .order("brief_date", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ content: string; generated_at: string; brief_date: string }>();
+  return data ? { content: data.content, generatedAt: data.generated_at, brief_date: data.brief_date } : null;
+}
+
 export async function getOrGenerateDashboardBrief(
   companyId: string,
   currentAdminId: string

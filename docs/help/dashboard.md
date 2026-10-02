@@ -23,6 +23,8 @@ Hover or tab to a label with a dotted underline for a one-line definition.
 - **Focus Areas:** each one with its sponsor, status and progress. Click one to open it.
 - **Follow-Through Rate Trend:** the last 12 weeks.
 - **Where to lend support:** everyone, sorted by Follow-Through Rate, lowest first. Click a name to open their scorecard.
+- **Week in review:** *What's worth knowing today*, a short written summary of the week so far.
+- **Recent wins:** the last commitments closed on time this quarter, with the priority each was linked to.
 
 ::: role team_member
 ## What you can do here
@@ -38,8 +40,6 @@ Hover or tab to a label with a dotted underline for a one-line definition.
 
 Everything above, plus:
 
-- **Read the week in review.** *What's worth knowing today* sits at the top of the panels: a short written summary of the week so far.
-- **See recent wins:** the last commitments closed on time this quarter, with the priority each was linked to.
 - **Coach anyone** from the *Coach* link under *Where to lend support*.
 - **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to company settings to fix it.
 :::
@@ -82,6 +82,8 @@ Hover a square to see the count behind it. The line at the top sums it up, for e
 **Where's the setup checklist?** On **AiMS Implementation**.
 :::
 
+**The week in review says *No brief yet*.** It appears once there's enough activity this week. Your admins' dashboard writes it each day, so on a day they haven't opened it you see the last one.
+
 ::: role company_admin,system_admin
-**The week in review says *No brief yet*.** It appears once there's enough activity this week. If it stays empty, ask a system admin.
+**It stays empty for days.** Ask a system admin.
 :::

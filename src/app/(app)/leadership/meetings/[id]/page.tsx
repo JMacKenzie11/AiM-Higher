@@ -16,7 +16,6 @@ import { attendeesFromSummary } from "@/lib/transcripts/attendees";
 import { scoreForRow } from "@/lib/leadership/facilitation/score";
 import { displayScore, signalTone } from "@/components/leadership/FacilitationReview";
 import { dueLabel } from "@/lib/commitments/due-label";
-import { isAimsChampion } from "@/lib/guide/champion";
 import { AnalysisTabs } from "./AnalysisTabs";
 import tabStyles from "./analysis-tabs.module.css";
 import type {
@@ -93,24 +92,18 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       .eq("source_meeting_id", id),
   ]);
 
-  // Facilitation review only surfaces when the feature is on, the
-  // caller is one of the people it is for (below), AND the analysis
-  // row actually carries a review (older rows, or rows analyzed while
-  // the flag was off, stay null and render nothing). Other members
-  // do not see it: it grades the meeting leader.
+  // Facilitation review surfaces when the feature is on AND the
+  // analysis row actually carries a review (older rows, or rows
+  // analyzed while the flag was off, stay null and render nothing).
+  // Everyone in the company sees the full Coaching notes tab, scores
+  // included (Jason, 2026-10-01: company content is open to the
+  // company; it was admins, guides and the AiMS champion from
+  // 2026-09-25).
   const facilitationFeatureOn = await companyHasFeature(
     meeting.company_id,
     "meeting_facilitation_review"
   );
-  // Who sees the full Coaching notes tab, scores included: the
-  // company's admins, its guides and system admins (all of whom
-  // isAdminForCompany admits), and the AiMS champion, who is often a
-  // team_member and is the person the notes are for. Jason,
-  // 2026-09-25. Everyone else at the company sees Core Values.
-  const isChampion = isAdmin
-    ? false
-    : await isAimsChampion(session.profile.id, meeting.company_id);
-  const facilitationOn = facilitationFeatureOn && (isAdmin || isChampion);
+  const facilitationOn = facilitationFeatureOn;
   // isShowableReview, not just "a row is present". A review that
   // scored nothing renders as a card full of dashes while the
   // meetings list shows an empty Facilitation cell for the same
@@ -541,6 +534,10 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             {meeting.meeting_title ?? meeting.file_name}
           </h1>
           <span className={styles.rule} aria-hidden="true" />
+          {/* Everyone in the company may read it (0253, phase D). */}
+          <Link href={`/leadership/meetings/${meeting.id}/transcript`} className={styles.crumbLink}>
+            Read the transcript →
+          </Link>
           {/* The date is on the strip below; saying it here too was the
               same fact twice. With tracking off, "0 commitments created"
               is true and misleading, so it is left out. */}

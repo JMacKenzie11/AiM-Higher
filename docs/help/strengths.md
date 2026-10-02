@@ -11,6 +11,8 @@ The AiMS strengths assessment: a short set of questions that gives you a persona
 - **Take the assessment.** Start from *My Strengths assessment*. It takes about ten to twelve minutes.
 - **Read your results.** The summary explains the shape of your profile in AiMS language.
 - **Talk your results through with your coach.** The results page has *Start a conversation*, which opens a coaching conversation about your profile.
+- **See a colleague's strengths** from their scorecard on People.
+- **See your company's teams** on *Strengths teams*: who is on each one and how the team's energy lines up for its mission.
 
 ::: role company_admin,aims_guide,system_admin
 - **Build a team for a mission.** On *Strengths teams*, click *Create a team*, name it and pick a mission type. Then add people and see how the team's energy lines up for that mission. The final call is yours.
@@ -29,4 +31,4 @@ The AiMS strengths assessment: a short set of questions that gives you a persona
 
 **Can I take it again?** Once you've finished, the assessment page takes you straight to your results. If you stopped partway, it takes you back to where you left off. You can't restart it yourself. If you need a fresh start, ask AiMS.
 
-**Who sees my results?** You and your company's admins. Your coaching conversation about your results is private to you.
+**Who sees my results?** Everyone at your company. Your answers to the questions and your conversation during the assessment stay yours, and so does your coaching conversation about your results. Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee.

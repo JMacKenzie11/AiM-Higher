@@ -221,17 +221,17 @@ export default async function DashboardPage() {
           belongs on the discipline-progression page where
           first-run admins go to see how the practice is landing. */}
 
-      {/* --- Week in review (admin-only, streamed via Suspense so
-            the rest of the dashboard renders immediately while the
-            model call is in flight) --- */}
-      {isAdmin ? (
-          <Suspense fallback={<BriefLoading />}>
-            <BriefSection
-              companyId={companyId}
-              adminId={session.profile.id}
-            />
-          </Suspense>
-        ) : null}
+      {/* --- Week in review, for everyone in the company (0253):
+            an admin's visit generates today's brief, everyone else
+            reads the latest one. Streamed via Suspense so the rest of
+            the dashboard renders while the model call is in flight. --- */}
+      <Suspense fallback={<BriefLoading />}>
+        <BriefSection
+          companyId={companyId}
+          adminId={session.profile.id}
+          canGenerate={isAdmin}
+        />
+      </Suspense>
 
         {/* Directly under the brief, which is where it was asked
             for: the brief says what happened this week, and this says
@@ -242,8 +242,8 @@ export default async function DashboardPage() {
           <MeasureInsightsCards insights={measureInsights} />
         ) : null}
 
-        {/* --- Recent successes (admin-only) --- */}
-        {isAdmin && data.recentSuccesses.length > 0 ? (
+        {/* --- Recent successes, for everyone in the company (0253) --- */}
+        {data.recentSuccesses.length > 0 ? (
           <section
             className={styles.cardAccent}
             aria-labelledby="successes-card"

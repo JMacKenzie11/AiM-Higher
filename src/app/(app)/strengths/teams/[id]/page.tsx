@@ -15,11 +15,13 @@ export default async function TeamDetailPage({
   const { id } = await params;
   const session = await requireProfile();
   const me = session.profile;
-  if (
-    me.role !== "company_admin" &&
-    me.role !== "system_admin" &&
-    me.role !== "aims_guide"
-  ) {
+  // Everyone in the company views its teams (0253, phase D of
+  // docs/investigations/open-data.md); the read rules keep each person
+  // to their own company. Building and changing teams stays with the
+  // company's admins, its guides and system admins.
+  const canManage =
+    me.role === "company_admin" || me.role === "system_admin" || me.role === "aims_guide";
+  if (!canManage && !me.company_id && me.role !== "portfolio_admin") {
     redirect("/");
   }
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
@@ -155,6 +157,7 @@ export default async function TeamDetailPage({
           }))}
           eligible={eligible}
           otherActiveTeams={Object.fromEntries(otherActiveCount)}
+          readOnly={!canManage}
           initialEvaluation={
             cached
               ? {

@@ -176,9 +176,8 @@ const APP_ITEMS: readonly NavItem[] = [
         label: "Teams",
         href: "/strengths/teams",
         icon: "group",
-        // aims_guide behaves like company_admin on assigned
-        // companies — same treatment for the Teams builder.
-        roles: ADMIN_ROLES,
+        // Everyone in the company views its teams (0253); building
+        // them stays with admins and guides, on the page itself.
       },
     ],
   },

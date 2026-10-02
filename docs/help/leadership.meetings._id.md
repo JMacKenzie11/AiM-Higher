@@ -12,18 +12,20 @@ A strip at the top shows the meeting date and who attended. It stays in view on 
 
 - **Meeting Analysis** opens first: purpose, attendees, agenda, the discussion section by section, decisions and support needed.
 - **Issues and commitments**: the commitments the meeting created and the issues it raised.
-- **Coaching notes**: core values in action, plus the review of how the meeting was run for the people who can see it.
+- **Coaching notes**: core values in action, and the review of how the meeting was run.
 
 Each tab has its own link. Add `#meeting-analysis`, `#issues-and-commitments` or `#coaching-notes` to the page address to send someone straight to that tab.
 
 A commitment where nobody named a day shows **By next meeting** instead of a date.
+
+*Read the transcript*, under the meeting's name, opens everything that was said in the meeting.
 
 ::: role team_member
 ## What you can do here
 
 - **Read the meeting.** Everything on the Meeting Analysis tab is open to everyone at your company.
 - **See the commitments it created.** Each one is also on Commitments, where its owner closes it out or reschedules it.
-- **Read the full coaching notes if you're the AiMS champion.** The champion sees the whole Coaching notes tab, including the score and the review of how the meeting was run, the same as your company admins. Everyone else sees Core values in action.
+- **Read the coaching notes and the transcript.** The whole Coaching notes tab, the score included, and the transcript are open to everyone at your company.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -35,8 +37,16 @@ A commitment where nobody named a day shows **By next meeting** instead of a dat
     - *Add to open issues* puts it on the open list on Issues/Solutions, where someone can add the desired outcome, a commitment and an owner.
   Whichever you click first wins, and clicking twice won't add it twice. A tick in a circle means it was closed in the room; a plus in a circle means it went on the list.
 - **Reword anything tagged *Needs rewording*.** It mentions something personal about someone, and AiMS couldn't reword it for you. Add it as usual. The commitment or issue it becomes carries the tag until someone edits its text on Commitments or Issues/Solutions.
-- **Read how the meeting was run.** When Meeting Facilitation Review is on, the *How the meeting was run* panel on Coaching notes shows what worked, growth edges and what to try next week. The score, the *Facilitation signal*, sits on the strip at the top.
-- **Take a question into next week.** *Questions worth asking next week* offers three, each built on something that went well. *Questions that opened things up* shows who asked the questions that changed where the discussion went, and what each one opened, in plain words. In the *4Ws audit*, a step the meeting didn't reach comes with the question to ask next time.
+
+## Possible duplicates
+
+A small *Possibly already captured* badge means a commitment or issue looks a lot like one already open from the last 14 days. Click it to see the match and a link to where it lives, so you can check before adding. It's a hint: add the row anyway if the likeness is a coincidence. Items this meeting already created don't count.
+:::
+
+## The coaching notes
+
+- **How the meeting was run.** When Meeting Facilitation Review is on, the *How the meeting was run* panel on Coaching notes shows what worked, growth edges and what to try next week. The score, the *Facilitation signal*, sits on the strip at the top.
+- **A question to take into next week.** *Questions worth asking next week* offers three, each built on something that went well. *Questions that opened things up* shows who asked the questions that changed where the discussion went, and what each one opened, in plain words. In the *4Ws audit*, a step the meeting didn't reach comes with the question to ask next time.
 
 ## How the score is made
 
@@ -52,10 +62,6 @@ The score is the weighted average. It shows to one decimal in the panel and roun
 
 Meetings from before 25 September 2026 keep the score they were given at the time, with no breakdown. Now and then a meeting has coaching notes and no score, because the review left out one of the five parts. The notes are still there, and the panel says there's no score.
 
-## Possible duplicates
-
-A small *Possibly already captured* badge means a commitment or issue looks a lot like one already open from the last 14 days. Click it to see the match and a link to where it lives, so you can check before adding. It's a hint: add the row anyway if the likeness is a coincidence. Items this meeting already created don't count.
-:::
 
 ::: role system_admin
 ## Running a meeting again
@@ -68,7 +74,7 @@ While it runs, an *Analyzing this meeting* banner shows above the write-up and t
 ::: role portfolio_admin
 ## What you can do here
 
-- **Read the meeting** on the Meeting Analysis tab.
+- **Read the meeting** on the Meeting Analysis tab, the coaching notes and the transcript.
 - **See the commitments and issues** it produced on the Issues and commitments tab.
 :::
 

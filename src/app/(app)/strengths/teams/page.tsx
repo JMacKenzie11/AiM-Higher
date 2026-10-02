@@ -21,11 +21,13 @@ type TeamRow = {
 export default async function TeamsListPage() {
   const session = await requireProfile();
   const me = session.profile;
-  if (
-    me.role !== "company_admin" &&
-    me.role !== "system_admin" &&
-    me.role !== "aims_guide"
-  ) {
+  // Everyone in the company views its teams (0253, phase D of
+  // docs/investigations/open-data.md); the read rules keep each person
+  // to their own company. Building and changing teams stays with the
+  // company's admins, its guides and system admins.
+  const canManage =
+    me.role === "company_admin" || me.role === "system_admin" || me.role === "aims_guide";
+  if (!canManage && !me.company_id && me.role !== "portfolio_admin") {
     redirect("/");
   }
   // Locked company for the create form: company_admin uses their own
@@ -78,9 +80,11 @@ export default async function TeamsListPage() {
               Your teams
             </h2>
             <div className={styles.cardHeaderMeta}>
-              <Link href="/strengths/teams/recommend" className={styles.ghostButton}>
-                Recommend a team
-              </Link>
+              {canManage ? (
+                <Link href="/strengths/teams/recommend" className={styles.ghostButton}>
+                  Recommend a team
+                </Link>
+              ) : null}
               <span>
                 {teamRows.length} {teamRows.length === 1 ? "team" : "teams"}
               </span>
@@ -140,6 +144,7 @@ export default async function TeamsListPage() {
           )}
         </section>
 
+        {canManage ? (
         <section className={styles.card} aria-labelledby="create-team">
           <div className={styles.cardHeader}>
             <h2 id="create-team" className={styles.h2}>
@@ -158,6 +163,7 @@ export default async function TeamsListPage() {
             }
           />
         </section>
+        ) : null}
       </div>
     </div>
   );

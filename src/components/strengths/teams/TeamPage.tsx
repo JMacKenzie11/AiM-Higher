@@ -61,6 +61,7 @@ export default function TeamPage({
   eligible,
   otherActiveTeams,
   initialEvaluation,
+  readOnly = false,
 }: {
   teamId: string;
   name: string;
@@ -71,6 +72,10 @@ export default function TeamPage({
   eligible: EligiblePerson[];
   otherActiveTeams: Record<string, number>;
   initialEvaluation: InitialEvaluation;
+  // For people in the company who read the team and do not manage it
+  // (0253): no edits, and no evaluation generated on their visit, since
+  // generating one writes it. They see the one already stored.
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [roster, setRoster] = useState<RosterEntry[]>(initialRoster);
@@ -131,7 +136,7 @@ export default function TeamPage({
   // before firing the evaluation endpoint. Cancels on further edits.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (roster.length === 0) return;
+    if (readOnly || roster.length === 0) return;
     if (narrativeHash === currentHash) {
       setNarrativeState("idle");
       return;
@@ -271,6 +276,7 @@ export default function TeamPage({
             <select
               className="input"
               value={missionType}
+              disabled={readOnly}
               onChange={(e) => updateMission(e.target.value as MissionType)}
             >
               {MISSION_ORDER.map((m) => (
@@ -285,6 +291,7 @@ export default function TeamPage({
             <select
               className="input"
               value={status}
+              disabled={readOnly}
               onChange={(e) =>
                 updateStatus(e.target.value as "draft" | "active" | "archived")
               }
@@ -301,8 +308,9 @@ export default function TeamPage({
             className="input"
             rows={2}
             value={notes}
+            readOnly={readOnly}
             onChange={(e) => setNotes(e.target.value)}
-            onBlur={saveNotes}
+            onBlur={readOnly ? undefined : saveNotes}
             placeholder="Anything specific about what this team is for."
           />
         </label>
@@ -365,13 +373,15 @@ export default function TeamPage({
                           {others === 1 ? "team" : "teams"}
                         </span>
                       )}
-                      <button
-                        type="button"
-                        className="btn btn-ghost sm"
-                        onClick={() => removeMember(r.profile_id)}
-                      >
-                        Remove
-                      </button>
+                      {readOnly ? null : (
+                        <button
+                          type="button"
+                          className="btn btn-ghost sm"
+                          onClick={() => removeMember(r.profile_id)}
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -379,7 +389,7 @@ export default function TeamPage({
             })}
           </div>
         )}
-        {!showPicker ? (
+        {readOnly ? null : !showPicker ? (
           <div>
             <button
               type="button"
@@ -494,6 +504,7 @@ export default function TeamPage({
         narrativeError={narrativeError}
         onRegenerate={() => fetchNarrative(true)}
         currentHashMatches={narrativeHash === currentHash}
+        readOnly={readOnly}
       />
     </div>
   );
@@ -508,6 +519,7 @@ function EvaluationSection({
   narrativeError,
   onRegenerate,
   currentHashMatches,
+  readOnly,
 }: {
   missionType: MissionType;
   signals: TeamSignals | null;
@@ -517,6 +529,7 @@ function EvaluationSection({
   narrativeError: string | null;
   onRegenerate: () => void;
   currentHashMatches: boolean;
+  readOnly: boolean;
 }) {
   if (!signals) {
     return (
@@ -689,14 +702,16 @@ function EvaluationSection({
             {narrativeState === "idle" && currentHashMatches && narrative && (
               <span className="caption">Up to date</span>
             )}
-            <button
-              type="button"
-              className="btn btn-ghost sm"
-              onClick={onRegenerate}
-              disabled={narrativeState === "generating"}
-            >
-              Update now
-            </button>
+            {readOnly ? null : (
+              <button
+                type="button"
+                className="btn btn-ghost sm"
+                onClick={onRegenerate}
+                disabled={narrativeState === "generating"}
+              >
+                Update now
+              </button>
+            )}
           </div>
         </div>
         {narrativeError && <div className="field-error">{narrativeError}</div>}

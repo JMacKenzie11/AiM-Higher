@@ -1,0 +1,17 @@
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.line {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.speaker {
+  font-weight: 600;
+  color: var(--text-heading);
+}
