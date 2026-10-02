@@ -8,6 +8,7 @@ import { findUnsupportedQuotes } from "@/lib/voice/quotes";
 import { personalDetailMatcher, PERSONAL_DETAIL_RULE, type PersonalDetailMatcher } from "@/lib/voice/personal-detail";
 import { attendeesFromSummary } from "@/lib/transcripts/attendees";
 import { callSettings } from "@/lib/transcripts/model";
+import { loadCoachingPrinciples } from "@/lib/coach/principles";
 import { checkDebriefReply, describeReplyFaults } from "./reply-checks";
 import { meetingDayLabel } from "./meeting-label";
 
@@ -272,6 +273,7 @@ export async function generateInvitationCard(
     mode: "record",
     people: [...attendeesFromSummary(input.analysisMarkdown), ...(input.championName ? [input.championName] : [])],
   });
+  const principles = await loadCoachingPrinciples();
   const plain: InvitationCard = {
     headline: HEADLINE_FALLBACK(input.meetingDate),
     invitation: INVITATION_FALLBACK,
@@ -303,7 +305,9 @@ export async function generateInvitationCard(
         // (transcripts/model.ts).
         ...callSettings(input.model, "adaptive"),
         max_tokens: 8000,
-        system: [{ type: "text", text: SYSTEM }],
+        // The card's own rules, then the AiMS coaching principles, which
+        // name "the invitations Aimee writes" (lib/coach/principles.ts).
+        system: [{ type: "text", text: `${SYSTEM}\n\n${principles}` }],
         messages,
       });
       const raw = response.content

@@ -19,6 +19,18 @@ import path from "node:path";
 // output) so voice/tone edits stay a deliberate act, not a drive-
 // by.
 
+// Regenerated 2026-10-02 for the AiMS coaching principles (Jason's
+// review of 2026-09-30): how to coach now lives in
+// prompts/aims-coaching-principles.md, read into every conversation.
+// The base loses the named-person framing, the two response modes and
+// six-section diagnostic read, the spine and the problem patterns
+// (moved to the Prepare a hard conversation agent as design
+// questions), "the AiMS lens" and "your commitment" (moved to the
+// principles), and the em dashes and either/or examples; the voice
+// prompt loses "Challenge with warmth" and its "one question per turn"
+// rule, which said an either/or question was fine. Every kept block was
+// checked against the old file before the new one was assembled.
+//
 // Regenerated 2026-09-25, saying it out loud: one word. The memory
 // rule said "do not quietly stop mentioning it", and "quietly" is on
 // the banned list the coach's own output is checked against; it now
@@ -55,7 +67,7 @@ import path from "node:path";
 // ask a question without a hypothesis alongside it" made the shortest
 // legal turn a hypothesis and a question. The seven steps are untouched.
 const LEADERSHIP_COACH_BASE_SHA =
-  "bd9c247bd3f405819b0772a322fad302cecff405fe2c4093968532e89441983b";
+  "dc1cc87f906fe974d2757fc9734d5c400881dc11915a6d8bd88def87cdc6e3dc";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {

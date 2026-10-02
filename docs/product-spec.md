@@ -1179,6 +1179,17 @@ Aimee's first proactive behaviour. The **AiMS champion** is the person leading a
 
 ---
 
+### 14i. The AiMS coaching principles (2026-10-02)
+
+**One file says how Aimee coaches, everywhere:** `prompts/aims-coaching-principles.md`, Jason's text word for word (reviewed 2026-09-30), fourteen principles from "Coach from the AiMS beliefs" to "Name a serious risk plainly". It is read into every Aimee conversation (the Aimee page, the panel, every agent, about mode) by `loadSystemPrompt` in `src/app/api/coach/route.ts`, after the agent's own prompt and before the voice rules and the panel block, and into the invitations Aimee writes (`lib/guide/headline.ts`). Its first paragraph makes it win where an agent's instructions pull another way. Loaded by `lib/coach/principles.ts`; pinned by fingerprint in `principles.test.ts`, which also checks both places include it.
+
+**What moved with it** (each change checked block by block against the old files before the new ones were assembled):
+- `prompts/leadership-coach.md`: no named person to imitate; about and self mode point to "Challenge with care"; the two response modes and the six-section diagnostic read are gone, their length rules kept as "How long a turn runs"; the coaching spine and the thirteen problem patterns move to the Prepare a hard conversation agent; "The AiMS lens" and "Your commitment" become principles; the turn ends without a question once the leader has a next step and has said yes or no to drafting it as a commitment; em dashes, contrasts and either/or examples rewritten.
+- `prompts/aims-voice.md`: "Challenge with warmth" (a standing instruction to name avoidance and surface controlling behaviour) and its "one question per turn" rule, which allowed an either/or question, are replaced by the principles; em dashes and contrasts rewritten; the banned lists unchanged.
+- `prompts/practices/prepare-a-hard-conversation.md`: gains the coaching spine and the problem patterns as "Design questions to explore", one at a time and never a diagnosis; its close offers to draft a commitment. **Production's Agent Hub is unchanged:** production runs its own published version of this agent, and Jason publishes the new prompt there himself after testing on dev.
+
+Still to come in the same project: the shared voice check, the commitment offer card the principles describe ("They see the draft and confirm it before anything is saved"), and the Agent Hub's publish warning.
+
 ## 15. Classroom (Shared Training Library)
 
 Feature-gated (`classroom`). Content is authored centrally by system admins and shared across every enabled company — one library, many audiences.
