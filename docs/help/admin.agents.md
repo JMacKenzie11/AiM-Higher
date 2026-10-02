@@ -28,7 +28,8 @@ An agent starts out on its built-in version. **Edit in Hub** copies that into a 
 - **Save** keeps working on the draft. Every save becomes a new version number.
 - **Preview this draft** opens a real conversation running the draft. Only you can see it, and it's left out of every usage report. Save and Preview both save what's on screen first, so they always use what you're looking at.
 - **Review and publish** shows what changed against the live version (or against the built-in one if nothing has been published). Publish notes are required: they're the record of why every company's agent changed.
-- **History** lists every version with its notes and who published it. *Make live* puts an older one back and asks for its own note.
+- **Checked against the AiMS coaching principles.** Review and publish also checks the prompt against the coaching principles and lists any instruction that pulls against one, quoting the prompt and saying how. It takes a few seconds. It never stops you publishing: when it finds something, or can't run, tell it why you're publishing anyway, and the reason is kept with the version. Some agents work with problems on purpose, and that is a fine reason. *Make live* from History checks the older version the same way.
+- **History** lists every version with its notes, who published it, and any principles warnings with the reason given. *Make live* puts an older one back and asks for its own note.
 - **Revert to code default** goes back to the built-in version.
 
 A conversation keeps the version it started with for its whole life. If you publish while someone is mid-chat, they finish on what they started with, and their next conversation picks up the new one.

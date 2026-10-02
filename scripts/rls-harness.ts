@@ -780,6 +780,75 @@ do $$ begin
   update public.instance_settings set is_primary = true;
 exception when undefined_table then null; end $$;`;
 
+// The principles check kept with a published agent (0256).
+//
+// agent_principles_checks records what a system admin was shown before
+// publishing. The same wall as agent_versions (0228): system admins
+// read and insert, on the authoring instance, as themselves; nobody
+// rewrites a check. Five claims, each against one case:
+//   1. a system admin, authoring, as themselves      inserts (want 1)
+//   2. the same, recording somebody else as checker  refused (want 0)
+//   3. a system admin on a non-authoring instance    refused (want 0)
+//   4. a company admin                               inserts nothing, reads nothing
+//   5. a system admin rewriting a check              refused (want 0)
+// Red before 0256: the table does not exist, so claim 1 is 0.
+async function agentPrinciplesChecks(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "agent-principles-checks";
+  const hazard = "A principles check is written by someone other than a system admin, or rewritten after publishing";
+  const NOT_AUTHORING = `
+do $$ begin
+  update public.instance_settings set is_primary = false;
+exception when undefined_table then null; end $$;`;
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const insert = (checker: string) => `insert into public.agent_principles_checks
+      (agent_id, prompt_sha, principles_sha, status, conflicts, checked_by)
+    select id, 'harness', 'harness', 'checked', '[]'::jsonb, '${checker}' from public.agents limit 1;`;
+  const count = `select count(*)::int as n from public.agent_principles_checks where prompt_sha = 'harness';`;
+  const n = async (parts: string[]): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(["begin;", pending, ...parts, "rollback;"].join("\n"));
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+  const as = (sub: string) => ["set local role authenticated;", claims(sub)];
+  const admin = await n([AUTHORING, ...as(ids.systemAdmin), insert(ids.systemAdmin), count]);
+  const asOther = await n([AUTHORING, ...as(ids.systemAdmin), insert(ids.companyAdmin), count]);
+  const notAuthoring = await n([NOT_AUTHORING, ...as(ids.systemAdmin), insert(ids.systemAdmin), count]);
+  const companyAdminWrites = await n([AUTHORING, ...as(ids.companyAdmin), insert(ids.companyAdmin), count]);
+  const companyAdminReads = await n([
+    AUTHORING, ...as(ids.systemAdmin), insert(ids.systemAdmin), "reset role;", ...as(ids.companyAdmin), count,
+  ]);
+  const rewrite = await n([
+    AUTHORING, ...as(ids.systemAdmin), insert(ids.systemAdmin),
+    `with u as (update public.agent_principles_checks set conflicts = '[{"x":1}]'::jsonb where prompt_sha = 'harness' returning id)
+     select count(*)::int as n from u;`,
+  ]);
+  const ok = admin === 1 && asOther === 0 && notAuthoring === 0 && companyAdminWrites === 0 && companyAdminReads === 0 && rewrite === 0;
+  const right =
+    `system admin, authoring, as themselves: ${admin} (want 1) | as somebody else: ${asOther} (want 0) | ` +
+    `on a non-authoring instance: ${notAuthoring} (want 0) | company admin inserts: ${companyAdminWrites} (want 0), ` +
+    `reads: ${companyAdminReads} (want 0) | system admin rewrites a check: ${rewrite} (want 0)`;
+  return {
+    name,
+    hazard,
+    wrong: "a check written or rewritten outside a system admin's own insert",
+    right,
+    ok,
+    detail: ok
+      ? "Only a system admin records a principles check, as themselves, where agents are authored; nobody rewrites one."
+      : admin !== 1
+        ? `THE GRANT DOES NOT WORK: a system admin cannot record a check (is 0256 applied?). ${right}`
+        : right,
+  };
+}
+
 async function agentHubWrites(
   run: Runner,
   ids: Identities,
@@ -11651,6 +11720,10 @@ async function main(): Promise<void> {
     [
       "agent-hub-writes",
       (r: Runner, i: Identities) => agentHubWrites(r, i, pendingSql),
+    ],
+    [
+      "agent-principles-checks",
+      (r: Runner, i: Identities) => agentPrinciplesChecks(r, i, pendingSql),
     ],
     [
       "agent-versions-wall",
