@@ -12,7 +12,11 @@ import { loadCoachingPrinciples } from "./principles";
 // 2026-10-02 (Jason approved, from the principles comparison): grading
 // covers plans and questions too, a list of options counts as more than
 // one question, and a serious risk is named in one or two sentences.
-const PRINCIPLES_SHA = "3d4051f84c1996ff00908003ac651825c8dcccdc003ec480a5bfd7f41761888d";
+//
+// 2026-10-02, later: "Reflect without grading" gains one example, saying
+// the chosen step back. The wording above alone left "Good move" in 6 of
+// 6 next-step replies; with the example, none in 8.
+const PRINCIPLES_SHA = "7e9f6ba068f50491b00da6dd4d1e04ba6f3d4d3ba6a8a092a749db605a341c13";
 
 describe("the AiMS coaching principles", () => {
   it("are Jason's text, unchanged", () => {
