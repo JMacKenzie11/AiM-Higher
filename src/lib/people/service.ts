@@ -223,7 +223,11 @@ export async function getPersonScorecard(
     missedCount
   );
 
-  // 12-week trend for this person.
+  // 12-week trend for this person. Deleted and parked commitments stay
+  // out of this read and the two below, as they do on every other page:
+  // without it, Casey's page (production, 2026-10-02) listed five
+  // deleted commitments as open, three marked "Past due", that the
+  // Commitments page did not show.
   const trendWeeks: string[] = [];
   for (let i = 11; i >= 0; i -= 1) {
     trendWeeks.push(addDays(thisFri, -7 * i));
@@ -233,6 +237,8 @@ export async function getPersonScorecard(
     .from("commitments")
     .select("week_ending, status")
     .eq("owner_id", personId)
+    .is("deleted_at", null)
+    .is("parked_at", null)
     .gte("week_ending", oldestWeek)
     .lte("week_ending", thisFri);
   const trendByWeek = bucketKeepRates(
@@ -251,6 +257,8 @@ export async function getPersonScorecard(
     .select("*")
     .eq("owner_id", personId)
     .eq("status", "open")
+    .is("deleted_at", null)
+    .is("parked_at", null)
     .order("due_date", { ascending: true });
   const openCommitments = (openRows ?? []) as Commitment[];
 
@@ -263,6 +271,8 @@ export async function getPersonScorecard(
     .select("*")
     .eq("owner_id", personId)
     .neq("status", "open")
+    .is("deleted_at", null)
+    .is("parked_at", null)
     .order("week_ending", { ascending: false })
     .order("created_at", { ascending: true });
   const historyCommitments = (historyRows ?? []) as Commitment[];
