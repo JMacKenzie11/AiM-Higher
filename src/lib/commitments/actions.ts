@@ -8,8 +8,12 @@ import {
   isAdminForCompany,
   type SessionProfileLike,
 } from "@/lib/auth/permissions";
-import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createCommitment,
+  revalidateCommitmentSurfaces,
+  type CommitmentResult,
+} from "./create";
 import { scoreCommitmentClarity } from "./clarity";
 import type {
   Commitment,
@@ -42,9 +46,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // 'guide') so downstream can distinguish "no reason from owner" from
 // "resolved by admin in the meeting."
 
-export type CommitmentResult =
-  | { ok: true; commitment: Commitment }
-  | { ok: false; message: string };
+export type { CommitmentResult };
 
 async function loadCommitment(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -56,35 +58,6 @@ async function loadCommitment(
     .eq("id", id)
     .maybeSingle<Commitment>();
   return data ?? null;
-}
-
-// Every surface a commitment mutation can change.
-//
-// `issueId` is the second argument and it was missing entirely.
-// Create, relink and delete each revalidated /issues by hand; the
-// other TEN mutations did not — mark kept, unmark kept, mark missed,
-// unmark missed, reschedule, park, unpark, reassign, clarity and
-// description. Every one of them changes something the issue card
-// renders, so resolving an issue-linked commitment left the Issues
-// page showing it as still open until something else happened to
-// invalidate the route.
-//
-// That mattered little when the card showed one commitment and no
-// history. It matters now: completing the last open commitment is
-// what raises the "did this solve it?" prompt, and a stale page is a
-// prompt that never appears.
-//
-// Taking the id here rather than revalidating /issues unconditionally
-// keeps the cost on the rows that have an issue. Most commitments do
-// not.
-function revalidateCommitmentSurfaces(
-  priorityId: string | null,
-  issueId?: string | null
-): void {
-  revalidatePath("/commitments");
-  revalidatePath("/dashboard");
-  if (priorityId) revalidatePath(`/plan/priority/${priorityId}`);
-  if (issueId) revalidatePath("/issues");
 }
 
 async function getCompanyTimezone(
@@ -139,163 +112,32 @@ function addDaysIso(iso: string, days: number): string {
 }
 
 // ---- Create ---------------------------------------------------
+// The Commitments page's form. The rules are createCommitment's
+// (create.ts), shared with Aimee's draft card; this reads the form and
+// keeps the page's own requirement that a due date is picked.
 export async function createCommitmentAction(
   _prev: CommitmentResult | undefined,
   formData: FormData
 ): Promise<CommitmentResult> {
   const session = await requireProfile();
-
-  // Link taxonomy (per migration 0143): a commitment may carry AT
-  // MOST ONE of priority_id / issue_id / functional_area_id. The
-  // composer picks one; the DB check constraint is the final gate.
-  const priorityIdRaw = String(formData.get("priority_id") ?? "").trim();
-  const priorityId = priorityIdRaw === "" ? null : priorityIdRaw;
-  const issueIdRaw = String(formData.get("issue_id") ?? "").trim();
-  const issueId = issueIdRaw === "" ? null : issueIdRaw;
-  const functionalAreaIdRaw = String(
-    formData.get("functional_area_id") ?? ""
-  ).trim();
-  const functionalAreaId =
-    functionalAreaIdRaw === "" ? null : functionalAreaIdRaw;
-  const linkCount =
-    (priorityId ? 1 : 0) + (issueId ? 1 : 0) + (functionalAreaId ? 1 : 0);
-  if (linkCount > 1) {
-    return {
-      ok: false,
-      message: "Pick just one link (priority, issue, or functional area).",
-    };
-  }
-  const description = String(formData.get("description") ?? "").trim();
-  const weekEndingRaw = String(formData.get("week_ending") ?? "").trim();
-  const dueDateRaw = String(formData.get("due_date") ?? "").trim();
-  const ownerIdRaw = String(formData.get("owner_id") ?? "").trim();
-  const isOngoing = String(formData.get("is_ongoing") ?? "") === "true";
-
+  const field = (name: string) => String(formData.get(name) ?? "").trim();
+  const description = field("description");
   if (!description) {
     return { ok: false, message: "Say what the commitment is." };
   }
-  const dueDate = dueDateRaw || weekEndingRaw;
+  const dueDate = field("due_date") || field("week_ending");
   if (!dueDate) {
     return { ok: false, message: "Pick a due date." };
   }
-  const weekEnding = fridayOf(dueDate);
-
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-
-  let companyId: string | null;
-  if (priorityId) {
-    const { data: priority } = await supabase
-      .from("priorities")
-      .select("id, company_id")
-      .eq("id", priorityId)
-      .maybeSingle<Pick<Priority, "id" | "company_id">>();
-    if (!priority) {
-      return { ok: false, message: "That action isn't accessible." };
-    }
-    companyId = priority.company_id;
-  } else if (issueId) {
-    // The issue-scoped inline add row on /issues writes here. Derive
-    // company from the issue and check that the caller can edit the
-    // issue itself (creator OR admin OR guide) — the constraint is
-    // that "issue commitments are born in context," so issue edit
-    // rights gate the create.
-    const { data: issue } = await supabase
-      .from("issues")
-      .select("id, company_id, created_by")
-      .eq("id", issueId)
-      .maybeSingle<{
-        id: string;
-        company_id: string;
-        created_by: string | null;
-      }>();
-    if (!issue) {
-      return { ok: false, message: "That issue isn't accessible." };
-    }
-    const canEditIssue =
-      isAdminForCompany(session.profile, issue.company_id) ||
-      issue.created_by === session.profile.id;
-    if (!canEditIssue) {
-      return {
-        ok: false,
-        message: "Only the issue's creator or an admin can add commitments to it.",
-      };
-    }
-    companyId = issue.company_id;
-  } else if (functionalAreaId) {
-    const { data: fn } = await supabase
-      .from("functions")
-      .select("id, company_id")
-      .eq("id", functionalAreaId)
-      .maybeSingle<{ id: string; company_id: string }>();
-    if (!fn) {
-      return { ok: false, message: "That functional area isn't accessible." };
-    }
-    companyId = fn.company_id;
-  } else {
-    companyId = await getEffectiveCompanyId(session);
-    if (!companyId) {
-      return { ok: false, message: "Pick a company scope first." };
-    }
-  }
-
-  const isAdmin = isAdminForCompany(session.profile, companyId);
-  const ownerId = isAdmin && ownerIdRaw ? ownerIdRaw : session.profile.id;
-
-  const { data, error } = await supabase
-    .from("commitments")
-    .insert({
-      company_id: companyId,
-      priority_id: priorityId,
-      issue_id: issueId,
-      functional_area_id: functionalAreaId,
-      owner_id: ownerId,
-      description,
-      week_ending: weekEnding,
-      due_date: dueDate,
-      status: "open",
-      is_ongoing: isOngoing,
-    })
-    .select("*")
-    .single<Commitment>();
-  if (error || !data) {
-    return { ok: false, message: "Couldn't save that commitment." };
-  }
-
-  let finalRow: Commitment = data;
-  try {
-    const score = await scoreCommitmentClarity(description, dueDate);
-    if (score) {
-      const { data: updated } = await supabase
-        .from("commitments")
-        .update({
-          clarity_timeline: score.timeline,
-          clarity_success: score.success,
-          clarity_note: score.note,
-        })
-        .eq("id", data.id)
-        .select("*")
-        .single<Commitment>();
-      if (updated) finalRow = updated;
-    }
-  } catch (err) {
-    console.warn("Clarity autoscore failed for commitment", data.id, err);
-  }
-
-  revalidateCommitmentSurfaces(priorityId);
-  if (issueId) revalidatePath("/issues");
-  trackAfter(
-    session.profile.id,
-    "commitment.created",
-    {
-      has_priority: Boolean(finalRow.priority_id),
-      has_issue: Boolean(finalRow.issue_id),
-      has_functional_area: Boolean(finalRow.functional_area_id),
-      is_ongoing: finalRow.is_ongoing,
-      for_self: finalRow.owner_id === session.profile.id,
-    },
-    { company: finalRow.company_id }
-    );
-  return { ok: true, commitment: finalRow };
+  return createCommitment(session, {
+    description,
+    dueDate,
+    priorityId: field("priority_id") || null,
+    issueId: field("issue_id") || null,
+    functionalAreaId: field("functional_area_id") || null,
+    ownerId: field("owner_id") || null,
+    isOngoing: field("is_ongoing") === "true",
+  });
 }
 
 // ---- Mark kept (on time OR late) ------------------------------

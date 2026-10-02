@@ -29,10 +29,15 @@
 export type OutputCardName =
   | "ScriptCard"
   | "ChartProposalCard"
-  | "RoleDescriptionCard";
+  | "RoleDescriptionCard"
+  | "CommitmentDraftCard";
 
 export const OUTPUT_CARD_BY_TAG: Readonly<Record<string, OutputCardName>> = {
   script: "ScriptCard",
   chart_proposal: "ChartProposalCard",
   role_description: "RoleDescriptionCard",
+  // Aimee's draft of the leader's next step (coach/commitment-draft.ts),
+  // in every conversation: the principles end every coaching loop with
+  // the offer.
+  commitment: "CommitmentDraftCard",
 };

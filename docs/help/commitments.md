@@ -55,7 +55,7 @@ Tick **Ongoing (weekly)** when you add a commitment and it comes back every week
 
 **What's the coloured dot next to the circle?** It shows whether the commitment is clear: a due date someone agreed to, and a clear finish line. Green means both, red means at least one is missing, and hollow means it hasn't been checked yet. Click it to see why and to suggest clearer wording.
 
-**What does *By next meeting* mean?** Nobody named a date in the meeting it came from. Reschedule it to set a real one.
+**What does *By next meeting* mean?** Nobody named a date: in the meeting it came from, or when you saved it from Aimee's draft. It's due a week from then. Reschedule it to set a real one.
 
 **What's *From meeting*?** The commitment came from a meeting summary. If nobody said a date, it's due a week after the meeting.
 

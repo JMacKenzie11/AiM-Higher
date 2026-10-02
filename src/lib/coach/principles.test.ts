@@ -30,7 +30,7 @@ describe("the AiMS coaching principles", () => {
   // route builds every conversation's system prompt, the card has its own.
   it("reach every conversation and every invitation", () => {
     const route = readFileSync("src/app/api/coach/route.ts", "utf8");
-    expect(route).toMatch(/\$\{composed\}\\n\\n\$\{await loadCoachingPrinciples\(\)\}\\n\\n\$\{VOICE_RULES_COACH\}/);
+    expect(route).toMatch(/\$\{composed\}\\n\\n\$\{await loadCoachingPrinciples\(\)\}\\n\\n\$\{COMMITMENT_DRAFT_BLOCK\}\\n\\n\$\{VOICE_RULES_COACH\}/);
     const card = readFileSync("src/lib/guide/headline.ts", "utf8");
     expect(card).toMatch(/text: `\$\{SYSTEM\}\\n\\n\$\{principles\}`/);
   });

@@ -652,3 +652,22 @@ function byOwnerThenDue(a: CommitmentWithMeta, b: CommitmentWithMeta): number {
   if (nameCmp !== 0) return nameCmp;
   return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0;
 }
+
+// What a new commitment can be linked to, for a composer outside the
+// Commitments page (Aimee's draft card): the same two groups as the
+// page's link picker, open-quarter priorities and the chart's
+// functions. Read under the caller's own session.
+export async function getCommitmentLinkOptions(companyId: string): Promise<{
+  priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
+}> {
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const [openQuarter, { data: fnRows }] = await Promise.all([
+    getCurrentQuarter(companyId),
+    supabase.from("functions").select("id, title").eq("company_id", companyId).eq("archived", false).order("title"),
+  ]);
+  return {
+    priorityOptions: openQuarter ? await loadOpenPriorityOptions(supabase, companyId, openQuarter.id) : [],
+    functionalAreaOptions: (fnRows ?? []) as Array<{ id: string; title: string }>,
+  };
+}

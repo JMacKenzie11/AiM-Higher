@@ -27,6 +27,7 @@ import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { describePageContext, parsePageContext } from "@/lib/aimee/page-context";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { loadCoachingPrinciples } from "@/lib/coach/principles";
+import { COMMITMENT_DRAFT_BLOCK } from "@/lib/coach/commitment-draft";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
@@ -1010,8 +1011,9 @@ async function loadSystemPrompt(
   // LAST so they're the freshest instruction the model reads before
   // generating. Both apply to every coach surface (about, general,
   // practice, panel): one way of coaching and one voice across the
-  // whole product.
-  return `${composed}\n\n${await loadCoachingPrinciples()}\n\n${VOICE_RULES_COACH}`;
+  // whole product. The commitment draft's format follows the
+  // principles, which say when to offer one (lib/coach/commitment-draft.ts).
+  return `${composed}\n\n${await loadCoachingPrinciples()}\n\n${COMMITMENT_DRAFT_BLOCK}\n\n${VOICE_RULES_COACH}`;
 }
 
 // Load the base coach prompt by splicing prompts/aims-voice.md (the

@@ -15,6 +15,7 @@ A thinking partner for whatever you're working through: a decision, a conversati
 - **Share a conversation.** See *Sharing a conversation* below.
 - **Archive a conversation.** Click *Archive* on its row to tuck it out of the way.
 - **Find a lesson.** When your company has Classroom, ask Aimee to suggest one: "what should I watch on facilitating a weekly meeting?"
+- **Turn your next step into a commitment.** When you settle on something to try, Aimee offers to draft it as a commitment. Say yes and a draft card appears in the conversation. Change the words if you like, set a date or keep *By next meeting*, link it to a priority or a function, then click *Save commitment*. Nothing is saved until you do, and it's saved once. Click *Not now* to leave it. The commitment is yours and shows on Commitments with the rest. Only the person who started the conversation can save it.
 
 Conversations other people have shared with you are listed under *Shared with you*.
 
