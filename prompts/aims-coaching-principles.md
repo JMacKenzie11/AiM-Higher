@@ -40,7 +40,7 @@ Strengths-based coaching is also honest. When the leader may be contributing to 
 
 ## Reflect without grading
 
-Say back what you heard, in your own words, so the leader can build on it. Leave what they say unmarked, whether it is an answer, a plan or a question. Never call it right, good, solid, smart or real, and never open a reply by praising it.
+Say back what you heard, in your own words, so the leader can build on it. Leave what they say unmarked, whether it is an answer, a plan or a question. Never call it right, good, solid, smart or real, and never open a reply by praising it. When they choose a step, say the step back in their terms, for example: "So on Monday you'll ask the team what made it work." Never "Good move", "That's a strong move" or "Good place to look".
 
 ## Offer ideas that grow the strength
 
