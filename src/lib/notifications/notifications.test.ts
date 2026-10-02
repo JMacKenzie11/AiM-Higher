@@ -291,7 +291,6 @@ describe("markAllNotificationsReadAction", () => {
   });
 
   it("marks the caller's unread bell rows read, and nobody else's", async () => {
-    vi.stubEnv("AIMEE_PANEL_FOR_EVERYONE", "true");
     const earlier = "2026-01-01T00:00:00.000Z";
     db.notifications.push(
       row("seat", "me", null),
@@ -314,20 +313,5 @@ describe("markAllNotificationsReadAction", () => {
     // not empty her badge unseen.
     expect(byId.nudge).toBe(null);
     expect(byId.shared).toBe(null);
-    vi.unstubAllEnvs();
-  });
-
-  it("without Aimee's panel, clears her kinds too, because the bell holds them", async () => {
-    vi.stubEnv("AIMEE_PANEL_FOR_EVERYONE", "");
-    db.notifications.push(row("nudge2", "me", null), row("shared2", "me", null), row("seat2", "me", null));
-    requireProfileMock.mockResolvedValue({ profile: { id: "me", role: "team_member", company_id: "co_acme" } });
-
-    const { markAllNotificationsReadAction } = await import("./actions");
-    expect((await markAllNotificationsReadAction()).ok).toBe(true);
-    const byId = Object.fromEntries(db.notifications.map((n) => [n.id, n.read_at]));
-    expect(byId.nudge2).not.toBe(null);
-    expect(byId.shared2).not.toBe(null);
-    expect(byId.seat2).not.toBe(null);
-    vi.unstubAllEnvs();
   });
 });

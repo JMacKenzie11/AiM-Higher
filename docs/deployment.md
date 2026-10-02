@@ -71,15 +71,9 @@ registry code may reference the app's variables, so moving the registry
 to its own project later is an environment change rather than a code
 change.
 
-`AIMEE_PANEL_FOR_EVERYONE` is not in the table because it is not set yet.
-While it is unset, only system admins see Aimee's panel; everyone else
-keeps the "?" help button and gets Aimee's invitations in the bell
-(`src/lib/aimee/panel-audience.ts`). Setting it to exactly `true` in
-Production and redeploying opens the panel to everyone. That is its own
-step, with Jason's go, once the plain-English help and the first-reply
-check are live. Removing it again and redeploying closes the panel to
-everyone but system admins, with nothing lost: panel conversations stay
-on the Aimee page.
+`AIMEE_PANEL_FOR_EVERYONE` is gone: Aimee's panel is on for everyone in
+code since 2026-10-02, and the variable does nothing. Delete it from
+any Vercel environment that still has it.
 
 `PROD_*` has a second job. The cron routes are excluded from instance
 resolution entirely, because a scheduled invocation has no visitor and

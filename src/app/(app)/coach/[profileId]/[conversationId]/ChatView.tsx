@@ -104,9 +104,7 @@ export function ChatView({
   shareHeader,
   openablePatterns,
   variant = "page",
-  onInAppLink,
   pageContext,
-  linkHref,
   panelGreeting,
   panelSuggestions = [],
   composerRef,
@@ -171,17 +169,10 @@ export function ChatView({
   // panel has its own); nothing refreshes the page underneath; and a
   // finished reply is announced once, whole, to screen readers.
   variant?: "page" | "panel";
-  // Hears a click on an in-app link in a reply, before it navigates.
-  // The panel uses it to count "Continue on the Aimee page".
-  onInAppLink?: (href: string) => void;
   // Read at send time: what the panel is open beside (the path, and a
   // record a drawer has open), as a pattern and an id only. The server
   // decides what, if anything, Aimee is told (lib/aimee/page-context.ts).
   pageContext?: () => { path: string; record: { pattern: string; id: string } | null };
-  // Rewrites an in-app link before it is drawn. The panel uses it to
-  // add its conversation to "Continue on the Aimee page", so the new
-  // conversation can open with what was said (lib/aimee/continue.ts).
-  linkHref?: (href: string) => string;
   // The panel's opening: Aimee's greeting, and questions for the page
   // this person is on (lib/aimee/suggestions.ts). Clicking one asks it.
   panelGreeting?: string;
@@ -858,8 +849,6 @@ export function ChatView({
               currentUserId={currentUserId}
               showAttribution={showAttribution}
               openablePatterns={openablePatterns}
-              onInAppLink={onInAppLink}
-              linkHref={linkHref}
             />
           ))
         )}
@@ -930,8 +919,6 @@ function MessageBubble({
   currentUserId,
   showAttribution,
   openablePatterns,
-  onInAppLink,
-  linkHref,
 }: {
   message: UiMessage;
   onRetry?: () => void;
@@ -948,8 +935,6 @@ function MessageBubble({
   currentUserId: string;
   showAttribution: boolean;
   openablePatterns?: readonly string[];
-  onInAppLink?: (href: string) => void;
-  linkHref?: (href: string) => string;
 }) {
   if (message.role === "user") {
     const author =
@@ -1042,14 +1027,7 @@ function MessageBubble({
       const decision = linkDecision(href, openablePatterns);
       if (decision === "text") return <span>{children}</span>;
       if (decision === "in-app") {
-        return (
-          <Link
-            href={linkHref ? linkHref(href as string) : (href as string)}
-            onClick={onInAppLink ? () => onInAppLink(href as string) : undefined}
-          >
-            {children}
-          </Link>
-        );
+        return <Link href={href as string}>{children}</Link>;
       }
       return <a href={href}>{children}</a>;
     },

@@ -57,19 +57,12 @@ const BASE_URL = `http://localhost:${PORT}`;
 const UNRESOLVED_PORT = 3201;
 const UNRESOLVED_BASE_URL = `http://localhost:${UNRESOLVED_PORT}`;
 
-// A third server with Aimee's panel switched off (AIMEE_PANEL_FOR_EVERYONE
-// unset), which is how production runs until Jason switches it on. The
-// main server has it on, which is what every other spec expects.
-const PANEL_OFF_PORT = 3202;
-
-const PANEL_OFF_BASE_URL = `http://localhost:${PANEL_OFF_PORT}`;
-
 // ---- WHICH SERVER THE SUITE RUNS AGAINST ----------------------
 //
 // next dev BY DEFAULT; A PRODUCTION BUILD WITH E2E_PROD=1 (2026-10-01).
 //
-// `npm run e2e:prod` builds the app once into .next-e2e and runs all
-// three servers below as `next start` on that one build, each with its
+// `npm run e2e:prod` builds the app once into .next-e2e and runs both
+// servers below as `next start` on that one build, each with its
 // own environment. That is the build users get, it needs no warm-up and
 // never meets the dev server's memory restart, and a full run takes
 // about 20 minutes instead of 70. It is not the default yet: on a local
@@ -114,18 +107,13 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: [/instance-resolution\.spec\.ts/, /aimee-panel-off\.spec\.ts/],
+      testIgnore: /instance-resolution\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], baseURL: BASE_URL },
     },
     {
       name: "unresolved-host",
       testMatch: /instance-resolution\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], baseURL: UNRESOLVED_BASE_URL },
-    },
-    {
-      name: "panel-off",
-      testMatch: /aimee-panel-off\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"], baseURL: PANEL_OFF_BASE_URL },
     },
   ],
 
@@ -138,13 +126,7 @@ export default defineConfig({
       timeout: 180_000,
       stdout: "ignore",
       stderr: "pipe",
-      // Aimee's panel on, which every chromium spec expects. A server
-      // started some other way (a script, by hand) must set this itself:
-      // reuseExistingServer does not apply it.
-      env: {
-        AIMEE_PANEL_FOR_EVERYONE: "true",
-        ...(DEV ? {} : { NEXT_DIST_DIR: PROD_DIST }),
-      },
+      env: DEV ? {} : { NEXT_DIST_DIR: PROD_DIST },
     },
     {
       command: serve(UNRESOLVED_PORT, `next dev -p ${UNRESOLVED_PORT}`),
@@ -165,17 +147,5 @@ export default defineConfig({
         CONTROL_PLANE_SUPABASE_SERVICE_KEY: "",
       },
     },
-    {
-      command: serve(PANEL_OFF_PORT, `next dev -p ${PANEL_OFF_PORT}`),
-      url: `${PANEL_OFF_BASE_URL}/sign-in`,
-      reuseExistingServer: DEV,
-      timeout: 180_000,
-      stdout: "ignore",
-      stderr: "pipe",
-      env: {
-        NEXT_DIST_DIR: distDir(".next-e2e-panel-off") as string,
-        AIMEE_PANEL_FOR_EVERYONE: "",
-      },
-    }
   ],
 });

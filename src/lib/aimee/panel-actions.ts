@@ -1,7 +1,6 @@
 "use server";
 
 import { requireProfile } from "@/lib/auth/current-user";
-import { seesAimeePanel } from "@/lib/aimee/panel-audience";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -117,13 +116,8 @@ async function bundle(
   };
 }
 
-// The panel's audience is decided on the server too, not only by
-// whether the layout draws the icon (panel-audience.ts).
-const NOT_YET: PanelChatResult = { ok: false, message: "Aimee's panel isn't open to your role yet." };
-
 export async function openPanelChatAction(): Promise<PanelChatResult> {
   const session = await requireProfile();
-  if (!seesAimeePanel(session.profile.role)) return NOT_YET;
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) {
     return { ok: false, message: "Choose a company first. Aimee works in the company you are looking at." };
@@ -147,19 +141,17 @@ export async function openPanelChatAction(): Promise<PanelChatResult> {
 
 export async function newPanelChatAction(): Promise<PanelChatResult> {
   const session = await requireProfile();
-  if (!seesAimeePanel(session.profile.role)) return NOT_YET;
   const created = await createGeneralConversation({ origin: "panel" });
   if (!created.ok) return created;
   return { ok: true, chat: await bundle(created.item, session.profile.id, session.profile.role, "owner", session.profile.full_name) };
 }
 
-// Counted from the browser: the panel opening, and a click on
-// "Continue on the Aimee page". Help searches are counted by the chat
-// route, where they happen. Nothing but the kind is accepted.
-export async function recordPanelEventAction(kind: "opened" | "continue_on_page"): Promise<void> {
-  if (kind !== "opened" && kind !== "continue_on_page") return;
+// Counted from the browser: the panel opening. Help searches are
+// counted by the chat route, where they happen. Nothing but the kind
+// is accepted.
+export async function recordPanelEventAction(kind: "opened"): Promise<void> {
+  if (kind !== "opened") return;
   const session = await requireProfile();
-  if (!seesAimeePanel(session.profile.role)) return;
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   await recordPanelEvent(supabase, {
     companyId: await getEffectiveCompanyId(session),

@@ -6,8 +6,6 @@ import {
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { AimeeLauncher } from "@/components/aimee/AimeeLauncher";
 import { OpenRecordProvider } from "@/components/aimee/OpenRecord";
-import { HelpWidget } from "@/components/help/HelpWidget";
-import { seesAimeePanel } from "@/lib/aimee/panel-audience";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
@@ -126,12 +124,7 @@ export default async function AppLayout({
     : [];
   // Aimee's kinds (invitations and shared chats) go to her icon, the
   // rest stay in the bell. One query, split (notifications/kinds.ts).
-  // Without the panel (panel-audience.ts) there is no icon to carry
-  // them, so everything stays in the bell, as it did before the panel.
-  const panelOn = seesAimeePanel(role);
-  const { bell: bellNotifications, aimee: aimeeNotifications } = panelOn
-    ? splitNotifications(notifications)
-    : { bell: notifications, aimee: [] };
+  const { bell: bellNotifications, aimee: aimeeNotifications } = splitNotifications(notifications);
 
   // Read persisted collapse state so the initial render matches the
   // user's preference (no post-hydration jump). Sidebar writes these
@@ -183,12 +176,10 @@ export default async function AppLayout({
               the page underneath and the panel both sit inside it. */}
           <OpenRecordProvider>
             <div className={styles.main}>{children}</div>
-            {/* Aimee's icon and panel, in place of the "?" help button:
-                a conversation with Aimee, who answers from the help.
-                System admins only until AIMEE_PANEL_FOR_EVERYONE is on
-                (panel-audience.ts); everyone else keeps the "?" until
-                then. docs/investigations/aimee-panel.md. */}
-            {panelOn ? <AimeeLauncher notifications={aimeeNotifications} /> : <HelpWidget />}
+            {/* Aimee's icon and panel, in place of the old "?" help
+                button: a conversation with Aimee, who answers from the
+                help. docs/investigations/aimee-panel.md. */}
+            <AimeeLauncher notifications={aimeeNotifications} />
           </OpenRecordProvider>
         </div>
       </PostHogProvider>

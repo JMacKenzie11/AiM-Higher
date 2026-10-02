@@ -9,9 +9,8 @@ import type { HelpDoc } from "./loader";
 // PRODUCT HELP FOR AIMEE: an index of the pages a person can open, and
 // a search over the help they are allowed to read.
 //
-// Everything here starts from loadAllHelpFor(role): the docs the "?"
-// widget would show this role, with other roles' sections already cut
-// out. Nothing reads a help file any other way, so Aimee cannot quote
+// Everything here starts from loadAllHelpFor(role): the docs this role
+// may read, with other roles' sections already cut out. Nothing reads a help file any other way, so Aimee cannot quote
 // admin-only help to a team member, and cannot link to a page that
 // linkablePagesFor would not offer them.
 //
