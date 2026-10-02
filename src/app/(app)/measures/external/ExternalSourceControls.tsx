@@ -11,7 +11,7 @@ import {
   verifyExternalSourceAction,
   type VerifyResponse,
 } from "@/lib/external-measures/actions";
-import { extractFileId, type ExternalMapping } from "@/lib/external-measures/mapping";
+import { canBackfill, extractFileId, type ExternalMapping, type PullDay } from "@/lib/external-measures/mapping";
 import uiStyles from "@/components/ui/ui.module.css";
 import { useExternalMeasure, useExternalMeasures } from "./ExternalMeasuresContext";
 import styles from "./external.module.css";
@@ -34,7 +34,7 @@ import styles from "./external.module.css";
 // an entry or a log row.
 
 type Draft = {
-  kind: "week_keyed" | "snapshot";
+  kind: "weekly" | "snapshot";
   file: string;
   tab: string;
   keyColumn: string;
@@ -49,12 +49,16 @@ type Draft = {
   // panel and pressing Save. A form that silently deletes
   // configuration it does not display is a trap.
   freshness?: { tab: string; cell: string };
+  // Carried for the same reason: the form has no pull-day input, and a
+  // mapping saved with one (Benson's sheets refresh late) must keep it
+  // when somebody presses Save. Until 0258 it was silently dropped.
+  pullDay?: PullDay;
 };
 
 function draftFrom(mapping: ExternalMapping | null): Draft {
   if (!mapping) {
     return {
-      kind: "week_keyed",
+      kind: "weekly",
       file: "",
       tab: "",
       keyColumn: "",
@@ -64,12 +68,13 @@ function draftFrom(mapping: ExternalMapping | null): Draft {
   }
   return {
     kind: mapping.kind,
-    file: mapping.file_id,
-    tab: mapping.tab,
-    keyColumn: mapping.kind === "week_keyed" ? mapping.key_column : "",
-    valueColumn: mapping.kind === "week_keyed" ? mapping.value_column : "",
-    cell: mapping.kind === "snapshot" ? mapping.cell : "",
-    freshness: mapping.kind === "snapshot" ? mapping.freshness : undefined,
+    file: mapping.recipe.file_id,
+    tab: mapping.recipe.tab,
+    keyColumn: mapping.kind === "weekly" ? mapping.recipe.key_column : "",
+    valueColumn: mapping.kind === "weekly" ? mapping.recipe.value_column : "",
+    cell: mapping.kind === "snapshot" ? mapping.recipe.cell : "",
+    freshness: mapping.kind === "snapshot" ? mapping.recipe.freshness : undefined,
+    pullDay: mapping.pull_day,
   };
 }
 
@@ -80,22 +85,31 @@ function draftFrom(mapping: ExternalMapping | null): Draft {
 function toMapping(draft: Draft): unknown | null {
   const file_id = extractFileId(draft.file);
   if (!file_id) return null;
-  if (draft.kind === "week_keyed") {
+  const pullDay = draft.pullDay ? { pull_day: draft.pullDay } : {};
+  if (draft.kind === "weekly") {
     return {
-      kind: "week_keyed",
-      file_id,
-      tab: draft.tab,
-      key_column: draft.keyColumn,
-      value_column: draft.valueColumn,
+      connector: "google_sheet",
+      kind: "weekly",
+      ...pullDay,
+      recipe: {
+        file_id,
+        tab: draft.tab,
+        key_column: draft.keyColumn,
+        value_column: draft.valueColumn,
+      },
     };
   }
   return {
+    connector: "google_sheet",
     kind: "snapshot",
-    file_id,
-    tab: draft.tab,
-    cell: draft.cell,
-    // Passed straight back out if it was there. See the note on Draft.
-    ...(draft.freshness ? { freshness: draft.freshness } : {}),
+    ...pullDay,
+    recipe: {
+      file_id,
+      tab: draft.tab,
+      cell: draft.cell,
+      // Passed straight back out if it was there. See the note on Draft.
+      ...(draft.freshness ? { freshness: draft.freshness } : {}),
+    },
   };
 }
 
@@ -160,7 +174,7 @@ export function ExternalSourceControls({
   //                         new user a decline on their first press.
   const mappingForWeek = info?.mapping ?? null;
   const reportsAClosedPeriod =
-    mappingForWeek?.kind === "snapshot" && !!mappingForWeek.freshness;
+    mappingForWeek?.kind === "snapshot" && !!mappingForWeek.recipe.freshness;
   const defaultWeek =
     reportsAClosedPeriod && weeks.length > 1
       ? weeks[weeks.length - 2]
@@ -257,11 +271,11 @@ export function ExternalSourceControls({
                   })
                 }
               >
-                <option value="week_keyed">
-                  Week keyed: find the row for the week
+                <option value="weekly">
+                  Weekly: find the row for the week
                 </option>
                 <option value="snapshot">
-                  Snapshot: read one cell in real time
+                  Snapshot: read one cell as it stands now
                 </option>
               </select>
             </label>
@@ -289,7 +303,7 @@ export function ExternalSourceControls({
               />
             </label>
 
-            {draft.kind === "week_keyed" ? (
+            {draft.kind === "weekly" ? (
               <>
                 <label className={styles.field}>
                   <span className={styles.fieldLabel}>Key column heading</span>
@@ -376,12 +390,12 @@ export function ExternalSourceControls({
               </button>
               {mapping ? (
                 <>
-                  {/* Onboarding, not routine, and week_keyed only: a
+                  {/* Onboarding, not routine, and weekly only: a
                       snapshot has one value for one period, so
                       walking it over four weeks would write the same
                       number into all four. The action refuses it too;
                       this just does not offer it. */}
-                  {mapping.kind === "week_keyed" ? (
+                  {canBackfill(mapping) ? (
                   <button
                     type="button"
                     className={uiStyles.btnSecondary}

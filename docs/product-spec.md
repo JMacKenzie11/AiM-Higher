@@ -738,14 +738,25 @@ Lookup lives in `src/lib/measures/target-history.ts` (`targetInForce`, `groupTar
 
 A measure's weekly value can be pulled from the client's own spreadsheet instead of typed. Built for one client (Benson Seafood) and flag-gated off everywhere else. Storage and rules: migration 0212.
 
-**What has shipped.** Phase 1 is the spine: stored mappings, a pull a person presses, origin-tagged entries, receipts, and the audit table. Phase 2 is the scheduler: the same pull, on the weekly rhythm, with no person pressing anything. Still to come: a HubSpot connector and credential vault (phase 3), and a client-facing mapping UI (phase 4). Mapping is configured by a system_admin on the measure.
+**What has shipped.** Phase 1 is the spine: stored mappings, a pull a person presses, origin-tagged entries, receipts, and the audit table. Phase 2 is the scheduler: the same pull, on the weekly rhythm, with no person pressing anything. Since 0258 every mapping follows the connector contract (below), so a second connector can be added without a second design. What comes next is in `docs/plans/external-connections.md`: the vault (§10c, built), the Connections page, then HubSpot. A mapping is configured on the measure by whoever may author it (below).
 
-**Where the mapping lives.** `success_measures.external_source`, nullable `jsonb`. `success_measures` is the one table `/measures` reads, so a mapping works on any measure without a second column. The shape is a discriminated union and the database checks it, so a mapping the reader cannot parse cannot be stored — including by a script or a psql session.
+**Where the mapping lives.** `success_measures.external_source`, nullable `jsonb`. `success_measures` is the one table `/measures` reads, so a mapping works on any measure without a second column. The database checks the shape, so a mapping the reader cannot parse cannot be stored, including by a script or a psql session.
 
-| Kind | Shape | What a pull does |
+**The connector contract (0258).** Every mapping has four parts and nothing else: `{connector, kind, pull_day?, recipe}`.
+- `connector` names the outside system: `google_sheet` today, with HubSpot to follow.
+- `kind` says what time the number describes, never where it sits:
+  - `weekly`: a value for a given week, which can be worked out for past weeks and so can be backfilled;
+  - `snapshot`: the value as it stands when read, which cannot be backfilled.
+- `recipe` is the connector's own instructions.
+
+Until 0258 the kinds were `week_keyed` and `snapshot`, with the sheet's fields at the top level. That described where a number sits in a sheet, which a HubSpot number (a sum or count over deals) does not. 0258 translated every mapping in place, counted by kind before and after, and the receipts with them. The contract was written against the four HubSpot measures in the plan before any HubSpot code, so HubSpot adds a recipe and a reader, not a new design. Code: `src/lib/external-measures/mapping.ts` (the shape), `pull.ts` (`SourceReaders`, one reader per connector).
+
+| Kind | Sheet recipe | What a pull does |
 | --- | --- | --- |
-| `week_keyed` | `{file_id, tab, key_column, value_column}` | Finds the row whose key column holds the target week, reads the value column |
+| `weekly` | `{file_id, tab, key_column, value_column}` | Finds the row whose key column holds the target week, reads the value column |
 | `snapshot` | `{file_id, tab, cell, freshness?}` | Reads that cell as it stands now and records it as the target week |
+
+A pull names the connector it read from: `record_external_pull` and `record_external_pull_scheduled` take `p_connector`, which becomes the entry's `origin` and the receipt's `connector`. The database refuses a connector it does not know. Harness probe `connector contract · mappings and pulls` (red without 0258). It checks that no mapping is left in the old shape, that the old shape, a stray field and an unknown connector are refused, and that a scheduled pull records its connector. The mapping form now also keeps a mapping's `pull_day` when it is saved; until 0258 it silently dropped it.
 
 Columns are matched by **heading text**, case-insensitively, not by column letter. A letter survives an inserted column and then reads the wrong column forever; a heading that stops matching finds nothing and writes nothing.
 
@@ -757,7 +768,7 @@ The two inputs were **removed from the admin panel**, decided by the product own
 
 The capability is kept rather than deleted because the argument for it lands in **phase 2**. A person pressing the button notices a stale number; a cron running unattended files last week's number against this week, every week, and nothing looks wrong. Revisit when the scheduler is built. Until then nothing in the product can set it, and the panel carries any existing value through untouched rather than silently dropping it.
 
-**The four ways a pull writes nothing.** The sheet is unreachable; `week_keyed` finds no row for the week; a snapshot's freshness date does not cover the week (not reachable from the UI in phase 1, see above); the cell does not read as a number (blank included). In every case **nothing** is written, one log row is written, and the reason reaches the person who pressed the button. A week with no entry keeps rendering as unlogged, which is the truthful picture of "we do not know". A zero would be a lie in the shape of data.
+**The four ways a pull writes nothing.** The sheet is unreachable; a weekly sheet has no row for the week; a snapshot's freshness date does not cover the week (not reachable from the UI in phase 1, see above); the cell does not read as a number (blank included). In every case **nothing** is written, one log row is written, and the reason reaches the person who pressed the button. A week with no entry keeps rendering as unlogged, which is the truthful picture of "we do not know". A zero would be a lie in the shape of data.
 
 **A typed value always wins.** If a person has already logged the week by hand, the pull records `skipped_manual_exists` and changes nothing. This is enforced inside `record_external_pull()`, not in the action — the only race-free place, and it holds for callers that do not exist yet. In the other direction, a manual entry over a pulled week **clears** `origin` and `pulled_at`, so the receipt tag never sits on a number somebody typed.
 
@@ -767,12 +778,12 @@ The capability is kept rather than deleted because the argument for it lands in 
 
 **Who may do what**
 
-- **Pull**: system_admin, the company's company_admin, and an assigned guide or portfolio_admin (`isAdminForCompany`). A team member who leads the function may type a value here but may not pull one; pulling is an administrative act.
-- **Configure or verify a mapping**: system_admin only, in phase 1.
-- **Read a receipt**: system_admin, the company's company_admin, assigned guides. `external_pull_log` carries its own `company_id`, derived from the measure inside the write function and never passed by a caller.
+- **Pull**: system_admin, the company's company_admin, and `is_content_admin_for()` (an assigned guide, or a portfolio_admin a system admin switched on as that company's admin, 0245); `isAdminForCompany` says the same in the app. A team member who leads the function may type a value here but may not pull one; pulling is an administrative act.
+- **Configure or verify a mapping**: whoever may author the measure (#259): an admin of the company, `is_content_admin_for()`, or the function's own Lead. RLS on `success_measures` decides; the action restates nothing.
+- **Read a receipt**: everyone in the company since 0253 (`external_pull_log_select_company`). `external_pull_log` carries its own `company_id`, derived from the measure inside the write function and never passed by a caller.
 - **Edit or delete a receipt**: nobody. There are no UPDATE or DELETE policies and neither verb is granted, to `authenticated` or to `service_role`. INSERT arrives only through `record_external_pull()`. Asserted permanently by the `external_pull_log append-only` check in `npm run rls:hazards`, which runs on every invocation.
 
-**Verify writes nothing.** The mapping surface has a *Verify* action that reads the sheet and shows what it found — the last four dated weeks for `week_keyed`, the current value for `snapshot`. It does not call `record_external_pull`, so there is no path from it to an entry or a log row.
+**Verify writes nothing.** The mapping surface has a *Verify* action that reads the sheet and shows what it found — the last four dated weeks for a weekly mapping, the current value for a snapshot. It does not call `record_external_pull`, so there is no path from it to an entry or a log row.
 
 **On the page.** An entry that came from a pull carries an understated caption beside the measure name, "Pulled · Sun 6:04am", in the company's timezone. Opening it shows the receipt: what was read, from where, when, and the mapping in plain words rebuilt from what that pull recorded rather than from the mapping as it stands now. A pull that recorded nothing shows "Not pulled" and the reason. Nothing else on `/measures` changes.
 
@@ -791,10 +802,10 @@ The capability is kept rather than deleted because the argument for it lands in 
 | | |
 | --- | --- |
 | `external-measures` | Sat 14:00 UTC |
-| `performance` (turns a missing value into a commitment on a person) | Sat 15:00 UTC |
+| `performance` (the weekly performance sweep; since #309 it no longer writes commitments) | Tue 12:00 UTC (#248) |
 | `scorecard` (counts entries from the last 7 days) | Sun 07:00 UTC |
 
-The scorecard requirement is met by sixteen hours. The hour in front of the performance sweep is the tighter margin and is not a hope: every cron route sets `maxDuration = 300`, so a run cannot exceed five minutes and cannot overrun into it.
+The scorecard requirement is met by sixteen hours, and the performance sweep runs days later. Every cron route sets `maxDuration = 300`, so a run cannot exceed five minutes.
 
 A `pull_day` later than Saturday necessarily lands after that week's Sunday snapshot. `/scorecard` computes live on every load so the page is never wrong; the trend line shows one dip that recovers the following week. That is the cost of choosing a late pull day and should be a client's informed choice.
 
@@ -805,7 +816,7 @@ A `pull_day` later than Saturday necessarily lands after that week's Sunday snap
 | Path | Function | Actor | May replace |
 | --- | --- | --- | --- |
 | caller | `record_external_pull` | `auth.uid()` | a value a previous pull wrote |
-| scheduled | `record_external_pull_scheduled` | always NULL | nothing at all |
+| scheduled | `record_external_pull_scheduled` | always NULL | its own earlier pull, only when the source's number changed (0248) |
 
 Both delegate to `_record_external_pull`, which is granted to nobody and holds manual-wins, the company resolution and the no-write rules. Neither wrapper can skip them and a third wrapper could not either.
 
@@ -821,10 +832,7 @@ Under the caller's client, RLS still filters what the action can see, so a calle
 
 **Admin visibility.** No new surface. The phase 1 receipt gains one line, "Last pull", showing the most recent attempt for that measure in any week. A measure whose last scheduled run failed shows the note even on a week it never touched, because otherwise a broken source is invisible until somebody notices a flat chart.
 
-**Phases 3 and 4**
-
-- **Phase 3 — HubSpot connector and credential vault.** A third mapping `kind`, added to the database's CHECK constraint and to `parseMapping`, plus per-connector credentials that are not the Drive OAuth row.
-- **Phase 4 — client-facing mapping UI.** A file picker, a tab list, a heading list, and an explanation of what a pull is allowed to overwrite. Help content ships with it.
+**What comes next** is in `docs/plans/external-connections.md`. The credential vault (§10c) and this contract are built. Still to come are the Connections page, where a company's admins add a key themselves, and the HubSpot connector, as a recipe and a reader on this contract. A client-facing mapping form (a file picker, a tab list, a heading list) is not scheduled.
 
 ---
 

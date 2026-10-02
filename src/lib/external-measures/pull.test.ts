@@ -1,27 +1,25 @@
 import { describe, it, expect } from "vitest";
 
 import {
-  decideSnapshot,
-  decideWeekKeyed,
+  decideSheetSnapshot,
+  decideSheetWeekly,
   freshnessCovers,
   runPull,
   failureSentence,
 } from "./pull";
-import type { SnapshotMapping, WeekKeyedMapping } from "./mapping";
+import type { SheetSnapshotRecipe, SheetWeeklyRecipe } from "./mapping";
 import type { SheetReader } from "./sheets";
 
 const WEEK = "2026-09-18";
 
-const weekKeyed: WeekKeyedMapping = {
-  kind: "week_keyed",
+const weekKeyed: SheetWeeklyRecipe = {
   file_id: "FILE",
   tab: "Dashboard Data",
   key_column: "Week Ending",
   value_column: "Pounds Shipped",
 };
 
-const snapshot: SnapshotMapping = {
-  kind: "snapshot",
+const snapshot: SheetSnapshotRecipe = {
   file_id: "FILE",
   tab: "Summary",
   cell: "B7",
@@ -34,9 +32,9 @@ const TAB = [
   ["2026-09-18", "$1,310.50", ""],
 ];
 
-describe("decideWeekKeyed", () => {
+describe("decideSheetWeekly", () => {
   it("finds the week's row and reads the value column", () => {
-    const d = decideWeekKeyed(TAB, weekKeyed, WEEK);
+    const d = decideSheetWeekly(TAB, weekKeyed, WEEK);
     expect(d.outcome).toBe("written");
     if (d.outcome !== "written") return;
     expect(d.value).toBe(1310.5);
@@ -51,7 +49,7 @@ describe("decideWeekKeyed", () => {
       ["week ending ", " Pounds Shipped"],
       ["2026-09-18", "7"],
     ];
-    const d = decideWeekKeyed(messy, weekKeyed, WEEK);
+    const d = decideSheetWeekly(messy, weekKeyed, WEEK);
     expect(d.outcome).toBe("written");
   });
 
@@ -60,11 +58,11 @@ describe("decideWeekKeyed", () => {
       ["Week Ending", "Pounds Shipped"],
       ["9/18/2026", "7"],
     ];
-    expect(decideWeekKeyed(slashed, weekKeyed, WEEK).outcome).toBe("written");
+    expect(decideSheetWeekly(slashed, weekKeyed, WEEK).outcome).toBe("written");
   });
 
   it("writes NOTHING when the week has no row", () => {
-    const d = decideWeekKeyed(TAB.slice(0, 3), weekKeyed, WEEK);
+    const d = decideSheetWeekly(TAB.slice(0, 3), weekKeyed, WEEK);
     expect(d.outcome).toBe("failed");
     if (d.outcome !== "failed") return;
     expect(d.reason).toBe("week_row_absent");
@@ -76,7 +74,7 @@ describe("decideWeekKeyed", () => {
   });
 
   it("writes NOTHING when the value cell is not a number", () => {
-    const d = decideWeekKeyed(
+    const d = decideSheetWeekly(
       [
         ["Week Ending", "Pounds Shipped"],
         ["2026-09-18", "pending"],
@@ -94,7 +92,7 @@ describe("decideWeekKeyed", () => {
     // The case that matters most: the week's row exists because the
     // client added it on Monday, and the number lands on Friday. A
     // blank must not become a zero.
-    const d = decideWeekKeyed(
+    const d = decideSheetWeekly(
       [
         ["Week Ending", "Pounds Shipped"],
         ["2026-09-18", ""],
@@ -106,7 +104,7 @@ describe("decideWeekKeyed", () => {
   });
 
   it("names the headings it did find when a column is missing", () => {
-    const d = decideWeekKeyed(
+    const d = decideSheetWeekly(
       [
         ["Week", "Pounds"],
         ["2026-09-18", "7"],
@@ -122,12 +120,12 @@ describe("decideWeekKeyed", () => {
 
   it("survives a ragged tab, which Sheets returns for trailing blanks", () => {
     const ragged = [["Week Ending", "Pounds Shipped"], ["2026-09-18"]];
-    const d = decideWeekKeyed(ragged, weekKeyed, WEEK);
+    const d = decideSheetWeekly(ragged, weekKeyed, WEEK);
     expect(d.outcome).toBe("failed");
   });
 
   it("is empty-safe", () => {
-    expect(decideWeekKeyed([], weekKeyed, WEEK).outcome).toBe("failed");
+    expect(decideSheetWeekly([], weekKeyed, WEEK).outcome).toBe("failed");
   });
 });
 
@@ -165,31 +163,31 @@ describe("freshnessCovers", () => {
   });
 });
 
-describe("decideSnapshot", () => {
+describe("decideSheetSnapshot", () => {
   it("reads the cell when there is no freshness field", () => {
-    const d = decideSnapshot("42", undefined, snapshot, WEEK);
+    const d = decideSheetSnapshot("42", undefined, snapshot, WEEK);
     expect(d.outcome).toBe("written");
     if (d.outcome !== "written") return;
     expect(d.value).toBe(42);
   });
 
   it("records the value when the freshness date covers the week", () => {
-    const mapping: SnapshotMapping = {
+    const mapping: SheetSnapshotRecipe = {
       ...snapshot,
       freshness: { tab: "Summary", cell: "B2" },
     };
-    const d = decideSnapshot("42", "2026-09-18", mapping, WEEK);
+    const d = decideSheetSnapshot("42", "2026-09-18", mapping, WEEK);
     expect(d.outcome).toBe("written");
     if (d.outcome !== "written") return;
     expect(d.detail.freshness_date).toBe("2026-09-18");
   });
 
   it("DECLINES when the freshness date is older than the week", () => {
-    const mapping: SnapshotMapping = {
+    const mapping: SheetSnapshotRecipe = {
       ...snapshot,
       freshness: { tab: "Summary", cell: "B2" },
     };
-    const d = decideSnapshot("42", "2026-08-30", mapping, WEEK);
+    const d = decideSheetSnapshot("42", "2026-08-30", mapping, WEEK);
     expect(d.outcome).toBe("skipped_stale");
     expect(d.detail.freshness_date).toBe("2026-08-30");
     // The number is reported without being recorded: "stale and
@@ -201,11 +199,11 @@ describe("decideSnapshot", () => {
     // The whole reason parseFreshnessDate exists: the real cell is a
     // caption, not a date cell, and refusing it would mean declining
     // every pull forever.
-    const mapping: SnapshotMapping = {
+    const mapping: SheetSnapshotRecipe = {
       ...snapshot,
       freshness: { tab: "Dashboard", cell: "B2" },
     };
-    const d = decideSnapshot(
+    const d = decideSheetSnapshot(
       "58.26",
       "Latest completed week: Sep 6, 2026 to Sep 12, 2026",
       mapping,
@@ -218,26 +216,26 @@ describe("decideSnapshot", () => {
   });
 
   it("declines when the freshness cell is not a date at all", () => {
-    const mapping: SnapshotMapping = {
+    const mapping: SheetSnapshotRecipe = {
       ...snapshot,
       freshness: { tab: "Summary", cell: "B2" },
     };
-    const d = decideSnapshot("42", "last week", mapping, WEEK);
+    const d = decideSheetSnapshot("42", "last week", mapping, WEEK);
     expect(d.outcome).toBe("failed");
     if (d.outcome !== "failed") return;
     expect(d.reason).toBe("freshness_unreadable");
   });
 
   it("declines when the freshness cell is empty", () => {
-    const mapping: SnapshotMapping = {
+    const mapping: SheetSnapshotRecipe = {
       ...snapshot,
       freshness: { tab: "Summary", cell: "B2" },
     };
-    expect(decideSnapshot("42", null, mapping, WEEK).outcome).toBe("failed");
+    expect(decideSheetSnapshot("42", null, mapping, WEEK).outcome).toBe("failed");
   });
 
   it("writes NOTHING when the cell is empty", () => {
-    expect(decideSnapshot(null, undefined, snapshot, WEEK).outcome).toBe(
+    expect(decideSheetSnapshot(null, undefined, snapshot, WEEK).outcome).toBe(
       "failed"
     );
   });
@@ -263,7 +261,7 @@ describe("runPull", () => {
         return TAB;
       },
     });
-    return runPull(r, weekKeyed, WEEK).then((d) => {
+    return runPull({ google_sheet: r }, { connector: "google_sheet", kind: "weekly", recipe: weekKeyed }, WEEK).then((d) => {
       expect(seen).toEqual(["Dashboard Data"]);
       expect(d.outcome).toBe("written");
     });
@@ -275,7 +273,7 @@ describe("runPull", () => {
         throw new Error("The caller does not have permission");
       },
     });
-    const d = await runPull(r, weekKeyed, WEEK);
+    const d = await runPull({ google_sheet: r }, { connector: "google_sheet", kind: "weekly", recipe: weekKeyed }, WEEK);
     expect(d.outcome).toBe("failed");
     if (d.outcome !== "failed") return;
     expect(d.reason).toBe("sheet_unreachable");
@@ -292,11 +290,11 @@ describe("runPull", () => {
         return tab === "Meta" ? "2026-09-19" : "42";
       },
     });
-    const mapping: SnapshotMapping = {
+    const mapping: SheetSnapshotRecipe = {
       ...snapshot,
       freshness: { tab: "Meta", cell: "B2" },
     };
-    const d = await runPull(r, mapping, WEEK);
+    const d = await runPull({ google_sheet: r }, { connector: "google_sheet", kind: "snapshot", recipe: mapping }, WEEK);
     expect(asked).toEqual([
       ["Summary", "B7"],
       ["Meta", "B2"],
@@ -329,7 +327,7 @@ describe("failureSentence", () => {
 // Taking the LAST date in the week is what makes "any date" safe
 // rather than arbitrary. These pin each case it was chosen for, and
 // the one it deliberately does not solve.
-describe("decideWeekKeyed · which row in the week", () => {
+describe("decideSheetWeekly · which row in the week", () => {
   const rows = (keys: string[]) => [
     ["Week Ending", "Pounds Shipped"],
     ...keys.map((k, i) => [k, String((i + 1) * 100)]),
@@ -338,7 +336,7 @@ describe("decideWeekKeyed · which row in the week", () => {
   it("still takes the Friday row, so nothing already mapped moves", () => {
     // The case that must not change. A weekly sheet has one row in
     // the week, so "last in the week" IS that row.
-    const d = decideWeekKeyed(TAB, weekKeyed, WEEK);
+    const d = decideSheetWeekly(TAB, weekKeyed, WEEK);
     expect(d.outcome).toBe("written");
     if (d.outcome !== "written") return;
     expect(d.value).toBe(1310.5);
@@ -347,7 +345,7 @@ describe("decideWeekKeyed · which row in the week", () => {
 
   it("accepts a sheet keyed by the Monday", () => {
     // 2026-09-14 is the Monday of the week ending Friday the 18th.
-    const d = decideWeekKeyed(rows(["2026-09-07", "2026-09-14"]), weekKeyed, WEEK);
+    const d = decideSheetWeekly(rows(["2026-09-07", "2026-09-14"]), weekKeyed, WEEK);
     expect(d.outcome).toBe("written");
     if (d.outcome !== "written") return;
     expect(d.value).toBe(200);
@@ -355,7 +353,7 @@ describe("decideWeekKeyed · which row in the week", () => {
   });
 
   it("takes Thursday when Friday has not been filled in", () => {
-    const d = decideWeekKeyed(rows(["2026-09-14", "2026-09-17"]), weekKeyed, WEEK);
+    const d = decideSheetWeekly(rows(["2026-09-14", "2026-09-17"]), weekKeyed, WEEK);
     expect(d.outcome).toBe("written");
     if (d.outcome !== "written") return;
     expect(d.detail.matched_date).toBe("2026-09-17");
@@ -365,7 +363,7 @@ describe("decideWeekKeyed · which row in the week", () => {
     const daily = rows([
       "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18",
     ]);
-    const d = decideWeekKeyed(daily, weekKeyed, WEEK);
+    const d = decideSheetWeekly(daily, weekKeyed, WEEK);
     expect(d.outcome).toBe("written");
     if (d.outcome !== "written") return;
     expect(d.detail.matched_date).toBe("2026-09-18");
@@ -379,7 +377,7 @@ describe("decideWeekKeyed · which row in the week", () => {
     // so it is a limit rather than a regression — and summing needs
     // somebody to say which measures sum, which nobody has.
     const daily = rows(["2026-09-14", "2026-09-15", "2026-09-16"]);
-    const d = decideWeekKeyed(daily, weekKeyed, WEEK);
+    const d = decideSheetWeekly(daily, weekKeyed, WEEK);
     expect(d.outcome).toBe("written");
     if (d.outcome !== "written") return;
     expect(d.value).toBe(300); // the last row, not 100 + 200 + 300
@@ -389,14 +387,14 @@ describe("decideWeekKeyed · which row in the week", () => {
     // Weeks run Saturday to Friday. Saturday 19 Sep belongs to the
     // week ending 25 Sep, so it must not answer for the week ending
     // the 18th — otherwise a week could claim the next one's number.
-    const d = decideWeekKeyed(rows(["2026-09-19"]), weekKeyed, WEEK);
+    const d = decideSheetWeekly(rows(["2026-09-19"]), weekKeyed, WEEK);
     expect(d.outcome).toBe("failed");
     if (d.outcome !== "failed") return;
     expect(d.reason).toBe("week_row_absent");
   });
 
   it("still says nothing is there when nothing is", () => {
-    const d = decideWeekKeyed(rows(["2026-09-04", "2026-09-11"]), weekKeyed, WEEK);
+    const d = decideSheetWeekly(rows(["2026-09-04", "2026-09-11"]), weekKeyed, WEEK);
     expect(d.outcome).toBe("failed");
     if (d.outcome !== "failed") return;
     expect(d.reason).toBe("week_row_absent");
@@ -406,7 +404,7 @@ describe("decideWeekKeyed · which row in the week", () => {
   });
 
   it("ignores a key that is not a date at all", () => {
-    const d = decideWeekKeyed(rows(["Week 38", "not a date"]), weekKeyed, WEEK);
+    const d = decideSheetWeekly(rows(["Week 38", "not a date"]), weekKeyed, WEEK);
     expect(d.outcome).toBe("failed");
     if (d.outcome !== "failed") return;
     expect(d.reason).toBe("week_row_absent");

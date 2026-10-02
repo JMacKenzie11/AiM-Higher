@@ -3,9 +3,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ExternalMapping } from "./mapping";
-import { failureSentence, runPull, type PullDecision } from "./pull";
+import { failureSentence, runPull, type PullDecision, type SourceReaders } from "./pull";
 import { isTransient } from "./schedule";
-import { googleSheetReader, type SheetReader } from "./sheets";
+import { googleSheetReader } from "./sheets";
 
 // The pull, with its database handed to it.
 //
@@ -28,6 +28,9 @@ import { googleSheetReader, type SheetReader } from "./sheets";
 //
 // Exactly one thing differs, and it is decided in the DATABASE, not
 // here: which RPC is called.
+//
+// Both name the connector the pull read from (0258), which becomes the
+// entry's origin and the receipt's connector.
 //
 //   caller     record_external_pull            actor = auth.uid(),
 //                                              may replace a value a
@@ -92,18 +95,23 @@ export async function pullMeasureWeek(
     mapping: ExternalMapping | null;
     rawSource?: unknown;
     // Injectable so every path through this function can be tested
-    // without a Google account. Defaults to the company's real one.
-    reader?: SheetReader;
+    // without an outside account. Each defaults to the company's real one.
+    readers?: Partial<SourceReaders>;
   }
 ): Promise<PullRun> {
   const { path, measureId, weekEnding, mapping } = args;
 
   if (!mapping) {
-    const claimed = (args.rawSource as { kind?: unknown } | null)?.kind;
-    const kind = claimed === "snapshot" ? "snapshot" : "week_keyed";
+    const raw = args.rawSource as { kind?: unknown; connector?: unknown } | null;
+    const kind = raw?.kind === "snapshot" ? "snapshot" : "weekly";
     const outcome = await record(db, path, {
       measureId,
       weekEnding,
+      // The connector the stored mapping names. The database's shape
+      // check means a stored mapping always names one it knows, so a
+      // mapping that will not parse here is the app being behind the
+      // database, and the receipt says which connector it was for.
+      connector: String(raw?.connector ?? ""),
       kind,
       decision: {
         outcome: "failed",
@@ -121,26 +129,29 @@ export async function pullMeasureWeek(
     };
   }
 
-  const reader = args.reader ?? googleSheetReader(args.companyId);
+  const readers: SourceReaders = {
+    google_sheet: args.readers?.google_sheet ?? googleSheetReader(args.companyId),
+  };
 
   // ONE RETRY, AND ONLY FOR A TRANSIENT FAILURE. See isTransient:
   // reading a misspelled tab a second time produces the same answer a
   // second later. Nothing is written between the attempts, so a retry
   // cannot produce a duplicate.
-  let decision = await runPull(reader, mapping, weekEnding);
+  let decision = await runPull(readers, mapping, weekEnding);
   let attempts = 1;
   if (
     decision.outcome === "failed" &&
     decision.reason === "sheet_unreachable" &&
     isTransient(String(decision.detail.error ?? ""))
   ) {
-    decision = await runPull(reader, mapping, weekEnding);
+    decision = await runPull(readers, mapping, weekEnding);
     attempts = 2;
   }
 
   const outcome = await record(db, path, {
     measureId,
     weekEnding,
+    connector: mapping.connector,
     kind: mapping.kind,
     decision,
   });
@@ -183,7 +194,8 @@ async function record(
   args: {
     measureId: string;
     weekEnding: string;
-    kind: "week_keyed" | "snapshot";
+    connector: string;
+    kind: "weekly" | "snapshot";
     decision: PullDecision;
   }
 ): Promise<PullOutcome> {
@@ -191,6 +203,7 @@ async function record(
   const { data, error } = await db.rpc(RPC[path], {
     p_measure_id: args.measureId,
     p_week_ending: args.weekEnding,
+    p_connector: args.connector,
     p_mapping_kind: args.kind,
     p_outcome: decision.outcome,
     p_value: decision.outcome === "written" ? decision.value : null,

@@ -8,12 +8,12 @@ function row(over: Partial<PullLogRow> = {}): PullLogRow {
     id: "log-1",
     measure_id: "m1",
     week_ending: "2026-09-18",
-    mapping_kind: "week_keyed",
+    mapping_kind: "weekly",
     outcome: "written",
     value_written: 1310.5,
     failure_reason: null,
     detail: {
-      kind: "week_keyed",
+      kind: "weekly",
       file_id: "F",
       tab: "Dashboard Data",
       key_column: "Week Ending",
@@ -47,7 +47,7 @@ describe("buildReceipt", () => {
         value_written: null,
         failure_reason: "week_row_absent",
         detail: {
-          kind: "week_keyed",
+          kind: "weekly",
           file_id: "F",
           tab: "Dashboard Data",
           key_column: "Week Ending",
@@ -101,7 +101,7 @@ describe("buildReceipt", () => {
         value_written: null,
         failure_reason: "sheet_unreachable",
         detail: {
-          kind: "week_keyed",
+          kind: "weekly",
           file_id: "F",
           tab: "Dashboard Data",
           error: "Unable to parse range: 'Dashbord Data'",
@@ -124,7 +124,7 @@ describe("buildReceipt", () => {
   });
 
   it("shows no line for a detail field that is absent", () => {
-    const r = buildReceipt(row({ detail: { kind: "week_keyed", tab: "T" } }));
+    const r = buildReceipt(row({ detail: { kind: "weekly", tab: "T" } }));
     expect(r.lines.map((l) => l.label)).not.toContain("Cell read");
   });
 });

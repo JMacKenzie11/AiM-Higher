@@ -75,7 +75,7 @@ test.describe("external measures", () => {
     return row;
   }
 
-  test("week_keyed: maps a measure, backfills four weeks, and shows the receipts", async ({
+  test("weekly: maps a measure, backfills four weeks, and shows the receipts", async ({
     page,
   }) => {
     await signIn(page, users.admin());
@@ -201,7 +201,7 @@ test.describe("external measures", () => {
       .first()
       .innerText();
 
-    // Map it week_keyed, with no pull_day, so it is due on the
+    // Map it weekly, with no pull_day, so it is due on the
     // standard day. The cron is triggered by hand here rather than
     // waited for, so the day does not have to be Saturday — what is
     // under test is the path, not Vercel's clock.

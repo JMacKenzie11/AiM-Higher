@@ -5152,9 +5152,9 @@ export const BATCHES: readonly Batch[] = [
     seedRows: {
       external_pull_log: `
         insert into public.external_pull_log
-          (measure_id, company_id, week_ending, mapping_kind, outcome,
+          (measure_id, company_id, week_ending, connector, mapping_kind, outcome,
            failure_reason, detail)
-        select m.id, f.company_id, current_date, 'week_keyed', 'failed',
+        select m.id, f.company_id, current_date, 'google_sheet', 'weekly', 'failed',
                'week_row_absent', '{}'::jsonb
           from public.success_measures m
           join public.functions f on f.id = m.function_id
@@ -5171,9 +5171,9 @@ export const BATCHES: readonly Batch[] = [
     isolationSeed: {
       external_pull_log: `
         insert into public.external_pull_log
-          (measure_id, company_id, week_ending, mapping_kind, outcome,
+          (measure_id, company_id, week_ending, connector, mapping_kind, outcome,
            failure_reason, detail)
-        select m.id, f.company_id, current_date - 7, 'snapshot', 'failed',
+        select m.id, f.company_id, current_date - 7, 'google_sheet', 'snapshot', 'failed',
                'sheet_unreachable', '{}'::jsonb
           from public.success_measures m
           join public.functions f on f.id = m.function_id
@@ -5234,7 +5234,7 @@ export const BATCHES: readonly Batch[] = [
           // below passed either way, which is precisely why the
           // positive ones have to be here.
           sql: `select * from public.record_external_pull(
-                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  '$measure'::uuid, current_date, 'google_sheet', 'weekly', 'failed',
                   null, 'week_row_absent');
                 select count(*)::int as n from public.external_pull_log
                  where measure_id = '$measure'::uuid
@@ -5245,7 +5245,7 @@ export const BATCHES: readonly Batch[] = [
           name: "company_admin of the company records a pull",
           caller: "admin",
           sql: `select * from public.record_external_pull(
-                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  '$measure'::uuid, current_date, 'google_sheet', 'weekly', 'failed',
                   null, 'week_row_absent');
                 select count(*)::int as n from public.external_pull_log
                  where measure_id = '$measure'::uuid
@@ -5264,7 +5264,7 @@ export const BATCHES: readonly Batch[] = [
                    where measure_id = '$measure'::uuid
                      and week_ending = current_date;`,
           sql: `select * from public.record_external_pull(
-                  '$measure'::uuid, current_date, 'week_keyed', 'written', 777);
+                  '$measure'::uuid, current_date, 'google_sheet', 'weekly', 'written', 777);
                 select count(*)::int as n
                   from public.success_measure_entries e
                  where e.measure_id = '$measure'::uuid
@@ -5285,7 +5285,7 @@ export const BATCHES: readonly Batch[] = [
           // design. What can be measured is the consequence: the row
           // carries the company the MEASURE belongs to.
           sql: `select * from public.record_external_pull(
-                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  '$measure'::uuid, current_date, 'google_sheet', 'weekly', 'failed',
                   null, 'week_row_absent');
                 select count(*)::int as n from public.external_pull_log
                  where measure_id = '$measure'::uuid
@@ -5306,7 +5306,7 @@ export const BATCHES: readonly Batch[] = [
                   on conflict (measure_id, week_ending) do update
                     set value_number = 111, origin = null, pulled_at = null;`,
           sql: `select * from public.record_external_pull(
-                  '$measure'::uuid, current_date, 'week_keyed', 'written', 999);
+                  '$measure'::uuid, current_date, 'google_sheet', 'weekly', 'written', 999);
                 select count(*)::int as n from public.external_pull_log
                  where measure_id = '$measure'::uuid
                    and week_ending = current_date
@@ -5325,7 +5325,7 @@ export const BATCHES: readonly Batch[] = [
                   on conflict (measure_id, week_ending) do update
                     set value_number = 111, origin = null, pulled_at = null;`,
           sql: `select * from public.record_external_pull(
-                  '$measure'::uuid, current_date, 'week_keyed', 'written', 999);
+                  '$measure'::uuid, current_date, 'google_sheet', 'weekly', 'written', 999);
                 select count(*)::int as n
                   from public.success_measure_entries e
                  where e.measure_id = '$measure'::uuid
@@ -5344,7 +5344,7 @@ export const BATCHES: readonly Batch[] = [
           name: "company_admin of ANOTHER company is refused",
           caller: "other_admin",
           sql: `select * from public.record_external_pull(
-                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  '$measure'::uuid, current_date, 'google_sheet', 'weekly', 'failed',
                   null, 'week_row_absent');
                 select count(*)::int as n from public.external_pull_log
                  where measure_id = '$measure'::uuid;`,
@@ -5357,7 +5357,7 @@ export const BATCHES: readonly Batch[] = [
           // administrative act and is not the same permission, which
           // is worth probing precisely because the two look alike.
           sql: `select * from public.record_external_pull(
-                  '$measure'::uuid, current_date, 'week_keyed', 'failed',
+                  '$measure'::uuid, current_date, 'google_sheet', 'weekly', 'failed',
                   null, 'week_row_absent');
                 select count(*)::int as n from public.external_pull_log
                  where measure_id = '$measure'::uuid;`,
@@ -5372,10 +5372,10 @@ export const BATCHES: readonly Batch[] = [
           // with an empty table. E8.
           sql: `with i as (
                   insert into public.external_pull_log
-                    (measure_id, company_id, week_ending, mapping_kind,
+                    (measure_id, company_id, week_ending, connector, mapping_kind,
                      outcome, failure_reason)
                   values ('$measure'::uuid, '$company'::uuid, current_date,
-                          'week_keyed', 'failed', 'forged')
+                          'google_sheet', 'weekly', 'failed', 'forged')
                   returning id)
                 select count(*)::int as n from i;`,
           expect: "42501",
@@ -8115,7 +8115,7 @@ async function externalMeasurePathsChecks(
   const wrote = await attempt(asService(
     clear,
     `select * from public.record_external_pull_scheduled(
-       '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+       '${measure}', ${WEEK}, 'google_sheet', 'weekly', 'written', 777);
      select (count(*) filter (where value_number = 777 and origin = 'google_sheet'
              and entered_by is null))::int as n
        from public.success_measure_entries
@@ -8134,9 +8134,9 @@ async function externalMeasurePathsChecks(
   const twice = await attempt(asService(
     clear,
     `select * from public.record_external_pull_scheduled(
-       '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+       '${measure}', ${WEEK}, 'google_sheet', 'weekly', 'written', 777);
      select * from public.record_external_pull_scheduled(
-       '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+       '${measure}', ${WEEK}, 'google_sheet', 'weekly', 'written', 777);
      select (select count(*)::int from public.success_measure_entries
               where measure_id = '${measure}' and week_ending = ${WEEK}
                 and value_number = 777) as kept,
@@ -8164,9 +8164,9 @@ async function externalMeasurePathsChecks(
   const changed = await attempt(asService(
     clear,
     `select * from public.record_external_pull_scheduled(
-       '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+       '${measure}', ${WEEK}, 'google_sheet', 'weekly', 'written', 777);
      select * from public.record_external_pull_scheduled(
-       '${measure}', ${WEEK}, 'week_keyed', 'written', 999);
+       '${measure}', ${WEEK}, 'google_sheet', 'weekly', 'written', 999);
      select (select count(*)::int from public.success_measure_entries
               where measure_id = '${measure}' and week_ending = ${WEEK}
                 and value_number = 999 and origin = 'google_sheet') as replaced,
@@ -8191,7 +8191,7 @@ async function externalMeasurePathsChecks(
        (measure_id, week_ending, value_number, entered_by, origin, pulled_at)
      values ('${measure}', ${WEEK}, 111, '${sysadmin}', null, null);`,
     `select * from public.record_external_pull_scheduled(
-       '${measure}', ${WEEK}, 'week_keyed', 'written', 999);
+       '${measure}', ${WEEK}, 'google_sheet', 'weekly', 'written', 999);
      select (select count(*)::int from public.success_measure_entries
               where measure_id = '${measure}' and week_ending = ${WEEK}
                 and value_number = 111 and origin is null) as survived,
@@ -8216,9 +8216,9 @@ async function externalMeasurePathsChecks(
   const replaced = await attempt(
     asCaller(sysadmin, [pending, clear].join("\n"),
       `select * from public.record_external_pull(
-         '${measure}', ${WEEK}, 'week_keyed', 'written', 777);
+         '${measure}', ${WEEK}, 'google_sheet', 'weekly', 'written', 777);
        select * from public.record_external_pull(
-         '${measure}', ${WEEK}, 'week_keyed', 'written', 999);
+         '${measure}', ${WEEK}, 'google_sheet', 'weekly', 'written', 999);
        select count(*)::int as n from public.success_measure_entries
         where measure_id = '${measure}' and week_ending = ${WEEK}
           and value_number = 999;`)
@@ -8235,9 +8235,9 @@ async function externalMeasurePathsChecks(
   // ---- 5 + 6 + 7. The refusals ---------------------------------
   const refusals: Array<[string, string, string]> = [
     ["a browser client cannot reach the scheduled path", "authenticated",
-     `select * from public.record_external_pull_scheduled('${measure}', ${WEEK}, 'week_keyed', 'failed', null, 'x');`],
+     `select * from public.record_external_pull_scheduled('${measure}', ${WEEK}, 'google_sheet', 'weekly', 'failed', null, 'x');`],
     ["the service key cannot reach the caller path", "service_role",
-     `select * from public.record_external_pull('${measure}', ${WEEK}, 'week_keyed', 'failed', null, 'x');`],
+     `select * from public.record_external_pull('${measure}', ${WEEK}, 'google_sheet', 'weekly', 'failed', null, 'x');`],
   ];
   for (const [name, who, stmt] of refusals) {
     const r = await attempt(
@@ -8265,11 +8265,16 @@ async function externalMeasurePathsChecks(
   //
   // has_function_privilege answers the question the name asks, and
   // flips the moment somebody grants it.
-  const SIG = "public._record_external_pull(uuid,date,text,text,numeric,text,jsonb,uuid,boolean)";
+  const SIG = "public._record_external_pull(uuid,date,text,text,text,numeric,text,jsonb,uuid,boolean)";
   const [grants] = await run<{ auth_denied: boolean; svc_denied: boolean }>(
     ["begin;", pending,
-     `select not has_function_privilege('authenticated', '${SIG}', 'execute') as auth_denied,
-             not has_function_privilege('service_role', '${SIG}', 'execute') as svc_denied;`,
+     // A function that does not exist (this schema predates the
+     // signature) reads as not denied, so the check fails rather than
+     // the run stopping.
+     `select to_regprocedure('${SIG}') is not null
+               and not has_function_privilege('authenticated', '${SIG}', 'execute') as auth_denied,
+             to_regprocedure('${SIG}') is not null
+               and not has_function_privilege('service_role', '${SIG}', 'execute') as svc_denied;`,
      "rollback;"].join("\n")
   );
   say("nobody holds EXECUTE on the inner function",
@@ -8376,21 +8381,28 @@ async function externalSourceRoleChecks(
   }
 
   const MAPPING =
-    `'{"kind":"snapshot","file_id":"probe","tab":"Sheet1","cell":"B7"}'::jsonb`;
+    `'{"connector":"google_sheet","kind":"snapshot","recipe":{"file_id":"probe","tab":"Sheet1","cell":"B7"}}'::jsonb`;
 
+  // -1 when the write is refused for its SHAPE (a schema before 0258),
+  // which fails the check rather than stopping the run.
   async function writesAs(sub: string): Promise<number> {
-    const rows = await run<{ n: number }>(
-      asCaller(
-        sub,
-        pending,
-        `update public.success_measures set external_source = ${MAPPING}
-          where id = '${fx.measure}'::uuid;
-         select count(*)::int as n from public.success_measures
-          where id = '${fx.measure}'::uuid
-            and external_source ->> 'file_id' = 'probe';`
-      )
-    );
-    return rows[0]?.n ?? 0;
+    try {
+      const rows = await run<{ n: number }>(
+        asCaller(
+          sub,
+          pending,
+          `update public.success_measures set external_source = ${MAPPING}
+            where id = '${fx.measure}'::uuid;
+           select count(*)::int as n from public.success_measures
+            where id = '${fx.measure}'::uuid
+              and external_source #>> '{recipe,file_id}' = 'probe';`
+        )
+      );
+      return rows[0]?.n ?? 0;
+    } catch (err) {
+      if (/external_source_shape/.test(String(err))) return -1;
+      throw err;
+    }
   }
 
   const byAdmin = await writesAs(fx.admin);
@@ -10589,7 +10601,17 @@ async function companyContentProbes(run: Runner, pending: string): Promise<Grant
       insert into public.strengths_team_evaluations (team_id, roster_hash, signals) values ('${team}', 'harness', '{}');
       insert into public.strengths_team_insights (company_id, narrative, stats, model) values ('${company}', 'harness probe', '{}', 'harness');
       insert into public.dashboard_ai_briefs (company_id, brief_date, content) values ('${company}', '2099-01-0${n}', 'harness probe');
-      ${measure ? `insert into public.external_pull_log (measure_id, company_id, week_ending, mapping_kind, outcome) values ('${measure}', '${company}', '2099-01-02', 'snapshot', 'skipped_exists');` : ""}
+      ${measure ? `do $$ begin
+        -- connector arrived in 0258; a clone before it has no such column.
+        if exists (select 1 from information_schema.columns
+                    where table_schema = 'public' and table_name = 'external_pull_log' and column_name = 'connector') then
+          insert into public.external_pull_log (measure_id, company_id, week_ending, connector, mapping_kind, outcome)
+          values ('${measure}', '${company}', '2099-01-02', 'google_sheet', 'snapshot', 'skipped_exists');
+        else
+          insert into public.external_pull_log (measure_id, company_id, week_ending, mapping_kind, outcome)
+          values ('${measure}', '${company}', '2099-01-02', 'snapshot', 'skipped_exists');
+        end if;
+      end $$;` : ""}
       insert into public.company_settings_events (company_id, field) values ('${company}', 'harness probe');
       insert into public.company_feature_events (company_id, feature, action) values ('${company}', 'harness probe', 'enabled');`;
   };
@@ -11009,6 +11031,85 @@ values ('${fresh}', '${ids.member}', 'assistant', 'an opener from the old agent'
         : hidden.startsWith("ERROR") || !hidden.includes('"visible":0')
           ? "THE GRANT DOES NOT WORK: the owner cannot hide the old opener (is 0239 applied?)"
           : "the grant is wider than intended",
+    },
+  ];
+}
+
+// ---- The connector contract (0258) --------------------------------
+//
+// Every mapping is {connector, kind, pull_day?, recipe}, and a pull names
+// the connector it read from. Claims, as postgres and as the scheduler:
+//
+//   translated  no mapping is left in the old shape, and every one names
+//               a connector
+//   refused     the old shape, a stray top-level field, an unknown
+//               connector on a pull
+//   recorded    a scheduled pull's entry and receipt carry the connector
+//
+// Red before 0258: the record functions take no connector, so the
+// recorded claim errors.
+async function connectorContractProbes(run: Runner, pending: string): Promise<GrantProbe[]> {
+  // {SERVICE} marks where a statement switches to the scheduler's role.
+  const q = async (stmt: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>(
+        ["begin;", pending, stmt.replace("{SERVICE}", "set local role service_role;"), "rollback;"].join("\n")
+      );
+      return JSON.stringify(rows[0] ?? {});
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/check constraint/i.test(msg)) return "refused by the shape check";
+      if (/unknown connector/i.test(msg)) return "refused: unknown connector";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+  const pick = `(select m.id from public.success_measures m join public.functions f on f.id = m.function_id order by m.id limit 1)`;
+  const translated = await q(
+    `select count(*) filter (where external_source ? 'file_id')::int as old_shape,
+            count(*) filter (where external_source ->> 'connector' is null)::int as no_connector,
+            count(*)::int as mapped
+       from public.success_measures where external_source is not null;`
+  );
+  const oldShape = await q(
+    `update public.success_measures set external_source = '{"kind":"snapshot","file_id":"F","tab":"T","cell":"B5"}'::jsonb where id = ${pick};
+     select 1 as n;`
+  );
+  const strayField = await q(
+    `update public.success_measures set external_source = '{"connector":"google_sheet","kind":"snapshot","recipe":{"file_id":"F","tab":"T","cell":"B5"},"note":"x"}'::jsonb where id = ${pick};
+     select 1 as n;`
+  );
+  const unknownConnector = await q(
+    `{SERVICE} select * from public.record_external_pull_scheduled(${pick}, date '2099-01-02', 'hubspot', 'weekly', 'failed', null, 'x');`
+  );
+  const recorded = await q(
+    `delete from public.success_measure_entries where measure_id = ${pick} and week_ending = date '2099-01-02';
+     create temp table harness_0258 on commit drop as select ${pick} as id;
+     grant select on harness_0258 to service_role;
+     {SERVICE}
+     select * from public.record_external_pull_scheduled((select id from harness_0258), date '2099-01-02', 'google_sheet', 'weekly', 'written', 4321);
+     reset role;
+     select (select origin from public.success_measure_entries where measure_id = (select id from harness_0258) and week_ending = date '2099-01-02') as origin,
+            (select connector from public.external_pull_log where measure_id = (select id from harness_0258) and week_ending = date '2099-01-02' order by created_at desc limit 1) as connector;`
+  );
+  const t = JSON.parse(translated.startsWith("{") ? translated : "{}") as { old_shape?: number; no_connector?: number; mapped?: number };
+  const ok =
+    t.old_shape === 0 &&
+    t.no_connector === 0 &&
+    oldShape === "refused by the shape check" &&
+    strayField === "refused by the shape check" &&
+    unknownConnector === "refused: unknown connector" &&
+    recorded === '{"origin":"google_sheet","connector":"google_sheet"}';
+  return [
+    {
+      name: "connector contract · mappings and pulls",
+      granted: `mappings translated: ${translated} | a scheduled pull records its connector: ${recorded}`,
+      withheld: `the old shape: ${oldShape} | a stray field: ${strayField} | an unknown connector: ${unknownConnector}`,
+      ok,
+      detail: ok
+        ? "every mapping is {connector, kind, recipe}; a pull names the connector it read from, and the database refuses anything else"
+        : recorded.startsWith("ERROR")
+          ? "THE CONTRACT IS NOT IN PLACE: a pull cannot name its connector (is 0258 applied?)"
+          : "the contract is looser than intended, or a mapping was not translated",
     },
   ];
 }
@@ -11972,6 +12073,7 @@ async function main(): Promise<void> {
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
   const fromAimee = await commitmentFromAimeeProbes(run, ids, pendingSql);
   const vaultProbes = await connectionVaultProbes(run, ids, pendingSql);
+  const contractProbes = await connectorContractProbes(run, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -11981,7 +12083,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...contractProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12074,6 +12176,7 @@ async function main(): Promise<void> {
     timeouts.some((p) => !p.ok) ||
     fromAimee.some((p) => !p.ok) ||
     vaultProbes.some((p) => !p.ok) ||
+    contractProbes.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||
