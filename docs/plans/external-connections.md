@@ -1,7 +1,7 @@
 # External connections: the corrected plan
 
-Status: investigation only. Nothing builds until Jason approves Phase 1.
-Written 2026-10-02 against `main` at e8208db.
+Status: Phase 1 approved and built (PR #395, not merged). Written
+2026-10-02 against `main` at e8208db.
 
 ## Read this first: the Sep 22 file did not arrive
 
@@ -14,7 +14,25 @@ proposal of Sep 3, and spec §10b, which names the same later phases.
 **Send the Sep 22 file and I will reconcile anything in it this misses.**
 Each "assumed" line below is what those sources assumed.
 
-## Decisions I need from you
+## Decisions
+
+**Approved by Jason, 2026-10-02: 1, 2, 3, 6, 7 and 8.** Jason gets 4
+and 5 from the client before Phase 4. Conditions he attached:
+
+- **1:** confirm whether dev can decrypt production's secrets after a
+  clone, and keep the scrub either way. **It can.** Dev's Vault key
+  matched production's, compared by fingerprint through the Management
+  API, because the clone is made with "Restore to a new project", which
+  copies the key. The scrub now removes every vault secret and fails
+  while dev's key is production's (section 1.3).
+- **2:** check Benson's weekly pull on dev before and after the move,
+  and on production right after it, with a way back if it fails.
+  Benson's numbers must not miss a week. Done on dev, with the
+  production runbook in `docs/deployment.md`.
+- **7:** the client's validation report must count wins by the date
+  entered Closed won, not Close date (Phase 4, measure 3).
+
+The list as first written:
 
 1. **How secrets are encrypted.** I recommend Supabase Vault (Phase 1,
    section 1.3).
@@ -55,11 +73,12 @@ Each "assumed" line below is what those sources assumed.
   system admin has switched it on for that company. CLAUDE.md's
   Permissions section keeps portfolio admin writes to a closed list, and
   forbids `is_guide_for()` and `is_admin_for()` in a write rule.
-- **A gap this exposed.** `pullExternalMeasureAction` checks
-  `isAdminForCompany`, which still admits any assigned portfolio admin.
-  For an unswitched one, the app lets the pull through, reads the sheet,
-  and then the database refuses. The contract phase should use the same
-  test as the database.
+- **Corrected 2026-10-02: no gap here.** The first version of this
+  plan said `pullExternalMeasureAction`'s `isAdminForCompany` admitted
+  any assigned portfolio admin. It does not: it reads
+  `portfolio_admin_company_ids`, which holds only the companies where a
+  system admin switched the portfolio admin on. That is the same rule as
+  `is_content_admin_for()`.
 - **0246** (owners assigned to a company own their work) changed nothing
   for measures.
 - **0247 (the measure-entries fix)** changed no permission. It added
@@ -145,9 +164,14 @@ signed-in person.
 **What the dev clone does to each.** Dev is cloned from production, so
 whatever is in the table is copied either way.
 
-- With **Vault**, dev is a different Supabase project with a different
-  key. The copied secrets cannot be decrypted on dev at all. The scrub
-  still deletes them, and the clone is safe even before it runs.
+- With **Vault**: **corrected after checking, 2026-10-02.** The first
+  version of this plan said dev's key would differ. It does not. Dev is
+  made with Supabase's "Restore to a new project", which copies the
+  project's Vault key, and dev's key matched production's. So, until the
+  scrub runs, the clone can decrypt what it copies. The scrub removes
+  every vault secret, then fails while the keys match, and
+  `--rotate-key` gives dev its own key once its secrets are gone. A
+  clone made with a plain dump and restore would get a fresh key.
 - With **app encryption**, whether dev can read production's secrets
   depends on which key dev's environment holds. Dev runs locally with
   production-shaped variables (`LOCAL_INSTANCE_*`). One copied variable
@@ -179,9 +203,14 @@ whatever is in the table is copied either way.
   the definer-function pattern is how pulls are already written, and the
   harness can probe it.
 
-**Recommendation: Supabase Vault.** The dev clone cannot read a copied
-secret, a key cannot be lost on its own, nothing secret lives in Vercel,
-and each instance gets its own key with no work. Before Phase 1 starts, I
+**Recommendation: Supabase Vault.** A key cannot be lost on its own,
+nothing secret lives in Vercel, and each instance gets its own key with
+no work (PromiseOne's differs from production's). The dev clone is the
+exception, handled by the scrub. Vault is installed on all three
+projects (`supabase_vault` 0.3.1). **One more thing to know:** the
+Supabase Management API returns a project's Vault key to anyone holding
+the management token, so that token (in `.env.provisioning`) is, in
+effect, the master key to every instance's secrets. Before Phase 1 starts, I
 will confirm that Vault is enabled on all three projects and which
 version runs there. Supabase has moved Vault off pgsodium, and the plan
 should build on the supported version.
@@ -202,8 +231,6 @@ cron, the receipts and the rules about which value wins are written once.
 - **Assumed:** pulled entries were simply "from Google". **Now:** the
   origin is checked as `'google_sheet'` in two places and written as a
   literal in a third.
-- **Assumed:** the app's permission check matched the database's.
-  **Now:** it does not, for unswitched portfolio admins.
 
 ### 2.2 Corrections
 
@@ -222,8 +249,8 @@ cron, the receipts and the rules about which value wins are written once.
 3. **One pull function per path, written once**: manual wins, the
    scheduled pull replaces only its own earlier value when the source
    changed (0248), the company comes from the measure, and
-   `is_content_admin_for()` is the guide test. The app's check uses the
-   same rule.
+   `is_content_admin_for()` is the guide test, which the app's
+   `isAdminForCompany` already matches.
 4. **A shared helper turns a timestamp into its week**: the company's
    timezone first, then `fridayOf`. HubSpot dates are timestamps, and
    `fridayOf` only takes calendar dates today. Weeks run Saturday to
@@ -334,6 +361,12 @@ converts it.
 - **The recipe holds:** the pipeline; the Closed won stage; the date that
   places a deal in a week (decision 7); the sum of amount for deals whose
   date falls in that week, in the company's timezone, Saturday to Friday.
+- **Approved (decision 7):** a deal belongs to the week it entered
+  Closed won (HubSpot's `hs_v2_date_entered_<closed won stage id>`),
+  not to its Close date. **The client's validation report must count
+  wins the same way**, by the date entered Closed won. A report built
+  on Close date will disagree with AiMS whenever a Close date was typed
+  by hand, and the comparison would look like our error.
 - **Why it can be unreliable:**
   - Close date can be edited by anyone and is often typed to suit a
     forecast. The date the deal entered Closed won is set by HubSpot.
