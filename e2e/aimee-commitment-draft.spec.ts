@@ -17,14 +17,18 @@ async function sendIn(page: Page, text: string) {
   const bubbles = page.getByTestId("coach-bubble");
   const before = await bubbles.count();
   const composer = page.getByPlaceholder("Ask Aimee…");
-  await composer.fill(text);
-  // Sent means the box cleared. After the second reply the conversation
-  // is named and the page refreshes, and an Enter pressed in that
-  // moment is lost with the text still in the box (first dev run).
+  // Sent means their bubble is on screen. The chat re-renders as a
+  // reply settles (and once more when the conversation is named), and
+  // text typed in that instant was cleared without being sent on the
+  // first dev runs. A person cannot type that fast; a test can.
   await expect(async () => {
-    if ((await composer.inputValue()) === text) await composer.press("Enter");
-    await expect(composer).toHaveValue("", { timeout: 5_000 });
+    if ((await bubbles.count()) === before) {
+      await composer.fill(text);
+      await composer.press("Enter");
+    }
+    expect(await bubbles.count()).toBeGreaterThan(before);
   }).toPass({ timeout: 60_000 });
+  // Their bubble and Aimee's, and the reply finished: the box is back.
   await expect(bubbles).toHaveCount(before + 2, { timeout: 180_000 });
   await expect(composer).toBeEnabled({ timeout: 180_000 });
 }
