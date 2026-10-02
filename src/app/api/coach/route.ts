@@ -14,34 +14,23 @@ import { buildGuideTools } from "@/lib/guide/agent-tools";
 import { formatHelpIndex, helpIndexFor } from "@/lib/help/search";
 import { makeSearchHelpTool } from "@/lib/help/tool";
 import { PANEL_PROMPT_BLOCK, recordPanelEvent } from "@/lib/aimee/panel";
-import { bannedRulesIn, recordRuleBreak } from "@/lib/aimee/rule-breaks";
+import { recordRuleBreak, type RuleBreakSurface } from "@/lib/aimee/rule-breaks";
+import {
+  checkVoice,
+  COUNTED,
+  SENT_BACK,
+  type CheckContext,
+  type CheckedTurn,
+  type VoiceCheck,
+} from "@/lib/aimee/voice-check";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { describePageContext, parsePageContext } from "@/lib/aimee/page-context";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
-import {
-  checkOpener,
-  describeFaults,
-  faultCount,
-  openerRetryInstruction,
-} from "@/lib/guide/opener-checks";
 import { loadCoachingPrinciples } from "@/lib/coach/principles";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
-import {
-  checkDebriefReply,
-  describeReplyFaults,
-  replyFaultCount,
-  replyRetryInstruction,
-} from "@/lib/guide/reply-checks";
 import { cleanGeneratedTitle } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { GENERAL_MODE_PREAMBLE } from "@/lib/coach/general-preamble";
-import {
-  checkFirstReply,
-  describeFirstReplyFaults,
-  firstReplyFaultCount,
-  firstReplyRetryInstruction,
-  firstReplyRules,
-} from "@/lib/coach/first-reply-checks";
 import { STRENGTH_CHECK_MODEL, skippedStrength } from "@/lib/coach/strength-check";
 import { trackAfter } from "@/lib/analytics/track";
 import {
@@ -431,20 +420,21 @@ export async function POST(req: NextRequest): Promise<Response> {
   // sent back once with what was wrong, and only then shown: a
   // generated opener (nobody typed it; Aimee reached out first), and
   // every reply in a meeting debrief, which on dev broke a countable
-  // rule every time, invented quotes included (reply-checks.ts). The
+  // rule every time, invented quotes included. The
   // cost is the typing effect: the reader sees "Thinking…" until the
   // checked turn arrives whole. Everything else streams.
   //
   // And the FIRST reply of a plain Aimee conversation (2026-09-30): her
   // name, a stock "That's X, especially..." acknowledgement and two asks
-  // in one question got through the instructions about half the time
-  // (first-reply-checks.ts). Later replies stream.
+  // in one question got through the instructions about half the time.
+  // Later replies stream. What each is sent back for is SENT_BACK in
+  // aimee/voice-check.ts.
   const isFirstPlainReply =
     convo.mode === "general" &&
     !practice &&
     !convo.debriefing_meeting_id &&
     history.every((m) => m.role !== "assistant");
-  const checkedTurn: CheckedTurnKind | null = isGenerateOpener
+  const checkedTurn: CheckedTurn | null = isGenerateOpener
     ? "opener"
     : convo.debriefing_meeting_id
       ? "debrief reply"
@@ -658,14 +648,13 @@ export async function POST(req: NextRequest): Promise<Response> {
         // It streamed, so it was read as it arrived and cannot be
         // retried (Jason, 2026-09-29). Dashes come out of the saved
         // text here and of the shown text in ChatView, so the two
-        // agree. Anything else on the banned list is counted, never
-        // retried (rule-breaks.ts, 0244).
+        // agree. Every voice rule still broken is counted, never
+        // retried (voice-check.ts COUNTED, rule-breaks.ts).
         if (!checkedTurn && assistantText.length > 0) {
           assistantText = stripEmDashes(assistantText);
-          const rules = bannedRulesIn(
-            assistantText,
-            [...history].reverse().find((m) => m.role === "user")?.content ?? ""
-          );
+          const { rules } = checkVoice(assistantText, COUNTED, {
+            userText: [...history].reverse().find((m) => m.role === "user")?.content ?? "",
+          });
           if (rules.length > 0) {
             void recordRuleBreak(supabase, {
               companyId: convo.company_id,
@@ -674,6 +663,7 @@ export async function POST(req: NextRequest): Promise<Response> {
               conversationId,
               surface: "conversation",
               origin: convo.origin === "panel" ? "panel" : "page",
+              practiceId: practice?.id ?? null,
               rules,
             });
           }
@@ -716,9 +706,9 @@ export async function POST(req: NextRequest): Promise<Response> {
           });
           const first = await check(assistantText);
           let kept = first;
-          if (first.count > 0) {
+          if (first.faults.length > 0) {
             console.log(
-              `[coach] ${checkedTurn} retry for ${conversationId}: ${first.describe}`
+              `[coach] ${checkedTurn} retry for ${conversationId}: ${first.rules.join(", ")}`
             );
             try {
               const retry = await client.messages.create({
@@ -728,7 +718,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                 messages: [
                   ...currentMessages,
                   { role: "assistant", content: assistantText },
-                  { role: "user", content: first.instruction },
+                  { role: "user", content: first.retry },
                 ],
               });
               // The retry is part of this turn's cost. It was left out, so
@@ -752,14 +742,14 @@ export async function POST(req: NextRequest): Promise<Response> {
               // with a fault in it. "Better" is fewer faults, so a
               // retry that fixes two and keeps one still wins.
               const second = await check(retried);
-              if (retried.length > 0 && second.count < first.count) {
+              if (retried.length > 0 && second.faults.length < first.faults.length) {
                 assistantText = retried;
                 kept = second;
               }
-              if (retried.length === 0 || second.count > 0) {
+              if (retried.length === 0 || second.faults.length > 0) {
                 console.error(
                   `[coach] ${checkedTurn} still breaking the rules after a retry (${conversationId})` +
-                    `${retried.length === 0 ? " (empty retry)" : `: ${second.describe}`}`
+                    `${retried.length === 0 ? " (empty retry)" : `: ${second.rules.join(", ")}`}`
                 );
               }
             } catch (err) {
@@ -769,35 +759,22 @@ export async function POST(req: NextRequest): Promise<Response> {
               );
             }
           }
-          // Shown with a rule still broken: counted, with the rules
-          // (Jason, 2026-09-29), to decide on a second retry from a
-          // week of data rather than a guess.
           // Dashes out of a checked turn too, before it is sent.
           assistantText = stripEmDashes(assistantText);
-          // A first reply's check includes a model call (the named
-          // strength), so its result is reused rather than asked for a
-          // third time; dashes are not among its rules.
-          const shown =
-            checkedTurn === "first reply" ? { ...kept, rules: [...kept.rules] } : await check(assistantText);
-          // Counted, not retried, on top of the turn's own check: opening
-          // with her name and the contrast phrases (2026-09-29), from
-          // the same list ordinary replies are counted against.
-          const counted = [...new Set([...shown.rules, ...bannedRulesIn(
-              assistantText,
-              [...history].reverse().find((m) => m.role === "user")?.content ?? ""
-            ),
-          ])];
-          if (counted.length > shown.rules.length) {
-            shown.count += counted.length - shown.rules.length;
-            shown.rules = counted;
-          }
-          if (shown.count > 0) {
+          // Shown with a rule still broken: counted against every rule,
+          // not only the ones this turn is sent back for, so the weekly
+          // figures say which rule to send back next (Jason,
+          // 2026-09-29). The attempt's own context is reused, so the
+          // strength check's model call is not made again.
+          const shown = checkVoice(assistantText, COUNTED, kept.ctx);
+          if (shown.rules.length > 0) {
             void recordRuleBreak(supabase, {
               companyId: convo.company_id,
               profileId: session.profile.id,
               role: session.profile.role,
               conversationId,
-              surface: checkedTurn === "opener" ? "opener" : "debrief_reply",
+              surface: SURFACE[checkedTurn],
+              practiceId: practice?.id ?? null,
               rules: shown.rules,
             });
           }
@@ -1091,46 +1068,42 @@ function buildMessages(
 
 // ---- Checked turns -----------------------------------------------
 
-type CheckedTurnKind = "opener" | "debrief reply" | "first reply";
+const SURFACE: Record<CheckedTurn, RuleBreakSurface> = {
+  opener: "opener",
+  "debrief reply": "debrief_reply",
+  "first reply": "first_reply",
+};
 
-type TurnCheckResult = { count: number; describe: string; instruction: string; rules: string[] };
+// One attempt at a held-back turn, checked against what that turn is
+// sent back for, with the context it was checked in.
+type CheckedAttempt = VoiceCheck & { ctx: CheckContext };
 
-// One check function per kind of held-back turn, the same shape for
-// both so the route runs one flow. A debrief reply's quotes are checked
-// against what was said: the meeting transcript, read once here under
-// the caller's own session (same-company members can read the meeting
-// row, 0142) and never shown to the model.
+// The check for one kind of held-back turn: the same rules module for
+// all three, so the route runs one flow. A debrief reply's quotes are
+// checked against what was said: the meeting transcript, read once here
+// under the caller's own session (same-company members can read the
+// meeting row, 0142) and never shown to the model.
 async function turnCheckFor(
-  kind: CheckedTurnKind,
+  kind: CheckedTurn,
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   convo: CoachingConversation,
   firstReply: { client: Anthropic; userText: string; logUsage: (usage: Anthropic.Usage) => void }
-): Promise<(text: string) => Promise<TurnCheckResult>> {
+): Promise<(text: string) => Promise<CheckedAttempt>> {
+  const userText = firstReply.userText;
   if (kind === "first reply") {
     // The strength check is a model call (strength-check.ts), so it
     // runs only when the person's message has a turn in it, and fails
     // open after 2.5 seconds.
     return async (text) => {
-      const f = checkFirstReply(text);
-      f.skippedStrength = await skippedStrength(firstReply.client, firstReply.userText, text, firstReply.logUsage);
-      return {
-        count: firstReplyFaultCount(f),
-        describe: describeFirstReplyFaults(f),
-        instruction: firstReplyRetryInstruction(f),
-        rules: firstReplyRules(f),
+      const ctx: CheckContext = {
+        userText,
+        skippedStrength: await skippedStrength(firstReply.client, userText, text, firstReply.logUsage),
       };
+      return { ...checkVoice(text, SENT_BACK[kind], ctx), ctx };
     };
   }
   if (kind === "opener") {
-    return async (text) => {
-      const f = checkOpener(text);
-      return {
-        count: faultCount(f),
-        describe: describeFaults(f),
-        instruction: openerRetryInstruction(f),
-        rules: [...f.banned.map((h) => h.phrase), ...(f.joined.length > 0 ? ["two questions joined by and"] : [])],
-      };
-    };
+    return async (text) => ({ ...checkVoice(text, SENT_BACK[kind], { userText }), ctx: { userText } });
   }
   const { data: meeting } = convo.debriefing_meeting_id
     ? await supabase
@@ -1139,20 +1112,8 @@ async function turnCheckFor(
         .eq("id", convo.debriefing_meeting_id)
         .maybeSingle<{ transcript_text: string | null }>()
     : { data: null };
-  const transcript = meeting?.transcript_text ?? "";
-  return async (text) => {
-    const f = checkDebriefReply(text, transcript);
-    return {
-      count: replyFaultCount(f),
-      describe: describeReplyFaults(f),
-      instruction: replyRetryInstruction(f),
-      rules: [
-        ...f.banned.map((h) => h.phrase),
-        ...(f.denials.length > 0 ? ["affirming by denial"] : []),
-        ...(f.invented.length > 0 ? ["invented quote"] : []),
-      ],
-    };
-  };
+  const ctx: CheckContext = { userText, transcript: meeting?.transcript_text ?? "" };
+  return async (text) => ({ ...checkVoice(text, SENT_BACK[kind], ctx), ctx });
 }
 
 // The conversation's first assistant message: its opener, when there

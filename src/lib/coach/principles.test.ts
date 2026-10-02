@@ -8,7 +8,11 @@ import { loadCoachingPrinciples } from "./principles";
 // an edit to it is a deliberate act: regenerate this with
 //   shasum -a 256 prompts/aims-coaching-principles.md
 // and say why beside it.
-const PRINCIPLES_SHA = "9c54c381dd2b18d88197c4e34e291f265801ac8b605cf30159f1f73dd34d5b12";
+//
+// 2026-10-02 (Jason approved, from the principles comparison): grading
+// covers plans and questions too, a list of options counts as more than
+// one question, and a serious risk is named in one or two sentences.
+const PRINCIPLES_SHA = "3d4051f84c1996ff00908003ac651825c8dcccdc003ec480a5bfd7f41761888d";
 
 describe("the AiMS coaching principles", () => {
   it("are Jason's text, unchanged", () => {

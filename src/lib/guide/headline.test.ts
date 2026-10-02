@@ -101,7 +101,7 @@ describe("checkCard", () => {
     // "not just" and "rather than" join this check with #358, which
     // adds them to the reply rules this reuses.
     const f = checkCard({ ...GOOD, opener: GOOD.opener.replace("trusts its own systems", "trusts the room and its systems") }, TRANSCRIPT, []);
-    expect(f.opener.join()).toMatch(/"the room"/);
+    expect(f.opener.join()).toMatch(/the room \("[^"]*room/);
     // "we can" twice inside the quote is theirs.
     expect(checkCard(GOOD, TRANSCRIPT, []).opener).toEqual([]);
   });
