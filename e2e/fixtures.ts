@@ -214,6 +214,20 @@ export async function fixtureCompanyId(page: Page): Promise<string> {
   return id;
 }
 
+// Review and publish checks the prompt against the AiMS coaching
+// principles before Publish can go (0256): a model call, so it can take
+// a few seconds. Waits for it, and gives a reason when it warns, which a
+// test agent's prompt may well do. Returns whether it warned.
+export async function settlePrinciplesCheck(drawer: Locator): Promise<boolean> {
+  const check = drawer.getByTestId("agent-config-principles");
+  await expect(check).toBeVisible({ timeout: 15_000 });
+  await expect(check.getByText(/Checking the prompt/)).toHaveCount(0, { timeout: 90_000 });
+  const reason = check.getByLabel("Why publish with these warnings?");
+  if ((await reason.count()) === 0) return false;
+  await reason.fill("e2e: publishing the test agent as written");
+  return true;
+}
+
 export { expect };
 export const test = base;
 

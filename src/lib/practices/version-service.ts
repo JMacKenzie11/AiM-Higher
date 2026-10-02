@@ -21,6 +21,10 @@ export type AgentVersionSummary = {
   publishNotes: string;
   publishedAt: string | null;
   publishedByName: string | null;
+  // Published although the principles check found something or could
+  // not run (0256): how many warnings, and the reason given. Null for a
+  // version published clean, before the check, or never.
+  principlesWarnings: { count: number; checkFailed: boolean; reason: string } | null;
   isLive: boolean;
   isDraft: boolean;
 };
@@ -40,7 +44,8 @@ export type AgentVersionDetail = AgentVersionSummary & {
 const DETAIL_COLUMNS =
   "id, version_number, prompt, chips, base_prompt_mode, skip_setup, " +
   "first_turn, scripted_opener, output_card, tools, max_tokens, model, " +
-  "publish_notes, published_at, published_by, profiles:published_by ( full_name )";
+  "publish_notes, published_at, published_by, profiles:published_by ( full_name ), " +
+  "principles_reason, principles_check:principles_check_id ( status, conflicts )";
 
 type Row = {
   id: string;
@@ -59,6 +64,8 @@ type Row = {
   published_at: string | null;
   published_by: string | null;
   profiles: { full_name: string | null } | null;
+  principles_reason: string | null;
+  principles_check: { status: string; conflicts: unknown } | null;
 };
 
 function toDetail(
@@ -72,6 +79,13 @@ function toDetail(
     publishNotes: r.publish_notes,
     publishedAt: r.published_at,
     publishedByName: r.profiles?.full_name ?? null,
+    principlesWarnings: r.principles_reason
+      ? {
+          count: Array.isArray(r.principles_check?.conflicts) ? r.principles_check.conflicts.length : 0,
+          checkFailed: r.principles_check?.status === "failed",
+          reason: r.principles_reason,
+        }
+      : null,
     isLive: r.id === liveId,
     isDraft: r.id === draftId,
     prompt: r.prompt,

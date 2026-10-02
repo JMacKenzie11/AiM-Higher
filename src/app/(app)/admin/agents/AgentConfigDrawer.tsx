@@ -27,6 +27,7 @@ import {
 } from "@/lib/practices/version-actions";
 import admin from "../companies/admin.module.css";
 import styles from "./hub.module.css";
+import { PrinciplesCheckPanel, principlesReady, type PrinciplesState } from "./PrinciplesCheckPanel";
 
 // The three read-only lookups an agent may be given. Labelled for a
 // human: the raw function names told a system admin nothing about
@@ -170,6 +171,9 @@ export function AgentConfigDrawer({
 
   const draft = config?.draft ?? null;
   const [view, setView] = useState<"config" | "publish" | "history">("config");
+  // The principles check for what Review and publish shows, and for a
+  // version being made live again from history (0256).
+  const [principles, setPrinciples] = useState<PrinciplesState>({ check: null, reason: "" });
   const [notes, setNotes] = useState("");
   const [publishing, setPublishing] = useState<string | null>(null);
   // Which history entry is showing its diff against what is live.
@@ -744,6 +748,14 @@ export function AgentConfigDrawer({
               {audienceSentence(access)}
             </p>
 
+            <PrinciplesCheckPanel
+              agentRowId={agentRowId}
+              prompt={form.prompt}
+              state={principles}
+              onChange={setPrinciples}
+              idPrefix="cfg"
+            />
+
             <div className={admin.field}>
               <label className={admin.label} htmlFor="cfg-notes">
                 Publish notes
@@ -765,7 +777,7 @@ export function AgentConfigDrawer({
               <button
                 type="button"
                 className={admin.primaryButton}
-                disabled={pending || busy || !notes.trim()}
+                disabled={pending || busy || !notes.trim() || !principlesReady(principles)}
                 data-testid="agent-config-publish"
                 onClick={() =>
                   void act(async () => {
@@ -777,10 +789,12 @@ export function AgentConfigDrawer({
                     const r = await publishDraftAction(
                       agentRowId,
                       saved.versionId!,
-                      notes
+                      notes,
+                      { checkId: principles.check!.checkId, reason: principles.reason }
                     );
                     if (r.ok) {
                       setNotes("");
+                      setPrinciples({ check: null, reason: "" });
                       setView("config");
                     }
                     return r;
@@ -822,6 +836,14 @@ export function AgentConfigDrawer({
                   </p>
                   {v.publishNotes ? (
                     <p className={styles.agentDescription}>{v.publishNotes}</p>
+                  ) : null}
+                  {v.principlesWarnings ? (
+                    <p className={styles.agentDescription}>
+                      {v.principlesWarnings.checkFailed
+                        ? "Published without a principles check (it could not run)."
+                        : `Published with ${v.principlesWarnings.count} principles ${v.principlesWarnings.count === 1 ? "warning" : "warnings"}.`}{" "}
+                      Reason: {v.principlesWarnings.reason}
+                    </p>
                   ) : null}
                   {!v.isLive && baseline ? (
                     <button
@@ -870,6 +892,14 @@ export function AgentConfigDrawer({
                   ) : null}
                   {!v.isLive ? (
                     publishing === v.id ? (
+                      <>
+                      <PrinciplesCheckPanel
+                        agentRowId={agentRowId}
+                        prompt={v.prompt}
+                        state={principles}
+                        onChange={setPrinciples}
+                        idPrefix={`v${v.versionNumber}`}
+                      />
                       <div className={styles.addRow}>
                         <input
                           className={admin.input}
@@ -881,16 +911,18 @@ export function AgentConfigDrawer({
                         <button
                           type="button"
                           className={admin.primaryButton}
-                          disabled={pending || busy || !notes.trim()}
+                          disabled={pending || busy || !notes.trim() || !principlesReady(principles)}
                           onClick={() =>
                             void act(async () => {
                               const r = await publishDraftAction(
                                 agentRowId,
                                 v.id,
-                                notes
+                                notes,
+                                { checkId: principles.check!.checkId, reason: principles.reason }
                               );
                               if (r.ok) {
                                 setNotes("");
+                                setPrinciples({ check: null, reason: "" });
                                 setPublishing(null);
                               }
                               return r;
@@ -900,6 +932,7 @@ export function AgentConfigDrawer({
                           Make live
                         </button>
                       </div>
+                      </>
                     ) : (
                       <button
                         type="button"

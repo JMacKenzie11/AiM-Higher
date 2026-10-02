@@ -1,4 +1,5 @@
 import {
+  settlePrinciplesCheck,
   test,
   expect,
   signIn,
@@ -75,6 +76,7 @@ async function publish(page: Page, slug: string, notes: string) {
   // The audience sentence renders on EVERY publish, not just a first.
   await expect(d.getByTestId("agent-config-audience")).toBeVisible();
   await d.getByLabel(/^publish notes$/i).fill(notes);
+  await settlePrinciplesCheck(d);
   await d.getByTestId("agent-config-publish").click();
   await expect(d.getByTestId("agent-config-source")).toContainText(
     /running version/i,

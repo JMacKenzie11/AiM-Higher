@@ -1,5 +1,6 @@
 import { TEST_AGENT_CODE_CHIP, TEST_AGENT_ID } from "../src/lib/practices/test-agent";
 import {
+  settlePrinciplesCheck,
   test,
   expect,
   signIn,
@@ -142,6 +143,7 @@ async function publishChip(page: Page, slug: string, marker: string) {
   await d.getByRole("button", { name: /review and publish/i }).click();
   await expect(d.getByTestId("agent-config-diff")).toBeVisible();
   await d.getByLabel(/^publish notes$/i).fill(`e2e: chips to ${marker}`);
+  await settlePrinciplesCheck(d);
 
   // Wait for THIS publish to land, then for the drawer to show it.
   //

@@ -9,6 +9,10 @@ import { PRACTICES, type PracticeToolName } from "./registry";
 import { registryConfig } from "./version-config";
 import { FUNCTION_LEAD_PREDICATE } from "./hub-constants";
 import { isValidAgentModel } from "./models";
+import { createHash } from "node:crypto";
+import Anthropic from "@anthropic-ai/sdk";
+import { loadCoachingPrinciples } from "@/lib/coach/principles";
+import { checkAgentPrompt, type PrinciplesConflict } from "./principles-check";
 
 // Writes for agent config. system_admin only, enforced by RLS (0228)
 // and failed fast here.
@@ -113,7 +117,10 @@ async function insertVersion(
   agentRowId: string,
   input: DraftInput,
   publishNotes: string,
-  profileId: string | null
+  profileId: string | null,
+  // On a publish: the principles check read first, and the reason when
+  // it found something (0256).
+  principles: { checkId: string; reason: string | null } | null = null
 ): Promise<{ id: string } | { error: string }> {
   const version_number = await nextVersionNumber(supabase, agentRowId);
   const { data, error } = await supabase
@@ -139,6 +146,9 @@ async function insertVersion(
       publish_notes: publishNotes,
       published_by: profileId,
       published_at: publishNotes ? new Date().toISOString() : null,
+      ...(principles
+        ? { principles_check_id: principles.checkId, principles_reason: principles.reason }
+        : {}),
     })
     .select("id")
     .single<{ id: string }>();
@@ -272,7 +282,10 @@ export async function saveDraftAction(
 export async function publishDraftAction(
   agentRowId: string,
   versionId: string,
-  notes: string
+  notes: string,
+  // The principles check the person read (checkAgentPrinciplesAction),
+  // and why they are publishing when it found something.
+  principles: { checkId: string; reason: string }
 ): Promise<VersionResult> {
   const session = await requireRole(["system_admin"]);
   const refusal = await refuseIfNotAuthoringInstance();
@@ -326,12 +339,16 @@ export async function publishDraftAction(
   const problem = validate(input);
   if (problem) return { ok: false, message: problem };
 
+  const checked = await heldToPrinciples(supabase, agentRowId, input.prompt, principles);
+  if ("message" in checked) return { ok: false, message: checked.message };
+
   const inserted = await insertVersion(
     supabase,
     agentRowId,
     input,
     trimmed,
-    session.profile.id
+    session.profile.id,
+    checked
   );
   if ("error" in inserted) return { ok: false, message: inserted.error };
 
@@ -342,6 +359,85 @@ export async function publishDraftAction(
   if (error) return { ok: false, message: "Couldn't publish that version." };
   refresh();
   return { ok: true, versionId: inserted.id };
+}
+
+// ---- Checked against the AiMS coaching principles (0256) ---------
+//
+// Publishing names a check the person read, and this holds it to the
+// version being published: the same agent, the same prompt, the
+// principles as they are now. A check that found something, or could
+// not run, needs a reason, kept with the version. It warns, it never
+// blocks (principles-check.ts).
+
+export type PrinciplesCheckView = {
+  checkId: string;
+  status: "checked" | "failed";
+  conflicts: PrinciplesConflict[];
+};
+
+const fingerprint = (text: string) => createHash("sha256").update(text).digest("hex");
+
+export async function checkAgentPrinciplesAction(
+  agentRowId: string,
+  prompt: string
+): Promise<{ ok: true; check: PrinciplesCheckView } | { ok: false; message: string }> {
+  const session = await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
+  const principles = await loadCoachingPrinciples();
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const result = apiKey
+    ? await checkAgentPrompt(new Anthropic({ apiKey }), prompt, principles)
+    : { status: "failed" as const, conflicts: [] as PrinciplesConflict[] };
+
+  const supabase = await db();
+  const { data, error } = await supabase
+    .from("agent_principles_checks")
+    .insert({
+      agent_id: agentRowId,
+      prompt_sha: fingerprint(prompt),
+      principles_sha: fingerprint(principles),
+      status: result.status,
+      conflicts: result.conflicts,
+      checked_by: session.profile.id,
+    })
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !data) return { ok: false, message: "Couldn't record the principles check. Try again." };
+  return { ok: true, check: { checkId: data.id, status: result.status, conflicts: result.conflicts } };
+}
+
+async function heldToPrinciples(
+  supabase: Awaited<ReturnType<typeof db>>,
+  agentRowId: string,
+  prompt: string,
+  principles: { checkId: string; reason: string }
+): Promise<{ checkId: string; reason: string | null } | { message: string }> {
+  const { data: check } = await supabase
+    .from("agent_principles_checks")
+    .select("id, agent_id, prompt_sha, principles_sha, status, conflicts")
+    .eq("id", principles.checkId)
+    .maybeSingle<{
+      id: string;
+      agent_id: string;
+      prompt_sha: string;
+      principles_sha: string;
+      status: string;
+      conflicts: unknown[];
+    }>();
+  if (!check || check.agent_id !== agentRowId || check.prompt_sha !== fingerprint(prompt)) {
+    return { message: "The prompt has changed since it was checked against the principles. Check it again before publishing." };
+  }
+  if (check.principles_sha !== fingerprint(await loadCoachingPrinciples())) {
+    return { message: "The coaching principles have changed since this check. Check the prompt again before publishing." };
+  }
+  const warned = check.status !== "checked" || (Array.isArray(check.conflicts) && check.conflicts.length > 0);
+  const reason = principles.reason.trim();
+  if (warned && !reason) {
+    return { message: "Say why you are publishing with these warnings. The reason is kept with the version." };
+  }
+  if (reason.length > 1000) return { message: "Keep the reason under 1,000 characters." };
+  return { checkId: check.id, reason: warned ? reason : null };
 }
 
 // ---- Revert to the code default ---------------------------------
