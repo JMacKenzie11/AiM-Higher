@@ -60,7 +60,9 @@ import {
 // The amendment keeps the risk refused and drops the bluntness. An
 // about-mode conversation IS summarized, strictly in the PARTICIPANT
 // FRAME: what the leader intends, committed to, keeps avoiding,
-// decided. Never a claim about the team member.
+// decided. Never a claim about the team member. (For a while the
+// prompt asked for the leader's assessments of the person too; Jason
+// reversed that on 2026-10-01, and this frame is the rule again.)
 //
 // Two things enforce that, and they are not the same thing:
 //
@@ -69,9 +71,10 @@ import {
 //     parameter, so a memory cannot land on the subject's record even
 //     if everything here is wrong.
 //   - WHAT the row may say is the frame rule. It lives in
-//     prompts/coach-memory.md, with a deterministic backstop in
-//     memory-shape.ts that needs the subject's name to see a claim
-//     about them, which is why the name is looked up and passed.
+//     prompts/coach-memory.md and in the instruction below, with a
+//     deterministic backstop in memory-shape.ts (aboutAnotherVerdict)
+//     that needs the subject's name to see a claim about them, which
+//     is why the name is looked up and passed.
 //
 // The team member's record is not lost by any of this: the coach
 // reads it live through the tier-one tools every turn.
@@ -299,15 +302,19 @@ export async function summarizeFinishedConversationsAction(
             // revert it: the participant-frame version of this
             // sentence outlived its own reversal by one PR and had
             // the model splitting the difference. Failure mode E10.
+            // Jason, 2026-10-01: the asker's goals and plan only, never
+            // a judgment about the other person (memory-shape.ts drops
+            // one that gets through).
             content: isAbout
-              ? `Distil this finished coaching conversation.\n\nThis is an ` +
-                `about-mode conversation: a leader thinking through ` +
-                `${subjectName}, who is on their team and was not present. ` +
-                `Capture both sides: what the leader is working on, and what ` +
-                `they observe about ${subjectName}. Anything the leader ` +
-                `stated about ${subjectName} is "said", including when the ` +
-                `coach questioned it or the record does not corroborate it. ` +
-                `Your own reading of ${subjectName} is "inferred".` +
+              ? `Distil this finished coaching conversation.\n\nThis ` +
+                `conversation was about ${subjectName}, who was not present. ` +
+                `Keep only what the person you were talking with is working ` +
+                `on: what they intend, committed to, decided, and keep ` +
+                `avoiding, each starting with their own action ("Committed ` +
+                `to", "Plans to", "Decided to", "Keeps"). Never keep what ` +
+                `they or you think of ${subjectName}: no observations, ` +
+                `assessments or readings of their performance, character, ` +
+                `motives or fit for a role.` +
                 `\n\n${transcript}`
               : `Distil this finished coaching conversation.\n\n${transcript}`,
           },
@@ -336,7 +343,7 @@ export async function summarizeFinishedConversationsAction(
       continue;
     }
 
-    const { kept, dropped: removed } = applyNeverWrittenFilter(drafts);
+    const { kept, dropped: removed } = applyNeverWrittenFilter(drafts, isAbout ? subjectNames : []);
     dropped += removed.length;
     if (removed.length > 0) {
       // Counts and reasons only — logging the content would put the

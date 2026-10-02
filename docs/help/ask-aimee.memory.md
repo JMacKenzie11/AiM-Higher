@@ -6,7 +6,7 @@ title: Memory
 
 Everything Aimee has noted from your conversations, newest first. You can correct any of it or delete it.
 
-**What you tell Aimee stays between you and Aimee. No one else can read it. You can see everything Aimee remembers about you, and delete any of it, whenever you want.**
+**What you tell Aimee stays between you and Aimee. No one else can read it. You can see everything Aimee remembers about you, and delete any of it, whenever you want.** Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee.
 
 Your manager can't read it. Your company admin can't, your AiMS Guide can't, and nobody at AiMS can either.
 
@@ -47,7 +47,7 @@ Until you delete it. Nothing expires. Recent lines, and anything you added yours
 
 **What never gets written down?** Health and medical details, yours or anyone else's, and family or personal life. Aimee won't save them even if you ask, and she'll tell you so and offer a work version instead. If you mention a parent is in hospital until October, what can be kept is that you'll be stretched until October, with no reason attached.
 
-**Does it remember what I say about my team?** Yes. Who you're thinking of promoting, who you're worried about, a restructure you're weighing: that's what makes Aimee useful next time. Only you can read it. The person you talked about can't see any of it, and health and family stay off the record for them too.
+**Does it remember what I say about someone else?** Only what you're working on: what you plan to do, what you committed to, what you decided, what you keep putting off. Not what you or Aimee think of them. They never agreed to a record, so Aimee doesn't keep one. Only you can read your memory, the person you talked about can't see any of it, and health and family stay off the record for everyone.
 
 **Can I export or share my memory?** No. There's no export and no way to share this page.
 

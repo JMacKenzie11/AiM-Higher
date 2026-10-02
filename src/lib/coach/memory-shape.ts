@@ -197,20 +197,59 @@ export function declineMessageFor(reason: "health" | "family"): string {
   );
 }
 
+// ---- About another person: the asker's goals and plan only -------
+//
+// Jason, 2026-10-01 (docs/investigations/open-data.md, phase C). A
+// conversation about someone else is remembered only as what the
+// person asking is working on: what they intend, committed to, decided
+// and keep avoiding. Never what they, or Aimee, think of the other
+// person, who never agreed to a record. The prompt says so; this is the
+// line behind it.
+//
+// A memory that names the other person is kept only when it opens with
+// the asker's own action. Narrow on purpose, like the rest of this
+// file: it will drop a fine memory now and then ("Noticed Marcus was
+// quieter" is the asker's observation and goes), which costs the next
+// conversation a little context, where keeping a judgment would cost
+// the other person a record about them.
+const ASKER_ACTION =
+  /^(?:committed|commits|plans|plans to|planning|decided|decides|will|wants|intends|agreed|agrees|chose|chooses|is going to|is preparing|prepared|keeps|kept|avoids|is avoiding|has been avoiding|booked|scheduled|asked|is asking|practised|practiced|rehearsed|promised|offered)\b/i;
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function aboutAnotherVerdict(
+  content: string,
+  subjectNames: readonly string[]
+): { keep: true } | { keep: false; reason: "about the other person" } {
+  const names = subjectNames.filter((n) => n.trim().length >= 2).map(escapeRegExp);
+  if (names.length === 0) return { keep: true };
+  const namesIt = new RegExp(`(?<![\\p{L}])(?:${names.join("|")})(?![\\p{L}])`, "iu").test(content);
+  if (!namesIt || ASKER_ACTION.test(content.trim())) return { keep: true };
+  return { keep: false, reason: "about the other person" };
+}
+
+export type DropReason = "health" | "family" | "about the other person";
+
 export type FilterResult = {
   kept: DraftMemory[];
-  dropped: Array<{ memory: DraftMemory; reason: "health" | "family" }>;
+  dropped: Array<{ memory: DraftMemory; reason: DropReason }>;
 };
 
+// subjectNames: the other person's names, in a conversation about
+// someone else. Empty for a conversation about nobody else.
 export function applyNeverWrittenFilter(
-  drafts: readonly DraftMemory[]
+  drafts: readonly DraftMemory[],
+  subjectNames: readonly string[] = []
 ): FilterResult {
   const kept: DraftMemory[] = [];
   const dropped: FilterResult["dropped"] = [];
   for (const m of drafts) {
     const verdict = filterVerdict(m.content);
-    if (verdict.keep) kept.push(m);
-    else dropped.push({ memory: m, reason: verdict.reason });
+    const about = verdict.keep ? aboutAnotherVerdict(m.content, subjectNames) : verdict;
+    if (about.keep) kept.push(m);
+    else dropped.push({ memory: m, reason: about.reason });
   }
   return { kept, dropped };
 }
