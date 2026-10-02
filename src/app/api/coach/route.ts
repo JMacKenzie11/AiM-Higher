@@ -24,6 +24,7 @@ import {
   faultCount,
   openerRetryInstruction,
 } from "@/lib/guide/opener-checks";
+import { loadCoachingPrinciples } from "@/lib/coach/principles";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import {
   checkDebriefReply,
@@ -1027,11 +1028,13 @@ async function loadSystemPrompt(
       ? base
       : `${GENERAL_MODE_PREAMBLE}\n\n${base}`;
 
-  // Voice rules go LAST in the system prompt so they're the freshest
-  // instruction the model reads before generating. Applies to every
-  // coach surface (about, general, practice) — the point is a single
-  // consistent voice across the whole coaching product.
-  return `${composed}\n\n${VOICE_RULES_COACH}`;
+  // The AiMS coaching principles come after the agent's prompt and
+  // take precedence over it (lib/coach/principles.ts). Voice rules go
+  // LAST so they're the freshest instruction the model reads before
+  // generating. Both apply to every coach surface (about, general,
+  // practice, panel): one way of coaching and one voice across the
+  // whole product.
+  return `${composed}\n\n${await loadCoachingPrinciples()}\n\n${VOICE_RULES_COACH}`;
 }
 
 // Load the base coach prompt by splicing prompts/aims-voice.md (the
