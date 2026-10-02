@@ -1,20 +1,27 @@
-import { getOrGenerateDashboardBrief } from "@/lib/dashboard/brief";
+import { getLatestDashboardBrief, getOrGenerateDashboardBrief } from "@/lib/dashboard/brief";
 import { CardAccent } from "@/components/ui/CardAccent";
 import { AiBrief } from "./AiBrief";
 import styles from "./dashboard.module.css";
 
-// Server component that fetches (and possibly generates) the daily
-// AI brief. Wrapped in <Suspense> from the dashboard so the rest of
+// Server component that fetches the daily brief, and for an admin
+// generates it. Wrapped in <Suspense> from the dashboard so the rest of
 // the page renders immediately while this suspends on the model call.
+//
+// canGenerate: an admin generates and stores today's brief; everyone
+// else in the company reads the latest one written (0253).
 
 export async function BriefSection({
   companyId,
   adminId,
+  canGenerate,
 }: {
   companyId: string;
   adminId: string;
+  canGenerate: boolean;
 }) {
-  const brief = await getOrGenerateDashboardBrief(companyId, adminId);
+  const brief = canGenerate
+    ? await getOrGenerateDashboardBrief(companyId, adminId)
+    : await getLatestDashboardBrief(companyId);
   return (
     <section className={styles.briefCard} aria-labelledby="brief-card">
       <CardAccent />
@@ -29,8 +36,8 @@ export async function BriefSection({
         <AiBrief content={brief.content} generatedAt={brief.generatedAt} />
       ) : (
         <p className={styles.briefEmpty}>
-          No brief yet — it&rsquo;ll appear here once there&rsquo;s enough
-          activity this week (and the coach API key is configured).
+          No brief yet. It&rsquo;ll appear here once there&rsquo;s enough
+          activity this week.
         </p>
       )}
     </section>

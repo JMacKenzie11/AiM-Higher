@@ -10545,12 +10545,17 @@ async function companyContentProbes(run: Runner, pending: string): Promise<Grant
   const otherCompany = await asMember(counts(pick.b));
   const colleaguePrivate = await asMember(privateCounts);
   const planted = await asMember(counts(pick.b), "create policy zz_harness_plant on public.dashboard_ai_briefs for select to authenticated using (true);");
+  // A colleague's email, through profile_email (decision 7): theirs to
+  // see, another company's never.
+  const emails = await asMember(`select concat_ws(',',
+      (public.profile_email('${pick.colleague}') is not null)::int,
+      (public.profile_email('${pick.person_b}') is not null)::int) as n;`);
   const zero = TABLES.map(() => "0").join(",");
   const plantedCaught = planted !== zero && !planted.startsWith("ERROR");
-  const ok = truth?.n === ownCompany && !ownCompany.split(",").includes("0") && otherCompany === zero && colleaguePrivate === "0,0" && plantedCaught;
+  const ok = truth?.n === ownCompany && !ownCompany.split(",").includes("0") && otherCompany === zero && colleaguePrivate === "0,0" && plantedCaught && emails === "1,0";
   return [{
     name,
-    granted: `a team member reads, per table, ${ownCompany} of their company's ${truth?.n ?? "?"} (${TABLES.join(", ")})`,
+    granted: `a team member reads, per table, ${ownCompany} of their company's ${truth?.n ?? "?"} (${TABLES.join(", ")}) | a colleague's email, another company's person's: ${emails} (want 1,0)`,
     withheld: `another company's: ${otherCompany} (want all 0) | a colleague's raw strengths answers, assessment chat: ${colleaguePrivate} (want 0,0) | planted rule opening one table: ${plantedCaught ? "caught" : `missed (${planted})`}`,
     ok,
     detail: ok

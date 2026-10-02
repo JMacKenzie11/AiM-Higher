@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserStrengths } from "@/lib/strengths/user-strengths";
 import { companyHasFeature } from "@/lib/subscriptions/service";
@@ -34,7 +35,19 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
   const isCompanyAdmin =
     session.profile.role === "company_admin" &&
     session.profile.company_id === subject.company_id;
-  if (!isSelf && !isSystemAdmin && !isCompanyAdmin) redirect("/people");
+  // Everyone in the company reads a person's strengths (0253, phase D
+  // of docs/investigations/open-data.md): their colleagues, its
+  // assigned guides and portfolio admins. Editing the manual list stays
+  // with the person, their company admin and system admins.
+  const canView =
+    isSelf ||
+    isSystemAdmin ||
+    (subject.company_id !== null &&
+      (session.profile.company_id === subject.company_id ||
+        isAdminForCompany(session.profile, subject.company_id) ||
+        session.profile.role === "portfolio_admin"));
+  if (!canView) redirect("/people");
+  const canEdit = isSelf || isSystemAdmin || isCompanyAdmin;
 
   const [strengths, assessmentCompleted] = await Promise.all([
     getUserStrengths(subject.id),
@@ -85,10 +98,10 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
                 font: "var(--text-body)",
               }}
             >
-              The manual list below is your{isSelf ? "" : "s"} to curate — it
-              rides along on every coaching turn. The dimensional
-              assessment sits alongside it and is available to the coach
-              on demand.
+              The manual list below is {isSelf ? "yours" : `${firstName}\u2019s`} to
+              curate, and it rides along on every coaching turn. The
+              dimensional assessment sits alongside it and is available to
+              the coach on demand.
               {isSelf ? (
                 <>
                   {" "}
@@ -105,7 +118,7 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
         ) : null}
 
         <section className={styles.card}>
-          <StrengthsEditor userId={subject.id} initial={strengths} heading="" />
+          <StrengthsEditor userId={subject.id} initial={strengths} heading="" readOnly={!canEdit} />
         </section>
       </div>
     </div>

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
-import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { FacilitationListChip } from "@/components/leadership/FacilitationReview";
@@ -19,17 +18,15 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // Every ingested meeting shows up here for the current scoped
 // company: title, date, analysis status, and (when complete) a
 // link into the full AI analysis + commitments the meeting spawned.
-// Open to every same-company member; RLS on meetings +
-// meeting_analyses admits authenticated users whose profile.company_id
-// matches. Facilitation reviews and raw transcript_text remain
-// admin-only via app-level gating (this file selects only metadata
-// columns; the facilitation chip is admin-gated below).
+// Open to every same-company member, facilitation scores included:
+// everyone in a company reads its content (0253, phase D of
+// docs/investigations/open-data.md). This file selects only metadata
+// columns; the transcript has its own page.
 
 export default async function LeadershipPage() {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
-  const isAdmin = isAdminForCompany(session.profile, companyId);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   // Explicit column list, NOT select("*"). The Meeting row carries
@@ -45,17 +42,16 @@ export default async function LeadershipPage() {
     .limit(100);
   const meetings = (rows ?? []) as MeetingListRow[];
 
-  // Facilitation column is only fetched (and only rendered) when the
-  // feature is on AND the caller can manage this company. Grades the
-  // meeting leader on things like discussion balance — sharing that
-  // with the person being graded is the wrong default. One extra
-  // query for the complete-status meetings — pending/failed rows
-  // can't have a review yet.
+  // Facilitation column is fetched and rendered when the feature is
+  // on, for everyone in the company (Jason, 2026-10-01: company content
+  // is open to the company, the review included). One extra query for
+  // the complete-status meetings; pending or failed rows can't have a
+  // review yet.
   const facilitationFeatureOn = await companyHasFeature(
     companyId,
     "meeting_facilitation_review"
   );
-  const facilitationOn = facilitationFeatureOn && isAdmin;
+  const facilitationOn = facilitationFeatureOn;
   const reviewByMeetingId = new Map<string, FacilitationReview>();
   const scoreRowByMeetingId = new Map<string, StoredScoreRow>();
   if (facilitationOn) {

@@ -121,3 +121,42 @@ using ((select public.is_portfolio_admin()));
 create policy company_feature_events_select_company on public.company_feature_events
 for select to authenticated
 using (company_id = (select public.auth_company_id()));
+
+-- A COLLEAGUE'S EMAIL (decision 7). The person page's Details shows a
+-- person's sign-in email, which lives in auth.users, not on the
+-- profile. It was read with the service role for every viewer; it is
+-- now read through this function, which decides who may see it the
+-- way a read rule would.
+-- Roles: read only. The person themselves, anyone in their company, an
+-- assigned guide, a portfolio admin and a system admin. Anyone else
+-- gets null.
+create or replace function public.profile_email(p_profile_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select u.email::text
+  from auth.users u
+  join public.profiles p on p.id = u.id
+  where u.id = p_profile_id
+    and (
+      p_profile_id = (select auth.uid())
+      or (select public.auth_role()) = 'system_admin'
+      or (
+        p.company_id is not null
+        and (
+          p.company_id = (select public.auth_company_id())
+          -- is_assigned_guide_for, not is_guide_for: the guide alone,
+          -- with portfolio admins named on the next line (E19).
+          or public.is_assigned_guide_for(p.company_id)
+          or (select public.is_portfolio_admin())
+        )
+      )
+    );
+$$;
+
+revoke all on function public.profile_email(uuid) from public;
+revoke all on function public.profile_email(uuid) from anon;
+grant execute on function public.profile_email(uuid) to authenticated;
