@@ -11278,7 +11278,11 @@ values ('${id}', '${ids.companyAdminCompany}', ${i === 0 ? "true" : "false"});`
                    join public.connections c on c.company_id = o.company_id and c.connector = 'google'
                    join vault.decrypted_secrets ds on ds.id = c.secret_id
                   where o.provider = 'google_drive'
-                    and (ds.decrypted_secret::jsonb ->> 'refresh_token') = o.refresh_token) as matched;`,
+                    -- Only a Google secret is JSON: a HubSpot key in the vault
+                    -- (Geo-Sci's on dev, 2026-10-03) is a bare string, and
+                    -- casting it failed this probe.
+                    and case when c.connector = 'google' and left(btrim(ds.decrypted_secret), 1) = '{'
+                             then (ds.decrypted_secret::jsonb ->> 'refresh_token') end = o.refresh_token) as matched;`,
         "rollback;",
       ].join("\n")
     );

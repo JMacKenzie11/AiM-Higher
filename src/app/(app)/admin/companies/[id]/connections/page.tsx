@@ -96,7 +96,7 @@ export default async function ConnectionsPage({ params, searchParams }: PageProp
       </section>
 
       <div className={styles.content}>
-        <section className={styles.card} aria-labelledby="google-heading" data-testid="connection-google">
+        <section className={styles.accentCard} aria-labelledby="google-heading" data-testid="connection-google">
           <h2 id="google-heading" className={styles.h2}>
             Google
           </h2>
@@ -136,7 +136,7 @@ export default async function ConnectionsPage({ params, searchParams }: PageProp
         </section>
 
         {hubspotOn ? (
-          <section className={styles.card} aria-labelledby="hubspot-heading" data-testid="connection-hubspot">
+          <section className={styles.accentCard} aria-labelledby="hubspot-heading" data-testid="connection-hubspot">
             <h2 id="hubspot-heading" className={styles.h2}>
               HubSpot
             </h2>
@@ -167,7 +167,7 @@ export default async function ConnectionsPage({ params, searchParams }: PageProp
         ) : null}
 
         {history.length > 0 ? (
-          <section className={styles.card} aria-labelledby="history-heading">
+          <section className={styles.accentCard} aria-labelledby="history-heading">
             <h2 id="history-heading" className={styles.h2}>
               History
             </h2>
