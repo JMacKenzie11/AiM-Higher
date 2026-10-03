@@ -392,7 +392,6 @@ export async function POST(req: NextRequest): Promise<Response> {
       subjectProfileId:
         convo.mode === "about" ? convo.subject_profile_id ?? null : null,
       companyId: convo.company_id,
-      memoryWrites: !fromPanel,
     })),
     // PRACTICE TOOLS, registered for the practice running and
     // nowhere else. A tool the model can always see is a tool it

@@ -149,4 +149,27 @@ test.describe("Aimee's panel and coach memory", () => {
       "the memory sweep summarized a panel conversation"
     ).toBeNull();
   });
+
+  // Since 2026-10-03 (Jason): an explicit "remember that" in the panel
+  // is saved, as on the Aimee page. Only that: the test above still
+  // holds, the sweep never distils a panel conversation.
+  test("asked in the panel to remember something, Aimee saves that one thing", async ({ page }) => {
+    await signIn(page, users.member());
+    await page.goto("/plan");
+    await page.getByTestId("corner-launcher").click();
+    const panel = page.locator('[data-testid="aimee-panel"]');
+    await expect(panel.getByPlaceholder("Ask Aimee…")).toBeVisible({ timeout: 30_000 });
+    await sendIn(panel, "Please remember this: I prefer to hold one-to-ones on Monday mornings.");
+
+    const reply = (await panel.getByTestId("coach-bubble").last().innerText()).toLowerCase();
+    expect(reply, "she did not say what she saved").toMatch(/monday/);
+    expect(reply).not.toMatch(/can(no|')t keep notes/);
+
+    // Read where the person reads it: their memory page. coach_memories
+    // is closed to the service key, so this is also the only reader.
+    await page.goto("/ask-aimee/memory");
+    await expect(page.getByText(/monday/i).first(), "nothing was saved from an explicit ask in the panel").toBeVisible({
+      timeout: 30_000,
+    });
+  });
 });

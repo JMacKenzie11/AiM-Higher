@@ -16,7 +16,7 @@ Once you've finished a conversation and moved on to another one, Aimee notes the
 
 The conversation you're in right now isn't noted yet. It shows up here once you've started or reopened another one.
 
-Aimee notes things from two kinds of conversation: talking to her directly, and coaching about someone on your team from the *Coach* button beside their name. Conversations run through an agent (Prepare a hard conversation, Ask great questions and the rest) aren't noted, and neither are conversations in Aimee's side panel. What you keep from an agent is the thing you built.
+Aimee notes things from two kinds of conversation: talking to her directly, and coaching about someone on your team from the *Coach* button beside their name. Conversations run through an agent (Prepare a hard conversation, Ask great questions and the rest) aren't noted, and neither are conversations in Aimee's side panel, unless you ask her there to remember something. What you keep from an agent is the thing you built.
 
 ## Where to find it
 
