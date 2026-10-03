@@ -45,6 +45,17 @@ import { buildLiveTools } from "./live-tools";
 
 const tool = (name: string) => buildLiveTools({ companyId: "co_1" }).find((t) => t.definition.name === name)!;
 
+type Line = { title: string } & Record<string, unknown>;
+type PlanOut = {
+  status: string;
+  quarter: { label: string; lapsed: boolean };
+  focus_areas: Array<Line & { goals: Array<Line & { priorities: Line[] }>; priorities: Line[] }>;
+  priorities_without_goal: Line[];
+};
+type IssuesOut = { status: string; issues: Array<Record<string, unknown>> };
+type Week = { week_ending: string; status: string; value: string | null };
+type MeasuresOut = { measures: Array<Record<string, unknown> & { target: string; weeks: Week[] }> };
+
 const prio = (title: string, extra: object = {}) => ({
   title,
   owner: { id: "p1", full_name: "Casey Moore" },
@@ -82,7 +93,7 @@ describe("current_plan", () => {
       orphanGoals: [],
       orphanPriorities: [prio("Fix the walk-in")],
     });
-    const out = (await tool("current_plan").handler({})) as Record<string, any>;
+    const out = (await tool("current_plan").handler({})) as PlanOut;
     expect(out.status).toBe("ok");
     expect(mocks.cascade).toHaveBeenCalledWith("co_1", "q3");
     expect(out.quarter).toMatchObject({ label: "Q3 2026", lapsed: true });
@@ -101,7 +112,7 @@ describe("current_plan", () => {
       orphanGoals: [],
       orphanPriorities: [],
     });
-    const out = (await tool("current_plan").handler({})) as Record<string, any>;
+    const out = (await tool("current_plan").handler({})) as PlanOut;
     expect(out.status).toBe("no_open_quarter");
     expect(mocks.cascade).toHaveBeenCalledWith("co_1", null);
     expect(out.focus_areas[0].title).toBe("Grow");
@@ -120,7 +131,7 @@ describe("open_issues", () => {
     ];
     mocks.tables.commitments = [{ issue_id: "i1", description: "Call the repair company", status: "open", due_date: "2026-10-09", owner_id: "p1" }];
     mocks.tables.profiles = [{ id: "p1", full_name: "Casey Moore" }];
-    const out = (await tool("open_issues").handler({})) as Record<string, any>;
+    const out = (await tool("open_issues").handler({})) as IssuesOut;
     expect(out.status).toBe("ok");
     expect(out.issues[0]).toMatchObject({
       title: "Walk-in freezer keeps failing",
@@ -162,13 +173,13 @@ describe("measures_now", () => {
 
   it("gives each measure's last four weeks, newest first, judged by the target in force that week", async () => {
     mocks.spine.mockResolvedValue(spine);
-    const out = (await tool("measures_now").handler({})) as Record<string, any>;
+    const out = (await tool("measures_now").handler({})) as MeasuresOut;
     expect(mocks.spine).toHaveBeenCalledWith("co_1", "America/Toronto");
     const m = out.measures[0];
     expect(m).toMatchObject({ function: "Operations", function_lead: "Casey Moore", measure: "Pounds Processed", higher_is_better: true });
     expect(m.target).toMatch(/250/);
-    expect(m.weeks.map((w: any) => w.week_ending)).toEqual(["2026-10-09", "2026-10-02", "2026-09-25", "2026-09-18"]);
-    expect(m.weeks.map((w: any) => w.status)).toEqual(["unlogged", "off", "good", "unlogged"]);
+    expect(m.weeks.map((w) => w.week_ending)).toEqual(["2026-10-09", "2026-10-02", "2026-09-25", "2026-09-18"]);
+    expect(m.weeks.map((w) => w.status)).toEqual(["unlogged", "off", "good", "unlogged"]);
     expect(m.weeks[1].value).toMatch(/240/);
   });
 
