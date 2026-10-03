@@ -270,13 +270,33 @@ describe("createConversationAction", () => {
     expect(mocks.conversationsInsertPatch).not.toHaveBeenCalled();
   });
 
-  it("blocks a team_member who doesn't manage the subject and isn't an admin", async () => {
+  // Since 0261 anyone in the subject's company may coach about them
+  // (canCoachAbout), whether or not they manage them.
+  it("lets a team_member coach about a colleague they don't manage", async () => {
     mocks.requireProfile.mockResolvedValue(
       sessionFor({ id: "caller_1", role: "team_member" })
     );
     mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
-      // Subject reports to someone ELSE.
-      data: { id: "subject_1", company_id: "co_acme", reports_to: "other" },
+      // Subject reports to someone ELSE, in the caller's company.
+      data: { id: "subject_1", company_id: "co_acme" },
+      error: null,
+    });
+    const { createConversationAction } = await import("./actions");
+
+    const res = await createConversationAction("subject_1");
+
+    expect(res.ok).toBe(true);
+    expect(mocks.conversationsInsertPatch).toHaveBeenCalledWith(
+      expect.objectContaining({ company_id: "co_acme", subject_profile_id: "subject_1", created_by: "caller_1" })
+    );
+  });
+
+  it("blocks a team_member coaching about someone in another company", async () => {
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({ id: "caller_1", role: "team_member" })
+    );
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "subject_1", company_id: "co_other" },
       error: null,
     });
     const { createConversationAction } = await import("./actions");
@@ -284,7 +304,7 @@ describe("createConversationAction", () => {
     const res = await createConversationAction("subject_1");
 
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/direct reports/);
+    if (!res.ok) expect(res.message).toMatch(/your own company/);
     expect(mocks.conversationsInsertPatch).not.toHaveBeenCalled();
   });
 

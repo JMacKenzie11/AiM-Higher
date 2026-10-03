@@ -57,6 +57,30 @@ export function isAdminForCompany(
 }
 
 /**
+ * true if the caller may start a coaching conversation about this
+ * person: the Coach button, the action that starts one, and the page
+ * that lists them all ask this (open data, phase E; Jason 2026-10-01).
+ *
+ * Anyone in the person's company, whatever their role, and anyone
+ * isAdminForCompany admits there: a system admin, an assigned guide,
+ * a portfolio admin switched on as that company's admin (decision 5).
+ * Never about yourself (that is Ask Aimee), and never about someone
+ * with no company.
+ *
+ * RLS SAYS THE SAME: the about branch of coaching_conversations_insert
+ * (0261), which also checks the subject is in the conversation's
+ * company.
+ */
+export function canCoachAbout(
+  profile: SessionProfileLike,
+  subject: { id: string; company_id: string | null }
+): boolean {
+  if (!subject.company_id || subject.id === profile.id) return false;
+  if (profile.company_id === subject.company_id) return true;
+  return isAdminForCompany(profile, subject.company_id);
+}
+
+/**
  * true if the session role is portfolio_admin, whatever they are
  * assigned to.
  *

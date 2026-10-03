@@ -19,6 +19,12 @@ import path from "node:path";
 // output) so voice/tone edits stay a deliberate act, not a drive-
 // by.
 
+// Regenerated 2026-10-03 for the Coach button opening to everyone in a
+// company (0261, open data phase E): "Who you are talking to, and
+// about" and "About mode" stop assuming the asker is the subject's
+// manager or an admin, and point to the coaching context's new
+// Relationship line (relationshipLine in context.ts).
+//
 // Regenerated 2026-10-02 for the AiMS coaching principles (Jason's
 // review of 2026-09-30): how to coach now lives in
 // prompts/aims-coaching-principles.md, read into every conversation.
@@ -67,7 +73,7 @@ import path from "node:path";
 // ask a question without a hypothesis alongside it" made the shortest
 // legal turn a hypothesis and a question. The seven steps are untouched.
 const LEADERSHIP_COACH_BASE_SHA =
-  "dc1cc87f906fe974d2757fc9734d5c400881dc11915a6d8bd88def87cdc6e3dc";
+  "49140afd42c14a7520dc8760836ee828371b060d0491e4d670811983b551e190";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {

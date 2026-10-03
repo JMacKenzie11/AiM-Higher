@@ -12,7 +12,7 @@ Everyone at your company, with their position, role, status, open commitments an
 - **See everyone on the team** and how their week is going.
 - **Open anyone's scorecard** by clicking their name.
 - **See your own scorecard.** From there, *Edit my profile* and *Edit my strengths* take you to where you change your own details.
-- **Coach someone who reports to you.** If people report to you, a *Coach* button sits on their row and on their scorecard. It opens private coaching notes about them.
+- **Coach about anyone else at the company.** A *Coach* button sits on every row but yours, and on their scorecard. It opens a private conversation with Aimee about them, to help you prepare for a conversation with them.
 - **Read your company's role descriptions** in the list at the bottom of the page.
 :::
 
@@ -33,6 +33,7 @@ Everyone at your company, with their position, role, status, open commitments an
 
 - **See everyone on the team** and how their week is going.
 - **Open anyone's scorecard** by clicking their name.
+- **Coach anyone at the company.** Click *Coach* on their row or their scorecard.
 - **Revise any of the company's role descriptions** with Aimee, from the list at the bottom of the page.
 
 Adding, editing and removing people is done by the company's own admins.
@@ -43,6 +44,7 @@ Adding, editing and removing people is done by the company's own admins.
 
 - **See everyone on the team** and open anyone's scorecard.
 - **Add a person.** Fill in their name, email, position and role. You can add a *Member* or a *Company Admin*. Tick *Send invite email now* to invite them straight away, or leave it unticked to add them as *pending*.
+- **Coach anyone at the company,** where a system admin has made you its admin. Click *Coach* on their row or their scorecard.
 
 Editing, deactivating and deleting people is done by the company's own admins. Portfolio admins and system admins are set up by a system admin.
 :::
