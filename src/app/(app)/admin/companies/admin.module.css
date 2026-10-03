@@ -116,7 +116,9 @@
 }
 
 .card {
-  background: var(--surface);
+  /* background-color, not background: the shorthand would reset the
+     circles .accentCard paints. */
+  background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
@@ -132,6 +134,16 @@
      kicks in. */
   overflow-x: auto;
   min-width: 0;
+}
+
+/* A card with the two sky circles in its top-right corner, the ones
+   the dashboard's and the plan's cards carry (Jason, 2026-10-03: on
+   Company settings and Connections). The background form, not
+   <CardAccent />: these cards hold forms and pickers, and the component
+   needs the card to clip its overflow. See CardAccent.module.css. */
+.accentCard {
+  composes: card;
+  composes: accentSurface from "../../../../components/ui/CardAccent.module.css";
 }
 
 .h2 {

@@ -166,3 +166,32 @@ describe("latestByMeasureWeek", () => {
     expect(map.size).toBe(3);
   });
 });
+
+describe("a HubSpot receipt (phase 4)", () => {
+  it("says what was counted and what HubSpot said, never the sheet's labels", () => {
+    const r = buildReceipt({
+      outcome: "written",
+      value_written: 52500.5,
+      failure_reason: null,
+      created_at: "2026-10-03T14:00:00Z",
+      mapping_kind: "weekly",
+      detail: { connector: "hubspot", kind: "weekly", deals_counted: 3, deals_without_amount: 1, deals_outside_week: 0 },
+    });
+    expect(r.lines).toEqual([
+      { label: "Deals counted", value: "3" },
+      { label: "Of those, with no amount", value: "1" },
+      { label: "Deals left out as another week", value: "0" },
+      { label: "Recorded", value: "52500.5" },
+    ]);
+    const failed = buildReceipt({
+      outcome: "failed",
+      value_written: null,
+      failure_reason: "hubspot_stage_missing",
+      created_at: "2026-10-03T14:00:00Z",
+      mapping_kind: "snapshot",
+      detail: { connector: "hubspot", kind: "snapshot", missing: "stages", stage_ids: ["quoted"] },
+    });
+    expect(failed.problem).toMatch(/no longer exists in HubSpot/);
+    expect(failed.lines).toContainEqual({ label: "Stages no longer in HubSpot", value: "quoted" });
+  });
+});

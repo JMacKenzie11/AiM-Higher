@@ -230,6 +230,7 @@ async function runForCompany(
         path: "scheduled",
         measureId: measure.measureId,
         companyId,
+        timezone,
         weekEnding,
         mapping: measure.mapping,
         rawSource: measure.rawSource,

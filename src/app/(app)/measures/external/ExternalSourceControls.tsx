@@ -12,6 +12,8 @@ import {
   type VerifyResponse,
 } from "@/lib/external-measures/actions";
 import { canBackfill, extractFileId, type ExternalMapping, type PullDay } from "@/lib/external-measures/mapping";
+import type { HubSpotPipeline } from "@/lib/external-measures/hubspot-pull";
+import { EMPTY_HUBSPOT, HubSpotRecipeFields, type HubSpotDraft } from "./HubSpotRecipeFields";
 import uiStyles from "@/components/ui/ui.module.css";
 import { useExternalMeasure, useExternalMeasures } from "./ExternalMeasuresContext";
 import styles from "./external.module.css";
@@ -34,6 +36,9 @@ import styles from "./external.module.css";
 // an entry or a log row.
 
 type Draft = {
+  // Which outside system. HubSpot's fields are their own component.
+  connector: "google_sheet" | "hubspot";
+  hubspot: HubSpotDraft;
   kind: "weekly" | "snapshot";
   file: string;
   tab: string;
@@ -58,6 +63,8 @@ type Draft = {
 function draftFrom(mapping: ExternalMapping | null): Draft {
   if (!mapping) {
     return {
+      connector: "google_sheet",
+      hubspot: EMPTY_HUBSPOT,
       kind: "weekly",
       file: "",
       tab: "",
@@ -66,7 +73,29 @@ function draftFrom(mapping: ExternalMapping | null): Draft {
       cell: "",
     };
   }
+  if (mapping.connector === "hubspot") {
+    const r = mapping.recipe;
+    return {
+      connector: "hubspot",
+      kind: mapping.kind,
+      hubspot: {
+        pipelineId: r.pipeline_id,
+        measure: "measure" in r ? r.measure : EMPTY_HUBSPOT.measure,
+        date: "date" in r ? r.date : EMPTY_HUBSPOT.date,
+        stageId: "stage_id" in r ? (r.stage_id ?? "") : "",
+        parts: "parts" in r ? r.parts.map((p) => ({ stageIds: [...p.stage_ids], value: p.value })) : EMPTY_HUBSPOT.parts,
+      },
+      file: "",
+      tab: "",
+      keyColumn: "",
+      valueColumn: "",
+      cell: "",
+      pullDay: mapping.pull_day,
+    };
+  }
   return {
+    connector: "google_sheet",
+    hubspot: EMPTY_HUBSPOT,
     kind: mapping.kind,
     file: mapping.recipe.file_id,
     tab: mapping.recipe.tab,
@@ -82,10 +111,40 @@ function draftFrom(mapping: ExternalMapping | null): Draft {
 // field does not yield an id. Everything else is validated by
 // parseMapping on the server; this only handles the one field whose
 // input is a pasted URL.
-function toMapping(draft: Draft): unknown | null {
+function toMapping(draft: Draft, pipelines: HubSpotPipeline[] = []): unknown | null {
+  const pullDay = draft.pullDay ? { pull_day: draft.pullDay } : {};
+  if (draft.connector === "hubspot") {
+    // The names beside the ids, as they are now, for the description.
+    const h = draft.hubspot;
+    const pipeline = pipelines.find((p) => p.id === h.pipelineId);
+    const stage_labels = Object.fromEntries((pipeline?.stages ?? []).map((st) => [st.id, st.label]));
+    const labels = pipeline ? { pipeline_label: pipeline.label, stage_labels } : {};
+    return draft.kind === "weekly"
+      ? {
+          connector: "hubspot",
+          kind: "weekly",
+          ...pullDay,
+          recipe: {
+            pipeline_id: h.pipelineId,
+            measure: h.measure,
+            date: h.date,
+            ...(h.date === "entered_stage" ? { stage_id: h.stageId } : {}),
+            ...labels,
+          },
+        }
+      : {
+          connector: "hubspot",
+          kind: "snapshot",
+          ...pullDay,
+          recipe: {
+            pipeline_id: h.pipelineId,
+            parts: h.parts.map((p) => ({ stage_ids: p.stageIds, value: p.value })),
+            ...labels,
+          },
+        };
+  }
   const file_id = extractFileId(draft.file);
   if (!file_id) return null;
-  const pullDay = draft.pullDay ? { pull_day: draft.pullDay } : {};
   if (draft.kind === "weekly") {
     return {
       connector: "google_sheet",
@@ -155,6 +214,9 @@ export function ExternalSourceControls({
   // open state on this page threw away an in-flight router.refresh()
   // and the saved row never appeared.
   const [draft, setDraft] = useState<Draft>(() => draftFrom(info?.mapping ?? null));
+  // HubSpot's pipelines as read by the HubSpot fields, for the names a
+  // saved mapping carries.
+  const [pipelines, setPipelines] = useState<HubSpotPipeline[]>([]);
   // Which week a pull targets. Always one of the platform's own
   // week-endings; the select below offers those and nothing else.
   //
@@ -173,8 +235,13 @@ export function ExternalSourceControls({
   //                         about, and defaulting there would hand a
   //                         new user a decline on their first press.
   const mappingForWeek = info?.mapping ?? null;
+  // A HubSpot weekly total is recorded once its week closes, so its
+  // default is the last completed week too.
   const reportsAClosedPeriod =
-    mappingForWeek?.kind === "snapshot" && !!mappingForWeek.recipe.freshness;
+    (mappingForWeek?.connector === "google_sheet" &&
+      mappingForWeek.kind === "snapshot" &&
+      !!mappingForWeek.recipe.freshness) ||
+    (mappingForWeek?.connector === "hubspot" && mappingForWeek.kind === "weekly");
   const defaultWeek =
     reportsAClosedPeriod && weeks.length > 1
       ? weeks[weeks.length - 2]
@@ -260,6 +327,21 @@ export function ExternalSourceControls({
 
           <div className={styles.adminPanel}>
             <label className={styles.field}>
+              <span className={styles.fieldLabel}>Source</span>
+              <select
+                className={styles.input}
+                value={draft.connector}
+                onChange={(e) => {
+                  setVerify(null);
+                  setDraft({ ...draft, connector: e.target.value as Draft["connector"] });
+                }}
+              >
+                <option value="google_sheet">Google Sheet</option>
+                <option value="hubspot">HubSpot</option>
+              </select>
+            </label>
+
+            <label className={styles.field}>
               <span className={styles.fieldLabel}>Kind</span>
               <select
                 className={styles.input}
@@ -272,13 +354,28 @@ export function ExternalSourceControls({
                 }
               >
                 <option value="weekly">
-                  Weekly: find the row for the week
+                  {draft.connector === "hubspot"
+                    ? "Weekly: a total for each week"
+                    : "Weekly: find the row for the week"}
                 </option>
                 <option value="snapshot">
-                  Snapshot: read one cell as it stands now
+                  {draft.connector === "hubspot"
+                    ? "Snapshot: as it stands when pulled"
+                    : "Snapshot: read one cell as it stands now"}
                 </option>
               </select>
             </label>
+
+            {draft.connector === "hubspot" ? (
+              <HubSpotRecipeFields
+                measureId={measureId}
+                kind={draft.kind}
+                value={draft.hubspot}
+                onChange={(hubspot) => setDraft({ ...draft, hubspot })}
+                onPipelines={setPipelines}
+              />
+            ) : (
+            <>
 
             {/* Full width: a Google Sheets URL in a half column shows
                 its first forty characters, which are the same forty
@@ -345,6 +442,8 @@ export function ExternalSourceControls({
                 </p>
               </>
             )}
+            </>
+            )}
 
             <div className={styles.adminActions}>
               <button
@@ -352,7 +451,7 @@ export function ExternalSourceControls({
                 className={uiStyles.btnSecondary}
                 disabled={pending}
                 onClick={() => {
-                  const candidate = toMapping(draft);
+                  const candidate = toMapping(draft, pipelines);
                   if (!candidate) {
                     setMessage({
                       ok: false,
@@ -375,7 +474,7 @@ export function ExternalSourceControls({
                 className={uiStyles.btnSecondary}
                 disabled={pending}
                 onClick={() => {
-                  const candidate = toMapping(draft);
+                  const candidate = toMapping(draft, pipelines);
                   if (!candidate) {
                     setMessage({
                       ok: false,

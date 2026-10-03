@@ -202,7 +202,7 @@ export default async function CompanyDetailPage({
             from their own nav — they don't need a re-entry point
             back into the company they already run. */}
         {!isCompanyAdmin ? (
-          <section className={styles.card} aria-labelledby="company-controls">
+          <section className={styles.accentCard} aria-labelledby="company-controls">
             <h2 id="company-controls" className={styles.h2}>
               Actions
             </h2>
@@ -237,7 +237,7 @@ export default async function CompanyDetailPage({
         {/* Industry — visible to system admins and company admins,
             not to guides (guides don't set brand-level metadata). */}
         {managesContainer || isCompanyAdmin ? (
-          <section className={styles.card} aria-labelledby="industry-heading">
+          <section className={styles.accentCard} aria-labelledby="industry-heading">
             <h2 id="industry-heading" className={styles.h2}>
               Industry
             </h2>
@@ -255,7 +255,7 @@ export default async function CompanyDetailPage({
             the wrong shape. The column guard in 0235 draws the same
             line below the app. */}
         {isSystemAdmin || isCompanyAdmin ? (
-          <section className={styles.card} aria-labelledby="champion-heading">
+          <section className={styles.accentCard} aria-labelledby="champion-heading">
             <h2 id="champion-heading" className={styles.h2}>
               AiMS champion
             </h2>
@@ -272,7 +272,7 @@ export default async function CompanyDetailPage({
             roles that administer a single tenant. 0176's column guard
             enforces that below the app. */}
         {managesContainer ? (
-          <section className={styles.card} aria-labelledby="timezone-heading">
+          <section className={styles.accentCard} aria-labelledby="timezone-heading">
             <h2 id="timezone-heading" className={styles.h2}>
               Timezone
             </h2>
@@ -298,7 +298,7 @@ export default async function CompanyDetailPage({
 
         {/* Features — system-admin only (module entitlements). */}
         {managesContainer ? (
-          <section className={styles.card} aria-labelledby="features-heading">
+          <section className={styles.accentCard} aria-labelledby="features-heading">
             <h2 id="features-heading" className={styles.h2}>
               Features
             </h2>
@@ -326,7 +326,7 @@ export default async function CompanyDetailPage({
             would be empty anyway, and this keeps the heading from
             appearing above nothing. */}
         {managesContainer || isCompanyAdmin ? (
-          <section className={styles.card} aria-labelledby="assigned-access">
+          <section className={styles.accentCard} aria-labelledby="assigned-access">
             <h2 id="assigned-access" className={styles.h2}>
               Assigned access
             </h2>
@@ -346,7 +346,7 @@ export default async function CompanyDetailPage({
             to, managed on their own page by the people decision 3 of the
             external connections plan names (isAdminForCompany). */}
         {isAdminForCompany(session.profile, company.id) ? (
-          <section className={styles.card} aria-labelledby="connections-heading">
+          <section className={styles.accentCard} aria-labelledby="connections-heading">
             <h2 id="connections-heading" className={styles.h2}>
               Connections
             </h2>
@@ -384,7 +384,7 @@ export default async function CompanyDetailPage({
             (see getBulkResetImpact guard above); do the fetch for
             company admins too so the card can decide whether to show. */}
         {(isSystemAdmin || isCompanyAdmin) && hasResettable ? (
-          <section className={styles.card} aria-labelledby="planning-cycle">
+          <section className={styles.accentCard} aria-labelledby="planning-cycle">
             <h2 id="planning-cycle" className={styles.h2}>
               Start the strategy again
             </h2>

@@ -172,3 +172,51 @@ describe("describeMapping", () => {
     expect(words).toContain("Meta");
   });
 });
+
+describe("HubSpot recipes (phase 4)", () => {
+  const hs = (kind: string, recipe: Record<string, unknown>) => ({ connector: "hubspot", kind, recipe });
+
+  it("reads a weekly recipe dated by a stage, keeping the names for the description", () => {
+    const m = parseMapping(
+      hs("weekly", { pipeline_id: "default", measure: "sum_amount", date: "entered_stage", stage_id: "closedwon", pipeline_label: "Sales", stage_labels: { closedwon: "Closed won" } })
+    );
+    expect(m).toEqual({
+      connector: "hubspot",
+      kind: "weekly",
+      recipe: { pipeline_id: "default", measure: "sum_amount", date: "entered_stage", stage_id: "closedwon", pipeline_label: "Sales", stage_labels: { closedwon: "Closed won" } },
+    });
+    expect(describeMapping(m!)).toBe('Add up the amounts of the deals in the "Sales" pipeline that entered "Closed won" in the week.');
+    expect(canBackfill(m!)).toBe(true);
+  });
+
+  it("reads a count of deals created, and a two-part snapshot", () => {
+    const count = parseMapping(hs("weekly", { pipeline_id: "default", measure: "count", date: "created" }));
+    expect(describeMapping(count!)).toBe("Count the deals in the pipeline created in the week.");
+    const factored = parseMapping(
+      hs("snapshot", {
+        pipeline_id: "default",
+        parts: [
+          { stage_ids: ["closedwon"], value: "amount" },
+          { stage_ids: ["quoted", "proposal"], value: "weighted_amount" },
+        ],
+        stage_labels: { closedwon: "Closed won", quoted: "Quoted", proposal: "Proposal" },
+      })
+    );
+    expect(describeMapping(factored!)).toBe(
+      'In the pipeline, add up the amount of the deals in "Closed won", plus the weighted amount (amount × probability) of the deals in "Quoted" or "Proposal", as they stand when the pull runs.'
+    );
+    expect(canBackfill(factored!)).toBe(false);
+  });
+
+  it("refuses a stage-dated recipe with no stage, a snapshot with no parts, and an unknown value", () => {
+    expect(parseMapping(hs("weekly", { pipeline_id: "default", measure: "count", date: "entered_stage" }))).toBeNull();
+    expect(parseMapping(hs("snapshot", { pipeline_id: "default", parts: [] }))).toBeNull();
+    expect(parseMapping(hs("snapshot", { pipeline_id: "default", parts: [{ stage_ids: ["q"], value: "probability" }] }))).toBeNull();
+    expect(parseMapping(hs("weekly", { pipeline_id: "has space", measure: "count", date: "created" }))).toBeNull();
+  });
+
+  it("names the missing HubSpot fields by the form's labels", () => {
+    expect(missingMappingFields(hs("weekly", { measure: "count", date: "entered_stage" }))).toEqual(["Pipeline", "Stage"]);
+    expect(missingMappingFields(hs("snapshot", { pipeline_id: "default", parts: [{ stage_ids: [] }] }))).toEqual(["Stages"]);
+  });
+});

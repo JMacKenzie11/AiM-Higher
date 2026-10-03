@@ -59,10 +59,11 @@ export const PULL_DAYS: readonly PullDay[] = [
 
 export type MappingKind = "weekly" | "snapshot";
 
-export type ConnectorId = "google_sheet";
+export type ConnectorId = "google_sheet" | "hubspot";
 
 export const CONNECTOR_LABELS: Record<ConnectorId, string> = {
   google_sheet: "Google Sheet",
+  hubspot: "HubSpot",
 };
 
 // A sheet with a row per week.
@@ -108,7 +109,124 @@ export type SheetSnapshotMapping = {
   recipe: SheetSnapshotRecipe;
 };
 
-export type ExternalMapping = SheetWeeklyMapping | SheetSnapshotMapping;
+// ---- HubSpot recipes (phase 4) ---------------------------------------
+//
+// HubSpot has no "sum this" call, so every recipe names which deals, and
+// the pull adds them up (lib/external-measures/hubspot.ts). Stages and
+// pipelines are held by HubSpot's ids, which survive a rename; the
+// labels beside them are what they were called when the measure was
+// mapped, for the description only. A stage that no longer exists
+// fails the pull rather than reading as zero.
+//
+// The plan's four measures, as recipes:
+//   Total Factored Pipeline    snapshot  awarded stages at full amount,
+//                                        plus quoted stages weighted
+//   Amount currently quoted    snapshot  quoted stages at full amount
+//   New work awarded (week)    weekly    sum of amount, by the date each
+//                                        deal entered Closed won
+//   New opportunities (week)   weekly    count, by the date created
+// What "awarded" covers and which stage is "Quoted" are the client's
+// answers, and they are settings on the measure, not code.
+
+export type HubSpotLabels = {
+  pipeline_label?: string;
+  // Stage id to the stage's name when mapped.
+  stage_labels?: Record<string, string>;
+};
+
+export type HubSpotWeeklyRecipe = HubSpotLabels & {
+  pipeline_id: string;
+  // Add up the deals' amounts, or count the deals.
+  measure: "sum_amount" | "count";
+  // Which date places a deal in a week: when it was created, or when it
+  // entered stage_id (HubSpot sets that date itself; nobody types it).
+  date: "created" | "entered_stage";
+  stage_id?: string;
+};
+
+export type HubSpotSnapshotPart = {
+  stage_ids: string[];
+  // The deal's amount, or its weighted amount (amount × the deal's
+  // probability, HubSpot's own "Weighted amount").
+  value: "amount" | "weighted_amount";
+};
+
+export type HubSpotSnapshotRecipe = HubSpotLabels & {
+  pipeline_id: string;
+  // Added together. One part for "everything in Quoted"; two for "awarded
+  // at full amount, plus quoted at their probability".
+  parts: HubSpotSnapshotPart[];
+};
+
+export type HubSpotWeeklyMapping = {
+  connector: "hubspot";
+  kind: "weekly";
+  pull_day?: PullDay;
+  recipe: HubSpotWeeklyRecipe;
+};
+
+export type HubSpotSnapshotMapping = {
+  connector: "hubspot";
+  kind: "snapshot";
+  pull_day?: PullDay;
+  recipe: HubSpotSnapshotRecipe;
+};
+
+export type SheetMapping = SheetWeeklyMapping | SheetSnapshotMapping;
+export type HubSpotMapping = HubSpotWeeklyMapping | HubSpotSnapshotMapping;
+export type ExternalMapping = SheetMapping | HubSpotMapping;
+
+// Pipeline and stage ids, as HubSpot issues them.
+const HUBSPOT_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+function parseLabels(o: Record<string, unknown>): HubSpotLabels {
+  const out: HubSpotLabels = {};
+  const pl = str(o.pipeline_label);
+  if (pl) out.pipeline_label = pl;
+  const sl = obj(o.stage_labels);
+  if (sl) {
+    const labels: Record<string, string> = {};
+    for (const [k, v] of Object.entries(sl)) {
+      const l = str(v);
+      if (HUBSPOT_ID.test(k) && l) labels[k] = l;
+    }
+    if (Object.keys(labels).length > 0) out.stage_labels = labels;
+  }
+  return out;
+}
+
+function parseHubSpotRecipe(kind: MappingKind, raw: unknown): HubSpotWeeklyRecipe | HubSpotSnapshotRecipe | null {
+  const o = obj(raw);
+  if (!o) return null;
+  const pipeline_id = str(o.pipeline_id);
+  if (!pipeline_id || !HUBSPOT_ID.test(pipeline_id)) return null;
+
+  if (kind === "weekly") {
+    if (o.measure !== "sum_amount" && o.measure !== "count") return null;
+    if (o.date !== "created" && o.date !== "entered_stage") return null;
+    const stage_id = str(o.stage_id);
+    if (o.date === "entered_stage" && (!stage_id || !HUBSPOT_ID.test(stage_id))) return null;
+    return {
+      pipeline_id,
+      measure: o.measure,
+      date: o.date,
+      ...(o.date === "entered_stage" ? { stage_id: stage_id as string } : {}),
+      ...parseLabels(o),
+    };
+  }
+
+  if (!Array.isArray(o.parts) || o.parts.length === 0 || o.parts.length > 4) return null;
+  const parts: HubSpotSnapshotPart[] = [];
+  for (const p of o.parts) {
+    const po = obj(p);
+    if (!po || (po.value !== "amount" && po.value !== "weighted_amount")) return null;
+    if (!Array.isArray(po.stage_ids) || po.stage_ids.length === 0) return null;
+    const ids = po.stage_ids.map((x) => str(x));
+    if (ids.some((x) => !x || !HUBSPOT_ID.test(x))) return null;
+    parts.push({ stage_ids: ids as string[], value: po.value });
+  }
+  return { pipeline_id, parts, ...parseLabels(o) };
+}
 
 // A weekly number can be worked out for a past week; a snapshot cannot.
 export function canBackfill(mapping: ExternalMapping): boolean {
@@ -161,7 +279,7 @@ function parseSheetRecipe(kind: MappingKind, raw: unknown): SheetWeeklyRecipe | 
 export function parseMapping(raw: unknown): ExternalMapping | null {
   const o = obj(raw);
   if (!o) return null;
-  if (o.connector !== "google_sheet") return null;
+  if (o.connector !== "google_sheet" && o.connector !== "hubspot") return null;
   if (o.kind !== "weekly" && o.kind !== "snapshot") return null;
 
   // An unrecognised pull_day is a REFUSAL, not a fallback to the
@@ -175,10 +293,10 @@ export function parseMapping(raw: unknown): ExternalMapping | null {
     pull_day = day as PullDay;
   }
 
-  const recipe = parseSheetRecipe(o.kind, o.recipe);
+  const recipe = o.connector === "hubspot" ? parseHubSpotRecipe(o.kind, o.recipe) : parseSheetRecipe(o.kind, o.recipe);
   if (!recipe) return null;
   return {
-    connector: "google_sheet",
+    connector: o.connector,
     kind: o.kind,
     ...(pull_day ? { pull_day } : {}),
     recipe,
@@ -195,6 +313,7 @@ export function parseMapping(raw: unknown): ExternalMapping | null {
 export function missingMappingFields(raw: unknown): string[] {
   const o = obj(raw);
   if (!o) return ["Kind"];
+  if (o.connector === "hubspot") return missingHubSpotFields(o);
   if (o.connector !== "google_sheet") return ["Source"];
   const r = obj(o.recipe) ?? {};
   const gaps: string[] = [];
@@ -218,6 +337,25 @@ export function missingMappingFields(raw: unknown): string[] {
   return gaps;
 }
 
+function missingHubSpotFields(o: Record<string, unknown>): string[] {
+  const r = obj(o.recipe) ?? {};
+  const gaps: string[] = [];
+  if (!str(r.pipeline_id)) gaps.push("Pipeline");
+  if (o.kind === "weekly") {
+    if (r.measure !== "sum_amount" && r.measure !== "count") gaps.push("What to add up");
+    if (r.date !== "created" && r.date !== "entered_stage") gaps.push("Which date");
+    if (r.date === "entered_stage" && !str(r.stage_id)) gaps.push("Stage");
+  } else if (o.kind === "snapshot") {
+    const parts = Array.isArray(r.parts) ? r.parts : [];
+    if (parts.length === 0 || parts.some((p) => !Array.isArray(obj(p)?.stage_ids) || (obj(p)?.stage_ids as unknown[]).length === 0)) {
+      gaps.push("Stages");
+    }
+  } else {
+    gaps.push("Kind");
+  }
+  return gaps;
+}
+
 // A1 notation for a single cell, relative to a tab. Deliberately
 // strict: no ranges, no sheet prefix, no $ anchors. The cell is
 // concatenated into a Sheets range, so anything that is not plainly
@@ -231,7 +369,32 @@ export function isCellRef(value: string): boolean {
 // The mapping described the way a person would say it. Used on the
 // receipt and on the admin surface, so a reader can check the mapping
 // against the workbook in front of them without knowing the JSON.
+function stageNames(recipe: HubSpotLabels, ids: readonly string[]): string {
+  const names = ids.map((id) => `"${recipe.stage_labels?.[id] ?? id}"`);
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+}
+
+function describeHubSpot(mapping: HubSpotMapping): string {
+  const r = mapping.recipe;
+  const pipeline = r.pipeline_label ? `the "${r.pipeline_label}" pipeline` : "the pipeline";
+  if (mapping.kind === "weekly") {
+    const w = mapping.recipe;
+    const what = w.measure === "count" ? "Count the deals" : "Add up the amounts of the deals";
+    const when =
+      w.date === "created"
+        ? "created in the week"
+        : `that entered ${stageNames(w, [w.stage_id ?? ""])} in the week`;
+    return `${what} in ${pipeline} ${when}.`;
+  }
+  const parts = mapping.recipe.parts.map((p) => {
+    const value = p.value === "weighted_amount" ? "weighted amount (amount × probability)" : "amount";
+    return `the ${value} of the deals in ${stageNames(mapping.recipe, p.stage_ids)}`;
+  });
+  return `In ${pipeline}, add up ${parts.join(", plus ")}, as they stand when the pull runs.`;
+}
+
 export function describeMapping(mapping: ExternalMapping): string {
+  if (mapping.connector === "hubspot") return describeHubSpot(mapping);
   if (mapping.kind === "weekly") {
     const r = mapping.recipe;
     return (

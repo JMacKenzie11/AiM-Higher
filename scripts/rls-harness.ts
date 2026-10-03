@@ -11079,7 +11079,7 @@ async function connectorContractProbes(run: Runner, pending: string): Promise<Gr
      select 1 as n;`
   );
   const unknownConnector = await q(
-    `{SERVICE} select * from public.record_external_pull_scheduled(${pick}, date '2099-01-02', 'hubspot', 'weekly', 'failed', null, 'x');`
+    `{SERVICE} select * from public.record_external_pull_scheduled(${pick}, date '2099-01-02', 'salesforce', 'weekly', 'failed', null, 'x');`
   );
   const recorded = await q(
     `delete from public.success_measure_entries where measure_id = ${pick} and week_ending = date '2099-01-02';
@@ -11110,6 +11110,72 @@ async function connectorContractProbes(run: Runner, pending: string): Promise<Gr
         : recorded.startsWith("ERROR")
           ? "THE CONTRACT IS NOT IN PLACE: a pull cannot name its connector (is 0258 applied?)"
           : "the contract is looser than intended, or a mapping was not translated",
+    },
+  ];
+}
+
+// ---- HubSpot recipes (0259) ----------------------------------------
+//
+// A mapping may name the hubspot connector with a HubSpot recipe, and a
+// pull may record hubspot as where its value came from. As postgres and
+// as the scheduler:
+//
+//   accepted  a weekly recipe dated by a stage, a snapshot with two parts
+//   refused   a stage-dated weekly recipe with no stage, a snapshot with
+//             no parts, a part counted at a value that is not one
+//   recorded  a scheduled HubSpot pull's entry and receipt say hubspot
+//
+// Red before 0259: the shape check knows only google_sheet.
+async function hubspotRecipeProbes(run: Runner, pending: string): Promise<GrantProbe[]> {
+  const pick = `(select m.id from public.success_measures m join public.functions f on f.id = m.function_id order by m.id limit 1)`;
+  const q = async (stmt: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>(
+        ["begin;", pending, stmt.replace("{SERVICE}", "set local role service_role;"), "rollback;"].join("\n")
+      );
+      return JSON.stringify(rows[0] ?? {});
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/check constraint/i.test(msg)) return "refused by the shape check";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+  const set = (mapping: string) =>
+    `update public.success_measures set external_source = '${mapping}'::jsonb where id = ${pick};
+     select 1 as n;`;
+  const weekly = await q(set(`{"connector":"hubspot","kind":"weekly","recipe":{"pipeline_id":"default","measure":"sum_amount","date":"entered_stage","stage_id":"closedwon","stage_labels":{"closedwon":"Closed won"}}}`));
+  const snapshot = await q(set(`{"connector":"hubspot","kind":"snapshot","recipe":{"pipeline_id":"default","parts":[{"stage_ids":["closedwon"],"value":"amount"},{"stage_ids":["quoted","proposal"],"value":"weighted_amount"}]}}`));
+  const noStage = await q(set(`{"connector":"hubspot","kind":"weekly","recipe":{"pipeline_id":"default","measure":"count","date":"entered_stage"}}`));
+  const noParts = await q(set(`{"connector":"hubspot","kind":"snapshot","recipe":{"pipeline_id":"default","parts":[]}}`));
+  const badValue = await q(set(`{"connector":"hubspot","kind":"snapshot","recipe":{"pipeline_id":"default","parts":[{"stage_ids":["quoted"],"value":"probability"}]}}`));
+  const recorded = await q(
+    `delete from public.success_measure_entries where measure_id = ${pick} and week_ending = date '2099-01-02';
+     create temp table harness_0259 on commit drop as select ${pick} as id;
+     grant select on harness_0259 to service_role;
+     {SERVICE}
+     select * from public.record_external_pull_scheduled((select id from harness_0259), date '2099-01-02', 'hubspot', 'weekly', 'written', 125000);
+     reset role;
+     select (select origin from public.success_measure_entries where measure_id = (select id from harness_0259) and week_ending = date '2099-01-02') as origin,
+            (select connector from public.external_pull_log where measure_id = (select id from harness_0259) and week_ending = date '2099-01-02' order by created_at desc limit 1) as connector;`
+  );
+  const ok =
+    weekly === '{"n":1}' &&
+    snapshot === '{"n":1}' &&
+    noStage === "refused by the shape check" &&
+    noParts === "refused by the shape check" &&
+    badValue === "refused by the shape check" &&
+    recorded === '{"origin":"hubspot","connector":"hubspot"}';
+  return [
+    {
+      name: "hubspot recipes · mappings and pulls",
+      granted: `weekly by stage: ${weekly} | snapshot, two parts: ${snapshot} | a HubSpot pull records: ${recorded}`,
+      withheld: `weekly by stage, no stage: ${noStage} | snapshot, no parts: ${noParts} | a part at an unknown value: ${badValue}`,
+      ok,
+      detail: ok
+        ? "a HubSpot recipe is stored only whole, and a HubSpot pull says where its value came from"
+        : weekly !== '{"n":1}'
+          ? "THE CONNECTOR IS NOT IN PLACE: a HubSpot mapping cannot be stored (is 0259 applied?)"
+          : "the HubSpot recipe check is looser than intended",
     },
   ];
 }
@@ -11212,7 +11278,11 @@ values ('${id}', '${ids.companyAdminCompany}', ${i === 0 ? "true" : "false"});`
                    join public.connections c on c.company_id = o.company_id and c.connector = 'google'
                    join vault.decrypted_secrets ds on ds.id = c.secret_id
                   where o.provider = 'google_drive'
-                    and (ds.decrypted_secret::jsonb ->> 'refresh_token') = o.refresh_token) as matched;`,
+                    -- Only a Google secret is JSON: a HubSpot key in the vault
+                    -- (Geo-Sci's on dev, 2026-10-03) is a bare string, and
+                    -- casting it failed this probe.
+                    and case when c.connector = 'google' and left(btrim(ds.decrypted_secret), 1) = '{'
+                             then (ds.decrypted_secret::jsonb ->> 'refresh_token') end = o.refresh_token) as matched;`,
         "rollback;",
       ].join("\n")
     );
@@ -12098,6 +12168,7 @@ async function main(): Promise<void> {
   const fromAimee = await commitmentFromAimeeProbes(run, ids, pendingSql);
   const vaultProbes = await connectionVaultProbes(run, ids, pendingSql);
   const contractProbes = await connectorContractProbes(run, pendingSql);
+  const hubspotProbes = await hubspotRecipeProbes(run, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -12107,7 +12178,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...contractProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12201,6 +12272,7 @@ async function main(): Promise<void> {
     fromAimee.some((p) => !p.ok) ||
     vaultProbes.some((p) => !p.ok) ||
     contractProbes.some((p) => !p.ok) ||
+    hubspotProbes.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||

@@ -832,7 +832,33 @@ Under the caller's client, RLS still filters what the action can see, so a calle
 
 **Admin visibility.** No new surface. The phase 1 receipt gains one line, "Last pull", showing the most recent attempt for that measure in any week. A measure whose last scheduled run failed shows the note even on a week it never touched, because otherwise a broken source is invisible until somebody notices a flat chart.
 
-**What comes next** is in `docs/plans/external-connections.md`. The credential vault (§10c) and this contract are built. Still to come are the Connections page, where a company's admins add a key themselves, and the HubSpot connector, as a recipe and a reader on this contract. A client-facing mapping form (a file picker, a tab list, a heading list) is not scheduled.
+### HubSpot (phase 4, 0259)
+
+A measure can read HubSpot deals. The company's admin adds a HubSpot service key on Connections (§10c). In the mapping form, *Source: HubSpot* lists the company's own pipelines and stages, read with that key (`hubspotPipelinesAction`). Stages are stored by HubSpot's ids, which survive a rename, with their names beside them for the description.
+
+| Kind | HubSpot recipe | What a pull does |
+| --- | --- | --- |
+| `weekly` | `{pipeline_id, measure: sum_amount \| count, date: created \| entered_stage, stage_id?}` | Adds up the amounts, or counts the deals, whose date falls in the week |
+| `snapshot` | `{pipeline_id, parts: [{stage_ids, value: amount \| weighted_amount}]}` (1 to 4 parts) | Adds up the deals in those stages as they stand, at full or weighted amount (HubSpot's amount × probability) |
+
+The plan's four measures map as follows:
+- **Total Factored Pipeline**: a snapshot of awarded stages at full amount, plus quoted stages weighted.
+- **Amount currently quoted**: a snapshot of the quoted stage at full amount.
+- **New work awarded in the week**: weekly, a sum by the date each deal entered Closed won. That date is set by HubSpot, not the editable Close date; plan decision 7.
+- **New opportunities**: weekly, a count by date created.
+
+What "awarded" covers, and which stage is "Quoted", are the client's answers, set on the measure.
+
+**How a pull adds up** (`src/lib/external-measures/hubspot-pull.ts`, reader `hubspot-reader.ts`):
+- **What it asks HubSpot for.** It searches deals through the CRM search API, 200 a page, and the company's key comes from the vault. It reads the pipeline first: a pipeline or stage that no longer exists fails the pull (`hubspot_stage_missing`), never reads as zero.
+- **Which week a deal is in.** A weekly search runs from the company's own Saturday midnight to the next (`weekWindow`, which follows clock changes). Each deal is placed again with `weekEndingOfInstant`, and one in another week is left out and counted.
+- **Amounts.** Amounts are the account's home-currency values. A deal with no amount adds nothing, and the receipt counts how many there were.
+- **When nothing is recorded.** More than the 10,000 results HubSpot's search returns fails (`hubspot_too_many`). No key fails as `hubspot_not_connected`. A refused or unreachable call fails as `hubspot_unreachable`, carrying HubSpot's own words, and is retried once when transient.
+- **The receipt.** It lists deals counted, deals without an amount, and per-part totals. It never shows a deal's name or contact.
+
+**Verify** reads HubSpot as a pull would and writes nothing: for weekly, this week so far; for snapshot, now. **Saving** a HubSpot mapping is refused until the company has a key; that is checked with the service role and only the yes or no is used, because a function's Lead may map but cannot read connections. A HubSpot weekly mapping can be backfilled like a sheet's. **0259** adds `hubspot` to the shape check (with `hubspot_snapshot_parts_valid()` for the parts), to entry origins, to receipt connectors and to `_record_external_pull`. Harness probe `hubspot recipes · mappings and pulls` (red without 0259). It accepts a stage-dated weekly recipe and a two-part snapshot. It refuses a stage-dated recipe with no stage, a snapshot with no parts, and an unknown value. A HubSpot pull records `hubspot` as origin and connector.
+
+**What comes next** is in `docs/plans/external-connections.md`: the client's answers set the four measures. A client-facing Sheets file picker is not scheduled.
 
 ---
 

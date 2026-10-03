@@ -24,6 +24,7 @@ import { runWithInstance } from "@/lib/instances/context";
 import type { InstanceConfig } from "@/lib/instances/types";
 import { loadMappedMeasures } from "@/lib/external-measures/service";
 import { googleSheetReader } from "@/lib/external-measures/sheets";
+import { hubspotReader } from "@/lib/external-measures/hubspot-reader";
 import { runPull, failureSentence } from "@/lib/external-measures/pull";
 import { targetWeekEnding } from "@/lib/external-measures/schedule";
 import { describeMapping } from "@/lib/external-measures/mapping";
@@ -106,7 +107,7 @@ async function main() {
         console.log(`  FAIL  ${m.description}: the mapping does not parse`);
         continue;
       }
-      const d = await runPull({ google_sheet: reader }, m.mapping, week);
+      const d = await runPull({ google_sheet: reader, hubspot: hubspotReader(co.id) }, m.mapping, week, co.timezone ?? "America/Anchorage");
       if (d.outcome === "written") console.log(`  OK    ${m.description}: ${d.value}  (${describeMapping(m.mapping)})`);
       else if (d.outcome === "skipped_stale") console.log(`  STALE ${m.description}: the sheet says it is not up to date for this week`);
       else {

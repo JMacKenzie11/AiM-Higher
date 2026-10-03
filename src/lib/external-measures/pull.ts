@@ -2,6 +2,7 @@ import type { ExternalMapping, SheetWeeklyRecipe, SheetSnapshotRecipe } from "./
 import { addDays, fridayOf } from "@/lib/dates";
 import { parseFreshnessDate, parseSheetDate, parseSheetNumber } from "./parse";
 import type { SheetReader } from "./sheets";
+import { runHubSpotPull, type HubSpotReader } from "./hubspot-pull";
 
 // What a pull decides, before anything is written.
 //
@@ -40,7 +41,11 @@ export type FailureCode =
   | "value_column_missing"
   | "value_unparseable"
   | "freshness_unreadable"
-  | "mapping_invalid";
+  | "mapping_invalid"
+  | "hubspot_unreachable"
+  | "hubspot_not_connected"
+  | "hubspot_too_many"
+  | "hubspot_stage_missing";
 
 export type PullDetail = Record<string, unknown>;
 
@@ -74,6 +79,13 @@ export const FAILURE_SENTENCES: Record<FailureCode, string> = {
     "The freshness cell did not read as a date, so the value could not be trusted for this week.",
   mapping_invalid:
     "This measure's external mapping is not a shape the reader understands.",
+  hubspot_unreachable:
+    "HubSpot could not be read. The receipt carries HubSpot's own explanation: usually the key was replaced or revoked, or HubSpot was busy.",
+  hubspot_not_connected: "This company has no HubSpot key. Add one on Connections.",
+  hubspot_too_many:
+    "More deals match than HubSpot's search will return in one go, so no total was recorded. Narrow the mapping to fewer stages.",
+  hubspot_stage_missing:
+    "A pipeline or stage this measure counts no longer exists in HubSpot. Map the measure again to the stages as they are now.",
 };
 
 export function failureSentence(code: string): string {
@@ -327,6 +339,7 @@ export function decideSheetSnapshot(
 // outside account; the action and the cron pass the company's real ones.
 export type SourceReaders = {
   google_sheet: SheetReader;
+  hubspot: HubSpotReader;
 };
 
 // The impure half: the reads, and nothing else. Every path lands in
@@ -335,8 +348,13 @@ export type SourceReaders = {
 export async function runPull(
   readers: SourceReaders,
   mapping: ExternalMapping,
-  weekEnding: string
+  weekEnding: string,
+  // The company's, for placing an outside system's dates in its weeks.
+  timezone: string
 ): Promise<PullDecision> {
+  if (mapping.connector === "hubspot") {
+    return runHubSpotPull(readers.hubspot, mapping, weekEnding, timezone);
+  }
   const reader = readers.google_sheet;
   const recipe = mapping.recipe;
   try {

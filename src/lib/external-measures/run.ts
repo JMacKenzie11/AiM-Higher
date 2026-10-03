@@ -6,6 +6,7 @@ import type { ExternalMapping } from "./mapping";
 import { failureSentence, runPull, type PullDecision, type SourceReaders } from "./pull";
 import { isTransient } from "./schedule";
 import { googleSheetReader } from "./sheets";
+import { hubspotReader } from "./hubspot-reader";
 
 // The pull, with its database handed to it.
 //
@@ -87,6 +88,8 @@ export async function pullMeasureWeek(
     path: PullPath;
     measureId: string;
     companyId: string;
+    // The company's, for placing an outside system's dates in its weeks.
+    timezone: string;
     weekEnding: string;
     // null when the stored mapping will not parse. Still logged,
     // because a measure configured wrongly is precisely the thing
@@ -131,20 +134,21 @@ export async function pullMeasureWeek(
 
   const readers: SourceReaders = {
     google_sheet: args.readers?.google_sheet ?? googleSheetReader(args.companyId),
+    hubspot: args.readers?.hubspot ?? hubspotReader(args.companyId),
   };
 
   // ONE RETRY, AND ONLY FOR A TRANSIENT FAILURE. See isTransient:
   // reading a misspelled tab a second time produces the same answer a
   // second later. Nothing is written between the attempts, so a retry
   // cannot produce a duplicate.
-  let decision = await runPull(readers, mapping, weekEnding);
+  let decision = await runPull(readers, mapping, weekEnding, args.timezone);
   let attempts = 1;
   if (
     decision.outcome === "failed" &&
-    decision.reason === "sheet_unreachable" &&
+    (decision.reason === "sheet_unreachable" || decision.reason === "hubspot_unreachable") &&
     isTransient(String(decision.detail.error ?? ""))
   ) {
-    decision = await runPull(readers, mapping, weekEnding);
+    decision = await runPull(readers, mapping, weekEnding, args.timezone);
     attempts = 2;
   }
 

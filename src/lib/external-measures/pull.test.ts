@@ -9,6 +9,19 @@ import {
 } from "./pull";
 import type { SheetSnapshotRecipe, SheetWeeklyRecipe } from "./mapping";
 import type { SheetReader } from "./sheets";
+import type { HubSpotReader } from "./hubspot-pull";
+
+// A sheet pull's readers: HubSpot's is there to satisfy the shape and
+// fails loudly if a sheet pull ever reaches for it.
+const neverHubSpot: HubSpotReader = {
+  pipeline: async () => {
+    throw new Error("a sheet pull read HubSpot");
+  },
+  searchDeals: async () => {
+    throw new Error("a sheet pull read HubSpot");
+  },
+};
+const sheetOnly = (r: SheetReader) => ({ google_sheet: r, hubspot: neverHubSpot });
 
 const WEEK = "2026-09-18";
 
@@ -261,7 +274,7 @@ describe("runPull", () => {
         return TAB;
       },
     });
-    return runPull({ google_sheet: r }, { connector: "google_sheet", kind: "weekly", recipe: weekKeyed }, WEEK).then((d) => {
+    return runPull(sheetOnly(r), { connector: "google_sheet", kind: "weekly", recipe: weekKeyed }, WEEK, "UTC").then((d) => {
       expect(seen).toEqual(["Dashboard Data"]);
       expect(d.outcome).toBe("written");
     });
@@ -273,7 +286,7 @@ describe("runPull", () => {
         throw new Error("The caller does not have permission");
       },
     });
-    const d = await runPull({ google_sheet: r }, { connector: "google_sheet", kind: "weekly", recipe: weekKeyed }, WEEK);
+    const d = await runPull(sheetOnly(r), { connector: "google_sheet", kind: "weekly", recipe: weekKeyed }, WEEK, "UTC");
     expect(d.outcome).toBe("failed");
     if (d.outcome !== "failed") return;
     expect(d.reason).toBe("sheet_unreachable");
@@ -294,7 +307,7 @@ describe("runPull", () => {
       ...snapshot,
       freshness: { tab: "Meta", cell: "B2" },
     };
-    const d = await runPull({ google_sheet: r }, { connector: "google_sheet", kind: "snapshot", recipe: mapping }, WEEK);
+    const d = await runPull(sheetOnly(r), { connector: "google_sheet", kind: "snapshot", recipe: mapping }, WEEK, "UTC");
     expect(asked).toEqual([
       ["Summary", "B7"],
       ["Meta", "B2"],

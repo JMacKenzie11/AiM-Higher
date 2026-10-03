@@ -15,7 +15,7 @@ For example: "Zero lost time incidents" or "Percentage of reports accepted first
 - **Log your function's numbers.** If you lead a function, you get an input box on its rows. Type this week's value and click **Save** above the table.
 - **Run your own function's list.** As a function's lead you can also add a critical success factor, change a target, edit its settings and archive rows you've outgrown. On other functions you see the numbers but no boxes or edit controls.
 - **Reorder your function's rows.** Drag a row by its handle.
-- **Connect a measure to a spreadsheet**, for a function you lead, when your company has External Measures turned on.
+- **Connect a measure to a spreadsheet or to HubSpot**, for a function you lead, when your company has External Measures turned on.
 
 If you don't lead a function, the page is read only for you.
 :::
@@ -28,7 +28,7 @@ Everything a function's lead can do, on every function:
 - **Log a value for anyone**, in any week on the page, not just the two open ones. Correcting an old number is something you just do.
 - **Add, edit and archive** critical success factors in any functional area.
 - **Reorder rows** within a functional area, and **reorder whole functional areas** by dragging the handle beside the area's name.
-- **Connect any measure to a spreadsheet**, when your company has External Measures turned on.
+- **Connect any measure to a spreadsheet or to HubSpot**, when your company has External Measures turned on.
 :::
 
 ::: role portfolio_admin
@@ -108,7 +108,7 @@ The Dashboard also has a 13-week board with the same name as this page, under *W
 
 ## Connecting a measure to a spreadsheet
 
-When your company has External Measures turned on, a measure can take its weekly number from a Google Sheet instead of someone typing it. The fields are at the bottom of the add and edit panel. They're never required. On a new measure, they become usable once the measure is saved, and the panel stays open so you can fill them in.
+When your company has External Measures turned on, a measure can take its weekly number from a Google Sheet or from HubSpot instead of someone typing it. Choose which under *Source*. The fields are at the bottom of the add and edit panel. They're never required. On a new measure, they become usable once the measure is saved, and the panel stays open so you can fill them in.
 
 You name two column headings: the one holding dates and the one holding the number. It finds the row for the week and reads the number across from it.
 
@@ -116,6 +116,16 @@ You name two column headings: the one holding dates and the one holding the numb
 - If several rows fall in one week, it takes the **last** one. A sheet with a row per day gives you the last day's figure, not the week's total. If you need a weekly total, put a weekly row in the sheet.
 - Headings are matched by name, not column letter, so inserting a column won't point it at the wrong one.
 - The scheduled pull runs after the week ends and records the week's number. If someone pressed **Pull now** during the week, that running total is replaced by the week's final number when the scheduled pull runs. A number someone typed is never replaced.
+
+## Connecting a measure to HubSpot
+
+Choose *HubSpot* as the source. Your company's admin first adds a HubSpot key on *Connections*, in Company settings. The pipelines and stages come from your HubSpot, so you pick them from a list.
+
+- **Weekly** gives a total for each week: the deals' amounts added up, or the number of deals. Choose which date places a deal in a week: the date it entered a stage, or the date it was created. For "won this week", choose the date it entered your won stage. HubSpot records that date itself, so it can't be typed to suit a forecast the way Close date can.
+- **Snapshot** adds up the deals in the stages you tick, as they stand when the pull runs: at their full amount, or at their weighted amount (amount × probability). Add a second part to combine them, for example won deals at full amount plus quoted deals weighted. A snapshot can't be worked out for past weeks, so it starts the week it's first pulled.
+- Amounts are in your HubSpot account's main currency. A deal with no amount adds nothing, and the receipt says how many there were.
+- *Verify* shows what a pull would read now, without recording anything.
+- If a stage the measure counts is removed in HubSpot, the pull records nothing and says so. Choose the stages again.
 
 ## Success Tracking
 

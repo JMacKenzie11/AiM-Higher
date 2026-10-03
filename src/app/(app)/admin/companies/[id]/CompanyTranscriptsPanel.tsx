@@ -36,7 +36,7 @@ export function CompanyTranscriptsPanel({
   }
 
   return (
-    <section className={styles.card} aria-labelledby="transcripts">
+    <section className={styles.accentCard} aria-labelledby="transcripts">
       <h2 id="transcripts" className={styles.h2}>
         Meeting transcripts
       </h2>

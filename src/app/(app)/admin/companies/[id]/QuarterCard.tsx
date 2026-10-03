@@ -54,7 +54,7 @@ export function QuarterCard({
   >(updateQuarterAction, undefined);
 
   return (
-    <section className={styles.card} aria-labelledby="quarter-card">
+    <section className={styles.accentCard} aria-labelledby="quarter-card">
       <h2 id="quarter-card" className={styles.h2}>
         Quarter
       </h2>
