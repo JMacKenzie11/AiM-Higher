@@ -264,6 +264,9 @@ describe("planning_history", () => {
               ],
             },
           ],
+          // Straight on the focus area, no goal between (0209).
+          // Counted since 2026-10-03; it was dropped before.
+          priorities: [{ title: "Hire a shift lead", status: "complete" }],
         },
       ],
       orphanGoals: [],
@@ -275,7 +278,7 @@ describe("planning_history", () => {
     };
     expect(out.status).toBe("ok");
     expect(out.quarters[0]?.strategic_focus_areas).toEqual(["Operational excellence"]);
-    expect(out.quarters[0]?.priority_counts).toEqual({ complete: 1, off_track: 1 });
+    expect(out.quarters[0]?.priority_counts).toEqual({ complete: 2, off_track: 1 });
   });
 
   it("returns empty when no quarter has closed", async () => {
