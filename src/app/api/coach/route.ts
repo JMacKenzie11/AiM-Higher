@@ -8,6 +8,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
 import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
+import { makePersonRecordTool } from "@/lib/coach/person-tool";
 import { toolLabel } from "@/lib/coach/tool-labels";
 import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
 import { buildGuideTools } from "@/lib/guide/agent-tools";
@@ -381,6 +382,10 @@ export async function POST(req: NextRequest): Promise<Response> {
                 found,
               }),
           }),
+          // A named person's record, read as this session (open data
+          // phase F, lib/coach/person-tool.ts). Plain Aimee only: a
+          // Coach conversation stays on its one subject.
+          makePersonRecordTool({ companyId: convo.company_id }),
         ]
       : []),
     ...(await buildCoachTools({
