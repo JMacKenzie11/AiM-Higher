@@ -16,7 +16,13 @@ import { loadCoachingPrinciples } from "./principles";
 // 2026-10-02, later: "Reflect without grading" gains one example, saying
 // the chosen step back. The wording above alone left "Good move" in 6 of
 // 6 next-step replies; with the example, none in 8.
-const PRINCIPLES_SHA = "7e9f6ba068f50491b00da6dd4d1e04ba6f3d4d3ba6a8a092a749db605a341c13";
+//
+// 2026-10-03: "Coach about someone else with care", the rules for a
+// conversation about another person (open data decisions, 2026-10-01):
+// prepare to act, no ranking or comparing, no case-building, no guessing
+// at health, personal life or motives, and fit the relationship. The
+// Coach button opening to everyone in a company waits on it (phase E).
+const PRINCIPLES_SHA = "53238dab381572bc7e2c31e6a62a0e80416dc706e05e1a35a9c0ad4ef6cd828e";
 
 describe("the AiMS coaching principles", () => {
   it("are Jason's text, unchanged", () => {
