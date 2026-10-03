@@ -31,6 +31,7 @@ const LABELS: Record<string, string> = {
   search_classroom: "Searching the classroom",
   memory_lookup: "Recalling earlier conversations",
   search_help: "Checking the help pages",
+  person_record: "Reading their scorecard",
 };
 
 export function toolLabel(name: string): string {

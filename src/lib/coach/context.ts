@@ -190,7 +190,7 @@ export async function buildCoachContext(
       "Mode: general",
       `Coaching participant: ${input.currentAdminName}`,
       "There is no subject on file. The participant brings the situation in-thread — they may be talking about themselves, another person, a decision, or a conversation they're preparing for. Follow their lead.",
-      "You know nothing about any person the participant names — no commitments, no history, no profile. If asked what you know about someone, say so plainly. Never invent details about a person.",
+      "When the participant names someone in the company, person_record reads that person's record: what the participant could see on their scorecard. Anything it does not return, you do not know. Never invent details about a person.",
       `Today: ${todayIso}`,
       "</coaching_context>",
     ].join("\n");
@@ -205,45 +205,8 @@ export async function buildCoachContext(
     };
   }
 
-  const {
-    subject,
-    openQuarter,
-    keepRatesByQuarter,
-    commitmentStats,
-    baseline,
-    openIssues,
-    plan,
-    strengthsContext,
-  } = subjectBundle;
-  const {
-    keptOnTimeCount,
-    keptLateCount,
-    missedCount,
-    parkedCount,
-    adminResolvedWithoutReasonCount,
-    missed,
-    keptLate,
-    openCommitments,
-  } = commitmentStats;
-
-  const personContext = formatPersonContext({
-    subject,
-    todayIso,
-    keepRatesByQuarter,
-    openQuarter,
-    keptOnTimeCount,
-    keptLateCount,
-    missedCount,
-    parkedCount,
-    adminResolvedWithoutReasonCount,
-    missed,
-    keptLate,
-    openCommitments,
-    baseline,
-    openIssues,
-    priorities: plan.priorities,
-    goals: plan.goals,
-  });
+  const { subject, strengthsContext } = subjectBundle;
+  const personContext = personContextFromBundle(subjectBundle, todayIso);
 
   const coachingContext = isPractice
     ? [
@@ -295,6 +258,50 @@ export async function buildCoachContext(
     strengthsContext: isPractice ? null : strengthsContext,
     coachingContext,
     mode,
+  };
+}
+
+// ---- One person's record --------------------------------------
+// The <person_context> block and the strengths block for one person,
+// read on the CALLER's client so RLS decides what is in it. The about
+// mode's subject comes through here, and so does a person Aimee looks
+// up by name in a plain conversation (person-tool.ts, open data phase
+// F). Neither reads memory or any conversation.
+type SubjectBundle = Awaited<ReturnType<typeof loadSubjectBundle>>;
+
+function personContextFromBundle(bundle: SubjectBundle, todayIso: string): string {
+  const { subject, openQuarter, keepRatesByQuarter, commitmentStats, baseline, openIssues, plan } = bundle;
+  return formatPersonContext({
+    subject,
+    todayIso,
+    keepRatesByQuarter,
+    openQuarter,
+    keptOnTimeCount: commitmentStats.keptOnTimeCount,
+    keptLateCount: commitmentStats.keptLateCount,
+    missedCount: commitmentStats.missedCount,
+    parkedCount: commitmentStats.parkedCount,
+    adminResolvedWithoutReasonCount: commitmentStats.adminResolvedWithoutReasonCount,
+    missed: commitmentStats.missed,
+    keptLate: commitmentStats.keptLate,
+    openCommitments: commitmentStats.openCommitments,
+    baseline,
+    openIssues,
+    priorities: plan.priorities,
+    goals: plan.goals,
+  });
+}
+
+export async function loadPersonRecord(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  companyId: string,
+  profileId: string,
+  todayIso: string
+): Promise<{ personContext: string; strengthsContext: string | null } | null> {
+  const bundle = await loadSubjectBundle(supabase, companyId, profileId);
+  if (!bundle.subject) return null;
+  return {
+    personContext: personContextFromBundle(bundle, todayIso),
+    strengthsContext: bundle.strengthsContext ?? null,
   };
 }
 
