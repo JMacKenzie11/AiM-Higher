@@ -11383,6 +11383,122 @@ ${row}`);
   ];
 }
 
+// ---- The Coach button for everyone (0261) ------------------------
+//
+// Anyone in a company starts a coaching conversation about anyone else
+// in it; so do an assigned guide and a portfolio admin switched on as
+// the company's admin. Each case inserts the row the app's action
+// inserts, under the caller's session, and is rolled back.
+//
+//   granted   a team member about a colleague who does not report to
+//             them; an assigned guide; a switched-on portfolio admin
+//   withheld  a team member about someone in another company; a company
+//             admin filing someone from another company under their own
+//             company (the subject must be in the row's company); a
+//             portfolio admin only assigned; a team member about
+//             themselves
+//
+// Red before 0261: the team member is refused, and the company admin's
+// forged row is admitted.
+async function coachForEveryoneProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const SWITCHED_PA = "a0261000-0000-4000-8000-0000000000b1";
+  const ASSIGNED_PA = "a0261000-0000-4000-8000-0000000000b2";
+  const paSeed = [SWITCHED_PA, ASSIGNED_PA]
+    .map(
+      (id, i) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', null, 'Harness 0261 PA ${i}', 'portfolio_admin', 'active');
+insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin)
+values ('${id}', '${ids.companyAdminCompany}', ${i === 0 ? "true" : "false"});`
+    )
+    .join("\n");
+
+  const [fx] = await run<{ colleague: string | null; stranger: string | null; stranger_company: string | null; guide_subject: string | null; admin_subject: string | null }>(
+    `select
+       (select id from public.profiles where company_id = '${ids.memberCompany}' and id <> '${ids.member}'
+          and reports_to is distinct from '${ids.member}' order by id limit 1) as colleague,
+       (select id from public.profiles where company_id is not null
+          and company_id <> '${ids.memberCompany}' and company_id <> '${ids.companyAdminCompany}' order by id limit 1) as stranger,
+       (select company_id from public.profiles where company_id is not null
+          and company_id <> '${ids.memberCompany}' and company_id <> '${ids.companyAdminCompany}' order by id limit 1) as stranger_company,
+       (select id from public.profiles where company_id = '${ids.guideCompany}' and id <> '${ids.guide}' order by id limit 1) as guide_subject,
+       (select id from public.profiles where company_id = '${ids.companyAdminCompany}' and id <> '${ids.companyAdmin}' order by id limit 1) as admin_subject;`
+  );
+  const missing = Object.entries(fx ?? {}).filter(([, v]) => !v).map(([k]) => k);
+  if (!fx || missing.length) {
+    return [
+      {
+        name: "coach · anyone in the company",
+        granted: "not attempted",
+        withheld: "not attempted",
+        ok: false,
+        detail: `NOT PROVEN: the clone could not supply ${missing.join(", ") || "its fixtures"}`,
+      },
+    ];
+  }
+
+  const start = (sub: string, company: string, subject: string, seed = "") =>
+    asCaller(
+      sub,
+      `${pending}\n${seed}`,
+      `with i as (
+         insert into public.coaching_conversations (company_id, subject_profile_id, created_by, title, context_kind, mode)
+         values ('${company}', '${subject}', '${sub}', 'harness 0261', 'execution', 'about')
+         returning 1)
+       select count(*)::int as n from i;`
+    );
+  const ask = async (sql: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>(sql);
+      return JSON.stringify(rows[0] ?? {});
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/row-level security/i.test(msg)) return "refused by RLS";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+
+  const memberColleague = await ask(start(ids.member, ids.memberCompany, fx.colleague!));
+  const guide = await ask(start(ids.guide, ids.guideCompany, fx.guide_subject!));
+  const switchedPa = await ask(start(SWITCHED_PA, ids.companyAdminCompany, fx.admin_subject!, paSeed));
+  const memberStranger = await ask(start(ids.member, fx.stranger_company!, fx.stranger!));
+  const adminForged = await ask(start(ids.companyAdmin, ids.companyAdminCompany, fx.stranger!));
+  const assignedPa = await ask(start(ASSIGNED_PA, ids.companyAdminCompany, fx.admin_subject!, paSeed));
+  const memberSelf = await ask(start(ids.member, ids.memberCompany, ids.member));
+
+  const one = '{"n":1}';
+  const refused = "refused by RLS";
+  const ok =
+    memberColleague === one &&
+    guide === one &&
+    switchedPa === one &&
+    memberStranger === refused &&
+    adminForged === refused &&
+    assignedPa === refused &&
+    memberSelf === refused;
+
+  return [
+    {
+      name: "coach · anyone in the company",
+      granted:
+        `team member about a colleague: ${memberColleague} | assigned guide: ${guide} | ` +
+        `portfolio admin switched on for the company: ${switchedPa}`,
+      withheld:
+        `team member about someone in another company: ${memberStranger} | ` +
+        `company admin filing someone from another company under its own: ${adminForged} | ` +
+        `portfolio admin only assigned: ${assignedPa} | team member about themselves: ${memberSelf}`,
+      ok,
+      detail: ok
+        ? "anyone in a company, an assigned guide or a switched-on portfolio admin starts a conversation about someone else in it, and nobody files one about a person outside the row's company"
+        : memberColleague !== one
+          ? "THE GRANT DOES NOT WORK: a team member cannot coach about a colleague (is 0261 applied?)"
+          : "the rule is wider than intended",
+    },
+  ];
+}
+
 // ---- A commitment saved from Aimee's draft, once (0255) ----------
 //
 // The leader saves the draft card's commitment under their own session
@@ -12222,6 +12338,7 @@ async function main(): Promise<void> {
   const fromAimee = await commitmentFromAimeeProbes(run, ids, pendingSql);
   const vaultProbes = await connectionVaultProbes(run, ids, pendingSql);
   const plaintextProbes = await oauthPlaintextProbes(run, ids, pendingSql);
+  const coachProbes = await coachForEveryoneProbes(run, ids, pendingSql);
   const contractProbes = await connectorContractProbes(run, pendingSql);
   const hubspotProbes = await hubspotRecipeProbes(run, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
@@ -12233,7 +12350,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12327,6 +12444,7 @@ async function main(): Promise<void> {
     fromAimee.some((p) => !p.ok) ||
     vaultProbes.some((p) => !p.ok) ||
     plaintextProbes.some((p) => !p.ok) ||
+    coachProbes.some((p) => !p.ok) ||
     contractProbes.some((p) => !p.ok) ||
     hubspotProbes.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||

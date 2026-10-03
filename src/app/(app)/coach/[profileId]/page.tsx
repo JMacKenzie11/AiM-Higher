@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { canCoachAbout } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listConversationsForSubject } from "@/lib/coach/service";
 import { NewConversationButton } from "./NewConversationButton";
@@ -18,32 +19,23 @@ type PageProps = {
 
 export default async function CoachListPage({ params }: PageProps) {
   const session = await requireProfile();
-  const role = session.profile.role;
 
   const { profileId } = await params;
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
     .from("profiles")
-    .select("id, full_name, position, company_id, reports_to")
+    .select("id, full_name, position, company_id")
     .eq("id", profileId)
-    .maybeSingle<
-      Pick<Profile, "id" | "full_name" | "position" | "company_id" | "reports_to">
-    >();
+    .maybeSingle<Pick<Profile, "id" | "full_name" | "position" | "company_id">>();
   if (!subject) notFound();
 
   // Self-coaching is retired — anyone landing on their own coach URL
   // (bookmark, deep link) gets redirected to Ask Aimee.
   if (subject.id === session.profile.id) redirect("/ask-aimee");
 
-  // Access mirrors the RLS insert policy for mode='about': system
-  // admin anywhere, company admin within the subject's company, or
-  // the subject's direct manager.
-  const isSystemAdmin = role === "system_admin";
-  const isCompanyAdmin =
-    role === "company_admin" &&
-    subject.company_id === session.profile.company_id;
-  const isManager = subject.reports_to === session.profile.id;
-  if (!isSystemAdmin && !isCompanyAdmin && !isManager) {
+  // The same rule as the about branch of coaching_conversations_insert
+  // (0261): anyone in the person's company, or an admin for it.
+  if (!canCoachAbout(session.profile, subject)) {
     redirect("/");
   }
 
@@ -70,10 +62,10 @@ export default async function CoachListPage({ params }: PageProps) {
 
       <PrivacyNote tone="private">
         Only the person who started a conversation can see it. AiMS reviews
-        anonymised summaries of conversation themes to improve Aimee. Other
-        admins and {firstName}&rsquo;s direct manager can start their own
-        threads about {firstName}, private to them in the same way, and{" "}
-        {firstName} cannot see any of them.
+        anonymised summaries of conversation themes to improve Aimee. Anyone
+        else in the company can start their own conversations about{" "}
+        {firstName}, private to them in the same way, and {firstName} cannot
+        see any of them.
       </PrivacyNote>
 
       <div className={styles.card}>

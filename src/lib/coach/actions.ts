@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
+import { canCoachAbout } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
@@ -32,8 +33,8 @@ export type CoachActionResult<T> =
 export type SimpleResult = { ok: true } | { ok: false; message: string };
 
 // ---- Create an ABOUT conversation (person-specific) ------------
-// Admin coaches anyone in their reach; manager coaches a direct
-// report. Self-coaching is retired — general conversations (Ask
+// Anyone in the person's company, or an admin for it (canCoachAbout;
+// open data phase E). Self-coaching is retired — general conversations (Ask
 // Aimee) go through createGeneralConversationAction below.
 export async function createConversationAction(
   subjectProfileId: string,
@@ -52,30 +53,22 @@ export async function createConversationAction(
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
     .from("profiles")
-    .select("id, company_id, reports_to")
+    .select("id, company_id")
     .eq("id", subjectProfileId)
-    .maybeSingle<Pick<Profile, "id" | "company_id" | "reports_to">>();
+    .maybeSingle<Pick<Profile, "id" | "company_id">>();
   if (!subject) {
     return { ok: false, message: "That person isn't accessible." };
   }
-
-  const isSystemAdmin = session.profile.role === "system_admin";
-  const isCompanyAdmin =
-    session.profile.role === "company_admin" &&
-    session.profile.company_id === subject.company_id;
-  const isManager = subject.reports_to === session.profile.id;
-
-  // Matches migration 0105 RLS insert policy for mode='about'.
-  if (!isSystemAdmin && !isCompanyAdmin && !isManager) {
-    return {
-      ok: false,
-      message:
-        "You can only coach your direct reports or people in your company as an admin.",
-    };
-  }
-
   if (!subject.company_id) {
     return { ok: false, message: "That person isn't in a company yet." };
+  }
+
+  // The same rule as the about branch of coaching_conversations_insert (0261).
+  if (!canCoachAbout(session.profile, subject)) {
+    return {
+      ok: false,
+      message: "You can coach about people in your own company, or in a company you look after.",
+    };
   }
 
   // Feature gate: strengths coaching requires the company entitlement.

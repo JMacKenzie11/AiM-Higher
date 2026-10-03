@@ -31,7 +31,7 @@ Hover or tab to a label with a dotted underline for a one-line definition.
 
 - **See how the company is doing** this quarter and this week.
 - **Open a Focus Area** or a person's scorecard from the panels.
-- **Coach someone who reports to you.** A *Coach* link sits beside their name under *Where to lend support*.
+- **Coach about anyone else at the company.** A *Coach* link sits beside each name but yours under *Where to lend support*.
 - **Keep up with what you owe.** The bell at the top counts commitments due today. On Fridays it also reminds you about numbers you haven't logged for functions you lead. Log them on **Critical Success Factors**, under Workspace.
 :::
 
@@ -49,6 +49,7 @@ Everything above, plus:
 
 - **See how the company is doing** this quarter and this week.
 - **Open a Focus Area** or a person's scorecard from the panels.
+- **Coach anyone** from the *Coach* link under *Where to lend support*.
 - **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to company settings to fix it.
 :::
 
@@ -56,6 +57,8 @@ Everything above, plus:
 ## What you can do here
 
 Read every number and panel, the same view the company sees.
+
+Where a system admin has made you the company's admin, a *Coach* link also sits beside each name under *Where to lend support*.
 :::
 
 ## Reading the Critical Success Factors board

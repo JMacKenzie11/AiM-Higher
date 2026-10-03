@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { canCoachAbout } from "@/lib/auth/permissions";
 import { getPersonScorecard } from "@/lib/people/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
@@ -30,10 +31,9 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   const isAdmin =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
-  // A direct manager can now coach about their report — same
-  // authorization the RLS insert policy on coaching_conversations
-  // enforces (migration 0021).
-  const isManager = data.profile.reports_to === session.profile.id;
+  // Coach: anyone in the company, or an admin for it (canCoachAbout;
+  // 0261). Never on your own page.
+  const canCoach = canCoachAbout(session.profile, { id, company_id: data.profile.company_id });
 
   // Everyone sees Details + Strengths at the top of the page.
   // Admins get editable inputs + a Save button; team members and
@@ -65,7 +65,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                 Ask Aimee
               </Link>
             ) : null}
-            {(isAdmin || isManager) && !isSelf ? (
+            {canCoach ? (
               <Link
                 href={`/coach/${id}`}
                 className={styles.heroCoachAction}

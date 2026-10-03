@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
-import { isAdminForCompany } from "@/lib/auth/permissions";
+import { canCoachAbout, isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDashboardData } from "@/lib/dashboard/service";
 import { getMeasureInsights } from "@/lib/measures/insights";
@@ -83,14 +83,12 @@ export default async function DashboardPage() {
   // the whole gate now — it used to also require Success Tracking,
   // which hid a company's own recorded numbers from it.
   const board = await getBoardData(companyId, data.company.timezone);
-  // Managers get the Coach column for rows they own via
-  // profiles.reports_to — same rule as the coaching_conversations
-  // insert policy in migration 0021. If they don't manage anyone on
-  // the roster there's no point showing the column at all.
-  const managesAnyone = data.people.some(
-    (p) => p.reports_to === session.profile.id,
-  );
-  const showCoachColumn = isAdmin || managesAnyone;
+  // Coach: anyone in the company, about anyone else in it, or an
+  // admin for it (canCoachAbout; 0261). The column shows when at least
+  // one row has the button.
+  const canCoachPerson = (personId: string) =>
+    canCoachAbout(session.profile, { id: personId, company_id: companyId });
+  const showCoachColumn = data.people.some((p) => canCoachPerson(p.id));
 
   // A LAPSED quarter has to say so. It used to read "Current quarter
   // · Q3 2026" with no link, because the link only appeared when
@@ -379,8 +377,6 @@ export default async function DashboardPage() {
               </thead>
               <tbody>
                 {data.people.map((person) => {
-                  const canCoachPerson =
-                    isAdmin || person.reports_to === session.profile.id;
                   return (
                     <tr key={person.id}>
                     <td>
@@ -412,7 +408,7 @@ export default async function DashboardPage() {
                     </td>
                     {showCoachColumn ? (
                       <td>
-                        {canCoachPerson ? (
+                        {canCoachPerson(person.id) ? (
                           <Link
                             href={`/coach/${person.id}`}
                             className={styles.coachButton}

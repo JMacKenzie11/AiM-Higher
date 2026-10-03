@@ -58,6 +58,11 @@ export type CoachContextInput = {
   subjectProfileId: string | null;
   currentAdminName: string;
   currentAdminProfileId: string;
+  // Where the participant stands, for the relationship line in about
+  // mode (relationshipLine below). From the session, never the request.
+  currentAdminRole: Profile["role"];
+  currentAdminCompanyId: string | null;
+  currentAdminReportsTo: string | null;
   contextKind?: "execution" | "strengths";
   // Practices layer. When practiceId is set, this is a guided
   // practice session: the user's own person_context is loaded (even
@@ -257,6 +262,20 @@ export async function buildCoachContext(
         "Mode: about",
         `Being coached about: ${subject?.full_name ?? "(unknown subject)"}`,
         `Coaching participant: ${input.currentAdminName}`,
+        ...(subject
+          ? [
+              relationshipLine(
+                {
+                  id: input.currentAdminProfileId,
+                  name: input.currentAdminName,
+                  role: input.currentAdminRole,
+                  company_id: input.currentAdminCompanyId,
+                  reports_to: input.currentAdminReportsTo,
+                },
+                { id: subject.id, name: subject.full_name, company_id: subject.company_id, reports_to: subject.reports_to }
+              ),
+            ]
+          : []),
         "This is a leadership coaching session about another person. Refer to the subject by their name.",
         "Pronouns for the subject are unknown. Use they/them by default; never infer gender from names. If you use a name repeatedly, that's fine — just do not guess pronouns.",
         "If strengths data is marked incomplete or unavailable, say so if asked and never invent or guess strengths.",
@@ -277,6 +296,40 @@ export async function buildCoachContext(
     coachingContext,
     mode,
   };
+}
+
+// ---- The relationship line ------------------------------------
+// Since 0261 anyone in a company can coach about anyone else in it, so
+// the participant may be the subject's manager, a colleague, the
+// subject's own report, or an AiMS advisor. The principles say to fit
+// the conversation to the relationship ("Coach about someone else with
+// care"); this line says which one it is. From profiles.reports_to,
+// both ways, and the participant's company and role.
+type RelationshipSide = {
+  id: string;
+  name: string;
+  company_id: string | null;
+  reports_to: string | null;
+};
+export function relationshipLine(
+  participant: RelationshipSide & { role: Profile["role"] },
+  subject: RelationshipSide
+): string {
+  const p = participant.name;
+  const s = subject.name;
+  if (subject.reports_to === participant.id) {
+    return `Relationship: ${s} reports to ${p}. ${p} is their manager.`;
+  }
+  if (participant.reports_to === subject.id) {
+    return `Relationship: ${p} reports to ${s}. ${s} is ${p}'s own manager, so help ${p} prepare a conversation with their manager.`;
+  }
+  if (!participant.company_id || participant.company_id !== subject.company_id) {
+    return `Relationship: ${p} works with this company as an AiMS advisor, and is not ${s}'s manager.`;
+  }
+  if (participant.role === "company_admin") {
+    return `Relationship: ${p} is one of the company's admins, and is not ${s}'s manager.`;
+  }
+  return `Relationship: ${p} and ${s} are colleagues. Neither manages the other, so help ${p} prepare a conversation between colleagues.`;
 }
 
 // ---- Subject bundle -------------------------------------------
@@ -314,12 +367,12 @@ async function loadSubjectBundle(
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, position, role, company_id, hire_date")
+      .select("id, full_name, position, role, company_id, hire_date, reports_to")
       .eq("id", subjectProfileId)
       .maybeSingle<
         Pick<
           Profile,
-          "id" | "full_name" | "position" | "role" | "company_id" | "hire_date"
+          "id" | "full_name" | "position" | "role" | "company_id" | "hire_date" | "reports_to"
         >
       >(),
     getCurrentQuarter(companyId),

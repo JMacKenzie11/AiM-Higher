@@ -5,7 +5,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getPeopleRoster } from "@/lib/people/service";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import { PageShell } from "@/components/ui/PageShell";
-import { isAdminForCompany } from "@/lib/auth/permissions";
+import { canCoachAbout, isAdminForCompany } from "@/lib/auth/permissions";
 import { listRoleDescriptions } from "@/lib/role-descriptions/roles-list";
 import { leadsAnyFunction } from "@/lib/practices/function-leads";
 import { RoleDescriptionsCard } from "@/components/role-descriptions/RoleDescriptionsCard";
@@ -124,14 +124,11 @@ export default async function PeoplePage() {
   // profiles_insert_portfolio says in SQL, with no UPDATE or DELETE
   // policy beside it.
   const canInvite = isAdmin || session.profile.role === "portfolio_admin";
-  // A manager reaches the Coach affordance for their direct reports,
-  // matching the coaching_conversations insert policy (migration
-  // 0021). Only bother rendering the Actions column for managers who
-  // actually have reports on this roster.
-  const managesAnyone = people.some(
-    (p) => p.reports_to === session.profile.id,
-  );
-  const showActionsColumn = isAdmin || managesAnyone;
+  // Coach: anyone in the company, about anyone else in it, or an
+  // admin for it (canCoachAbout; 0261). Self is excluded there.
+  const canCoachPerson = (personId: string) =>
+    canCoachAbout(session.profile, { id: personId, company_id: companyId });
+  const showActionsColumn = isAdmin || people.some((p) => canCoachPerson(p.id));
 
   return (
     <PageShell
@@ -163,10 +160,6 @@ export default async function PeoplePage() {
               </thead>
               <tbody>
                 {people.map((person) => {
-                  const isSelfRow = person.id === session.profile.id;
-                  const canCoachPerson =
-                    !isSelfRow &&
-                    (isAdmin || person.reports_to === session.profile.id);
                   const pill = statusPill(person.status, person.invited_at);
                   return (
                     <tr key={person.id}>
@@ -211,7 +204,7 @@ export default async function PeoplePage() {
                     </td>
                     {showActionsColumn ? (
                       <td className={styles.actionsCell}>
-                        {canCoachPerson ? (
+                        {canCoachPerson(person.id) ? (
                           <Link
                             href={`/coach/${person.id}`}
                             className={styles.coachButton}
