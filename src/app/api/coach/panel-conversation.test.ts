@@ -122,14 +122,17 @@ async function send(extra: Record<string, unknown> = {}) {
 }
 
 describe("a conversation started in Aimee's panel", () => {
-  it("cannot write coach memory, can still read it, and is told about the Aimee page, with no link to offer", async () => {
+  // Jason, 2026-10-03: an explicit "remember that" is saved in the
+  // panel too. The sweep still never distils a panel conversation
+  // (panel-memory.test.ts), so this is the only write.
+  it("saves what it is asked to remember, reads memory, and has no link to offer", async () => {
     h.origin = "panel";
     const { tools, system } = await send();
-    expect(tools).not.toContain("remember_this");
+    expect(tools).toContain("remember_this");
     expect(tools).toContain("memory_lookup");
     expect(tools).toContain("search_help");
     expect(system).toContain("<panel>");
-    expect(system).toContain("the Aimee page");
+    expect(system).toContain("remember_this");
     // Jason, 2026-10-01: the "Continue on the Aimee page" link is not
     // offered in a panel chat any more.
     expect(system).not.toContain("Continue on the Aimee page");
