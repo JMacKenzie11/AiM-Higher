@@ -800,11 +800,13 @@ to go back if they fail. Planned for Sunday 2026-10-04 (Jason).
    "hasn't connected a Google account" errors.
 7. **Friday.** Run the step 1 check once more, ahead of Saturday's pull.
 8. **Saturday.** The pull receipts for Benson's measures say `written`.
-9. **After that Saturday, on a separate go:** a migration clears the
-   plaintext tokens from `oauth_credentials`. Until then they are the
-   way back.
+9. **After that Saturday, on a separate go:** 0260 deletes the
+   plaintext tokens from `oauth_credentials`. It deletes nothing unless
+   every row's company has a Google refresh token in the vault. Done
+   2026-10-03 (Jason's go). From here the way back below no longer
+   applies: the vault is the only copy.
 
-**The way back.** Revert the merge commit and redeploy. The old code
+**The way back, until 0260.** Revert the merge commit and redeploy. The old code
 reads `oauth_credentials`, which 0257 did not touch, so nothing else
 needs undoing. The vault copies can stay. Two things to know:
 

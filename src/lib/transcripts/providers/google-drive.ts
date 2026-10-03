@@ -38,8 +38,8 @@ import {
 // THE TOKENS LIVE IN SUPABASE VAULT since 0257: the company's 'google'
 // connection, whose secret is the refresh token and the last access
 // token as JSON (connections/vault.ts). oauth_credentials, where they
-// were kept as plain text, is no longer read or written; a later
-// migration clears it once a Saturday's pulls have run from the vault.
+// were kept as plain text, is no longer read or written, and 0260
+// emptied it once a Saturday's pulls had run from the vault.
 //
 // Clients share their transcript folder with the connected Google
 // account's email address (Viewer). That address is displayed on

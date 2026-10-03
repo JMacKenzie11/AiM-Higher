@@ -11329,6 +11329,60 @@ values ('${id}', '${ids.companyAdminCompany}', ${i === 0 ? "true" : "false"});`
   ];
 }
 
+// ---- The plain-text Google tokens cleared (0260) -----------------
+//
+// 0260 deletes oauth_credentials, but only when every row's company
+// has a Google refresh token in the vault. Its file is replayed here
+// as postgres on every run, before or after it lands (it is safe to
+// run twice), so the guard stays proven:
+//
+//   cleared   a row whose company has a Google secret in the vault is
+//             deleted, and the vault secret stays
+//   refused   a row whose company has none stops the migration, and
+//             the row is still there
+//
+// Red before 0260: the replayed file deletes nothing, so the cleared
+// row is still there.
+async function oauthPlaintextProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const file = readFileSync("supabase/migrations/0260_clear_oauth_plaintext.sql", "utf8");
+  const company = ids.companyAdminCompany;
+  const row = `delete from public.oauth_credentials where company_id = '${company}';
+insert into public.oauth_credentials (provider, company_id, account_email, refresh_token)
+values ('google_drive', '${company}', 'harness-0260@example.invalid', 'harness-0260-token');`;
+  const left = `select (select count(*)::int from public.oauth_credentials where company_id = '${company}') as rows,
+       (select count(*)::int from public.connections where company_id = '${company}' and connector = 'google' and secret_id is not null) as vault;`;
+  const attempt = async (setup: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>(["begin;", pending, setup, file, left, "rollback;"].join("\n"));
+      return JSON.stringify(rows[0] ?? {});
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/nothing was cleared/i.test(msg)) return "refused: not in the vault";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+  const cleared = await attempt(
+    `select public._connection_put('${company}', 'google', '{"refresh_token":"harness-0260-token"}', null, 'harness-0260@example.invalid', '{}', null);
+${row}`
+  );
+  const refused = await attempt(`delete from public.connections where company_id = '${company}' and connector = 'google';
+${row}`);
+  const ok = cleared === '{"rows":0,"vault":1}' && refused === "refused: not in the vault";
+  return [
+    {
+      name: "google tokens · plain text cleared",
+      granted: `a company with its token in the vault, rows left and vault secrets: ${cleared}`,
+      withheld: `a company with no token in the vault: ${refused}`,
+      ok,
+      detail: ok
+        ? "0260 deletes a plain-text token only where the vault holds the company's Google refresh token"
+        : cleared.startsWith('{"rows":1')
+          ? "0260 DOES NOT CLEAR: the plain-text row is still there"
+          : "0260's guard does not stop on a company missing from the vault",
+    },
+  ];
+}
+
 // ---- A commitment saved from Aimee's draft, once (0255) ----------
 //
 // The leader saves the draft card's commitment under their own session
@@ -12167,6 +12221,7 @@ async function main(): Promise<void> {
   const openers = await hiddenOpenerProbes(run, ids, pendingSql);
   const fromAimee = await commitmentFromAimeeProbes(run, ids, pendingSql);
   const vaultProbes = await connectionVaultProbes(run, ids, pendingSql);
+  const plaintextProbes = await oauthPlaintextProbes(run, ids, pendingSql);
   const contractProbes = await connectorContractProbes(run, pendingSql);
   const hubspotProbes = await hubspotRecipeProbes(run, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
@@ -12178,7 +12233,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12271,6 +12326,7 @@ async function main(): Promise<void> {
     timeouts.some((p) => !p.ok) ||
     fromAimee.some((p) => !p.ok) ||
     vaultProbes.some((p) => !p.ok) ||
+    plaintextProbes.some((p) => !p.ok) ||
     contractProbes.some((p) => !p.ok) ||
     hubspotProbes.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
