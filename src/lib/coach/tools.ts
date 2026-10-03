@@ -31,10 +31,6 @@ export async function buildCoachTools(args: {
   // are registered in both modes as long as the feature is on.
   subjectProfileId: string | null;
   companyId: string;
-  // False for a conversation started in Aimee's panel (0240), which
-  // never writes coach memory: remember_this is left out. Reading
-  // (memory_lookup) stays. Defaults to true, today's behaviour.
-  memoryWrites?: boolean;
 }): Promise<CoachTool[]> {
   const tools: CoachTool[] = [];
   if (args.subjectProfileId) {
@@ -90,7 +86,15 @@ export async function buildCoachTools(args: {
   // The write half, in both modes for the same reason as the read
   // half: it saves to the CALLER and has no vocabulary for anyone
   // else, so an about-mode conversation cannot aim it at the subject.
-  if (args.memoryWrites !== false) tools.push(makeRememberTool());
+  //
+  // In Aimee's panel too, since 2026-10-03 (Jason). The panel was left
+  // without it (0240) so that nothing said there reached memory, and
+  // its one bridge, "Continue on the Aimee page", was removed on
+  // 2026-10-01, which left a person who asked her to remember something
+  // with nowhere to say it. An explicit ask is the one write a person
+  // makes on purpose, so it is kept; the sweep still never distils a
+  // panel conversation (memory-actions.ts).
+  tools.push(makeRememberTool());
 
   tools.push(
     ...buildHistoryTools({
