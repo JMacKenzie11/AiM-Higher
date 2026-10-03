@@ -26,11 +26,9 @@ afterEach(() => {
 });
 
 const weekKeyed: ExternalMapping = {
-  kind: "week_keyed",
-  file_id: "F",
-  tab: "T",
-  key_column: "Week Ending",
-  value_column: "V",
+  connector: "google_sheet",
+  kind: "weekly",
+  recipe: { file_id: "F", tab: "T", key_column: "Week Ending", value_column: "V" },
 };
 
 describe("targetWeekEnding", () => {

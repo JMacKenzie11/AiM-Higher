@@ -45,6 +45,19 @@ export function fridayOf(iso: YMD): YMD {
   return addDays(iso, daysUntil);
 }
 
+// THE WEEK A MOMENT FALLS IN, in a company's timezone.
+//
+// fridayOf takes a calendar date. An outside system hands us instants:
+// HubSpot's "date entered Closed won" is a UTC timestamp, and 11pm on a
+// Friday in Halifax is already Saturday in UTC, which is the next week.
+// So the instant becomes the company's own calendar date first, then
+// the Friday its week ends on (external connections plan, phase 2).
+export function weekEndingOfInstant(instant: string | Date, timezone: string): YMD {
+  const d = instant instanceof Date ? instant : new Date(instant);
+  if (Number.isNaN(d.getTime())) throw new Error(`Not a moment in time: ${String(instant)}`);
+  return fridayOf(d.toLocaleDateString("en-CA", { timeZone: timezone }));
+}
+
 export function lastFriday(timezone: string): YMD {
   return addDays(thisFriday(timezone), -7);
 }

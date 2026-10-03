@@ -106,7 +106,7 @@ async function main() {
         console.log(`  FAIL  ${m.description}: the mapping does not parse`);
         continue;
       }
-      const d = await runPull(reader, m.mapping, week);
+      const d = await runPull({ google_sheet: reader }, m.mapping, week);
       if (d.outcome === "written") console.log(`  OK    ${m.description}: ${d.value}  (${describeMapping(m.mapping)})`);
       else if (d.outcome === "skipped_stale") console.log(`  STALE ${m.description}: the sheet says it is not up to date for this week`);
       else {

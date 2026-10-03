@@ -15,9 +15,10 @@ import {
   isCellRef,
   missingMappingFields,
   parseMapping,
-  type ExternalMapping,
+  canBackfill,
+  type SheetWeeklyMapping,
 } from "./mapping";
-// Both parsers, and the split matters. The week_keyed preview below
+// Both parsers, and the split matters. The weekly preview below
 // uses the STRICT one, because it has to show exactly the weeks a
 // pull would match — a preview that is more generous than the pull
 // is a preview that lies. The freshness preview uses the lenient one
@@ -74,7 +75,7 @@ export type VerifyResponse =
       // What the mapping says, in words, so the admin can check it
       // against the workbook without reading JSON.
       description: string;
-      // week_keyed: the last four weeks found. snapshot: one row.
+      // weekly: the last four weeks found. snapshot: one row.
       rows: Array<{ label: string; value: string }>;
       note: string | null;
     }
@@ -210,7 +211,7 @@ export async function backfillExternalMeasureAction(
   // four, identically — a flat line that looks like data. The
   // freshness window already refuses most of that; this refuses the
   // rest, including a snapshot with no freshness field at all.
-  if (g.context.mapping?.kind === "snapshot") {
+  if (g.context.mapping && !canBackfill(g.context.mapping)) {
     return {
       ok: false,
       message:
@@ -282,13 +283,14 @@ export async function setExternalSourceAction(
     };
   }
   if (mapping.kind === "snapshot") {
-    if (!isCellRef(mapping.cell)) {
-      return { ok: false, message: `"${mapping.cell}" is not a cell reference like B7.` };
+    const r = mapping.recipe;
+    if (!isCellRef(r.cell)) {
+      return { ok: false, message: `"${r.cell}" is not a cell reference like B7.` };
     }
-    if (mapping.freshness && !isCellRef(mapping.freshness.cell)) {
+    if (r.freshness && !isCellRef(r.freshness.cell)) {
       return {
         ok: false,
-        message: `"${mapping.freshness.cell}" is not a cell reference like B2.`,
+        message: `"${r.freshness.cell}" is not a cell reference like B2.`,
       };
     }
   }
@@ -379,27 +381,20 @@ export async function verifyExternalSourceAction(
   const weekEnding = thisFriday(context.timezone);
 
   try {
-    if (mapping.kind === "week_keyed") {
-      return verifyWeekKeyed(
-        await reader.readTab(mapping.file_id, mapping.tab),
+    if (mapping.kind === "weekly") {
+      return verifyWeekly(
+        await reader.readTab(mapping.recipe.file_id, mapping.recipe.tab),
         mapping,
         weekEnding
       );
     }
-    const cell = await reader.readCell(
-      mapping.file_id,
-      mapping.tab,
-      mapping.cell
-    );
-    const freshness = mapping.freshness
-      ? await reader.readCell(
-          mapping.file_id,
-          mapping.freshness.tab,
-          mapping.freshness.cell
-        )
+    const r = mapping.recipe;
+    const cell = await reader.readCell(r.file_id, r.tab, r.cell);
+    const freshness = r.freshness
+      ? await reader.readCell(r.file_id, r.freshness.tab, r.freshness.cell)
       : null;
     const rows = [{ label: "Current value", value: cell ?? "(empty)" }];
-    if (mapping.freshness) {
+    if (r.freshness) {
       const parsed = parseFreshnessDate(freshness ?? "");
       rows.push({
         label: "Freshness cell reads",
@@ -431,24 +426,25 @@ export async function verifyExternalSourceAction(
   }
 }
 
-function verifyWeekKeyed(
+function verifyWeekly(
   rows: string[][],
-  mapping: Extract<ExternalMapping, { kind: "week_keyed" }>,
+  mapping: SheetWeeklyMapping,
   weekEnding: string
 ): VerifyResponse {
+  const recipe = mapping.recipe;
   const header = rows[0] ?? [];
   const norm = (s: string) => (s ?? "").trim().toLowerCase();
-  const keyIdx = header.findIndex((h) => norm(h) === norm(mapping.key_column));
+  const keyIdx = header.findIndex((h) => norm(h) === norm(recipe.key_column));
   const valueIdx = header.findIndex(
-    (h) => norm(h) === norm(mapping.value_column)
+    (h) => norm(h) === norm(recipe.value_column)
   );
   if (keyIdx < 0 || valueIdx < 0) {
     return {
       ok: false,
       message: `That tab's headings are: ${header
         .filter((h) => h.trim().length > 0)
-        .join(", ")}. The mapping asks for "${mapping.key_column}" and "${
-        mapping.value_column
+        .join(", ")}. The mapping asks for "${recipe.key_column}" and "${
+        recipe.value_column
       }".`,
     };
   }

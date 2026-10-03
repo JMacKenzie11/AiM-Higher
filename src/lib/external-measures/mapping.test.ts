@@ -1,110 +1,108 @@
 import { describe, it, expect } from "vitest";
 
 import {
+  canBackfill,
   describeMapping,
   extractFileId,
   isCellRef,
+  missingMappingFields,
   parseMapping,
 } from "./mapping";
 
+// Every mapping is {connector, kind, pull_day?, recipe} (0258).
+const weekly = (recipe: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
+  connector: "google_sheet",
+  kind: "weekly",
+  ...extra,
+  recipe,
+});
+const snapshot = (recipe: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
+  connector: "google_sheet",
+  kind: "snapshot",
+  ...extra,
+  recipe,
+});
+
 describe("parseMapping", () => {
-  it("reads a week_keyed mapping", () => {
+  it("reads a weekly sheet mapping, keeping its pull day", () => {
     expect(
-      parseMapping({
-        kind: "week_keyed",
-        file_id: "F",
-        tab: "Data",
-        key_column: "Week Ending",
-        value_column: "Shipped",
-      })
+      parseMapping(weekly({ file_id: "F", tab: "Data", key_column: "Week Ending", value_column: "Shipped" }, { pull_day: "Mon" }))
     ).toEqual({
-      kind: "week_keyed",
-      file_id: "F",
-      tab: "Data",
-      key_column: "Week Ending",
-      value_column: "Shipped",
+      connector: "google_sheet",
+      kind: "weekly",
+      pull_day: "mon",
+      recipe: { file_id: "F", tab: "Data", key_column: "Week Ending", value_column: "Shipped" },
     });
   });
 
   it("reads a snapshot mapping, with and without freshness", () => {
+    expect(parseMapping(snapshot({ file_id: "F", tab: "S", cell: "B7" }))).toEqual(
+      snapshot({ file_id: "F", tab: "S", cell: "B7" })
+    );
     expect(
-      parseMapping({ kind: "snapshot", file_id: "F", tab: "S", cell: "B7" })
-    ).toEqual({ kind: "snapshot", file_id: "F", tab: "S", cell: "B7" });
-
-    expect(
-      parseMapping({
-        kind: "snapshot",
-        file_id: "F",
-        tab: "S",
-        cell: "B7",
-        freshness: { tab: "S", cell: "B2" },
-      })
-    ).toEqual({
-      kind: "snapshot",
-      file_id: "F",
-      tab: "S",
-      cell: "B7",
-      freshness: { tab: "S", cell: "B2" },
-    });
+      parseMapping(snapshot({ file_id: "F", tab: "S", cell: "B7", freshness: { tab: "S", cell: "B2" } }))
+    ).toEqual(snapshot({ file_id: "F", tab: "S", cell: "B7", freshness: { tab: "S", cell: "B2" } }));
   });
 
   it("trims, because a pasted tab name carries a trailing space", () => {
-    const m = parseMapping({
-      kind: "snapshot",
-      file_id: " F ",
-      tab: " Summary ",
-      cell: " B7 ",
-    });
-    expect(m).toEqual({
-      kind: "snapshot",
-      file_id: "F",
-      tab: "Summary",
-      cell: "B7",
-    });
+    expect(parseMapping(snapshot({ file_id: " F ", tab: " Summary ", cell: " B7 " }))).toEqual(
+      snapshot({ file_id: "F", tab: "Summary", cell: "B7" })
+    );
   });
 
   it("refuses HALF a freshness field", () => {
     // Worse than none: it reads as a check that is running when it
     // is not, and the client believes stale numbers are being
     // declined when they are being written.
-    expect(
-      parseMapping({
-        kind: "snapshot",
-        file_id: "F",
-        tab: "S",
-        cell: "B7",
-        freshness: { tab: "S" },
-      })
-    ).toBeNull();
+    expect(parseMapping(snapshot({ file_id: "F", tab: "S", cell: "B7", freshness: { tab: "S" } }))).toBeNull();
   });
 
   it("refuses a mapping missing any required field", () => {
-    expect(parseMapping({ kind: "week_keyed", file_id: "F", tab: "D" })).toBeNull();
-    expect(
-      parseMapping({ kind: "week_keyed", file_id: "F", tab: "D", key_column: "W" })
-    ).toBeNull();
-    expect(parseMapping({ kind: "snapshot", file_id: "F", tab: "S" })).toBeNull();
-    expect(parseMapping({ kind: "week_keyed", tab: "D" })).toBeNull();
+    expect(parseMapping(weekly({ file_id: "F", tab: "D" }))).toBeNull();
+    expect(parseMapping(weekly({ file_id: "F", tab: "D", key_column: "W" }))).toBeNull();
+    expect(parseMapping(snapshot({ file_id: "F", tab: "S" }))).toBeNull();
+    expect(parseMapping(weekly({ tab: "D", key_column: "W", value_column: "V" }))).toBeNull();
+    expect(parseMapping({ connector: "google_sheet", kind: "weekly" })).toBeNull();
   });
 
   it("refuses an empty string, which is not the same as a value", () => {
-    expect(
-      parseMapping({ kind: "snapshot", file_id: "F", tab: "  ", cell: "B7" })
-    ).toBeNull();
+    expect(parseMapping(snapshot({ file_id: "F", tab: "  ", cell: "B7" }))).toBeNull();
   });
 
-  it("refuses an unknown kind, which is how phase 3 stays deliberate", () => {
-    expect(
-      parseMapping({ kind: "hubspot", file_id: "F", tab: "D", cell: "B1" })
-    ).toBeNull();
+  it("refuses a connector it does not know, which is how phase 4 stays deliberate", () => {
+    expect(parseMapping({ connector: "hubspot", kind: "snapshot", recipe: { file_id: "F", tab: "D", cell: "B1" } })).toBeNull();
+    expect(parseMapping({ kind: "snapshot", recipe: { file_id: "F", tab: "D", cell: "B1" } })).toBeNull();
+  });
+
+  it("refuses the shape from before 0258, which the migration translates", () => {
+    expect(parseMapping({ kind: "week_keyed", file_id: "F", tab: "D", key_column: "W", value_column: "V" })).toBeNull();
+    expect(parseMapping({ kind: "snapshot", file_id: "F", tab: "S", cell: "B7" })).toBeNull();
+  });
+
+  it("refuses an unknown pull day rather than defaulting it", () => {
+    expect(parseMapping(snapshot({ file_id: "F", tab: "S", cell: "B7" }, { pull_day: "monday" }))).toBeNull();
   });
 
   it("refuses anything that is not an object", () => {
     expect(parseMapping(null)).toBeNull();
     expect(parseMapping(undefined)).toBeNull();
-    expect(parseMapping("week_keyed")).toBeNull();
+    expect(parseMapping("weekly")).toBeNull();
     expect(parseMapping([])).toBeNull();
     expect(parseMapping(7)).toBeNull();
+  });
+});
+
+describe("canBackfill", () => {
+  it("backfills a weekly number and never a snapshot", () => {
+    expect(canBackfill(parseMapping(weekly({ file_id: "F", tab: "D", key_column: "W", value_column: "V" }))!)).toBe(true);
+    expect(canBackfill(parseMapping(snapshot({ file_id: "F", tab: "S", cell: "B7" }))!)).toBe(false);
+  });
+});
+
+describe("missingMappingFields", () => {
+  it("names the empty boxes, by the form's own labels", () => {
+    expect(missingMappingFields(weekly({ file_id: "F" }))).toEqual(["Tab name", "Key column heading", "Value column heading"]);
+    expect(missingMappingFields(snapshot({ file_id: "F", tab: "S", freshness: { tab: "S" } }))).toEqual(["Cell", "Freshness cell"]);
   });
 });
 
@@ -149,14 +147,10 @@ describe("extractFileId", () => {
 });
 
 describe("describeMapping", () => {
-  it("says what a week_keyed mapping does in words", () => {
-    const words = describeMapping({
-      kind: "week_keyed",
-      file_id: "F",
-      tab: "Dashboard Data",
-      key_column: "Week Ending",
-      value_column: "Shipped",
-    });
+  it("says what a weekly mapping does in words", () => {
+    const words = describeMapping(
+      parseMapping(weekly({ file_id: "F", tab: "Dashboard Data", key_column: "Week Ending", value_column: "Shipped" }))!
+    );
     expect(words).toContain("Dashboard Data");
     expect(words).toContain("Week Ending");
     expect(words).toContain("Shipped");
@@ -165,24 +159,15 @@ describe("describeMapping", () => {
   it("describes a plain snapshot without mentioning freshness at all", () => {
     // The form has no freshness field, so naming its absence only
     // raises a question about a control the reader cannot find.
-    const words = describeMapping({
-      kind: "snapshot",
-      file_id: "F",
-      tab: "S",
-      cell: "b7",
-    });
+    const words = describeMapping(parseMapping(snapshot({ file_id: "F", tab: "S", cell: "b7" }))!);
     expect(words).toContain("B7");
     expect(words).not.toMatch(/freshness/i);
   });
 
   it("names the freshness cell when there is one", () => {
-    const words = describeMapping({
-      kind: "snapshot",
-      file_id: "F",
-      tab: "S",
-      cell: "B7",
-      freshness: { tab: "Meta", cell: "b2" },
-    });
+    const words = describeMapping(
+      parseMapping(snapshot({ file_id: "F", tab: "S", cell: "B7", freshness: { tab: "Meta", cell: "b2" } }))!
+    );
     expect(words).toContain("B2");
     expect(words).toContain("Meta");
   });

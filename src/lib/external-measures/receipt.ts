@@ -87,7 +87,7 @@ export function buildReceipt(row: {
   const lines: ReceiptLine[] = [];
   push(lines, "Tab", d.tab);
 
-  if (row.mapping_kind === "week_keyed") {
+  if (row.mapping_kind === "weekly") {
     push(lines, "Row on the sheet", d.matched_row);
     push(lines, "Cell read", d.raw_value);
     push(lines, "Weeks found on the tab", d.keys_seen);
@@ -122,21 +122,27 @@ export function buildReceipt(row: {
   const mapping = parseMapping(
     d.kind === "snapshot"
       ? {
+          connector: "google_sheet",
           kind: "snapshot",
-          file_id: d.file_id,
-          tab: d.tab,
-          cell: d.cell,
-          freshness:
-            d.freshness_tab && d.freshness_cell
-              ? { tab: d.freshness_tab, cell: d.freshness_cell }
-              : undefined,
+          recipe: {
+            file_id: d.file_id,
+            tab: d.tab,
+            cell: d.cell,
+            freshness:
+              d.freshness_tab && d.freshness_cell
+                ? { tab: d.freshness_tab, cell: d.freshness_cell }
+                : undefined,
+          },
         }
       : {
-          kind: "week_keyed",
-          file_id: d.file_id,
-          tab: d.tab,
-          key_column: d.key_column,
-          value_column: d.value_column,
+          connector: "google_sheet",
+          kind: "weekly",
+          recipe: {
+            file_id: d.file_id,
+            tab: d.tab,
+            key_column: d.key_column,
+            value_column: d.value_column,
+          },
         }
   );
 

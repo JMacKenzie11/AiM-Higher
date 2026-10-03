@@ -1,11 +1,11 @@
 // What a measure's external_source column holds, and how to read one
-// safely back out of the database.
+// safely back out of the database: the connector contract.
 //
 // No "server-only" here on purpose: this module is pure, and the
 // mapping's plain-words description is rendered in the browser.
 //
 // THE SHAPE IS CHECKED IN TWO PLACES AND THAT IS NOT DUPLICATION.
-// Migration 0212 constrains the column so nothing can store a mapping
+// Migrations 0212 and 0258 constrain the column so nothing can store a mapping
 // the reader cannot parse. parseMapping below refuses to hand back a
 // shape the code cannot use. The constraint governs what may be
 // written, including by a psql session or a script; this governs what
@@ -29,11 +29,46 @@ export const PULL_DAYS: readonly PullDay[] = [
   "sun", "mon", "tue", "wed", "thu", "fri", "sat",
 ];
 
-export type WeekKeyedMapping = {
-  kind: "week_keyed";
+// ---- THE CONNECTOR CONTRACT (0258) ---------------------------------
+//
+// Every connector's mapping has the same four parts:
+//
+//   connector  which outside system: "google_sheet" today, "hubspot" in
+//              phase 4 of docs/plans/external-connections.md.
+//   kind       what TIME the number describes, never where it sits:
+//                weekly    a value for a given week. It can be worked
+//                          out for past weeks, so it can be backfilled.
+//                snapshot  the value as it stands when it is read. Past
+//                          weeks cannot be recovered, so it cannot.
+//   pull_day   which day the scheduler reads it (optional).
+//   recipe     the connector's own instructions for getting the number.
+//
+// Until 0258 the kinds were "week_keyed" and "snapshot", which described
+// where a number sits in a SHEET (a row per week, or one cell). A
+// HubSpot number sits nowhere; it is a sum or a count over deals. So the
+// kinds now say what time a number describes, and where it comes from
+// is the recipe's business. A sheet's "row per week" is a weekly recipe,
+// its "one cell" a snapshot recipe.
+//
+// Written against all four HubSpot measures on paper before a line of
+// HubSpot code (the plan, section 5): two of them are weekly (a sum, a
+// count over deals whose date falls in the week) and two are snapshots
+// (a sum over deals in a stage now). Each fits {connector, kind,
+// pull_day, recipe} with a HubSpot recipe, which phase 4 adds here, in
+// the database's check and in the reader (read.ts), and nowhere else.
+
+export type MappingKind = "weekly" | "snapshot";
+
+export type ConnectorId = "google_sheet";
+
+export const CONNECTOR_LABELS: Record<ConnectorId, string> = {
+  google_sheet: "Google Sheet",
+};
+
+// A sheet with a row per week.
+export type SheetWeeklyRecipe = {
   file_id: string;
   tab: string;
-  pull_day?: PullDay;
   // Matched against the sheet's HEADER ROW, case-insensitively and
   // trimmed — not a column letter. A letter survives nothing: insert
   // a column in front of it and the mapping still resolves, to the
@@ -45,11 +80,10 @@ export type WeekKeyedMapping = {
   value_column: string;
 };
 
-export type SnapshotMapping = {
-  kind: "snapshot";
+// One cell that always holds the current figure.
+export type SheetSnapshotRecipe = {
   file_id: string;
   tab: string;
-  pull_day?: PullDay;
   // A1 notation relative to the tab: "B7".
   cell: string;
   // Optional. A cell holding the date the sheet was last brought up
@@ -60,12 +94,63 @@ export type SnapshotMapping = {
   freshness?: { tab: string; cell: string };
 };
 
-export type ExternalMapping = WeekKeyedMapping | SnapshotMapping;
+export type SheetWeeklyMapping = {
+  connector: "google_sheet";
+  kind: "weekly";
+  pull_day?: PullDay;
+  recipe: SheetWeeklyRecipe;
+};
 
-export type MappingKind = ExternalMapping["kind"];
+export type SheetSnapshotMapping = {
+  connector: "google_sheet";
+  kind: "snapshot";
+  pull_day?: PullDay;
+  recipe: SheetSnapshotRecipe;
+};
+
+export type ExternalMapping = SheetWeeklyMapping | SheetSnapshotMapping;
+
+// A weekly number can be worked out for a past week; a snapshot cannot.
+export function canBackfill(mapping: ExternalMapping): boolean {
+  return mapping.kind === "weekly";
+}
 
 function str(v: unknown): string | null {
   return typeof v === "string" && v.trim().length > 0 ? v.trim() : null;
+}
+
+function obj(v: unknown): Record<string, unknown> | null {
+  return v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+function parseSheetRecipe(kind: MappingKind, raw: unknown): SheetWeeklyRecipe | SheetSnapshotRecipe | null {
+  const o = obj(raw);
+  if (!o) return null;
+  const file_id = str(o.file_id);
+  const tab = str(o.tab);
+  if (!file_id || !tab) return null;
+
+  if (kind === "weekly") {
+    const key_column = str(o.key_column);
+    const value_column = str(o.value_column);
+    if (!key_column || !value_column) return null;
+    return { file_id, tab, key_column, value_column };
+  }
+
+  const cell = str(o.cell);
+  if (!cell) return null;
+  const recipe: SheetSnapshotRecipe = { file_id, tab, cell };
+  const f = o.freshness;
+  if (f !== undefined && f !== null) {
+    const fo = obj(f);
+    const ft = str(fo?.tab);
+    const fc = str(fo?.cell);
+    // Half a freshness field is worse than none: it reads as a
+    // check that is running when it is not.
+    if (!ft || !fc) return null;
+    recipe.freshness = { tab: ft, cell: fc };
+  }
+  return recipe;
 }
 
 // Returns null rather than throwing, and every caller treats null as
@@ -74,13 +159,10 @@ function str(v: unknown): string | null {
 // exception: the pull logs it and declines, which is what E4 asks of
 // every other way this can go wrong.
 export function parseMapping(raw: unknown): ExternalMapping | null {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    return null;
-  }
-  const o = raw as Record<string, unknown>;
-  const file_id = str(o.file_id);
-  const tab = str(o.tab);
-  if (!file_id || !tab) return null;
+  const o = obj(raw);
+  if (!o) return null;
+  if (o.connector !== "google_sheet") return null;
+  if (o.kind !== "weekly" && o.kind !== "snapshot") return null;
 
   // An unrecognised pull_day is a REFUSAL, not a fallback to the
   // default. Silently treating "monday" as Saturday would pull a
@@ -88,49 +170,19 @@ export function parseMapping(raw: unknown): ExternalMapping | null {
   // sheet. The database refuses the same set.
   let pull_day: PullDay | undefined;
   if (o.pull_day !== undefined && o.pull_day !== null) {
-    const raw = str(o.pull_day)?.toLowerCase();
-    if (!raw || !(PULL_DAYS as readonly string[]).includes(raw)) return null;
-    pull_day = raw as PullDay;
+    const day = str(o.pull_day)?.toLowerCase();
+    if (!day || !(PULL_DAYS as readonly string[]).includes(day)) return null;
+    pull_day = day as PullDay;
   }
 
-  if (o.kind === "week_keyed") {
-    const key_column = str(o.key_column);
-    const value_column = str(o.value_column);
-    if (!key_column || !value_column) return null;
-    return {
-      kind: "week_keyed",
-      file_id,
-      tab,
-      key_column,
-      value_column,
-      ...(pull_day ? { pull_day } : {}),
-    };
-  }
-
-  if (o.kind === "snapshot") {
-    const cell = str(o.cell);
-    if (!cell) return null;
-    const mapping: SnapshotMapping = {
-      kind: "snapshot",
-      file_id,
-      tab,
-      cell,
-      ...(pull_day ? { pull_day } : {}),
-    };
-    const f = o.freshness;
-    if (f !== undefined && f !== null) {
-      if (typeof f !== "object" || Array.isArray(f)) return null;
-      const ft = str((f as Record<string, unknown>).tab);
-      const fc = str((f as Record<string, unknown>).cell);
-      // Half a freshness field is worse than none: it reads as a
-      // check that is running when it is not.
-      if (!ft || !fc) return null;
-      mapping.freshness = { tab: ft, cell: fc };
-    }
-    return mapping;
-  }
-
-  return null;
+  const recipe = parseSheetRecipe(o.kind, o.recipe);
+  if (!recipe) return null;
+  return {
+    connector: "google_sheet",
+    kind: o.kind,
+    ...(pull_day ? { pull_day } : {}),
+    recipe,
+  } as ExternalMapping;
 }
 
 // Which fields a would-be mapping is missing, by the name the form
@@ -141,25 +193,24 @@ export function parseMapping(raw: unknown): ExternalMapping | null {
 // no usable mapping to verify" is a true sentence that tells somebody
 // staring at six boxes nothing at all about which box is empty.
 export function missingMappingFields(raw: unknown): string[] {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    return ["kind"];
-  }
-  const o = raw as Record<string, unknown>;
+  const o = obj(raw);
+  if (!o) return ["Kind"];
+  if (o.connector !== "google_sheet") return ["Source"];
+  const r = obj(o.recipe) ?? {};
   const gaps: string[] = [];
-  if (!str(o.file_id)) gaps.push("Spreadsheet link or id");
-  if (!str(o.tab)) gaps.push("Tab name");
+  if (!str(r.file_id)) gaps.push("Spreadsheet link or id");
+  if (!str(r.tab)) gaps.push("Tab name");
 
-  if (o.kind === "week_keyed") {
-    if (!str(o.key_column)) gaps.push("Key column heading");
-    if (!str(o.value_column)) gaps.push("Value column heading");
+  if (o.kind === "weekly") {
+    if (!str(r.key_column)) gaps.push("Key column heading");
+    if (!str(r.value_column)) gaps.push("Value column heading");
   } else if (o.kind === "snapshot") {
-    if (!str(o.cell)) gaps.push("Cell");
-    const f = o.freshness;
-    if (f && typeof f === "object" && !Array.isArray(f)) {
-      const r = f as Record<string, unknown>;
+    if (!str(r.cell)) gaps.push("Cell");
+    const f = obj(r.freshness);
+    if (f) {
       // Half a freshness field is rejected, so say which half.
-      if (str(r.tab) && !str(r.cell)) gaps.push("Freshness cell");
-      if (!str(r.tab) && str(r.cell)) gaps.push("Freshness tab");
+      if (str(f.tab) && !str(f.cell)) gaps.push("Freshness cell");
+      if (!str(f.tab) && str(f.cell)) gaps.push("Freshness tab");
     }
   } else {
     gaps.push("Kind");
@@ -181,15 +232,17 @@ export function isCellRef(value: string): boolean {
 // receipt and on the admin surface, so a reader can check the mapping
 // against the workbook in front of them without knowing the JSON.
 export function describeMapping(mapping: ExternalMapping): string {
-  if (mapping.kind === "week_keyed") {
+  if (mapping.kind === "weekly") {
+    const r = mapping.recipe;
     return (
-      `On the "${mapping.tab}" tab, find the row whose ` +
-      `"${mapping.key_column}" column matches the week, and read the ` +
-      `"${mapping.value_column}" column.`
+      `On the "${r.tab}" tab, find the row whose ` +
+      `"${r.key_column}" column matches the week, and read the ` +
+      `"${r.value_column}" column.`
     );
   }
-  const base = `Read cell ${mapping.cell.toUpperCase()} on the "${mapping.tab}" tab.`;
-  if (!mapping.freshness) {
+  const r = mapping.recipe;
+  const base = `Read cell ${r.cell.toUpperCase()} on the "${r.tab}" tab.`;
+  if (!r.freshness) {
     // Says nothing about freshness, because the form no longer has a
     // freshness field and describing the absence of something a
     // reader has never seen only raises a question. The sentence is
@@ -198,8 +251,8 @@ export function describeMapping(mapping: ExternalMapping): string {
   }
   return (
     `${base} Only record it when the date in ` +
-    `${mapping.freshness.cell.toUpperCase()} on the ` +
-    `"${mapping.freshness.tab}" tab covers the week.`
+    `${r.freshness.cell.toUpperCase()} on the ` +
+    `"${r.freshness.tab}" tab covers the week.`
   );
 }
 

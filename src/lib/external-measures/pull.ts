@@ -1,4 +1,4 @@
-import type { ExternalMapping, WeekKeyedMapping, SnapshotMapping } from "./mapping";
+import type { ExternalMapping, SheetWeeklyRecipe, SheetSnapshotRecipe } from "./mapping";
 import { addDays, fridayOf } from "@/lib/dates";
 import { parseFreshnessDate, parseSheetDate, parseSheetNumber } from "./parse";
 import type { SheetReader } from "./sheets";
@@ -18,7 +18,7 @@ import type { SheetReader } from "./sheets";
 // reason reaches the person who asked:
 //
 //   sheet unreachable      the file, the tab, or the permission
-//   week row absent        week_keyed found no row for this week
+//   week row absent        a weekly sheet has no row for this week
 //   freshness failed       snapshot's date does not cover the week
 //   value unparseable      the cell is empty, or is not a number
 //
@@ -123,13 +123,13 @@ export function freshnessCovers(freshness: string, weekEnding: string): boolean 
   );
 }
 
-export function decideWeekKeyed(
+export function decideSheetWeekly(
   rows: readonly (readonly string[])[],
-  mapping: WeekKeyedMapping,
+  mapping: SheetWeeklyRecipe,
   weekEnding: string
 ): PullDecision {
   const base: PullDetail = {
-    kind: "week_keyed",
+    kind: "weekly",
     file_id: mapping.file_id,
     tab: mapping.tab,
     key_column: mapping.key_column,
@@ -249,10 +249,10 @@ export function decideWeekKeyed(
   };
 }
 
-export function decideSnapshot(
+export function decideSheetSnapshot(
   cell: string | null,
   freshnessCell: string | null | undefined,
-  mapping: SnapshotMapping,
+  mapping: SheetSnapshotRecipe,
   weekEnding: string
 ): PullDecision {
   const base: PullDetail = {
@@ -322,41 +322,49 @@ export function decideSnapshot(
   return { outcome: "written", value: parsed.value, detail: base };
 }
 
+// The readers a pull may use, one per connector (the contract in
+// mapping.ts). Injectable, so every path can be tested without an
+// outside account; the action and the cron pass the company's real ones.
+export type SourceReaders = {
+  google_sheet: SheetReader;
+};
+
 // The impure half: the reads, and nothing else. Every path lands in
-// one of the pure deciders above, and anything the Sheets client
-// throws becomes sheet_unreachable rather than an exception escaping
-// into the action.
+// one of the pure deciders above, and anything a reader throws becomes
+// sheet_unreachable rather than an exception escaping into the action.
 export async function runPull(
-  reader: SheetReader,
+  readers: SourceReaders,
   mapping: ExternalMapping,
   weekEnding: string
 ): Promise<PullDecision> {
+  const reader = readers.google_sheet;
+  const recipe = mapping.recipe;
   try {
-    if (mapping.kind === "week_keyed") {
-      const rows = await reader.readTab(mapping.file_id, mapping.tab);
-      return decideWeekKeyed(rows, mapping, weekEnding);
+    if (mapping.kind === "weekly") {
+      const rows = await reader.readTab(mapping.recipe.file_id, mapping.recipe.tab);
+      return decideSheetWeekly(rows, mapping.recipe, weekEnding);
     }
     const cell = await reader.readCell(
-      mapping.file_id,
-      mapping.tab,
-      mapping.cell
+      mapping.recipe.file_id,
+      mapping.recipe.tab,
+      mapping.recipe.cell
     );
-    const freshness = mapping.freshness
+    const freshness = mapping.recipe.freshness
       ? await reader.readCell(
-          mapping.file_id,
-          mapping.freshness.tab,
-          mapping.freshness.cell
+          mapping.recipe.file_id,
+          mapping.recipe.freshness.tab,
+          mapping.recipe.freshness.cell
         )
       : undefined;
-    return decideSnapshot(cell, freshness, mapping, weekEnding);
+    return decideSheetSnapshot(cell, freshness, mapping.recipe, weekEnding);
   } catch (err) {
     return {
       outcome: "failed",
       reason: "sheet_unreachable",
       detail: {
         kind: mapping.kind,
-        file_id: mapping.file_id,
-        tab: mapping.tab,
+        file_id: recipe.file_id,
+        tab: recipe.tab,
         week_ending: weekEnding,
         // The provider's own words. Google's messages here are
         // unusually good ("Unable to parse range", "The caller does

@@ -7,11 +7,14 @@ import type { ExternalMapping } from "./mapping";
 const WEEK = "2026-09-18";
 
 const mapping: ExternalMapping = {
-  kind: "week_keyed",
-  file_id: "F",
-  tab: "Dashboard Data",
-  key_column: "Week Ending",
-  value_column: "Pounds Shipped",
+  connector: "google_sheet",
+  kind: "weekly",
+  recipe: {
+    file_id: "F",
+    tab: "Dashboard Data",
+    key_column: "Week Ending",
+    value_column: "Pounds Shipped",
+  },
 };
 
 const TAB = [
@@ -55,10 +58,14 @@ describe("the seam: one core, two clients", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping,
-      reader: reader(),
+      readers: { google_sheet: reader() },
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].fn).toBe(fn);
+    // The connector it read from, and the kind by what time it
+    // describes (0258).
+    expect(calls[0].args.p_connector).toBe("google_sheet");
+    expect(calls[0].args.p_mapping_kind).toBe("weekly");
     expect(result.outcome).toBe("written");
     expect(result.value).toBe(1310.5);
   });
@@ -75,7 +82,7 @@ describe("the seam: one core, two clients", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping,
-      reader: reader(),
+      readers: { google_sheet: reader() },
     };
     await pullMeasureWeek(a.db, { path: "caller", ...args });
     await pullMeasureWeek(b.db, { path: "scheduled", ...args });
@@ -94,7 +101,7 @@ describe("the seam: one core, two clients", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping,
-      reader: reader(),
+      readers: { google_sheet: reader() },
     });
     expect(result.outcome).toBe("skipped_manual_exists");
     expect(result.value).toBeNull();
@@ -109,7 +116,7 @@ describe("the seam: one core, two clients", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping,
-      reader: reader(),
+      readers: { google_sheet: reader() },
     });
     expect(result.outcome).toBe("skipped_exists");
     expect(result.value).toBeNull();
@@ -124,11 +131,12 @@ describe("the seam: one core, two clients", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping: null,
-      rawSource: { kind: "snapshot", tab: "T" },
-      reader: reader(),
+      rawSource: { connector: "google_sheet", kind: "snapshot", tab: "T" },
+      readers: { google_sheet: reader() },
     });
     expect(calls[0].args.p_outcome).toBe("failed");
     expect(calls[0].args.p_failure_reason).toBe("mapping_invalid");
+    expect(calls[0].args.p_mapping_kind).toBe("snapshot");
     expect(result.outcome).toBe("failed");
   });
 
@@ -144,7 +152,7 @@ describe("the seam: one core, two clients", () => {
         companyId: "c1",
         weekEnding: WEEK,
         mapping,
-        reader: reader(),
+        readers: { google_sheet: reader() },
       })
     ).rejects.toThrow(/connection refused/);
   });
@@ -160,12 +168,12 @@ describe("retry", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping,
-      reader: reader({
+      readers: { google_sheet: reader({
         readTab: async () => {
           reads += 1;
           throw new Error("socket hang up");
         },
-      }),
+      }) },
     });
     expect(reads).toBe(2);
     expect(result.attempts).toBe(2);
@@ -185,12 +193,12 @@ describe("retry", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping,
-      reader: reader({
+      readers: { google_sheet: reader({
         readTab: async () => {
           reads += 1;
           throw new Error("Unable to parse range: 'Dashbord Data'");
         },
-      }),
+      }) },
     });
     expect(reads).toBe(1);
     expect(result.attempts).toBe(1);
@@ -208,12 +216,12 @@ describe("retry", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping,
-      reader: reader({
+      readers: { google_sheet: reader({
         readTab: async () => {
           reads += 1;
           return [["Week Ending", "Pounds Shipped"], ["2026-09-11", "1"]];
         },
-      }),
+      }) },
     });
     expect(reads).toBe(1);
     expect(result.outcome).toBe("failed");
@@ -228,13 +236,13 @@ describe("retry", () => {
       companyId: "c1",
       weekEnding: WEEK,
       mapping,
-      reader: reader({
+      readers: { google_sheet: reader({
         readTab: async () => {
           reads += 1;
           if (reads === 1) throw new Error("ETIMEDOUT");
           return TAB;
         },
-      }),
+      }) },
     });
     expect(result.outcome).toBe("written");
     expect(result.value).toBe(1310.5);
