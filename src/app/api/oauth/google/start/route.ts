@@ -6,7 +6,6 @@ import { cookies } from "next/headers";
 import { requireProfile } from "@/lib/auth/current-user";
 import {
   isAdminForCompany,
-  transcriptSourcesAllowed,
 } from "@/lib/auth/permissions";
 import { buildConsentUrl } from "@/lib/transcripts/providers/google-drive";
 
@@ -26,7 +25,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export async function GET(req: NextRequest): Promise<Response> {
   const session = await requireProfile();
-  if (!transcriptSourcesAllowed(session.profile)) {
+  // Only these roles can ever manage a company's connections; the
+  // company check below decides which company.
+  if (!["system_admin", "company_admin", "aims_guide", "portfolio_admin"].includes(session.profile.role)) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -34,10 +35,12 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!UUID_RE.test(companyId)) {
     return new Response("Missing or invalid company_id", { status: 400 });
   }
-  // Belt and braces on top of transcriptSourcesAllowed: the caller
-  // must actually admin THIS company. Without this a company_admin
-  // could pass another company's id in the query string and pin
-  // their OAuth token to it.
+  // The caller must manage THIS company's connections (external
+  // connections plan, decision 3): a system admin, its company admin,
+  // an assigned guide, or a portfolio admin switched on for it. The
+  // same rule as can_manage_connections() in the database (0257).
+  // Without the company check a company_admin could pass another
+  // company's id in the query string and pin their account to it.
   if (!isAdminForCompany(session.profile, companyId)) {
     return new Response("Forbidden", { status: 403 });
   }

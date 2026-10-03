@@ -53,15 +53,15 @@ Industry, the AiMS champion, the quarter and Assigned access are managed by the 
 ::: role company_admin,system_admin,aims_guide
 ## Connecting Google Drive
 
-Meetings come in from Google Drive folders you connect here, under **Meeting transcripts**.
+Meetings come in from Google Drive folders you connect here, under **Meeting transcripts**. The Google account itself is connected on the **Connections** page: open it from the Connections card.
 
-1. Click *Connect Google account* and sign in. That account is used for this company only, so different companies can use different Google accounts.
+1. On *Connections*, click *Connect Google account* and sign in. That account is used for this company only, so different companies can use different Google accounts.
 2. In Google Drive, share the folder your recordings are saved to with that account, as a Viewer.
 3. Back here, paste the folder's address and click *Connect folder*.
 4. If the folder holds meetings for more than one company, add a transcript alias: a word or phrase from the file names that marks a meeting as this company's. Capital letters don't matter.
 5. Click *Check now* on the folder to bring in what's already there. New meetings come in on their own after that.
 
-*Reconnect / switch account* changes which Google account is used. **Recent meetings** lists what's come in, with *View* on each finished one.
+*Reconnect or switch account*, on Connections, changes which Google account is used. **Recent meetings** lists what's come in, with *View* on each finished one.
 :::
 
 ::: role company_admin,system_admin

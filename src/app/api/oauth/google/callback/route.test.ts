@@ -55,7 +55,7 @@ function callbackRequest(state: string, code = "auth_code"): NextRequest {
   return new NextRequest(url);
 }
 
-function session(role: string, companyId: string | null, guides: string[] = []) {
+function session(role: string, companyId: string | null, guides: string[] = [], switchedOn: string[] = []) {
   return {
     userId: "u1",
     email: "u@example.com",
@@ -64,6 +64,7 @@ function session(role: string, companyId: string | null, guides: string[] = []) 
       role,
       company_id: companyId,
       guide_company_ids: guides,
+      portfolio_admin_company_ids: switchedOn,
     },
   };
 }
@@ -122,7 +123,7 @@ describe("GET /api/oauth/google/callback", () => {
       expect.any(String)
     );
     expect(res.headers.get("location")).toBe(
-      `http://localhost:3200/admin/companies/${CO_ACME}?oauth_connected=ops%40example.com`
+      `http://localhost:3200/admin/companies/${CO_ACME}/connections?oauth_connected=ops%40example.com`
     );
   });
 
@@ -154,7 +155,25 @@ describe("GET /api/oauth/google/callback", () => {
     expect(mocks.exchangeCodeAndPersist).not.toHaveBeenCalled();
   });
 
-  it("returns 403 for roles that can't manage transcript sources at all", async () => {
+  // Decision 3 of the external connections plan: a portfolio admin a
+  // system admin switched on for the company may connect it; one only
+  // assigned to it may not.
+  it("lets a switched-on portfolio admin connect that company, and not an unswitched one", async () => {
+    mocks.requireProfile.mockResolvedValue(session("portfolio_admin", null, [], [CO_ACME]));
+    mocks.cookieStore.set("google_oauth_state", `nonce.${CO_ACME}`);
+    const { GET } = await import("./route");
+    await GET(callbackRequest(`nonce.${CO_ACME}`));
+    expect(mocks.exchangeCodeAndPersist).toHaveBeenCalledWith("auth_code", CO_ACME, expect.any(String));
+
+    mocks.exchangeCodeAndPersist.mockClear();
+    mocks.requireProfile.mockResolvedValue(session("portfolio_admin", null, [], []));
+    mocks.cookieStore.set("google_oauth_state", `nonce.${CO_ACME}`);
+    const res = await GET(callbackRequest(`nonce.${CO_ACME}`));
+    expect(mocks.exchangeCodeAndPersist).not.toHaveBeenCalled();
+    expect(res.headers.get("location")).toContain("oauth_error=forbidden");
+  });
+
+  it("returns 403 for roles that can't manage connections at all", async () => {
     mocks.requireProfile.mockResolvedValue(session("team_member", CO_ACME));
     const { GET } = await import("./route");
 

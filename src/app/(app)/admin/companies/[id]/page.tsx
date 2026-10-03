@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
-import { canViewCompany } from "@/lib/auth/permissions";
+import { canViewCompany, isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { getBulkResetImpact } from "@/lib/plan/service";
@@ -40,12 +40,10 @@ type TimezoneChange = {
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ oauth_connected?: string; oauth_error?: string }>;
 };
 
 export default async function CompanyDetailPage({
   params,
-  searchParams,
 }: PageProps) {
   const session = await requireRole([
     "system_admin",
@@ -54,7 +52,6 @@ export default async function CompanyDetailPage({
     "portfolio_admin",
   ]);
   const { id } = await params;
-  const flash = await searchParams;
   const isSystemAdmin = session.profile.role === "system_admin";
   const isCompanyAdmin = session.profile.role === "company_admin";
   // The container role. Everything below that is gated on
@@ -345,14 +342,28 @@ export default async function CompanyDetailPage({
           </section>
         ) : null}
 
+        {/* Connections: the outside systems this company is connected
+            to, managed on their own page by the people decision 3 of the
+            external connections plan names (isAdminForCompany). */}
+        {isAdminForCompany(session.profile, company.id) ? (
+          <section className={styles.card} aria-labelledby="connections-heading">
+            <h2 id="connections-heading" className={styles.h2}>
+              Connections
+            </h2>
+            <p className={styles.subtitleInline}>
+              {connectedAccount ? `Google is connected as ${connectedAccount}.` : "Google is not connected."} Connect
+              Google and HubSpot, replace a key, or disconnect, on{" "}
+              <Link href={`/admin/companies/${company.id}/connections`}>Connections</Link>.
+            </p>
+          </section>
+        ) : null}
+
         <CompanyTranscriptsPanel
           companyId={company.id}
           connectedAccount={connectedAccount}
           sources={sourceRows}
           meetings={meetingRows}
           aliases={aliasRows}
-          flashConnected={flash.oauth_connected ?? null}
-          flashError={flash.oauth_error ?? null}
         />
 
         {/* The quarter, ABOVE Planning cycle deliberately. The two

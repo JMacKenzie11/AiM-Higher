@@ -102,6 +102,9 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/portfolio", roles: ["portfolio_admin", "system_admin"], feature: null, link: true },
   { pattern: "/admin/companies", roles: ADMINS_AND_PORTFOLIO, feature: null, link: true },
   { pattern: "/admin/companies/[id]", roles: ADMINS_AND_PORTFOLIO, feature: null, link: false },
+  // The outside systems a company connects (external connections plan,
+  // phase 3). The page refuses anyone isAdminForCompany does not admit.
+  { pattern: "/admin/companies/[id]/connections", roles: ADMINS_AND_PORTFOLIO, feature: null, link: false },
   { pattern: "/admin/transcripts", roles: ["system_admin", "aims_guide"], feature: null, link: false },
   { pattern: "/admin/transcripts/meetings/[id]", roles: ["system_admin", "aims_guide"], feature: null, link: false },
 
