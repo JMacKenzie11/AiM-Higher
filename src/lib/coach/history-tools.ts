@@ -566,8 +566,12 @@ function makePlanningHistoryTool(args: { companyId: string }): CoachTool {
         status: "ok" as const,
         quarters: quarters.map((q, i) => {
           const c = cascades[i]!;
+          // Priorities hang off a goal, straight off a focus area
+          // (0209), or off nothing. All three count; the second was
+          // missed until 2026-10-03.
           const priorities = [
             ...c.sfas.flatMap((s) => s.goals.flatMap((g) => g.priorities)),
+            ...c.sfas.flatMap((s) => s.priorities),
             ...c.orphanGoals.flatMap((g) => g.priorities),
             ...c.orphanPriorities,
           ];

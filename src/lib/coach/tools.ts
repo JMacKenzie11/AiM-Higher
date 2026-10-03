@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { buildHistoryTools } from "./history-tools";
+import { buildLiveTools } from "./live-tools";
 import { makeMemoryLookupTool } from "./memory-tool";
 import { makeRememberTool } from "./remember-tool";
 
@@ -102,6 +103,9 @@ export async function buildCoachTools(args: {
       companyId: args.companyId,
     })
   );
+  // The live state beside the record: the plan as it stands, open
+  // issues, this month's measures (live-tools.ts). Same scope rules.
+  tools.push(...buildLiveTools({ companyId: args.companyId }));
   return tools;
 }
 
