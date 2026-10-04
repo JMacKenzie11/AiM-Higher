@@ -65,4 +65,25 @@ test.describe("Aimee reads the plan as it stands", () => {
     expect(words.some((w) => reply.includes(w)), `none of ${words.join(", ")} in: ${reply}`).toBe(true);
     expect(reply).not.toMatch(/(can't|cannot|not something i can) (pull|see)/);
   });
+
+  // about_aims (Jason, 2026-10-04): asked about AiMS itself, she answers
+  // from the GLOBAL documents in docs/AiMSContext. Their central lines
+  // are distinctive enough to tell an answer from them apart from a
+  // generic one.
+  test("asked what AiMS is, she answers from the AiMS documents", async ({ page }) => {
+    await signIn(page, users.member());
+    await page.goto("/plan");
+    await page.getByTestId("corner-launcher").click();
+    const panel = page.locator('[data-testid="aimee-panel"]');
+    await expect(panel.getByPlaceholder("Ask Aimee…")).toBeVisible({ timeout: 30_000 });
+    const chat = panel.locator("[data-conversation-id]");
+    const newButton = panel.getByRole("button", { name: "New conversation" });
+    if (await newButton.isVisible()) {
+      const previousId = await chat.getAttribute("data-conversation-id");
+      await newButton.click();
+      await expect(chat).not.toHaveAttribute("data-conversation-id", previousId ?? "", { timeout: 30_000 });
+    }
+    const reply = (await sendIn(panel, "What is AiMS, and what does it believe?")).toLowerCase();
+    expect(reply).toMatch(/shared understanding|understand together|appreciative inquiry|regenerative/);
+  });
 });
