@@ -14,6 +14,7 @@ A thinking partner for whatever you're working through: a decision, a conversati
 - **Pick up where you left off.** Every conversation stays in *Recent conversations*. Ones you started about a person show their name, and open on that person's coaching page.
 - **Share a conversation.** See *Sharing a conversation* below.
 - **Archive a conversation.** Click *Archive* on its row to tuck it out of the way.
+- **Ask about AiMS itself.** "What is AiMS?", "Why does AiMS start from what's working?" or "What's the weekly meeting for?" Aimee answers from AiMS's own description of its beliefs and approach.
 - **Ask what the company is working on.** "What are our goals?", "What's open this quarter?", "What issues are we stuck on?" or "How are our numbers this week?" Aimee reads your current plan, open issues and Critical Success Factors as you'd see them on their pages.
 - **Ask about someone at your company by name.** In a plain conversation, or in Aimee's panel, ask "what's on Priya's plate this week?" or "how has Sam's follow-through been?" Aimee reads what you could see on their scorecard: their commitments, follow-through, priorities and strengths. If two people share the name, she asks which one you mean. She never sees anyone's conversations with Aimee.
 - **Find a lesson.** When your company has Classroom, ask Aimee to suggest one: "what should I watch on facilitating a weekly meeting?"

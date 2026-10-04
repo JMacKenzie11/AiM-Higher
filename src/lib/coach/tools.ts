@@ -6,6 +6,7 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { buildHistoryTools } from "./history-tools";
 import { buildLiveTools } from "./live-tools";
+import { makeAboutAimsTool } from "./aims-context";
 import { makeMemoryLookupTool } from "./memory-tool";
 import { makeRememberTool } from "./remember-tool";
 
@@ -106,6 +107,10 @@ export async function buildCoachTools(args: {
   // The live state beside the record: the plan as it stands, open
   // issues, this month's measures (live-tools.ts). Same scope rules.
   tools.push(...buildLiveTools({ companyId: args.companyId }));
+
+  // AiMS in its own words, for questions about AiMS itself
+  // (aims-context.ts). Reads no company data at all.
+  tools.push(makeAboutAimsTool());
   return tools;
 }
 

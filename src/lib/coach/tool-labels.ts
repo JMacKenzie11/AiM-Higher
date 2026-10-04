@@ -35,6 +35,7 @@ const LABELS: Record<string, string> = {
   current_plan: "Reading the current plan",
   open_issues: "Looking at open issues",
   measures_now: "Checking this month's numbers",
+  about_aims: "Reading about AiMS",
 };
 
 export function toolLabel(name: string): string {

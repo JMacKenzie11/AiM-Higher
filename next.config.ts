@@ -71,6 +71,9 @@ const nextConfig: NextConfig = {
       "./prompts/**/*",
       "./docs/help/**/*",
       "./src/lib/leadership/facilitation/*.md",
+      // AiMS in its own words, read by Aimee's about_aims tool
+      // (src/lib/coach/aims-context.ts).
+      "./docs/AiMSContext/GLOBAL*",
     ],
   },
 };
