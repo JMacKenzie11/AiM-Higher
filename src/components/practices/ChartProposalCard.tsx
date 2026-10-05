@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   parseChartProposal,
   chartProposalToPlainText,
@@ -47,6 +48,7 @@ export function ChartProposalCard({
   streaming,
   conversationId,
   onFixRequest,
+  fullSizeHref,
 }: {
   raw: string;
   streaming: boolean;
@@ -61,6 +63,9 @@ export function ChartProposalCard({
   // composes a canned nudge message and sends it as if the user
   // typed it. Optional so the card can render standalone in tests.
   onFixRequest?: (nudge: string) => void;
+  // In Aimee's panel: the same conversation on the Aimee page, where
+  // the functions lay out side by side instead of one long column.
+  fullSizeHref?: string;
 }) {
   const [applyResult, setApplyResult] = useState<ApplySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +129,11 @@ export function ChartProposalCard({
           <p className={styles.eyebrow}>Chart proposal</p>
           <h3 className={styles.title}>Your Functional Accountability Chart</h3>
           <span className={styles.rule} aria-hidden="true" />
+          {fullSizeHref ? (
+            <Link href={fullSizeHref} className={styles.fullSize}>
+              Open full size
+            </Link>
+          ) : null}
         </div>
         <div className={styles.headerActions}>
           <button

@@ -45,6 +45,11 @@
   composes: btn btnGhost btnSm from "@/components/ui/ui.module.css";
 }
 
+.fullSize {
+  margin-left: auto;
+  font: var(--text-body-sm);
+}
+
 .savedNote {
   font: var(--text-body-sm);
   color: var(--aims-success, var(--primary));
