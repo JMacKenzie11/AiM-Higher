@@ -23,6 +23,7 @@ import type {
 } from "@/lib/coach/service";
 import {
   OUTPUT_CARD_BY_TAG,
+  cardFencesOnOwnLine,
   type OutputCardName,
 } from "@/lib/practices/output-cards";
 import type { Practice } from "@/lib/practices/registry";
@@ -1101,7 +1102,7 @@ function MessageBubble({
                 included (Jason, 2026-09-29). Run on the whole text so
                 far, so a dash settles into its comma or colon as the
                 next word arrives; the route saves the same result. */}
-            {stripEmDashes(message.content)}
+            {cardFencesOnOwnLine(stripEmDashes(message.content))}
           </ReactMarkdown>
         )}
         {message.streaming && !isThinking ? (

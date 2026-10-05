@@ -46,3 +46,18 @@ export const OUTPUT_CARD_BY_TAG: Readonly<Record<string, OutputCardName>> = {
   // write it, and the start action refuses an offer anywhere else.
   session_offer: "SessionOfferCard",
 };
+
+// A card's fence only opens a code block at the start of a line, and
+// the model sometimes writes it straight after its last sentence
+// ("...in that session?```session_offer"). Rendered as it came, the
+// card showed as raw JSON in the reply (seen on dev, 2026-10-05). For
+// the tags above only, a fence that does not start a line is moved
+// onto one, after a blank line. Anything else is left as written.
+const CARD_FENCE_MID_LINE = new RegExp(
+  "([^\\n])[ \\t]*(```(?:" + Object.keys(OUTPUT_CARD_BY_TAG).join("|") + ")\\b)",
+  "g"
+);
+
+export function cardFencesOnOwnLine(text: string): string {
+  return text.replace(CARD_FENCE_MID_LINE, "$1\n\n$2");
+}
