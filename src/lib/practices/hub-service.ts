@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { PRACTICES } from "./registry";
+import { loadOfferWhen } from "./offer-when";
 
 // What the Agent Hub reads.
 //
@@ -31,6 +32,8 @@ export type HubAgent = {
   categoryId: string;
   title: string;
   description: string;
+  // When Aimee offers this session (0262). Null: never offered.
+  offerWhen: string | null;
   sortOrder: number;
   allowedRoles: string[];
   feature: string | null;
@@ -93,6 +96,9 @@ export async function listHubAgents(): Promise<HubAgent[]> {
         "feature, access_predicates, archived, live_version_id, managed_from"
     )
     .order("sort_order");
+  // Its own query (offer-when.ts), so the Hub still lists every agent
+  // on an instance the column has not reached.
+  const offerWhen = await loadOfferWhen(db);
   const registrySlugs = new Set(PRACTICES.map((p) => p.id));
   // `as unknown as` because the select list is built by
   // concatenation, which the client's literal-type inference cannot
@@ -118,6 +124,7 @@ export async function listHubAgents(): Promise<HubAgent[]> {
     categoryId: a.category_id,
     title: a.title,
     description: a.description,
+    offerWhen: offerWhen.get(a.id) ?? null,
     sortOrder: a.sort_order,
     allowedRoles: a.allowed_roles ?? [],
     feature: a.feature,

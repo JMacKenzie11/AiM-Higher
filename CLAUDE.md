@@ -75,6 +75,14 @@ running it looks obviously fine, because obviously-fine is where this
 project's incidents have lived, and a rule that relaxes on convenience is a
 convention rather than a rule.
 
+**One standing exception: a session's own migrations on the dev clone**
+(Jason, 2026-10-05). A session may apply the migrations in its own PR to
+the dev clone through `npm run migrate:dev` without asking each time:
+dry run first, then apply, and the report names the migration and the
+result. Nothing else is covered. Production, `migrate:instances` and
+every other instance, the seed scripts (they write to production), and
+any data write outside a migration stay as above: Jason, every run.
+
 ## Migrations
 
 **A migration reaches a database only through `migrate:instances`,
