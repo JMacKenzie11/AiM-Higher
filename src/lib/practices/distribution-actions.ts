@@ -1,5 +1,6 @@
 "use server";
 
+import { readOfferWhen } from "./offer-when";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { refuseIfNotAuthoringInstance } from "@/lib/instances/primary";
@@ -110,6 +111,7 @@ async function loadSource(agentRowId: string): Promise<
       slug: a.slug,
       title: a.title,
       description: a.description,
+      offerWhen: await readOfferWhen(db, agentRowId),
       categorySlug: a.agent_categories.slug,
       categoryName: a.agent_categories.name,
       allowedRoles: a.allowed_roles ?? [],

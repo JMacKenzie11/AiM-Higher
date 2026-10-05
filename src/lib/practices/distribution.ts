@@ -48,6 +48,8 @@ export type DistributionSource = {
   slug: string;
   title: string;
   description: string;
+  // When Aimee offers it (0262). Undefined: not read, so not written.
+  offerWhen?: string | null;
   categorySlug: string;
   categoryName: string;
   allowedRoles: string[];
@@ -426,6 +428,21 @@ export async function distributeToTarget(
         .single<{ id: string }>();
       if (error || !data) throw new Error(error?.message ?? "insert failed");
       agentId = data.id;
+    }
+
+    // When Aimee offers it (0262), as its own write and never a reason
+    // to stop: a target the column has not reached still gets the
+    // agent, and the push says what it could not copy.
+    if (source.offerWhen !== undefined) {
+      const { error: offerErr } = await db
+        .from("agents")
+        .update({ offer_when: source.offerWhen })
+        .eq("id", agentId);
+      if (offerErr) {
+        base.warnings.push(
+          `"Offer this when" was not copied: this instance needs migration 0262.`
+        );
+      }
     }
 
     // Through the one door (0230). Idempotent in the function itself,

@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
 import { HUB_ROLE_VALUES, mergeAccessPredicates } from "./hub-constants";
+import { normalizeOfferWhen } from "./offer-when";
 
 // System-admin writes for the Agent Hub.
 //
@@ -84,6 +85,33 @@ export async function updateAgentIdentityAction(
     .update({ title, description })
     .eq("id", id);
   if (error) return { ok: false, message: "Couldn't save that change." };
+  refreshAgentSurfaces();
+  return { ok: true };
+}
+
+// When Aimee offers this session (0262), from the same drawer. Its
+// own action rather than a field on the identity save, which the
+// drawer calls only when the sentence changed: on an instance the
+// column has not reached, renaming an agent must still work.
+//
+// Allowed: system_admin on the authoring instance, as for the
+// identity above (agents_update, 0231).
+export async function updateAgentOfferWhenAction(
+  id: string,
+  raw: string
+): Promise<HubResult> {
+  await requireRole(["system_admin"]);
+  const refusal = await refuseIfNotAuthoringInstance();
+  if (refusal) return refusal;
+  const parsed = normalizeOfferWhen(raw);
+  if (!parsed.ok) return parsed;
+
+  const supabase = await db();
+  const { error } = await supabase
+    .from("agents")
+    .update({ offer_when: parsed.value })
+    .eq("id", id);
+  if (error) return { ok: false, message: "Couldn't save \"Offer this when\"." };
   refreshAgentSurfaces();
   return { ok: true };
 }

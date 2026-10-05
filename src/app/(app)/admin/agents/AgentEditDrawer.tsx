@@ -6,12 +6,15 @@ import type { HubAgent, HubCategory } from "@/lib/practices/hub-service";
 import {
   moveAgentToCategoryAction,
   updateAgentIdentityAction,
+  updateAgentOfferWhenAction,
   type HubResult,
 } from "@/lib/practices/hub-actions";
 import admin from "../companies/admin.module.css";
 import styles from "./hub.module.css";
+import { OFFER_WHEN_MAX } from "@/lib/practices/offer-when-limits";
 
-// Name, description and category, in the house drawer.
+// Name, description, when Aimee offers it, and category, in the
+// house drawer.
 //
 // The drawer UNMOUNTS on close, which is what seeds these three from
 // props on every open. The previous inline panel had to re-seed by
@@ -34,6 +37,7 @@ export function AgentEditDrawer({
 }) {
   const [title, setTitle] = useState(agent.title);
   const [description, setDescription] = useState(agent.description);
+  const [offerWhen, setOfferWhen] = useState(agent.offerWhen ?? "");
   const [categoryId, setCategoryId] = useState(agent.categoryId);
 
   // The description box grows to fit what is in it.
@@ -60,6 +64,12 @@ export function AgentEditDrawer({
         description,
       });
       if (!identity.ok) return identity;
+      // Only when it changed, so an instance the 0262 column has not
+      // reached can still rename an agent (hub-actions.ts).
+      if (offerWhen.trim() !== (agent.offerWhen ?? "")) {
+        const offer = await updateAgentOfferWhenAction(agent.id, offerWhen);
+        if (!offer.ok) return offer;
+      }
       // Category is a different action with different semantics, so
       // it only runs when it actually changed. One click, though:
       // splitting Save in two would make the drawer disagree with
@@ -128,6 +138,25 @@ export function AgentEditDrawer({
             rows={3}
             maxLength={300}
           />
+        </div>
+
+        <div className={admin.field}>
+          <label className={admin.label} htmlFor="agent-offer-when">
+            Offer this when
+          </label>
+          <textarea
+            id="agent-offer-when"
+            className={`${admin.input} ${styles.growTextarea}`}
+            value={offerWhen}
+            onChange={(e) => setOfferWhen(e.target.value)}
+            rows={2}
+            maxLength={OFFER_WHEN_MAX}
+            placeholder="Someone needs to raise a problem with a person and isn't sure how to start."
+            aria-describedby="agent-offer-when-hint"
+          />
+          <span id="agent-offer-when-hint" className={admin.fieldHint}>
+            What a person says or is dealing with when this agent would help. Aimee reads it to decide when to offer the agent in a conversation. Leave it empty and Aimee never offers it.
+          </span>
         </div>
 
         <div className={admin.field}>

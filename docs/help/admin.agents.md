@@ -12,6 +12,7 @@ Changes here apply to every company as soon as you save or publish them. There's
 ## What you can do here
 
 - **Edit an agent.** Change its name (the heading on its card), its description (the line underneath) and its category. Nothing is saved until you press *Save*, and *Cancel* leaves it as it was. Moving an agent to a new category puts it last in that group.
+- **Offer this when.** Also in *Edit*: one sentence saying what a person says or is dealing with when this agent would help, for example "Someone needs to raise a problem with a person and isn't sure how to start." Aimee will use it to decide when to offer the agent during a conversation. Leave it empty and Aimee never offers it. Write it the way the person would describe their situation, not the way the agent's card describes the agent.
 - **Choose who can reach it.** Open *Access*:
     - **Roles.** Tick nothing and every role can use it. Tick one or more and only those roles can. Guides also need to be assigned to the company.
     - **Functional Leads.** Anyone who leads a function on the Functional Chart, even if their role isn't ticked. Useful for an agent about a function, where the lead is usually a team member.
