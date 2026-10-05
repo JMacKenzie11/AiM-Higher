@@ -1170,6 +1170,7 @@
 .gridWeekHead {
   text-align: center;
   min-width: 44px;
+  white-space: nowrap;
   color: var(--text-faint);
 }
 

@@ -41,3 +41,13 @@ export function monthLabel(key: string): string {
   const [year, month] = key.split("-");
   return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
 }
+
+// WEEK 1, WEEK 2 … rather than the Monday's date (Jason, 2026-10-05).
+// A date in the column reads as "log it on the 7th"; a week number
+// leaves the day to the team. Counted from the week's Monday, so the
+// first Monday of a month is Week 1 and a month has four or five.
+// From the date rather than the column's position, because the grid
+// can open partway into its first month.
+export function weekOfMonth(weekEnding: string): number {
+  return Math.ceil(Number(mondayOf(weekEnding).slice(8)) / 7);
+}

@@ -41,7 +41,7 @@ Read every function's critical success factors, targets and weekly numbers. Chan
 
 It's laid out like a spreadsheet: Functional Area, Owner, Critical Success Factor, Frequency, Target, then one column per week. Functional Area and Owner are written once per function.
 
-**Weeks are named by the day they start.** A column headed *14* is the week beginning Monday 14 September. A week belongs to the month it starts in, so the week beginning Monday 28 September sits under September even though it runs into October.
+**Weeks are numbered within the month:** Week 1, Week 2, and so on. Week 1 is the week starting on the month's first Monday, so a month has four or five. Log on whichever day suits your team. A week belongs to the month it starts in, so the week beginning Monday 28 September is Week 4 of September even though it runs into October.
 
 **It opens on this week.** You can reach a rolling twelve months. The current month is open, and earlier months are folded to one column each. Click a month to open it, and click again to fold it. A folded month shows only its name.
 
@@ -83,6 +83,8 @@ Each measure has a **Value type**:
 - **Currency ($)** shows $1,234
 - **Percent** shows 13%
 - **Yes/No** shows what you typed: Yes, Green
+
+Boxes you can still type in show the same way, with commas, % and $, until you click into one. While you type you see the plain number. You can type 12500 or 12,500; both save as 12500.
 
 If a number shows without the % or $ you expected, change the value type.
 

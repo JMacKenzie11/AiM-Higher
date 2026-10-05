@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { mondayOf, formatWeekBeginning } from "@/lib/dates";
 import { monthKeyOf } from "./grid";
+import { weekOfMonth } from "./months";
 import { isLastFridayOfMonth } from "./frequency";
 
 // WEEKS ARE READ BY THE DAY THEY START ON, AND STORED BY THE DAY THEY
@@ -91,8 +92,9 @@ describe("the measures page reads in weeks beginning", () => {
     "utf8"
   );
 
-  it("labels a column with its Monday", () => {
-    expect(grid).toContain("mondayOf(w).slice(8)");
+  it("labels a column Week N of its month, not a date", () => {
+    expect(grid).toContain("Week {weekOfMonth(w)}");
+    expect(grid).not.toContain("mondayOf(w).slice(8)");
   });
 
   it("says so in the hero and in the outstanding count", () => {
@@ -115,5 +117,18 @@ describe("the measures page reads in weeks beginning", () => {
         /week ending/i
       );
     }
+  });
+});
+
+describe("weekOfMonth", () => {
+  // Keyed by the Friday; numbered by the Monday.
+  it("numbers September 2026's weeks 1 to 4", () => {
+    expect(weekOfMonth("2026-09-11")).toBe(1); // Mon 7 Sep
+    expect(weekOfMonth("2026-09-18")).toBe(2); // Mon 14 Sep
+    expect(weekOfMonth("2026-09-25")).toBe(3); // Mon 21 Sep
+    expect(weekOfMonth("2026-10-02")).toBe(4); // Mon 28 Sep
+  });
+  it("starts again at 1 on the first Monday of the next month", () => {
+    expect(weekOfMonth("2026-10-09")).toBe(1); // Mon 5 Oct
   });
 });
