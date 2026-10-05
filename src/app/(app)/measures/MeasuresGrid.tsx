@@ -17,7 +17,7 @@ import {
   type MeasureEntryInput,
 } from "@/lib/measures/actions";
 import { storageWeekFor } from "@/lib/measures/frequency";
-import { monthKeyOf, monthLabel } from "@/lib/measures/months";
+import { monthKeyOf, monthLabel, weekOfMonth } from "@/lib/measures/months";
 import type { GridData, GridRow,
   GridGroup,
 } from "@/lib/measures/grid";
@@ -31,6 +31,7 @@ import {
   formatMeasureValue,
   parseTypedNumber,
   toEntryText,
+  toStoredNumber,
 } from "@/lib/measures/value-format";
 import uiStyles from "@/components/ui/ui.module.css";
 import {
@@ -1225,11 +1226,11 @@ export function MeasuresGrid({
                             : undefined
                         }
                       >
-                        {/* The MONDAY's day of the month. The column is
-                            still keyed by the Friday underneath — that is
-                            what every value is stored against — but a
-                            week is read by the day it starts on. */}
-                        {mondayOf(w).slice(8)}
+                        {/* Week 1, Week 2 … of the month, not a date, so
+                            the day it gets logged is the team's call. The
+                            column is still keyed by the Friday underneath
+                            — that is what every value is stored against. */}
+                        Week {weekOfMonth(w)}
                       </th>
                     ))
                   )}
@@ -1603,6 +1604,7 @@ function GridCellView({
   // moved, with nothing anywhere saying so, is the thing worth
   // avoiding; a coloured rule down the table was not the way.
   const change = row.targetChanges.get(storageWeek);
+  const [focused, setFocused] = useState(false);
 
   // Not expected: render nothing at all. Not a dash, not a zero, not
   // a muted dot. A monthly row is blank three weeks in four and any
@@ -1637,10 +1639,15 @@ function GridCellView({
       <td className={className} colSpan={span} title={title}>
         <input
           className={styles.gridInput}
-          type={row.valueType === "text" ? "text" : "number"}
+          // TEXT, NOT NUMBER, so a resting box can read "12,500" or
+          // "95%" — a number input will not hold a comma. While the box
+          // has focus it shows the bare figure, which is what gets typed
+          // and saved; the formatting is display only.
+          type="text"
           inputMode={row.valueType === "text" ? undefined : "decimal"}
-          step="any"
-          value={value}
+          value={focused ? value : entryDisplay(row, value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           aria-label={
@@ -1683,6 +1690,22 @@ function valueAt(row: GridRow, week: string): string {
   if (row.valueType === "text") return cell.value.text ?? "";
   if (cell.value.number == null || !Number.isFinite(cell.value.number)) return "";
   return toEntryText(cell.value.number, row.valueType, row.scale);
+}
+
+// An entry box at rest: the typed figure written the way the rest of
+// the page writes it. Goes back through storage units so it is the same
+// function the read-only cells use, and cannot drift from them.
+// Anything that does not parse is left exactly as typed.
+function entryDisplay(row: GridRow, typed: string): string {
+  if (row.valueType === "text") return typed;
+  // The same loose read the save does, so "12,500" typed by hand
+  // shows as what will be stored.
+  const n = parseTypedNumber(typed);
+  if (n === null) return typed;
+  return formatMeasureValue(row.valueType, row.scale, {
+    number: toStoredNumber(n, row.valueType, row.scale),
+    text: null,
+  });
 }
 
 function ChevronIcon({ direction }: { direction: "left" | "right" }) {
