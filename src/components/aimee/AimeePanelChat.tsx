@@ -10,6 +10,7 @@ import {
   openPanelChatAction,
   type PanelChat,
   type PanelOpenResult,
+  openPanelConversationAction,
 } from "@/lib/aimee/panel-actions";
 import { dismissGuideNudgeAction } from "@/lib/guide/actions";
 import type { NotificationItem } from "@/lib/notifications/service";
@@ -114,6 +115,10 @@ export function AimeePanelChat({
 
   const startNew = () => run(newPanelChatAction, "A new conversation could not be started. Try again.");
   const backToPanel = () => run(openPanelChatAction, "Your conversation could not be opened. Try again.");
+  // A guided session started from Aimee's offer opens here, beside the
+  // page, with "Your conversation" to come back.
+  const openSession = (id: string) =>
+    run(() => openPanelConversationAction(id), "That session could not be opened. Try again.");
   // Opening an item. On success the conversation shows and the
   // layout's notifications refresh, so the item leaves "For you" and
   // the badge counts down. When it can't be opened, the reason goes ON
@@ -246,6 +251,7 @@ export function AimeePanelChat({
           panelSuggestions={suggestionsFor(pathname, chat.role)}
           composerRef={composerRef}
           onHasUserTurns={setHasTurns}
+          onOpenConversation={openSession}
         />
       ) : state.kind === "error" ? (
         <p className={styles.chatNote} role="status">

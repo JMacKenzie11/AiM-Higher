@@ -30,7 +30,8 @@ export type OutputCardName =
   | "ScriptCard"
   | "ChartProposalCard"
   | "RoleDescriptionCard"
-  | "CommitmentDraftCard";
+  | "CommitmentDraftCard"
+  | "SessionOfferCard";
 
 export const OUTPUT_CARD_BY_TAG: Readonly<Record<string, OutputCardName>> = {
   script: "ScriptCard",
@@ -40,4 +41,8 @@ export const OUTPUT_CARD_BY_TAG: Readonly<Record<string, OutputCardName>> = {
   // in every conversation: the principles end every coaching loop with
   // the offer.
   commitment: "CommitmentDraftCard",
+  // Aimee's offer of a guided session (aimee/session-offer-block.ts),
+  // in open conversations only: the route tells no one else how to
+  // write it, and the start action refuses an offer anywhere else.
+  session_offer: "SessionOfferCard",
 };

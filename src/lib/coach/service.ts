@@ -54,6 +54,11 @@ export type CoachingConversation = {
   // Where it was started (0240): the Aimee page or Aimee's panel. A
   // panel conversation never writes coach memory.
   origin: "page" | "panel";
+  // A guided session started from Aimee's offer (0262, 0263): the
+  // summary it carried over, and the message the offer was in. Null
+  // otherwise.
+  handoff_summary: string | null;
+  offered_in_message_id: string | null;
   created_at: string;
   updated_at: string;
 };

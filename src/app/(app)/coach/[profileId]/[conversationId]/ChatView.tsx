@@ -31,6 +31,7 @@ import Link from "next/link";
 import { ScriptCard } from "@/components/practices/ScriptCard";
 import { CommitmentDraftCard } from "@/components/coach/CommitmentDraftCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
+import { SessionOfferCard } from "@/components/aimee/SessionOfferCard";
 import { RoleDescriptionCard } from "@/components/practices/RoleDescriptionCard";
 import {
   AgentPicker,
@@ -115,6 +116,7 @@ export function ChatView({
   panelSuggestions = [],
   composerRef,
   onHasUserTurns,
+  onOpenConversation,
 }: {
   conversation: CoachingConversation;
   // Null in general (Ask Aimee) mode — no subject on file.
@@ -188,6 +190,9 @@ export function ChatView({
   // Told whether the person has sent anything yet. The panel hides
   // "New conversation" until they have: an empty one is already new.
   onHasUserTurns?: (has: boolean) => void;
+  // Where a guided session started from Aimee's offer opens. The panel
+  // passes one to open it in place; the Aimee page navigates.
+  onOpenConversation?: (conversationId: string) => void;
 }) {
   const inPanel = variant === "panel";
   const isOwner = access === "owner";
@@ -284,7 +289,9 @@ export function ChatView({
     if (openerFiredRef.current) return;
     if (!isOwner) return;
     if (!practice) return;
-    if (practice.firstTurn !== "generate" && !autoOpen) return;
+    // A session started from Aimee's offer opens itself too: the
+    // person said yes to it, and the summary is all it needs to begin.
+    if (practice.firstTurn !== "generate" && !autoOpen && !conversation.handoff_summary) return;
     if (initialMessages.length > 0) return;
     openerFiredRef.current = true;
     runOpenerGeneration();
@@ -843,10 +850,14 @@ export function ChatView({
             </p>
           </div>
         ) : (
-          messages.map((m) => (
+          messages.map((m, i) => (
             <MessageBubble
               key={m.id}
               message={m}
+              // Something the person said after this message, which
+              // settles an offer card in it (Not now, or anything else).
+              settled={messages.slice(i + 1).some((later) => later.role === "user")}
+              onOpenConversation={onOpenConversation}
               onRetry={m.error ? retry : undefined}
               practice={practice}
               conversationId={conversation.id}
@@ -930,6 +941,8 @@ function MessageBubble({
   showAttribution,
   openablePatterns,
   fullSizeHref,
+  settled = false,
+  onOpenConversation,
 }: {
   message: UiMessage;
   onRetry?: () => void;
@@ -947,6 +960,8 @@ function MessageBubble({
   showAttribution: boolean;
   openablePatterns?: readonly string[];
   fullSizeHref?: string;
+  settled?: boolean;
+  onOpenConversation?: (conversationId: string) => void;
 }) {
   if (message.role === "user") {
     const author =
@@ -1023,7 +1038,8 @@ function MessageBubble({
             onFixProposal,
             message.truncated === true,
             message.savedId ?? (message.id.startsWith("local-") ? null : message.id),
-            fullSizeHref
+            fullSizeHref,
+            { settled, onOpenConversation }
           );
         }
       }
@@ -1112,9 +1128,26 @@ function renderCard(
   // The saved message's id; null until it is saved.
   messageId: string | null = null,
   // Set in the panel: where the card opens at full width.
-  fullSizeHref?: string
+  fullSizeHref?: string,
+  // For Aimee's offer card: whether the person has said anything since,
+  // and where a started session opens.
+  offer: {
+    settled?: boolean;
+    onOpenConversation?: (conversationId: string) => void;
+  } = {}
 ): ReactNode {
   switch (name) {
+    case "SessionOfferCard":
+      return (
+        <SessionOfferCard
+          raw={raw}
+          streaming={streaming}
+          messageId={messageId}
+          settled={offer.settled === true}
+          onReply={onFixProposal}
+          onOpenConversation={offer.onOpenConversation}
+        />
+      );
     case "CommitmentDraftCard":
       return (
         <CommitmentDraftCard

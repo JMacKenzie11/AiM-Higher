@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const h = vi.hoisted(() => ({ stream: vi.fn(), create: vi.fn(), role: "team_member", practice: null as unknown, origin: "page", inserts: [] as Array<{ table: string; payload: unknown }> }));
+const h = vi.hoisted(() => ({ stream: vi.fn(), create: vi.fn(), role: "team_member", practice: null as unknown, origin: "page", inserts: [] as Array<{ table: string; payload: unknown }>, access: "owner", handoff: null as string | null, offerable: [] as Array<{ id: string; title: string; offerWhen: string }> }));
 
 vi.mock("@anthropic-ai/sdk", () => {
   class APIError extends Error {}
@@ -28,9 +28,16 @@ vi.mock("@/lib/subscriptions/service", async (orig) => ({
 }));
 vi.mock("@/lib/coach/service", async (orig) => ({
   ...(await orig<typeof import("@/lib/coach/service")>()),
-  getAccessForConversation: async () => "owner",
+  getAccessForConversation: async () => h.access,
 }));
 vi.mock("@/lib/practices/resolve", () => ({ resolveAgent: async () => h.practice }));
+// Which agents Aimee may offer is session-offers.ts's own question,
+// tested there; here only whether the route asks it, and where.
+vi.mock("@/lib/aimee/session-offers", async (orig) => ({
+  ...(await orig<typeof import("@/lib/aimee/session-offers")>()),
+  offerableSessions: async () => h.offerable,
+}));
+
 // Nothing in a chat turn may read with the service role: a record the
 // panel describes is read under the person's own session (Step 4).
 vi.mock("@/lib/supabase/admin", () => ({
@@ -50,7 +57,7 @@ vi.mock("@/lib/supabase/server", () => ({
           return {
             id: "conv1", created_by: "u1", company_id: "c1", practice_id: h.practice ? "some-agent" : null,
             agent_version_id: null, debriefing_meeting_id: null, revising_role_id: null,
-            mode: "general", context_kind: "execution", origin: h.origin,
+            mode: "general", context_kind: "execution", origin: h.origin, handoff_summary: h.handoff,
           };
         }
         if (table === "coaching_messages" && inserted) return { id: "msg", ...(inserted as object) };
@@ -102,6 +109,9 @@ beforeEach(() => {
   h.practice = null;
   h.origin = "page";
   h.inserts = [];
+  h.access = "owner";
+  h.handoff = null;
+  h.offerable = [{ id: "prepare-a-hard-conversation", title: "Prepare a hard conversation", offerWhen: "Someone needs to raise a problem." }];
 });
 
 async function send(extra: Record<string, unknown> = {}) {
@@ -120,6 +130,40 @@ async function send(extra: Record<string, unknown> = {}) {
     lastUser: String([...messages].reverse().find((m) => m.role === "user" && typeof m.content === "string")?.content ?? ""),
   };
 }
+
+// AIMEE OFFERS A GUIDED SESSION (2026-10-05): to the owner of an open
+// conversation, page or panel; never to someone it was shared with,
+// never inside an agent. A session started from an offer gets the
+// accepted summary on its turn.
+describe("guided session offers", () => {
+  it("are offered to the owner of an open conversation, on the page and in the panel", async () => {
+    expect((await send()).system).toContain("- prepare-a-hard-conversation: Prepare a hard conversation. Offer it when: Someone needs to raise a problem.");
+    h.stream.mockClear();
+    h.origin = "panel";
+    expect((await send()).system).toContain("<guided_sessions>");
+  });
+
+  it("are not offered to someone the conversation was shared with", async () => {
+    h.access = "write";
+    expect((await send()).system).not.toContain("<guided_sessions>");
+  });
+
+  it("are not offered inside an agent", async () => {
+    h.practice = { id: "some-agent", title: "Some agent", promptFile: "prompts/practices/ask-better-questions.md", basePromptMode: "voice_only", skipSetup: false, category: "People", description: "" };
+    expect((await send()).system).not.toContain("<guided_sessions>");
+  });
+
+  it("say nothing when there is nothing this person could start", async () => {
+    h.offerable = [];
+    expect((await send()).system).not.toContain("<guided_sessions>");
+  });
+
+  it("carry the accepted summary into the session they start, on its turn", async () => {
+    h.handoff = "Sam has missed the report three weeks running.";
+    expect((await send()).lastUser).toContain("<handoff>");
+    expect((await send()).lastUser).toContain("Sam has missed the report three weeks running.");
+  });
+});
 
 describe("a conversation started in Aimee's panel", () => {
   // Jason, 2026-10-03: an explicit "remember that" is saved in the
