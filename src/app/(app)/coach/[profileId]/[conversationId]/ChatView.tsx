@@ -855,6 +855,10 @@ export function ChatView({
               currentUserId={currentUserId}
               showAttribution={showAttribution}
               openablePatterns={openablePatterns}
+              // The panel is 400px wide, too narrow for a chart or a
+              // role description to read well; the cards link to the
+              // same conversation on the Aimee page.
+              fullSizeHref={inPanel ? `/ask-aimee/${conversation.id}` : undefined}
             />
           ))
         )}
@@ -925,6 +929,7 @@ function MessageBubble({
   currentUserId,
   showAttribution,
   openablePatterns,
+  fullSizeHref,
 }: {
   message: UiMessage;
   onRetry?: () => void;
@@ -941,6 +946,7 @@ function MessageBubble({
   currentUserId: string;
   showAttribution: boolean;
   openablePatterns?: readonly string[];
+  fullSizeHref?: string;
 }) {
   if (message.role === "user") {
     const author =
@@ -1016,7 +1022,8 @@ function MessageBubble({
             conversationId,
             onFixProposal,
             message.truncated === true,
-            message.savedId ?? (message.id.startsWith("local-") ? null : message.id)
+            message.savedId ?? (message.id.startsWith("local-") ? null : message.id),
+            fullSizeHref
           );
         }
       }
@@ -1103,7 +1110,9 @@ function renderCard(
   onFixProposal?: (nudge: string) => void,
   truncated = false,
   // The saved message's id; null until it is saved.
-  messageId: string | null = null
+  messageId: string | null = null,
+  // Set in the panel: where the card opens at full width.
+  fullSizeHref?: string
 ): ReactNode {
   switch (name) {
     case "CommitmentDraftCard":
@@ -1124,6 +1133,7 @@ function renderCard(
           streaming={streaming}
           conversationId={conversationId}
           onFixRequest={onFixProposal}
+          fullSizeHref={fullSizeHref}
         />
       );
     case "RoleDescriptionCard":
@@ -1134,6 +1144,7 @@ function renderCard(
           conversationId={conversationId}
           onFixRequest={onFixProposal}
           truncated={truncated}
+          fullSizeHref={fullSizeHref}
         />
       );
   }

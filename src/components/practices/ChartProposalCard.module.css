@@ -48,6 +48,12 @@
   border-radius: var(--radius-pill);
 }
 
+.fullSize {
+  display: inline-block;
+  margin-top: var(--space-2);
+  font: var(--text-body-sm);
+}
+
 .headerActions {
   display: flex;
   gap: var(--space-2);
@@ -107,7 +113,9 @@
 
 .functionsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  /* min() lets a tile shrink below 260px when the card is narrower,
+     as in Aimee's 400px panel, instead of hanging past its edge. */
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
   gap: var(--space-3);
 }
 

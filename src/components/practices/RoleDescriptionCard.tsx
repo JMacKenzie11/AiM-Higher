@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   looksTruncated,
   parseRoleDescription,
@@ -52,6 +53,7 @@ export function RoleDescriptionCard({
   conversationId,
   onFixRequest,
   truncated: reportedTruncated = false,
+  fullSizeHref,
 }: {
   raw: string;
   streaming: boolean;
@@ -61,6 +63,8 @@ export function RoleDescriptionCard({
   // brace check below is the fallback for a turn that was already
   // on the page before this existed.
   truncated?: boolean;
+  // In Aimee's panel: the same conversation on the Aimee page.
+  fullSizeHref?: string;
 }) {
   const [saved, setSaved] = useState<{ versionNumber: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -205,6 +209,11 @@ export function RoleDescriptionCard({
         <button type="button" className={styles.secondary} onClick={copy}>
           {copied ? "Copied" : "Copy"}
         </button>
+        {fullSizeHref ? (
+          <Link href={fullSizeHref} className={styles.fullSize}>
+            Open full size
+          </Link>
+        ) : null}
       </div>
     </div>
   );
