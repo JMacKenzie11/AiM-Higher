@@ -40,7 +40,19 @@ export async function createPracticeConversation(
   //
   // `opener`: a scripted first turn supplied by whatever launched the
   // conversation, rather than by the agent. See OPENING TURN below.
-  options?: { revisingRoleId?: string; debriefingMeetingId?: string; opener?: string }
+  //
+  // `handoffSummary` and `offeredInMessageId`: a session started from
+  // Aimee's offer in an open conversation (0262, 0263). The summary
+  // rides on every turn (lib/aimee/session-offers.ts); the message id
+  // makes a second click open this conversation rather than another
+  // (lib/aimee/session-offer-actions.ts).
+  options?: {
+    revisingRoleId?: string;
+    debriefingMeetingId?: string;
+    opener?: string;
+    handoffSummary?: string;
+    offeredInMessageId?: string;
+  }
 ): Promise<CreateResult> {
   const practice = await resolveAgent(practiceId);
   if (!practice) {
@@ -87,6 +99,10 @@ export async function createPracticeConversation(
       agent_version_id: await liveVersionIdFor(practice.agentRowId),
       revising_role_id: options?.revisingRoleId ?? null,
       debriefing_meeting_id: options?.debriefingMeetingId ?? null,
+      // Only when set, so an instance 0262/0263 has not reached can
+      // still start every other kind of session.
+      ...(options?.handoffSummary ? { handoff_summary: options.handoffSummary } : {}),
+      ...(options?.offeredInMessageId ? { offered_in_message_id: options.offeredInMessageId } : {}),
     })
     .select("*")
     .single<CoachingConversation>();

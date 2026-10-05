@@ -15,6 +15,12 @@ import { buildGuideTools } from "@/lib/guide/agent-tools";
 import { formatHelpIndex, helpIndexFor } from "@/lib/help/search";
 import { makeSearchHelpTool } from "@/lib/help/tool";
 import { PANEL_PROMPT_BLOCK, recordPanelEvent } from "@/lib/aimee/panel";
+import {
+  HANDOFF_OPENER_PROMPT,
+  handoffBlock,
+  offerableSessions,
+  sessionOfferPromptBlock,
+} from "@/lib/aimee/session-offers";
 import { recordRuleBreak, type RuleBreakSurface } from "@/lib/aimee/rule-breaks";
 import {
   checkVoice,
@@ -260,7 +266,12 @@ export async function POST(req: NextRequest): Promise<Response> {
   // prepend the standard context prefix to it just like any user
   // turn, so the model still sees the company/person blocks.
   if (isGenerateOpener) {
-    history.push({ role: "user", content: GENERATE_OPENER_PROMPT });
+    // A session started from Aimee's offer opens from the summary the
+    // person accepted, not with an introduction (aimee/session-offers.ts).
+    history.push({
+      role: "user",
+      content: convo.handoff_summary ? HANDOFF_OPENER_PROMPT : GENERATE_OPENER_PROMPT,
+    });
   }
 
   // First exchange = the one user row we just inserted, no assistant
@@ -325,9 +336,26 @@ export async function POST(req: NextRequest): Promise<Response> {
   // writes (lib/aimee/panel.ts). Read from the row, so opening the
   // conversation on the Aimee page later changes nothing.
   const fromPanel = convo.origin === "panel";
+  // GUIDED SESSIONS AIMEE MAY OFFER (Jason, 2026-10-05). Plain Aimee,
+  // page or panel, and only to the conversation's owner: the card's
+  // button starts a session for whoever owns the conversation, and a
+  // sharee is reading someone else's. The list is the sessions with an
+  // "Offer this when" line that this person could start here
+  // (lib/aimee/session-offers.ts). In the system prompt, so it caches.
+  const offerBlock =
+    plainAimee && access === "owner"
+      ? sessionOfferPromptBlock(
+          await offerableSessions({
+            db: supabase,
+            profile: session.profile,
+            companyId: convo.company_id,
+          })
+        )
+      : "";
   const systemPromptText =
     (await loadSystemPrompt(convo.mode, agentConfig)) +
     (helpIndexBlock ? `\n\n${helpIndexBlock}` : "") +
+    (offerBlock ? `\n\n${offerBlock}` : "") +
     (fromPanel ? `\n\n${PANEL_PROMPT_BLOCK}` : "");
 
   const client = new Anthropic({ apiKey });
@@ -356,7 +384,11 @@ export async function POST(req: NextRequest): Promise<Response> {
           helpFeatures
         )
       : "";
-  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${memoryBlock}${context.coachingContext}\n\n${pageBlock ? `${pageBlock}\n\n` : ""}`;
+  // A session started from Aimee's offer: the summary the person
+  // accepted, on every turn, so the session never asks them to repeat
+  // it (0262).
+  const handoffText = convo.handoff_summary ? `${handoffBlock(convo.handoff_summary)}\n\n` : "";
+  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${memoryBlock}${context.coachingContext}\n\n${handoffText}${pageBlock ? `${pageBlock}\n\n` : ""}`;
   const messages = buildMessages(history, userTurnPrefix);
 
   // Tool gating: subject-scoped tools are ONLY registered when there

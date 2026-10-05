@@ -29,6 +29,10 @@ vi.mock("@/lib/coach/service", async (orig) => ({
   getAccessForConversation: async () => "owner",
 }));
 vi.mock("@/lib/practices/resolve", () => ({ resolveAgent: async () => h.practice }));
+vi.mock("@/lib/aimee/session-offers", async (orig) => ({
+  ...(await orig<typeof import("@/lib/aimee/session-offers")>()),
+  offerableSessions: async () => [],
+}));
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => ({
     from(table: string) {
