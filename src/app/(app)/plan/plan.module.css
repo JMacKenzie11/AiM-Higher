@@ -404,6 +404,10 @@
   gap: var(--space-4);
   flex-wrap: wrap;
   justify-content: flex-end;
+  /* Never wider than its row. Without this its min-content width is
+     the link select's, see .linkSelect below. */
+  min-width: 0;
+  max-width: 100%;
 }
 
 .sfaTitle {
@@ -880,10 +884,24 @@
 }
 
 /* ---- Inline link-to-parent selects ---- */
+/* CAPPED ON DESKTOP TOO (2026-10-05). A <select> at width: auto is as
+   wide as its longest <option>, and the options are goal and focus
+   area titles. A closed quarter at Centre North carries long ones,
+   so the select ran past the card, took the status chip and progress
+   bar with it, and squeezed "Link to" onto two lines. The phone rule
+   further down fixed the same thing at 768px and under; this is the
+   desktop half. The closed select shows the chosen title truncated,
+   and the open list still shows every title in full. */
 .linkSelect {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.linkSelect .label {
+  white-space: nowrap;
 }
 
 .linkSelect .select {
@@ -892,6 +910,8 @@
   font-size: 13px;
   width: auto;
   min-width: 200px;
+  max-width: 360px;
+  text-overflow: ellipsis;
 }
 
 .linkMessage {
