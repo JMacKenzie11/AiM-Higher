@@ -238,6 +238,12 @@ export function ChatView({
       ? "Ask Aimee · AiMS Leadership Coach"
       : `${subjectName ?? ""}${subjectPosition ? ` · ${subjectPosition}` : ""}`;
   const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
+  // The thread as last rendered, for code that runs after a reply and
+  // must not read it from inside a state update (sendMessage, onDone).
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   // Live lock signal: flips true the moment a user turn lands in
   // the message array (whether the server persisted it yet or
   // it's still an optimistic local bubble). Feeds the AgentPicker's
@@ -413,6 +419,12 @@ export function ChatView({
         ...prev,
         { id: assistantId, role: "assistant", content: "", streaming: true },
       ]);
+      // Counted and collected here rather than read back inside a state
+      // update in onDone: the person's sends including this one (a
+      // retry's bubble is already there), and the reply as it arrives.
+      const userTurnCount =
+        messagesRef.current.filter((m) => m.role === "user").length + (opts.retry ? 0 : 1);
+      let replyText = "";
 
       // Abort any prior in-flight send (shouldn't happen — the button
       // is disabled while sending — but defensive) and start a fresh
@@ -442,6 +454,7 @@ export function ChatView({
 
         await consumeSse(response.body, controller.signal, {
           onDelta: (chunk) => {
+            replyText += chunk;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -474,45 +487,46 @@ export function ChatView({
             );
           },
           onDone: (savedId) => {
-            setMessages((prev) => {
-              const next = prev.map((m) =>
+            setMessages((prev) =>
+              prev.map((m) =>
                 m.id === assistantId ? { ...m, streaming: false, savedId } : m
-              );
-              if (inPanel) {
-                const reply = next.find((m) => m.id === assistantId);
-                if (reply?.content) setAnnouncement(`Aimee: ${reply.content}`);
-              }
-              // Fire auto-title after the SECOND user turn's response
-              // lands. Counting user messages (not total length)
-              // makes this robust to agent openers, which add a
-              // pre-conversation assistant turn and would otherwise
-              // shift the total-length guard by one. Only the owner
-              // triggers auto-title; the server action rejects
-              // non-owners anyway, but skipping the call avoids a
-              // wasted round-trip when a sharee sends the fourth
-              // message.
-              const userTurnCount = next.filter(
-                (m) => m.role === "user"
-              ).length;
-              if (isOwner && !autoTitledRef.current && userTurnCount === 2) {
-                autoTitledRef.current = true;
-                generateConversationTitleAction(conversation.id)
-                  .then((result) => {
-                    if (result.ok && result.title) {
-                      setTitle(result.title);
-                      setRenameValue(result.title);
-                      // Not in the panel: the page underneath is
-                      // somebody else's and has nothing to update.
-                      if (!inPanel) router.refresh();
-                    }
-                  })
-                  .catch((err) => {
-                    // Non-fatal — the default title stays.
-                    console.warn("auto-title failed", err);
-                  });
-              }
-              return next;
-            });
+              )
+            );
+            // NOTHING BELOW RUNS INSIDE THE STATE UPDATE. It used to: the
+            // auto-title server action was called from within the
+            // setMessages updater, and React runs updaters while
+            // rendering, so calling it there updated the Router during
+            // ChatView's render ("Cannot update a component (Router)
+            // while rendering a different component (ChatView)", on
+            // every second message on dev, since 2026-08-05). An
+            // updater has to be pure; these are side effects.
+            if (inPanel && replyText) setAnnouncement(`Aimee: ${replyText}`);
+            // Fire auto-title after the SECOND user turn's response
+            // lands. Counting user messages (not total length)
+            // makes this robust to agent openers, which add a
+            // pre-conversation assistant turn and would otherwise
+            // shift the total-length guard by one. Only the owner
+            // triggers auto-title; the server action rejects
+            // non-owners anyway, but skipping the call avoids a
+            // wasted round-trip when a sharee sends the fourth
+            // message.
+            if (isOwner && !autoTitledRef.current && userTurnCount === 2) {
+              autoTitledRef.current = true;
+              generateConversationTitleAction(conversation.id)
+                .then((result) => {
+                  if (result.ok && result.title) {
+                    setTitle(result.title);
+                    setRenameValue(result.title);
+                    // Not in the panel: the page underneath is
+                    // somebody else's and has nothing to update.
+                    if (!inPanel) router.refresh();
+                  }
+                })
+                .catch((err) => {
+                  // Non-fatal — the default title stays.
+                  console.warn("auto-title failed", err);
+                });
+            }
           },
         });
       } catch (error) {
