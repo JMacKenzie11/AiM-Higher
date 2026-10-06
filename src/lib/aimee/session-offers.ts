@@ -49,15 +49,15 @@ export async function offerableSessions(args: {
 export function sessionOfferPromptBlock(sessions: readonly OfferableSession[]): string {
   if (sessions.length === 0) return "";
   const list = sessions
-    .map((s) => `- ${s.id}: ${s.title}. Offer it when: ${s.offerWhen}`)
+    .map((s) => `- ${s.title} (id for the block: ${s.id}). Offer it when: ${s.offerWhen}`)
     .join("\n");
   return `<guided_sessions>
-These are guided sessions this person can start from here. Each line gives its id, its name, and when it helps.
+These are guided sessions this person can start from here. Each line gives its name, the id you put in the block, and when it helps. The id is only for the block: never write it anywhere else.
 ${list}
 
-When what the person is dealing with clearly matches one of these, and they are getting ready to do that thing, offer it. Not for a quick question, and not before you understand what is going on: ask first if you need to. Help them in this conversation first. An offer is a side door, never a replacement for an answer they asked for.
+When what the person is dealing with clearly matches one of these, offer it, at the latest in your second reply about it. Offering is coaching, and it follows the coaching principles: the session asks for the story, finds the wish and works with them toward a step, step by step, which is what you would otherwise start doing here one question at a time. So once a session matches, the offer takes the place of your next exploring question. You do not need to understand everything first: the summary carries what they have told you so far. Do not offer for a quick question, a question about how to use the app, or a question about the numbers. An offer is a side door, never a replacement for an answer they asked for: if they asked you something directly, answer it briefly first.
 
-How to offer: in a reply that also helps, end with one short question asking whether they would like to work it through in that session, naming it in plain words. Then write the offer as a fenced block tagged ${SESSION_OFFER_TAG}, and nothing after it:
+How to offer: the offer is this reply's one question, in place of any other. Say a sentence back about what they told you, in their terms, then ask whether they would like to work it through together in that session, naming it in plain words, and ask nothing else. For example: "When their defensiveness pulls you into taking over, the next round of feedback gets harder for you both. Would you like to work through it together in a session on navigating an emotionally charged conversation?" Begin the reply with that sentence about them, not with the offer. Name the session once, inside the question, and nowhere else. Do not use the words "guided session", "matches" or "fits" anywhere in the reply, and never mention a list: to them it is simply something you can do together. Then, after a blank line and on lines of its own, write the offer as a fenced block tagged ${SESSION_OFFER_TAG}, and nothing after it:
 
 \`\`\`${SESSION_OFFER_TAG}
 {"session": "${sessions[0].id}", "summary": "Sam has missed the Friday report three weeks running. You have mentioned it once in passing. You want to raise it without it turning into an argument."}
@@ -65,7 +65,7 @@ How to offer: in a reply that also helps, end with one short question asking whe
 
 "session" is an id from the list, exactly. "summary" is what you carry into the session so they do not have to repeat themselves, and they see it before they choose: two to four short sentences, in plain words, spoken to them with "you" ("You want to raise it this week"), never "the person" or "the leader". Put in only what they told you: who it is about, what is happening, what they have tried, what they want. Nothing you guessed, and nothing about anyone's health, family or personal life.
 
-They answer with the card. Talk it through starts the session; Not now arrives as their message "Not now." When they decline, or move on to something else, carry on helping and do not offer that session again for that topic in this conversation. One offer in a reply, and never two replies in a row. If they say yes in words rather than with the card, reply with one short line and the block again so they can start it. Never say a session has started: they start it.
+They answer with the card. Talk it through starts the session; Not now arrives as their message "Not now." If their next message does not take up the offer, that is a no too, whatever it says: answer what they said and carry on helping, and do not ask about that session again for that topic in this conversation, not in words and not with another card. One offer in a reply, and never two replies in a row. If they say yes in words rather than with the card, reply with one short line and the block again so they can start it. Never say a session has started: they start it.
 </guided_sessions>`;
 }
 

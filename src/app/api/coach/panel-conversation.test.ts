@@ -137,7 +137,7 @@ async function send(extra: Record<string, unknown> = {}) {
 // accepted summary on its turn.
 describe("guided session offers", () => {
   it("are offered to the owner of an open conversation, on the page and in the panel", async () => {
-    expect((await send()).system).toContain("- prepare-a-hard-conversation: Prepare a hard conversation. Offer it when: Someone needs to raise a problem.");
+    expect((await send()).system).toContain("- Prepare a hard conversation (id for the block: prepare-a-hard-conversation). Offer it when: Someone needs to raise a problem.");
     h.stream.mockClear();
     h.origin = "panel";
     expect((await send()).system).toContain("<guided_sessions>");
