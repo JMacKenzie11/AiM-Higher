@@ -47,7 +47,7 @@ It's laid out like a spreadsheet: Functional Area, Owner, Critical Success Facto
 
 **Two weeks take a value: this one and the one that just closed.** Both are tinted. A week stays open until the end of the following week, so a number asked for on Tuesday can go in any time up to the next Friday. After that it locks and is there to read.
 
-**The count beside Save** only counts your own rows, for the week that just closed, since that's the one with a deadline. For example: *"2 of 6 still to log for the week beginning 31 Aug."* If you have nothing to log, it says nothing.
+**The count beside Save** only counts your own rows, for the week that just closed, since that's the one with a deadline. For example: *"2 of 6 still to log for Week 5 of August."* If you have nothing to log, it says nothing.
 
 **The scrollbar sits above the table** and moves only the week columns. Drag it, click the track to jump, or use the arrows at either end to move about a month at a time.
 

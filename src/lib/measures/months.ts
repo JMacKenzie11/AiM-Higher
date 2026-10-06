@@ -51,3 +51,18 @@ export function monthLabel(key: string): string {
 export function weekOfMonth(weekEnding: string): number {
   return Math.ceil(Number(mondayOf(weekEnding).slice(8)) / 7);
 }
+
+const FULL_MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// "Week 5 of September": a week named the way its column is, for the
+// sentences about it (Jason, 2026-10-06). The count beside Save said
+// "the week beginning Sep 28" under a grid that calls the same week
+// September's Week 5. The month is the one the week begins in, as for
+// the column (monthKeyOf).
+export function weekLabel(weekEnding: string): string {
+  const month = Number(monthKeyOf(weekEnding).slice(5, 7));
+  return `Week ${weekOfMonth(weekEnding)} of ${FULL_MONTH_NAMES[month - 1]}`;
+}

@@ -17,7 +17,7 @@ import {
   type MeasureEntryInput,
 } from "@/lib/measures/actions";
 import { storageWeekFor } from "@/lib/measures/frequency";
-import { monthKeyOf, monthLabel, weekOfMonth } from "@/lib/measures/months";
+import { monthKeyOf, monthLabel, weekLabel, weekOfMonth } from "@/lib/measures/months";
 import type { GridData, GridRow,
   GridGroup,
 } from "@/lib/measures/grid";
@@ -26,7 +26,6 @@ import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
 import { ExternalSourceControls } from "./external/ExternalSourceControls";
 import { PencilIcon } from "@/components/ui/PencilIcon";
 import { PlusIcon } from "@/components/ui/PlusIcon";
-import { formatWeekBeginning, mondayOf } from "@/lib/dates";
 import {
   formatMeasureValue,
   parseTypedNumber,
@@ -972,8 +971,8 @@ export function MeasuresGrid({
               }
             >
               {outstanding === 0
-                ? `All ${writableRows.length} logged for the week beginning ${formatWeekBeginning(chasedWeek)}.`
-                : `${outstanding} of ${writableRows.length} still to log for the week beginning ${formatWeekBeginning(chasedWeek)}.`}
+                ? `All ${writableRows.length} logged for ${weekLabel(chasedWeek)}.`
+                : `${outstanding} of ${writableRows.length} still to log for ${weekLabel(chasedWeek)}.`}
             </p>
           ) : !data.hasRows ? (
             // The card still has to read as a card. With no measures
@@ -1653,7 +1652,7 @@ function GridCellView({
           aria-label={
             monthly
               ? `${row.description}, ${monthLabel(monthKeyOf(storageWeek))}`
-              : `${row.description}, week beginning ${mondayOf(week)}`
+              : `${row.description}, ${weekLabel(week)}`
           }
         />
       </td>
