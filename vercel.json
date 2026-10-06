@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron/scorecard",
-      "schedule": "0 7 * * 0"
+      "schedule": "0 7 * * 1"
     },
     {
       "path": "/api/cron/performance",
@@ -26,7 +26,7 @@
     },
     {
       "path": "/api/cron/external-measures",
-      "schedule": "0 14 * * *"
+      "schedule": "0 3,4 * * *"
     }
   ]
 }

@@ -8,44 +8,29 @@ import { loadMappedMeasures } from "@/lib/external-measures/service";
 import { pullMeasureWeek } from "@/lib/external-measures/run";
 import {
   isDueToday,
+  isPullHour,
   isStandardPullDayToday,
   targetWeekEnding,
 } from "@/lib/external-measures/schedule";
 
 // Daily cron: every mapped measure whose pull day is today.
 //
-// ---- WHY DAILY, AT 14:00 UTC ----------------------------------
+// ---- WHY DAILY, AND WHY TWICE --------------------------------
 //
 // DAILY because pull_day exists. A mapping set to Monday has to be
 // picked up on Monday, and a weekly job cannot do that whatever day
 // it runs. Most days most companies have nothing due and the pass is
 // three cheap reads.
 //
-// 14:00 UTC because of what reads entries afterwards:
+// AT 11 PM EASTERN (Jason, 2026-10-06; it was 14:00 UTC). vercel.json
+// wakes this route at 03:00 and 04:00 UTC, and it works only on the
+// wake-up that is 11 PM in New York (isPullHour), so the time holds
+// through daylight saving. The day, Sunday by default, is decided in
+// Eastern time too: schedule.ts says why.
 //
-//   this cron            Sat 14:00 UTC
-//   performance sweep    Sat 15:00 UTC
-//   scorecard snapshot   Sun 07:00 UTC
-//
-// The scorecard's measures discipline counts entries with
-// week_ending in the last seven days, so a Saturday pull of the week
-// that closed on Friday is inside Sunday's window. That is the
-// sequencing requirement, and it is met by sixteen hours rather than
-// by an hour.
-//
-// The hour in front of the performance sweep is the tighter margin
-// and it is not a hope: maxDuration below caps a run at five
-// minutes, so this physically cannot overrun into it.
-//
-// A NOTE ON THE SWEEP, because the margin looks more important than
-// it is today. The performance cron calls thisFriday() on a
-// Saturday, which returns the Friday six days AHEAD — the week that
-// has just begun, not the one that just closed, despite its comments
-// saying it means the latter. So today the two jobs look at
-// different weeks and cannot collide. If that is fixed to mean what
-// it says, this job is already an hour in front of it and the
-// ordering holds without anything moving. Chosen so the answer is
-// the same either way.
+// After it, in order: the scorecard snapshot (Mon 07:00 UTC, moved
+// off Sunday so a pulled week counts) and the performance sweep
+// (Tue 12:00 UTC).
 //
 // ---- WHY A SEPARATE CRON, not a step inside the sweep ---------
 //
@@ -107,6 +92,11 @@ async function handle(req: NextRequest): Promise<Response> {
   const auth = req.headers.get("authorization") ?? "";
   if (auth !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // The other daily wake-up: not 11 PM in New York, so nothing to do.
+  if (!isPullHour()) {
+    return Response.json({ ok: true, skipped: "not the pull hour in New York" });
   }
 
   const summary = await forEachActiveInstance({
@@ -206,9 +196,9 @@ async function runForCompany(
   // one: "configured wrongly" and "not configured" look identical
   // from a chart that stopped moving, which is the state this whole
   // feature exists to make visible.
-  const standardDay = isStandardPullDayToday(timezone);
+  const standardDay = isStandardPullDayToday();
   const due = measures.filter((m) =>
-    m.mapping === null ? standardDay : isDueToday(m.mapping, timezone)
+    m.mapping === null ? standardDay : isDueToday(m.mapping)
   );
 
   const run: CompanyRun = {

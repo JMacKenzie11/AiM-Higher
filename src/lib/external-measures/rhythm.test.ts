@@ -34,15 +34,38 @@ function scheduleOf(p: string): string {
   return entry.schedule;
 }
 
-// "0 14 * * *" → { minute: 0, hour: 14, dow: "*" }
+// "0 3,4 * * *" → { minute: 0, hours: [3, 4], hour: 4, dow: "*" }.
+// `hour` is the LATEST listed, the conservative one for "before".
 function parseCron(expr: string) {
-  const [minute, hour, , , dow] = expr.split(/\s+/);
-  return { minute: Number(minute), hour: Number(hour), dow };
+  const [minute, hourField, , , dow] = expr.split(/\s+/);
+  const hours = hourField.split(",").map(Number);
+  return { minute: Number(minute), hours, hour: Math.max(...hours), dow };
+}
+
+// The pull's real moment: 11 PM Eastern, which is 03:00 UTC under
+// daylight time and 04:00 under standard time (schedule.ts).
+function onInstant(iso: string) {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(iso));
 }
 
 describe("the pull is registered, and runs daily", () => {
   it("is in vercel.json", () => {
-    expect(scheduleOf("/api/cron/external-measures")).toBe("0 14 * * *");
+    // Sunday 11 PM Eastern (Jason, 2026-10-06): woken at both UTC
+    // hours 11 PM Eastern can be, working only on the one that is.
+    expect(scheduleOf("/api/cron/external-measures")).toBe("0 3,4 * * *");
+  });
+
+  it("works only on the wake-up that is 11 PM in New York", () => {
+    // Two wake-ups a day, one of them 11 PM Eastern whatever the
+    // season; the route has to refuse the other before doing anything.
+    const route = readFileSync(
+      path.join(ROOT, "src/app/api/cron/external-measures/route.ts"),
+      "utf8"
+    );
+    const guard = route.indexOf("if (!isPullHour())");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(route.indexOf("forEachActiveInstance({"));
   });
 
   it("runs EVERY day, because pull_day exists", () => {
@@ -73,8 +96,9 @@ describe("sequencing: the pull lands before what reads it", () => {
   it("still reads a week the pull has already filled", () => {
     // THE REAL CONSTRAINT, and it survived the move with room to
     // spare. The pull runs DAILY, so the one that matters is simply
-    // the most recent before the sweep: Monday 14:00 UTC against a
-    // Tuesday 12:00 UTC sweep, which is 22 hours rather than one.
+    // the most recent before the sweep: Tuesday 04:00 UTC at the
+    // latest (Monday 11 PM Eastern) against a Tuesday 12:00 UTC
+    // sweep, which is eight hours rather than one.
     //
     // It is the same week either way. targetWeekEnding is lastFriday,
     // which gives the most recently completed week every day from
@@ -103,25 +127,30 @@ describe("sequencing: the pull lands before what reads it", () => {
   });
 
   it("runs before the scorecard snapshot", () => {
+    // Moved from Sunday to Monday 07:00 UTC with the pull (2026-10-06):
+    // a Sunday-morning snapshot came before a Sunday-night pull, and
+    // the pulled week was out of the next one's window.
     const sc = parseCron(scheduleOf("/api/cron/scorecard"));
-    expect(sc.dow).toBe("0"); // Sunday, the day after
+    const pull = parseCron(scheduleOf("/api/cron/external-measures"));
+    expect(sc.dow).toBe("1"); // Monday, hours after Sunday night's pull
     expect(sc.hour).toBe(7);
+    expect(sc.hour - pull.hour).toBeGreaterThanOrEqual(3); // both Monday, UTC
   });
 
-  it("writes a week the NEXT DAY'S scorecard still counts", () => {
+  it("writes a week the next morning's scorecard still counts", () => {
     // The scorer counts entries with week_ending >= today - 7 days
-    // (src/lib/maturity/scorers/measures.ts). A Saturday pull fills
-    // the week that closed on Friday; Sunday's snapshot is one day
+    // (src/lib/maturity/scorers/measures.ts). A Sunday-night pull
+    // fills the week that closed on Friday; Monday's snapshot is hours
     // later, so that week is well inside the window.
     //
     // This is the actual sequencing requirement, asserted as
     // arithmetic rather than as a comment about two cron lines.
-    onDay("2026-09-19"); // Saturday: the cron runs
+    onInstant("2026-09-21T03:30:00Z"); // Sun 11:30 PM Eastern: the pull
     const written = targetWeekEnding(TZ);
     expect(written).toBe("2026-09-18");
     vi.useRealTimers();
 
-    onDay("2026-09-20"); // Sunday: the scorecard snapshots
+    onInstant("2026-09-21T07:00:00Z"); // Monday: the scorecard snapshots
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
@@ -129,17 +158,17 @@ describe("sequencing: the pull lands before what reads it", () => {
   });
 
   it("is still counted when a pull_day override delays it to Thursday", () => {
-    // A late source loses its place in THAT week's Sunday snapshot,
-    // which is unavoidable: a sheet that refreshes on Thursday cannot
-    // be in a snapshot taken on Sunday. It is still inside the next
-    // one's window, so the trend line shows one dip that recovers
-    // rather than a measure that vanishes.
+    // A late source misses the snapshot. An override to Thursday
+    // pulls the PREVIOUS week (lastFriday), already a Monday snapshot
+    // behind; by the next Monday it is outside the window. The live
+    // scorecard counts it; the weekly history does not. Accepted: no
+    // measure on the fleet overrides its day (2026-10-06).
     onDay("2026-09-24"); // Thursday
     const written = targetWeekEnding(TZ);
     expect(written).toBe("2026-09-18");
     vi.useRealTimers();
 
-    onDay("2026-09-27"); // the following Sunday
+    onDay("2026-09-28"); // the following Monday
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);

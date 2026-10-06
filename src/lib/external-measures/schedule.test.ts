@@ -4,6 +4,7 @@ import {
   STANDARD_PULL_DAY,
   effectivePullDay,
   isDueToday,
+  isPullHour,
   isStandardPullDayToday,
   isTransient,
   targetWeekEnding,
@@ -67,9 +68,10 @@ describe("targetWeekEnding", () => {
 });
 
 describe("pull day routing", () => {
-  it("defaults to Saturday when the mapping says nothing", () => {
+  // Sunday at 11 PM Eastern since 2026-10-06 (Jason); it was Saturday.
+  it("defaults to Sunday when the mapping says nothing", () => {
     expect(effectivePullDay(weekKeyed)).toBe(STANDARD_PULL_DAY);
-    expect(STANDARD_PULL_DAY).toBe("sat");
+    expect(STANDARD_PULL_DAY).toBe("sun");
   });
 
   it("maps weekday numbers the way todayInTimezone reports them", () => {
@@ -77,33 +79,67 @@ describe("pull day routing", () => {
     expect(weekdayKey(6)).toBe("sat");
   });
 
-  it("runs a default mapping on Saturday and no other day", () => {
-    onDay("2026-09-19"); // Sat
-    expect(isDueToday(weekKeyed, TZ)).toBe(true);
+  it("runs a default mapping on Sunday and no other day", () => {
+    onDay("2026-09-20"); // Sun
+    expect(isDueToday(weekKeyed)).toBe(true);
     vi.useRealTimers();
 
-    for (const day of ["2026-09-20", "2026-09-21", "2026-09-24"]) {
+    for (const day of ["2026-09-19", "2026-09-21", "2026-09-24"]) {
       onDay(day);
-      expect(isDueToday(weekKeyed, TZ), `on ${day}`).toBe(false);
+      expect(isDueToday(weekKeyed), `on ${day}`).toBe(false);
       vi.useRealTimers();
     }
   });
 
-  it("runs an overridden mapping on ITS day and not on Saturday", () => {
+  it("runs an overridden mapping on ITS day and not on Sunday", () => {
     const monday: ExternalMapping = { ...weekKeyed, pull_day: "mon" };
-    onDay("2026-09-19"); // Sat
-    expect(isDueToday(monday, TZ)).toBe(false);
+    onDay("2026-09-20"); // Sun
+    expect(isDueToday(monday)).toBe(false);
     vi.useRealTimers();
     onDay("2026-09-21"); // Mon
-    expect(isDueToday(monday, TZ)).toBe(true);
+    expect(isDueToday(monday)).toBe(true);
   });
 
   it("knows the standard day for mappings that will not parse", () => {
-    onDay("2026-09-19");
-    expect(isStandardPullDayToday(TZ)).toBe(true);
+    onDay("2026-09-20");
+    expect(isStandardPullDayToday()).toBe(true);
     vi.useRealTimers();
     onDay("2026-09-21");
-    expect(isStandardPullDayToday(TZ)).toBe(false);
+    expect(isStandardPullDayToday()).toBe(false);
+  });
+});
+
+// One Eastern clock for the whole fleet: at 11 PM Eastern on a Sunday
+// in daylight time it is already Monday in Halifax, and deciding the
+// day per company would skip it.
+describe("Sunday 11 PM Eastern", () => {
+  function at(iso: string) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(iso));
+  }
+
+  it("is the pull hour at 03:00 UTC under daylight time, not 04:00", () => {
+    expect(isPullHour(new Date("2026-10-05T03:00:00Z"))).toBe(true); // Sun 11 PM EDT
+    expect(isPullHour(new Date("2026-10-05T03:59:00Z"))).toBe(true);
+    expect(isPullHour(new Date("2026-10-05T04:00:00Z"))).toBe(false); // midnight EDT
+  });
+
+  it("is the pull hour at 04:00 UTC under standard time, not 03:00", () => {
+    expect(isPullHour(new Date("2026-12-07T04:00:00Z"))).toBe(true); // Sun 11 PM EST
+    expect(isPullHour(new Date("2026-12-07T03:00:00Z"))).toBe(false); // 10 PM EST
+  });
+
+  it("calls it Sunday for every company, Halifax included", () => {
+    at("2026-10-05T03:30:00Z"); // Sun 11:30 PM in New York, Mon 00:30 in Halifax
+    expect(isStandardPullDayToday()).toBe(true);
+    expect(isDueToday(weekKeyed)).toBe(true);
+  });
+
+  it("pulls the same finished week in every company's timezone", () => {
+    at("2026-10-05T03:30:00Z");
+    for (const tz of ["America/Anchorage", "America/Denver", "America/New_York", "America/Halifax"]) {
+      expect(targetWeekEnding(tz), tz).toBe("2026-10-02");
+    }
   });
 });
 

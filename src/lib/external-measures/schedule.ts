@@ -8,30 +8,52 @@ import { PULL_DAYS, type ExternalMapping, type PullDay } from "./mapping";
 // wrong day logs a visible failure. A pull that runs on the right day
 // and files the number against the wrong WEEK looks like data.
 
-// The default, and the reason it is Saturday.
+// WHEN: 11 PM EASTERN, SUNDAY BY DEFAULT (Jason, 2026-10-06).
 //
-// Weeks end Friday, so Saturday is the first day on which the week
-// just gone is complete and its numbers are final. It is also ahead
-// of both things downstream that read entries:
+// It was Saturday at 14:00 UTC. Weeks end Friday, so either day reads
+// a complete week; Sunday night is Jason's choice.
 //
-//   this cron            14:00 UTC DAILY
-//   scorecard snapshot   Sun 07:00 UTC   (counts entries from the
-//                                         last 7 days)
+// ONE CLOCK FOR EVERY COMPANY: Eastern. The day is decided in
+// America/New_York, not in each company's timezone, so every company
+// is pulled at the same moment. Decided per company, Halifax (an hour
+// ahead of New York) would be into Monday at 11 PM Eastern during
+// daylight time, and a Sunday pull would skip it.
+//
+// 11 PM EASTERN ALL YEAR. Vercel's cron runs in UTC and knows nothing
+// of daylight saving, so the job wakes at 03:00 and 04:00 UTC every
+// day (vercel.json) and does its work only on the run that is 11 PM
+// in New York: 03:00 UTC under daylight time, 04:00 UTC under
+// standard time. The other run does nothing.
+//
+// Downstream, everything still comes after:
+//
+//   this pull            Sun 11 PM Eastern (Mon 03:00/04:00 UTC)
+//   scorecard snapshot   Mon 07:00 UTC   (counts entries from the
+//                                         last 7 days; moved off
+//                                         Sunday with this, or a
+//                                         pulled week would never
+//                                         count)
 //   performance sweep    Tue 12:00 UTC   (turns a missing value into
 //                                         a commitment on a person)
 //
-// The sweep moved off Saturday on 2026-09-19 so people have through
-// the end of Monday to enter last week's numbers. It used to run an
-// hour after this one on a shared Saturday; because this cron is
-// daily, the pull that matters is now simply Monday's, 22 hours
-// ahead of it, and it fills the same week. lastFriday gives the same
-// completed week every day from Saturday through the following
-// Friday.
-//
-// The margin is not a hope either: every cron route in this app sets
-// maxDuration = 300, so a run cannot exceed five minutes and cannot
-// overrun into the sweep.
-export const STANDARD_PULL_DAY: PullDay = "sat";
+// The margin is not a hope: every cron route in this app sets
+// maxDuration = 300, so a run cannot exceed five minutes.
+export const SCHEDULE_TIMEZONE = "America/New_York";
+export const PULL_HOUR = 23;
+export const STANDARD_PULL_DAY: PullDay = "sun";
+
+// Is it the pull hour in New York? The route asks this first and
+// does nothing on the other daily wake-up.
+export function isPullHour(now: Date = new Date()): boolean {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: SCHEDULE_TIMEZONE,
+      hour: "numeric",
+      hourCycle: "h23",
+    }).format(now)
+  );
+  return hour === PULL_HOUR;
+}
 
 export function weekdayKey(weekday: number): PullDay {
   return PULL_DAYS[weekday] ?? STANDARD_PULL_DAY;
@@ -46,9 +68,11 @@ export function effectivePullDay(mapping: ExternalMapping): PullDay {
 //
 // lastFriday is the most recently COMPLETED week, and it gives the
 // same answer every day from Saturday through the following Friday.
-// So a mapping set to Monday fills exactly the week a Saturday
-// mapping would have filled, two days later, rather than a week the
-// Saturday pass had already dealt with.
+// So a mapping set to Monday fills exactly the week a Sunday mapping
+// would have filled, a day later, rather than a week the Sunday pass
+// had already dealt with. Read in the COMPANY's timezone: at 11 PM
+// Eastern on a Sunday, every company on the fleet is in Sunday or the
+// first hour of Monday, and both give the same week.
 //
 // Not thisFriday, which the manual pull uses. On a Saturday
 // thisFriday is six days AHEAD — the week that has just begun, whose
@@ -58,11 +82,9 @@ export function targetWeekEnding(timezone: string): string {
   return addDays(thisFriday(timezone), -7);
 }
 
-export function isDueToday(
-  mapping: ExternalMapping,
-  timezone: string
-): boolean {
-  const { weekday } = todayInTimezone(timezone);
+// Today, in Eastern time (SCHEDULE_TIMEZONE), whatever the company's.
+export function isDueToday(mapping: ExternalMapping): boolean {
+  const { weekday } = todayInTimezone(SCHEDULE_TIMEZONE);
   return effectivePullDay(mapping) === weekdayKey(weekday);
 }
 
@@ -86,11 +108,11 @@ export function isTransient(message: string): boolean {
   return TRANSIENT.test(message);
 }
 
-// Is today the standard pull day in this company's timezone?
+// Is today the standard pull day, in Eastern time?
 //
 // Used for mappings that will not parse: they have no pull_day to
 // read, and something has to decide when to attempt and fail them.
-export function isStandardPullDayToday(timezone: string): boolean {
-  const { weekday } = todayInTimezone(timezone);
+export function isStandardPullDayToday(): boolean {
+  const { weekday } = todayInTimezone(SCHEDULE_TIMEZONE);
   return weekdayKey(weekday) === STANDARD_PULL_DAY;
 }

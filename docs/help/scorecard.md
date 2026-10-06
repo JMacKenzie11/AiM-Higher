@@ -65,7 +65,7 @@ The **overall score** is an average of the disciplines that have a score. Strate
 
 **Why is my score different from yesterday?** It's worked out fresh every time you open the page. If ten commitments were closed this morning, Execution has already moved.
 
-**What do the small trend lines show?** A score taken every Sunday, over the last 26 weeks.
+**What do the small trend lines show?** A score taken every Monday, over the last 26 weeks.
 
 **Why doesn't a card have a trend arrow?** There isn't enough history yet to compare with 90 days ago. It appears once there is.
 
