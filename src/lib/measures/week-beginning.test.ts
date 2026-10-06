@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { mondayOf, formatWeekBeginning } from "@/lib/dates";
 import { monthKeyOf } from "./grid";
-import { weekOfMonth } from "./months";
+import { weekLabel, weekOfMonth } from "./months";
 import { isLastFridayOfMonth } from "./frequency";
 
 // WEEKS ARE READ BY THE DAY THEY START ON, AND STORED BY THE DAY THEY
@@ -97,9 +97,16 @@ describe("the measures page reads in weeks beginning", () => {
     expect(grid).not.toContain("mondayOf(w).slice(8)");
   });
 
-  it("says so in the hero and in the outstanding count", () => {
-    expect(page).toContain("beginning {formatWeekBeginning(weekEnding)}");
-    expect(grid).toContain("week beginning ${formatWeekBeginning(chasedWeek)}");
+  // The sentences name a week the way its column does (Jason,
+  // 2026-10-06): "the week beginning Sep 28" sat above a grid calling
+  // that week September's Week 4.
+  it("names the week as its column does, in the hero, the count and each box", () => {
+    expect(page).toContain("{weekLabel(weekEnding)} for the functions you lead");
+    expect(grid).toContain("logged for ${weekLabel(chasedWeek)}");
+    expect(grid).toContain("still to log for ${weekLabel(chasedWeek)}");
+    expect(grid).toContain("`${row.description}, ${weekLabel(week)}`");
+    expect(grid).not.toContain("formatWeekBeginning(");
+    expect(page).not.toContain("formatWeekBeginning(");
   });
 
   it("no longer says 'week ending' anywhere a user reads", () => {
@@ -130,5 +137,16 @@ describe("weekOfMonth", () => {
   });
   it("starts again at 1 on the first Monday of the next month", () => {
     expect(weekOfMonth("2026-10-09")).toBe(1); // Mon 5 Oct
+  });
+});
+
+describe("weekLabel", () => {
+  it("names a week by its number in the month it begins in", () => {
+    expect(weekLabel("2026-10-02")).toBe("Week 4 of September"); // Mon 28 Sep
+    expect(weekLabel("2026-10-09")).toBe("Week 1 of October"); // Mon 5 Oct
+    expect(weekLabel("2026-09-04")).toBe("Week 5 of August"); // Mon 31 Aug
+  });
+  it("crosses a year by the Monday, too", () => {
+    expect(weekLabel("2027-01-01")).toBe("Week 4 of December"); // Mon 28 Dec 2026
   });
 });
