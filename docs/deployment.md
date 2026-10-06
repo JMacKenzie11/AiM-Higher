@@ -773,7 +773,7 @@ connected company to replace its key, and reconnect Google. The token
 never goes into a file in the repo, a command's arguments or its output
 (failure mode E3).
 
-**When.** Sunday to Wednesday: after one Saturday's Sheets pull has
+**When.** (Written when the Sheets pull ran Saturday 14:00 UTC; since 2026-10-06 it runs Sunday 11 PM Eastern.) Sunday to Wednesday: after one Saturday's Sheets pull has
 saved on the old path, and with at least three days before the next
 one (14:00 UTC). Never Thursday to Saturday. That leaves days of
 ordinary transcript ingests on the new path before Saturday, and time
