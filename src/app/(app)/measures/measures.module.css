@@ -823,16 +823,21 @@
    counted off the rows. */
 .outstanding {
   margin: 0;
-  font: var(--text-body-sm);
+  font: var(--text-body);
+  font-size: 15px;
   color: var(--text);
   font-weight: 600;
 }
 
-/* When there is nothing left, say so and stop drawing the eye. */
+/* Bigger and bolder in both states (Jason, 2026-10-06): it read as
+   fine print beside Save. When there is nothing left it stays muted,
+   so "all logged" still reads apart from "still to log". */
 .outstandingDone {
   margin: 0;
-  font: var(--text-body-sm);
+  font: var(--text-body);
+  font-size: 15px;
   color: var(--text-muted);
+  font-weight: 600;
 }
 
 
