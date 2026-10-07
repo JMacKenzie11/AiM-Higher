@@ -66,3 +66,11 @@ export function weekLabel(weekEnding: string): string {
   const month = Number(monthKeyOf(weekEnding).slice(5, 7));
   return `Week ${weekOfMonth(weekEnding)} of ${FULL_MONTH_NAMES[month - 1]}`;
 }
+
+// "October Week 1": the Pull now list's name for a week (Jason,
+// 2026-10-06), in place of its Friday's date. Same week and month as
+// the grid's columns.
+export function monthWeekLabel(weekEnding: string): string {
+  const month = Number(monthKeyOf(weekEnding).slice(5, 7));
+  return `${FULL_MONTH_NAMES[month - 1]} Week ${weekOfMonth(weekEnding)}`;
+}

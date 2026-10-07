@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { mondayOf, formatWeekBeginning } from "@/lib/dates";
 import { monthKeyOf } from "./grid";
-import { weekLabel, weekOfMonth } from "./months";
+import { monthWeekLabel, weekLabel, weekOfMonth } from "./months";
 import { isLastFridayOfMonth } from "./frequency";
 
 // WEEKS ARE READ BY THE DAY THEY START ON, AND STORED BY THE DAY THEY
@@ -148,5 +148,15 @@ describe("weekLabel", () => {
   });
   it("crosses a year by the Monday, too", () => {
     expect(weekLabel("2027-01-01")).toBe("Week 4 of December"); // Mon 28 Dec 2026
+  });
+});
+
+describe("monthWeekLabel", () => {
+  // The Pull now list (Jason, 2026-10-06): "October Week 1", not the
+  // Friday's date.
+  it("names a week by its month and number, as the grid does", () => {
+    expect(monthWeekLabel("2026-10-09")).toBe("October Week 1"); // Mon 5 Oct
+    expect(monthWeekLabel("2026-10-02")).toBe("September Week 4"); // Mon 28 Sep
+    expect(monthWeekLabel("2026-09-04")).toBe("August Week 5"); // Mon 31 Aug
   });
 });

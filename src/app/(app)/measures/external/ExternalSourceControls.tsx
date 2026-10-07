@@ -12,6 +12,7 @@ import {
   type VerifyResponse,
 } from "@/lib/external-measures/actions";
 import { canBackfill, extractFileId, type ExternalMapping, type PullDay } from "@/lib/external-measures/mapping";
+import { monthWeekLabel } from "@/lib/measures/months";
 import type { HubSpotPipeline } from "@/lib/external-measures/hubspot-pull";
 import { EMPTY_HUBSPOT, HubSpotRecipeFields, type HubSpotDraft } from "./HubSpotRecipeFields";
 import uiStyles from "@/components/ui/ui.module.css";
@@ -305,7 +306,7 @@ export function ExternalSourceControls({
             >
               {[...weeks].reverse().map((w, i) => (
                 <option key={w} value={w}>
-                  {i === 0 ? `${w} (this week)` : w}
+                  {i === 0 ? `${monthWeekLabel(w)} (this week)` : monthWeekLabel(w)}
                 </option>
               ))}
             </select>
