@@ -7,6 +7,7 @@ import { loadCompanyScorecard } from "@/lib/maturity/service";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { logCoachTokenUsage, reportEmptyResult } from "@/lib/coach/usage";
 
 // Session Brief generator. One Anthropic call per invocation; the
 // result is appended as a new row to session_briefs (never
@@ -245,6 +246,8 @@ export async function generateSessionBrief(
   try {
     const response = await client.messages.create({
       model,
+      // Written from context already in the prompt. Thinking could eat the whole 800.
+      thinking: { type: "disabled" },
       max_tokens: MAX_TOKENS,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
@@ -254,7 +257,18 @@ export async function generateSessionBrief(
       .map((b) => b.text)
       .join("")
       .trim();
-    if (!content) {
+    const emptyResult = reportEmptyResult("hq_brief", content, response);
+    if (response.usage) {
+      void logCoachTokenUsage({
+        conversationId: null,
+        companyId,
+        purpose: "hq_brief",
+        model,
+        usage: response.usage,
+        emptyResult,
+      });
+    }
+    if (emptyResult) {
       return {
         ok: false,
         message: "The model returned an empty brief. Try again.",
