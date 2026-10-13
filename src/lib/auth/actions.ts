@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isConsentReturnPath } from "@/lib/mcp/consent-path";
 import { revalidatePath } from "next/cache";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -67,7 +68,10 @@ export async function signInAction(
   }
 
   revalidatePath("/", "layout");
-  redirect("/");
+  // Back to an outside assistant's consent request when that is where
+  // the person came from (lib/mcp/consent-path.ts); home otherwise.
+  const next = String(formData.get("next") ?? "");
+  redirect(isConsentReturnPath(next) ? next : "/");
 }
 
 // ---- Sign out --------------------------------------------------

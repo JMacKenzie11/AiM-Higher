@@ -75,6 +75,21 @@ change.
 code since 2026-10-02, and the variable does nothing. Delete it from
 any Vercel environment that still has it.
 
+`MCP_ENABLED` and `MCP_FOR_EVERYONE` — outside assistants (the MCP
+server, `/api/mcp`). **Both off unless set to `true`.** With
+`MCP_ENABLED` unset, `/api/mcp`, its metadata under
+`/.well-known/oauth-protected-resource` and the consent page
+`/oauth/consent` all answer 404. With it set, only system admins may
+connect an assistant; `MCP_FOR_EVERYONE` widens that to everyone, and
+is Jason's call (2026-10-13: system admins first, then company admins
+and team members, guides, portfolio admins last). An environment change
+takes effect on the next deploy. Each instance also needs Supabase's
+OAuth server switched on in its own project (Authentication, OAuth
+Server: enabled, Authorization Path `/oauth/consent`, dynamic
+registration on) and its Site URL pointing at the instance, because the
+consent address is built from it. On 2026-10-13 that is done on the dev
+project only.
+
 `PROD_*` has a second job. The cron routes are excluded from instance
 resolution entirely, because a scheduled invocation has no visitor and
 no meaningful hostname. They read `PROD_*` through
