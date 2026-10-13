@@ -85,3 +85,39 @@
 .tableWrap {
   overflow-x: auto;
 }
+
+/* Past analyses: a visible way into each one, and its PDF, from the
+   list itself (Jason, 2026-10-13: the name alone did not read as a
+   link). */
+.nameLink {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}
+
+.rowBtn {
+  composes: btn btnSecondary btnSm from "../../../components/ui/ui.module.css";
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

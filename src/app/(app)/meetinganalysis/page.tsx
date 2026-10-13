@@ -66,13 +66,16 @@ export default async function MeetingAnalysisLeadsPage() {
                     <th>Score</th>
                     <th>Status</th>
                     <th>Date</th>
+                    <th className={styles.actionHead}>
+                      <span className={lead.visuallyHidden}>Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.id}>
                       <td>
-                        <Link href={`/meetinganalysis/${r.id}`} className={styles.itemLink}>
+                        <Link href={`/meetinganalysis/${r.id}`} className={lead.nameLink}>
                           {r.full_name}
                         </Link>
                         <div className={styles.mutedCell}>{r.email}</div>
@@ -91,6 +94,28 @@ export default async function MeetingAnalysisLeadsPage() {
                           month: "short",
                           day: "numeric",
                         })}
+                      </td>
+                      <td>
+                        <div className={lead.rowActions}>
+                          <Link href={`/meetinganalysis/${r.id}`} className={lead.rowBtn}>
+                            View
+                          </Link>
+                          {r.status === "complete" ? (
+                            <>
+                              <a
+                                href={`/meetinganalysis/${r.id}/pdf?view`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={lead.rowBtn}
+                              >
+                                Open PDF
+                              </a>
+                              <a href={`/meetinganalysis/${r.id}/pdf`} className={lead.rowBtn}>
+                                Download PDF
+                              </a>
+                            </>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
