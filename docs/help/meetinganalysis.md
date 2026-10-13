@@ -27,4 +27,4 @@ The page shows what went wrong. Select **Run Again** to try once more.
 
 ## Past analyses
 
-Every analysis is listed under the form, newest first, with its score and status. Select a name to open it.
+Every analysis is listed under the form, newest first, with its score and status. Each row has **View** to open the analysis, and once it is Ready, **Open PDF** and **Download PDF**.
