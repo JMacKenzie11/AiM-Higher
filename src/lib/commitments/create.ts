@@ -1,9 +1,10 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { trackAfter } from "@/lib/analytics/track";
 import { isAdminForCompany } from "@/lib/auth/permissions";
-import type { requireProfile } from "@/lib/auth/current-user";
+import type { requireProfile, SessionProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { scoreCommitmentClarity } from "./clarity";
@@ -20,6 +21,15 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // own it, the clarity score, the surfaces revalidated. Under the
 // caller's own session, so the insert rules on commitments are the
 // boundary.
+//
+// TWO LAYERS. insertCommitment is the rules and the write, on a client
+// it is handed, for a person and a company it is told: nothing in it
+// reads a cookie or a request. createCommitment is the app's wrapper:
+// it builds the cookie client, resolves the scoped company when
+// nothing else names one, and refreshes the pages and records the
+// event after a save. A caller outside a page request (an outside
+// assistant acting as the person) uses insertCommitment on a client
+// signed in as that person, so the same rules run.
 
 export type CommitmentResult =
   | { ok: true; commitment: Commitment }
@@ -74,10 +84,54 @@ export function revalidateCommitmentSurfaces(
   if (issueId) revalidatePath("/issues");
 }
 
+// Who is writing, and on which client. The client must be signed in
+// as `profile`: the insert rules on commitments see that session, and
+// `profile` decides only what the app checks before asking them.
+export type CommitmentWriter = {
+  db: SupabaseClient;
+  profile: SessionProfile;
+};
+
 export async function createCommitment(
   session: Awaited<ReturnType<typeof requireProfile>>,
   input: NewCommitment
 ): Promise<CommitmentResult> {
+  const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+  // The scoped company stands in only when nothing linked names one,
+  // as it always has: a link decides its own company.
+  const linked = Boolean(input.priorityId || input.issueId || input.functionalAreaId);
+  const fallbackCompanyId =
+    input.companyId || linked ? null : await getEffectiveCompanyId(session);
+  const result = await insertCommitment({ db, profile: session.profile }, input, fallbackCompanyId);
+  if (!result.ok) return result;
+
+  const row = result.commitment;
+  revalidateCommitmentSurfaces(row.priority_id, row.issue_id);
+  trackAfter(
+    session.profile.id,
+    "commitment.created",
+    {
+      has_priority: Boolean(row.priority_id),
+      has_issue: Boolean(row.issue_id),
+      has_functional_area: Boolean(row.functional_area_id),
+      is_ongoing: row.is_ongoing,
+      for_self: row.owner_id === session.profile.id,
+      from_aimee: Boolean(input.coachingMessageId),
+    },
+    { company: row.company_id }
+  );
+  return result;
+}
+
+// The rules and the write. `fallbackCompanyId` is the company used
+// when neither a link nor input.companyId names one; input.companyId,
+// when set, must agree with any link.
+export async function insertCommitment(
+  writer: CommitmentWriter,
+  input: NewCommitment,
+  fallbackCompanyId: string | null = null
+): Promise<CommitmentResult> {
+  const { db: supabase, profile } = writer;
   const priorityId = input.priorityId || null;
   const issueId = input.issueId || null;
   const functionalAreaId = input.functionalAreaId || null;
@@ -93,8 +147,6 @@ export async function createCommitment(
   if (!description) {
     return { ok: false, message: "Say what the commitment is." };
   }
-
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   let companyId: string | null;
   if (priorityId) {
@@ -126,8 +178,8 @@ export async function createCommitment(
       return { ok: false, message: "That issue isn't accessible." };
     }
     const canEditIssue =
-      isAdminForCompany(session.profile, issue.company_id) ||
-      issue.created_by === session.profile.id;
+      isAdminForCompany(profile, issue.company_id) ||
+      issue.created_by === profile.id;
     if (!canEditIssue) {
       return {
         ok: false,
@@ -146,7 +198,7 @@ export async function createCommitment(
     }
     companyId = fn.company_id;
   } else {
-    companyId = input.companyId ?? (await getEffectiveCompanyId(session));
+    companyId = input.companyId ?? fallbackCompanyId;
     if (!companyId) {
       return { ok: false, message: "Pick a company scope first." };
     }
@@ -167,8 +219,8 @@ export async function createCommitment(
   }
   const weekEnding = fridayOf(dueDate);
 
-  const isAdmin = isAdminForCompany(session.profile, companyId);
-  const ownerId = isAdmin && input.ownerId ? input.ownerId : session.profile.id;
+  const isAdmin = isAdminForCompany(profile, companyId);
+  const ownerId = isAdmin && input.ownerId ? input.ownerId : profile.id;
 
   const { data, error } = await supabase
     .from("commitments")
@@ -212,19 +264,5 @@ export async function createCommitment(
     console.warn("Clarity autoscore failed for commitment", data.id, err);
   }
 
-  revalidateCommitmentSurfaces(priorityId, issueId);
-  trackAfter(
-    session.profile.id,
-    "commitment.created",
-    {
-      has_priority: Boolean(finalRow.priority_id),
-      has_issue: Boolean(finalRow.issue_id),
-      has_functional_area: Boolean(finalRow.functional_area_id),
-      is_ongoing: finalRow.is_ongoing,
-      for_self: finalRow.owner_id === session.profile.id,
-      from_aimee: Boolean(input.coachingMessageId),
-    },
-    { company: finalRow.company_id }
-  );
   return { ok: true, commitment: finalRow };
 }

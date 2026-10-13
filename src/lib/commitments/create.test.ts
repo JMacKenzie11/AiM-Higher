@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => {
     client: { from: fromBuilder },
     getEffectiveCompanyId: vi.fn(),
     isAdminForCompany: vi.fn(),
+    revalidatePath: vi.fn(),
   };
 });
 
@@ -41,7 +42,7 @@ vi.mock("@/lib/admin/scope", () => ({ getEffectiveCompanyId: mocks.getEffectiveC
 vi.mock("@/lib/auth/permissions", () => ({ isAdminForCompany: mocks.isAdminForCompany }));
 vi.mock("./clarity", () => ({ scoreCommitmentClarity: async () => null }));
 vi.mock("@/lib/analytics/track", () => ({ trackAfter: () => {} }));
-vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("@/lib/dates", () => ({
   todayInTimezone: () => ({ iso: "2026-10-02" }),
   addDays: (iso: string, n: number) => {
@@ -52,7 +53,7 @@ vi.mock("@/lib/dates", () => ({
   fridayOf: (iso: string) => `friday-of-${iso}`,
 }));
 
-import { createCommitment } from "./create";
+import { createCommitment, insertCommitment } from "./create";
 
 const session = { profile: { id: "u_me", role: "team_member", company_id: "co_acme" } } as never;
 
@@ -102,5 +103,31 @@ describe("createCommitment", () => {
 
   it("refuses an empty description", async () => {
     expect(await createCommitment(session, { description: "  ", dueDate: null })).toEqual({ ok: false, message: "Say what the commitment is." });
+  });
+});
+
+// The core, as a caller outside a page request uses it: a client it
+// is handed, a company it is told, no cookie and no page refresh.
+describe("insertCommitment", () => {
+  const writer = { db: mocks.client, profile: { id: "u_me", role: "team_member", company_id: "co_acme" } } as never;
+
+  it("writes on the client it is handed, for the company it is told", async () => {
+    const r = await insertCommitment(writer, { description: "Ship it", dueDate: "2026-10-05", companyId: "co_acme" });
+    expect(r.ok).toBe(true);
+    expect(mocks.inserted[0]).toMatchObject({ company_id: "co_acme", owner_id: "u_me" });
+    expect(mocks.getEffectiveCompanyId).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("refuses rather than reading a scope when no company is named", async () => {
+    const r = await insertCommitment(writer, { description: "Ship it", dueDate: "2026-10-05" });
+    expect(r).toEqual({ ok: false, message: "Pick a company scope first." });
+    expect(mocks.getEffectiveCompanyId).not.toHaveBeenCalled();
+    expect(mocks.inserted).toEqual([]);
+  });
+
+  it("keeps the caller as owner when a non-admin names someone else", async () => {
+    await insertCommitment(writer, { description: "Ship it", dueDate: "2026-10-05", companyId: "co_acme", ownerId: "u_other" });
+    expect(mocks.inserted[0]).toMatchObject({ owner_id: "u_me" });
   });
 });
