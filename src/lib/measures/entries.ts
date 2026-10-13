@@ -2,7 +2,10 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionProfile } from "@/lib/auth/current-user";
-import type { MetricValueType } from "@/lib/types";
+import { isAdminForCompany } from "@/lib/auth/permissions";
+import { thisFriday } from "@/lib/dates";
+import type { MetricValueType, UpdateFrequency } from "@/lib/types";
+import { checkEntryWeek } from "./entry-window";
 import {
   parseScale,
   parseTypedNumber,
@@ -19,7 +22,9 @@ import {
 // cookie or a request, so a caller outside a page request (an outside
 // assistant acting as the person) writes through the same rules on a
 // client signed in as that person. The entry rules decide who may
-// write which measure; the database stamps entered_by (0268).
+// write which measure; the database stamps entered_by (0268); and
+// every value meets the week rule in entry-window.ts, the same one the
+// grid opens its boxes by, before anything is written.
 
 export type LogEntryResult =
   | { ok: true; savedCount: number }
@@ -112,6 +117,53 @@ export async function writeMeasureEntries(
   }
 
   if (rows.length === 0) return { ok: true, savedCount: 0 };
+
+  // THE WEEK RULE, on the server. Each measure's rhythm, age and
+  // company, read on the caller's client: a measure they cannot see
+  // is one they cannot write.
+  const measureIds = Array.from(new Set(rows.map((r) => r.measure_id)));
+  const { data: measures } = await supabase
+    .from("success_measures")
+    .select("id, company_id, update_frequency, created_at")
+    .in("id", measureIds);
+  const measureById = new Map(
+    ((measures ?? []) as Array<{
+      id: string;
+      company_id: string;
+      update_frequency: UpdateFrequency | null;
+      created_at: string;
+    }>).map((m) => [m.id, m])
+  );
+  if (measureIds.some((id) => !measureById.has(id))) {
+    return { ok: false, message: "One of those measures isn't one you can see." };
+  }
+  const companyIds = Array.from(new Set(Array.from(measureById.values()).map((m) => m.company_id)));
+  const { data: companies } = await supabase
+    .from("companies")
+    .select("id, timezone")
+    .in("id", companyIds);
+  const timezoneOf = new Map(
+    ((companies ?? []) as Array<{ id: string; timezone: string | null }>).map((c) => [c.id, c.timezone])
+  );
+
+  // One row per stored week. A monthly value typed into any week of
+  // its month lands on the month's own week, so two of them are one
+  // value: the later one stands, as it would in the grid.
+  const byStoredWeek = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    const measure = measureById.get(row.measure_id)!;
+    const check = checkEntryWeek({
+      frequency: measure.update_frequency ?? "weekly",
+      createdAt: measure.created_at,
+      week: row.week_ending,
+      currentWeek: thisFriday(timezoneOf.get(measure.company_id) ?? "America/Anchorage"),
+      isAdmin: isAdminForCompany(profile, measure.company_id),
+    });
+    if (!check.ok) return { ok: false, message: check.message };
+    const stored = { ...row, week_ending: check.storageWeek };
+    byStoredWeek.set(`${stored.measure_id}|${stored.week_ending}`, stored);
+  }
+  rows.splice(0, rows.length, ...byStoredWeek.values());
 
   // One retry on Postgres statement timeout — Supabase dev
   // connections occasionally cold-start slow enough to trip the

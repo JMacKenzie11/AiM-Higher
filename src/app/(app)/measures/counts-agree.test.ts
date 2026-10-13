@@ -509,8 +509,11 @@ describe("a monthly measure spans its month", () => {
     // monthly value lives on the month's LAST week, so on the 3rd
     // that week is three weeks away and unwritable — which is exactly
     // what somebody asked to be able to do.
-    expect(code).toContain("const monthIsOpen = (row: GridRow, week: string)");
-    expect(code).toContain('row.frequency === "monthly"');
+    // The rule itself is shared with the server and proved, month and
+    // all, in lib/measures/entry-window.test.ts. What this pins is that
+    // the grid asks it, by the row's own frequency, rather than keeping
+    // a copy of its own that could drift.
+    expect(code).toContain("isEntryWeekOpen({ frequency: row.frequency, week, currentWeek: weekEnding, isAdmin })");
   });
 
   it("names the month, not a week, for a screen reader", () => {
