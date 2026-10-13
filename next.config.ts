@@ -77,6 +77,13 @@ const nextConfig: NextConfig = {
       // The lead meeting analysis PDF's fonts and logos, read from
       // disk by @react-pdf/renderer (src/lib/lead-analysis/pdf).
       "./src/lib/lead-analysis/pdf/assets/*",
+      // pdfkit (under @react-pdf/renderer) loads its built-in fonts
+      // through its package "imports" map (#standard-fonts/Helvetica)
+      // and reads js/data from disk, and tracing follows neither. On
+      // Vercel the first PDF died with "Cannot find module
+      // .../pdfkit/js/standard-fonts/Helvetica.cjs" (2026-10-13).
+      "./node_modules/pdfkit/js/standard-fonts/**/*",
+      "./node_modules/pdfkit/js/data/**/*",
     ],
   },
 };
