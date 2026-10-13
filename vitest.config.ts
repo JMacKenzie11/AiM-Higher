@@ -12,6 +12,10 @@ import path from "node:path";
 // module lets us import the same server-side modules from tests.
 
 export default defineConfig({
+  // JSX compiled for the tests that render components (the lead
+  // meeting analysis PDF). tsconfig says "preserve" because Next.js
+  // compiles it in the app, and Vite would otherwise leave it as is.
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",
     // scripts/ is included because the provisioning logic lives there:
