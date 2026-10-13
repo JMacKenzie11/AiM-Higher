@@ -849,6 +849,71 @@ exception when undefined_table then null; end $$;`;
   };
 }
 
+// Free meeting analyses for prospects (0265).
+//
+// Kept apart from every company, and read only by system admins.
+// Five claims, each against one case:
+//   1. a system admin, as themselves              inserts (want 1)
+//   2. the same, recording somebody else          refused (want 0)
+//   3. a company admin                            inserts nothing (want 0)
+//   4. a company admin, a guide, a member          read nothing (want 0)
+//   5. a system admin rewriting one               refused (want 0)
+// Red before 0265: the table does not exist, so claim 1 is 0.
+async function leadMeetingAnalyses(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "lead-meeting-analyses";
+  const hazard = "A prospect's meeting analysis is read or written by anyone but a system admin";
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const insert = (creator: string) => `insert into public.lead_meeting_analyses
+      (full_name, email, company_name, transcript_text, created_by)
+    values ('Harness Lead', 'harness@example.com', 'Harness Co', 'harness transcript', '${creator}');`;
+  const count = `select count(*)::int as n from public.lead_meeting_analyses where full_name = 'Harness Lead';`;
+  const n = async (parts: string[]): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(["begin;", pending, ...parts, "rollback;"].join("\n"));
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+  const as = (sub: string) => ["set local role authenticated;", claims(sub)];
+  const seeded = [...as(ids.systemAdmin), insert(ids.systemAdmin), "reset role;"];
+  const admin = await n([...as(ids.systemAdmin), insert(ids.systemAdmin), count]);
+  const asOther = await n([...as(ids.systemAdmin), insert(ids.companyAdmin), count]);
+  const companyAdminWrites = await n([...as(ids.companyAdmin), insert(ids.companyAdmin), count]);
+  const companyAdminReads = await n([...seeded, ...as(ids.companyAdmin), count]);
+  const guideReads = await n([...seeded, ...as(ids.guide), count]);
+  const memberReads = await n([...seeded, ...as(ids.member), count]);
+  const rewrite = await n([
+    ...as(ids.systemAdmin), insert(ids.systemAdmin),
+    `with u as (update public.lead_meeting_analyses set status = 'complete' where full_name = 'Harness Lead' returning id)
+     select count(*)::int as n from u;`,
+  ]);
+  const ok =
+    admin === 1 && asOther === 0 && companyAdminWrites === 0 &&
+    companyAdminReads === 0 && guideReads === 0 && memberReads === 0 && rewrite === 0;
+  const right =
+    `system admin as themselves: ${admin} (want 1) | as somebody else: ${asOther} (want 0) | ` +
+    `company admin inserts: ${companyAdminWrites} (want 0) | reads as company admin: ${companyAdminReads}, ` +
+    `guide: ${guideReads}, member: ${memberReads} (want 0 each) | system admin rewrites one: ${rewrite} (want 0)`;
+  return {
+    name,
+    hazard,
+    wrong: "a lead analysis read or written outside a system admin's own insert",
+    right,
+    ok,
+    detail: ok
+      ? "Only a system admin reads or records a lead analysis, as themselves; nobody rewrites one through the API."
+      : admin !== 1
+        ? `THE GRANT DOES NOT WORK: a system admin cannot record a lead analysis (is 0265 applied?). ${right}`
+        : right,
+  };
+}
+
 async function agentHubWrites(
   run: Runner,
   ids: Identities,
@@ -12210,6 +12275,10 @@ async function main(): Promise<void> {
     [
       "agent-principles-checks",
       (r: Runner, i: Identities) => agentPrinciplesChecks(r, i, pendingSql),
+    ],
+    [
+      "lead-meeting-analyses",
+      (r: Runner, i: Identities) => leadMeetingAnalyses(r, i, pendingSql),
     ],
     [
       "agent-versions-wall",

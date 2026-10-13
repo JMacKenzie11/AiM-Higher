@@ -1,0 +1,87 @@
+/* The free meeting analysis pages (/meetinganalysis). Everything else
+   comes from the shared admin styles. */
+
+.textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+  resize: vertical;
+}
+
+.textarea:focus-visible,
+.file:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.file {
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.or {
+  margin: 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.facts dt {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.facts dd {
+  margin: 0;
+  font: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.commitment {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.commitmentText {
+  font-weight: 600;
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.rewrite {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--accent);
+  font: var(--text-body-sm);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}

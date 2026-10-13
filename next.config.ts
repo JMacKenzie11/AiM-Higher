@@ -74,6 +74,9 @@ const nextConfig: NextConfig = {
       // AiMS in its own words, read by Aimee's about_aims tool
       // (src/lib/coach/aims-context.ts).
       "./docs/AiMSContext/GLOBAL*",
+      // The lead meeting analysis PDF's fonts and logos, read from
+      // disk by @react-pdf/renderer (src/lib/lead-analysis/pdf).
+      "./src/lib/lead-analysis/pdf/assets/*",
     ],
   },
 };

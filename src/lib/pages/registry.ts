@@ -115,6 +115,10 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/admin/classroom/trainings/[id]/edit", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/admin/dashboard", roles: ["system_admin"], feature: null, link: true },
   { pattern: "/admin/guides/[guideId]/hq", roles: ["system_admin"], feature: null, link: false },
+  // The free meeting analysis for prospects (0265). On no menu, by
+  // Jason's choice, so Aimee does not link to it either.
+  { pattern: "/meetinganalysis", roles: ["system_admin"], feature: null, link: false },
+  { pattern: "/meetinganalysis/[id]", roles: ["system_admin"], feature: null, link: false },
 ];
 
 export function canRoleOpen(entry: PageEntry, role: Role): boolean {

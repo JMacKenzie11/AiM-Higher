@@ -28,6 +28,7 @@ import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/sco
 import { generateMeetingQuestions } from "@/lib/leadership/questions";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
+import { COMMITMENT_CLARITY_RULES } from "./clarity-rules";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
@@ -909,11 +910,7 @@ From the transcript, extract every clear commitment a person made: who committed
 
 You will be given a company context block listing the valid roster (names + ids) and the open-quarter priorities (titles + ids). Match a commitment's owner to a roster person ONLY when the transcript makes it unambiguous — first name plus context, or an explicit full name. When ambiguous, return null for owner_profile_id. Match a commitment to a priority only when the connection is clearly stated in the transcript; otherwise return null for priority_id.
 
-For every extracted commitment, also score it on two clarity criteria (each is a boolean answered from the transcript alone — do not assume information the participants didn't state):
-- clarity_timeline: TRUE only when a specific deadline was stated or a "by end of week / by Friday" style anchor was agreed. Vague "soon" or "next few weeks" is FALSE.
-- clarity_success:  TRUE when the commitment names an observable outcome or artefact that will show it was fulfilled. Action verbs that produce a concrete artefact — "schedule", "send", "publish", "draft", "share", "post", "create", "assign", "book", "invite", "write", "email", "review and approve" — count as TRUE even when the verb is short, because the artefact (the invite, the document, the message) either exists or doesn't. Only mark FALSE for genuinely vague verbs with no artefact — "look into", "think about", "explore", "consider", "keep in mind", "reflect on". Assess clarity_success independently of clarity_timeline; a missing deadline never makes the success check FALSE by itself.
-
-When either is FALSE, provide a short (≤160 char) refinement suggestion in clarity_note that rewrites the commitment to satisfy both. When both are TRUE, set clarity_note to null.
+${COMMITMENT_CLARITY_RULES}
 
 Return strict JSON in exactly this shape and NOTHING ELSE (no prose, no code fences):
 
