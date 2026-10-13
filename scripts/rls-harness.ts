@@ -11093,6 +11093,61 @@ select count(*)::int as n from public.${table} where id = '${id}' and company_id
   }];
 }
 
+// ---- Who raised it, who entered it (0268) --------------------------
+//
+// issues.created_by and success_measure_entries.entered_by were taken
+// from the client. As a team member raising an issue, and as a company
+// admin entering and then changing a measure value, each naming
+// somebody else as the author:
+//   granted   the write lands
+//   withheld  the stored author is the caller, never the name supplied
+// Red before 0268: the supplied name is stored.
+async function authorStampProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "authorship · stamped, not supplied";
+  const [pick] = await run<{ measure: string | null }>(
+    `select (select m.id::text from public.success_measures m where m.company_id = '${ids.companyAdminCompany}' order by m.id limit 1) as measure;`
+  );
+  if (!pick?.measure) {
+    return [{ name, granted: "not attempted", withheld: "the company admin's company has no measure", ok: false, detail: "NOT PROVEN" }];
+  }
+  const issue = randomUUID();
+  const SOMEONE = ids.systemAdmin;
+  const WEEK = "2099-01-02";
+  const asOf = async (sub: string, stmt: string, readBack: string): Promise<string> => {
+    try {
+      const [r] = await run<{ v: string | null }>(asCaller(sub, pending, `${stmt};\nreset role;\n${readBack}`));
+      if (!r) return "no row";
+      return r.v === sub ? "caller" : r.v === SOMEONE ? "SUPPLIED NAME" : String(r.v);
+    } catch (err) {
+      return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 80)}`;
+    }
+  };
+  const issueAuthor = await asOf(
+    ids.member,
+    `insert into public.issues (id, company_id, title, created_by) values ('${issue}', '${ids.memberCompany}', 'harness 0268', '${SOMEONE}')`,
+    `select created_by::text as v from public.issues where id = '${issue}';`
+  );
+  const entryRead = `select entered_by::text as v from public.success_measure_entries where measure_id = '${pick.measure}' and week_ending = '${WEEK}';`;
+  const entryInsert = `insert into public.success_measure_entries (measure_id, week_ending, value_number, entered_by) values ('${pick.measure}', '${WEEK}', 7, '${SOMEONE}')`;
+  const entryAuthor = await asOf(ids.companyAdmin, entryInsert, entryRead);
+  const entryChanged = await asOf(
+    ids.companyAdmin,
+    `${entryInsert} on conflict (measure_id, week_ending) do nothing;
+update public.success_measure_entries set value_number = 8, entered_by = '${SOMEONE}' where measure_id = '${pick.measure}' and week_ending = '${WEEK}'`,
+    entryRead
+  );
+  const ok = issueAuthor === "caller" && entryAuthor === "caller" && entryChanged === "caller";
+  return [{
+    name,
+    granted: `issue raised, entry written, entry changed: each lands (an author was read back for all three)`,
+    withheld: `stored author of the issue: ${issueAuthor}, new entry: ${entryAuthor}, changed entry: ${entryChanged} (want caller each)`,
+    ok,
+    detail: ok
+      ? "an issue's creator and a measure value's author are whoever made the write, whatever name the request supplied"
+      : "AN ISSUE OR A MEASURE VALUE CAN BE WRITTEN IN SOMEBODY ELSE'S NAME (is 0268 applied?)",
+  }];
+}
+
 // ---- A mark that only rewording clears (0250) ---------------------
 //
 // needs_rewording on commitments and issues is set when the row is
@@ -12589,6 +12644,7 @@ async function main(): Promise<void> {
   const contractProbes = await connectorContractProbes(run, pendingSql);
   const hubspotProbes = await hubspotRecipeProbes(run, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
+  const authorStamps = await authorStampProbes(run, ids, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const companyStays = await companyStaysProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -12599,7 +12655,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12690,6 +12746,7 @@ async function main(): Promise<void> {
     probes.some((p) => !p.ok) ||
     panelEvents.some((p) => !p.ok) ||
     timeouts.some((p) => !p.ok) ||
+    authorStamps.some((p) => !p.ok) ||
     fromAimee.some((p) => !p.ok) ||
     vaultProbes.some((p) => !p.ok) ||
     plaintextProbes.some((p) => !p.ok) ||
