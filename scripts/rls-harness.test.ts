@@ -19,6 +19,8 @@ import {
   planFacts,
   probeVerdict,
   projectRef,
+  pullLogMutationPolicies,
+  requiredAssistantRules,
   summaryLines,
   type BatchCheck,
   type CaseResult,
@@ -857,5 +859,46 @@ describe("cloneLag with --pending", () => {
       pending: [" 0190_y.sql "],
     });
     expect(lag.behind).toEqual([]);
+  });
+});
+
+describe("pullLogMutationPolicies", () => {
+  const row = (policyname: string, cmd: string, permissive?: string) => ({
+    tablename: "external_pull_log", policyname, cmd, permissive, qual: null, with_check: null,
+  });
+
+  it("finds a permissive write rule, and ignores a restrictive one that only takes access away", () => {
+    expect(
+      pullLogMutationPolicies([
+        row("zz_pull_log_canary", "UPDATE", "PERMISSIVE"),
+        row("assistant_refused", "ALL", "RESTRICTIVE"),
+        row("external_pull_log_select", "SELECT", "PERMISSIVE"),
+      ])
+    ).toEqual(["external_pull_log.zz_pull_log_canary (UPDATE)"]);
+  });
+});
+
+describe("requiredAssistantRules", () => {
+  it("refuses everything off the menu, in public and in storage", () => {
+    expect(requiredAssistantRules("public", "coaching_conversations")).toEqual(["assistant_refused:ALL"]);
+    expect(requiredAssistantRules("storage", "objects")).toEqual(["assistant_refused:ALL"]);
+  });
+
+  it("leaves a menu read open and refuses its writes", () => {
+    expect(requiredAssistantRules("public", "profiles")).toEqual([
+      "assistant_no_delete:DELETE", "assistant_no_insert:INSERT", "assistant_no_update:UPDATE",
+    ]);
+  });
+
+  it("narrows the three adds instead of refusing them", () => {
+    expect(requiredAssistantRules("public", "issues")).toEqual([
+      "assistant_insert:INSERT", "assistant_no_delete:DELETE", "assistant_no_update:UPDATE",
+    ]);
+  });
+
+  it("opens meetings only through the summary function", () => {
+    expect(requiredAssistantRules("public", "meetings")).toEqual([
+      "assistant_no_delete:DELETE", "assistant_no_insert:INSERT", "assistant_no_update:UPDATE", "assistant_summaries_only:SELECT",
+    ]);
   });
 });

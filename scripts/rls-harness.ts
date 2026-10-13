@@ -7592,6 +7592,10 @@ export type PolicyRow = {
   // Present on the live query; optional so the pure matchers above can
   // still be unit-tested with hand-made rows that have no command.
   cmd?: string;
+  // PERMISSIVE or RESTRICTIVE, where the query asks. A restrictive
+  // policy only ever takes access away (0270's assistant rules are
+  // all restrictive), so it can never be the write a matcher hunts.
+  permissive?: string;
 };
 
 // MATCHES THE DEPARSED SPELLING, NOT THE ONE PEOPLE TYPE.
@@ -7987,6 +7991,7 @@ create policy zz_pull_log_canary on public.external_pull_log
 export function pullLogMutationPolicies(rows: readonly PolicyRow[]): string[] {
   return rows
     .filter((r) => r.tablename === "external_pull_log")
+    .filter((r) => r.permissive !== "RESTRICTIVE")
     .filter((r) => r.cmd === "UPDATE" || r.cmd === "DELETE" || r.cmd === "ALL")
     .map((r) => `${r.tablename}.${r.policyname} (${r.cmd})`);
 }
@@ -7996,7 +8001,7 @@ async function externalPullLogCheck(
   pending: string
 ): Promise<BatchCheck> {
   const POLICY_QUERY = `
-    select tablename, policyname, cmd, qual, with_check
+    select tablename, policyname, cmd, permissive, qual, with_check
       from pg_policies where schemaname = 'public'
      order by tablename, policyname;`;
 
@@ -10732,6 +10737,330 @@ async function companyContentProbes(run: Runner, pending: string): Promise<Grant
   }];
 }
 
+// ---- An outside assistant gets the menu and nothing else (0270) ----
+//
+// Jason, 2026-10-13: an allow list, not a block list. A token carrying
+// a client_id (one Supabase's OAuth server issued to an outside
+// assistant) is refused on every table and every database function
+// except the menu. Kept in step with 0270 by hand, deliberately: widen
+// the menu in a migration without widening it here and the coverage
+// check fails, and the other way round.
+export const ASSISTANT_MENU = {
+  // Readable through the table's own rules. No insert, update or
+  // delete, except the adds.
+  read: [
+    "commitments", "commitment_occurrences", "issues",
+    "success_measures", "success_measure_entries", "success_measure_targets",
+    "functions", "function_roles", "function_decision_rights", "function_competencies",
+    "companies", "profiles", "guide_assignments", "portfolio_assignments",
+  ],
+  // Insertable, narrowed to a fresh row (assistant_insert).
+  add: ["commitments", "issues", "success_measure_entries"],
+  // Readable only inside assistant_meeting_summaries().
+  summaries: ["meetings", "meeting_analyses"],
+  // The only functions the gate lets an assistant call.
+  rpc: ["assistant_meeting_summaries"],
+} as const;
+
+// The restrictive rules a table must carry, by where it sits on the menu.
+export function requiredAssistantRules(schema: string, table: string): string[] {
+  const m = ASSISTANT_MENU;
+  if (schema !== "public" || !([...m.read, ...m.summaries] as readonly string[]).includes(table)) {
+    return ["assistant_refused:ALL"];
+  }
+  const rules = ["assistant_no_update:UPDATE", "assistant_no_delete:DELETE"];
+  rules.push((m.add as readonly string[]).includes(table) ? "assistant_insert:INSERT" : "assistant_no_insert:INSERT");
+  if ((m.summaries as readonly string[]).includes(table)) rules.push("assistant_summaries_only:SELECT");
+  return rules.sort();
+}
+
+const ASSISTANT_CLAIMS = (sub: string) =>
+  `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated","client_id":"harness-assistant"}';`;
+
+// Coverage. Every table in public and storage carries exactly the
+// rules its place on the menu requires, each testing is_assistant();
+// every function an API caller could name is refused by the gate
+// except the menu's; the gate is wired to PostgREST. Two plants, so a
+// clean result means something: a table whose refusal was removed
+// must be named, and a brand-new table must arrive with one (the event
+// trigger).
+async function assistantAllowListCoverage(run: Runner, pending: string): Promise<GrantProbe[]> {
+  const out: GrantProbe[] = [];
+  const plant = `
+create table public.zz_harness_assistant_plant (id int);
+create table public.zz_harness_assistant_born (id int);
+drop policy if exists assistant_refused on public.zz_harness_assistant_plant;
+create function public.zz_harness_assistant_fn() returns int language sql as 'select 1';
+grant execute on function public.zz_harness_assistant_fn() to authenticated;`;
+
+  // ---- tables
+  let tableRows: Array<{ s: string; r: string; rls: boolean; rules: string[] | null; quals: string | null; permissive: number }> = [];
+  try {
+    tableRows = await run(["begin;", pending, plant, `
+select n.nspname as s, c.relname as r, c.relrowsecurity as rls,
+       (select array_agg(p.policyname || ':' || p.cmd order by p.policyname, p.cmd)
+          from pg_policies p
+         where p.schemaname = n.nspname and p.tablename = c.relname
+           and p.permissive = 'RESTRICTIVE' and p.policyname like 'assistant\\_%') as rules,
+       (select string_agg(coalesce(p.qual, '') || coalesce(p.with_check, ''), ' ')
+          from pg_policies p
+         where p.schemaname = n.nspname and p.tablename = c.relname
+           and p.permissive = 'RESTRICTIVE' and p.policyname like 'assistant\\_%') as quals,
+       (select count(*)::int from pg_policies p
+         where p.schemaname = n.nspname and p.tablename = c.relname and p.permissive = 'PERMISSIVE') as permissive
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+ where c.relkind in ('r', 'p') and n.nspname in ('public', 'storage')
+ order by 1, 2;`, "rollback;"].join("\n"));
+  } catch (err) {
+    out.push({ name: "assistant allow list · every table", granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 120)}` });
+  }
+  if (tableRows.length > 0) {
+    const wrong: string[] = [];
+    for (const t of tableRows) {
+      if (t.r === "zz_harness_assistant_plant") continue;
+      const want = requiredAssistantRules(t.s, t.r).join(",");
+      const got = (t.rules ?? []).join(",");
+      const rlsOk = t.rls || t.s === "storage";
+      const testsAssistant = (t.quals ?? "").split("is_assistant").length - 1 >= (t.rules ?? []).length;
+      // A storage table only Storage's own role may change is closed to
+      // every signed-in caller when it has RLS on and no permissive rule
+      // at all; 0270 relies on that, and fails if it stops being true.
+      const closedToAll = t.s === "storage" && t.rls && t.permissive === 0 && got === "";
+      if (closedToAll) continue;
+      if (!rlsOk || got !== want || !testsAssistant) wrong.push(`${t.s}.${t.r} (has ${got || "none"}, needs ${want})`);
+    }
+    const missingFromDb = [...ASSISTANT_MENU.read, ...ASSISTANT_MENU.summaries].filter(
+      (name) => !tableRows.some((t) => t.s === "public" && t.r === name)
+    );
+    const plantRow = tableRows.find((t) => t.r === "zz_harness_assistant_plant");
+    const bornRow = tableRows.find((t) => t.r === "zz_harness_assistant_born");
+    const plantCaught = plantRow ? (plantRow.rules ?? []).join(",") !== requiredAssistantRules("public", plantRow.r).join(",") : false;
+    const bornRefused = (bornRow?.rules ?? []).join(",") === "assistant_refused:ALL";
+    const checked = tableRows.length - 2;
+    const ok = wrong.length === 0 && missingFromDb.length === 0 && plantCaught && bornRefused;
+    out.push({
+      name: "assistant allow list · every table",
+      granted: `${checked} tables in public and storage checked; menu tables present: ${missingFromDb.length === 0 ? "all" : `MISSING ${missingFromDb.join(", ")}`}`,
+      withheld: `tables without the rule their place needs: ${wrong.length === 0 ? "none" : wrong.slice(0, 6).join("; ") + (wrong.length > 6 ? ` …and ${wrong.length - 6} more` : "")} | planted table with its refusal removed: ${plantCaught ? "caught" : "MISSED"} | a new table: ${bornRefused ? "born refusing" : "NOT REFUSED"}`,
+      ok,
+      detail: ok
+        ? "every table carries the assistant rule its place on the menu requires, and a new table is born refusing"
+        : "A TABLE IS MISSING ITS ASSISTANT RULE, or the check cannot see one (is 0270 applied?)",
+    });
+  }
+
+  // ---- functions and entry points
+  let gate: { allowed: string | null; refused: number; total: number; config: string | null; paths: string; app: string } | undefined;
+  try {
+    [gate] = await run(["begin;", pending, plant, `
+create temp table _gate (kind text, item text, outcome text) on commit drop;
+do $$
+declare f record; outcome text;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated","client_id":"harness-assistant"}', true);
+  for f in
+    select distinct p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname in ('public', 'graphql_public') and p.prokind = 'f'
+       and p.prorettype <> 'trigger'::regtype and p.prorettype <> 'event_trigger'::regtype
+       and has_function_privilege('authenticated', p.oid, 'execute')
+  loop
+    perform set_config('request.method', 'POST', true);
+    perform set_config('request.path', '/rpc/' || f.proname, true);
+    begin
+      perform public.assistant_request_gate();
+      outcome := 'allowed';
+    exception when insufficient_privilege then outcome := 'refused';
+    end;
+    insert into _gate values ('rpc', f.proname, outcome);
+  end loop;
+  for f in
+    select * from (values ('GET','/commitments'), ('HEAD','/issues'), ('POST','/commitments'), ('POST','/issues'),
+                          ('POST','/success_measure_entries'), ('GET','/rpc/assistant_meeting_summaries'),
+                          ('PATCH','/commitments'), ('DELETE','/commitments'), ('GET','/coaching_conversations'),
+                          ('GET','/meetings'), ('POST','/rpc/graphql'), ('GET','/'), ('POST','/notifications'),
+                          ('GET','/priority_progress')) v(m, p)
+  loop
+    perform set_config('request.method', f.m, true);
+    perform set_config('request.path', f.p, true);
+    begin
+      perform public.assistant_request_gate();
+      outcome := 'allowed';
+    exception when insufficient_privilege then outcome := 'refused';
+    end;
+    insert into _gate values ('path', f.m || ' ' || f.p, outcome);
+  end loop;
+  -- The app's own sign-in, through the same gate: never refused.
+  perform set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  perform set_config('request.method', 'POST', true);
+  perform set_config('request.path', '/rpc/record_coach_memory', true);
+  begin
+    perform public.assistant_request_gate();
+    insert into _gate values ('app', 'POST /rpc/record_coach_memory', 'allowed');
+  exception when insufficient_privilege then insert into _gate values ('app', 'POST /rpc/record_coach_memory', 'refused');
+  end;
+end $$;
+select (select string_agg(item, ',' order by item) from _gate where kind = 'rpc' and outcome = 'allowed') as allowed,
+       (select count(*)::int from _gate where kind = 'rpc' and outcome = 'refused') as refused,
+       (select count(*)::int from _gate where kind = 'rpc') as total,
+       (select string_agg(c, ',') from pg_roles r, unnest(r.rolconfig) c where r.rolname = 'authenticator' and c like 'pgrst.db_pre_request=%') as config,
+       (select string_agg(item || ' ' || outcome, '; ' order by item) from _gate where kind = 'path') as paths,
+       (select outcome from _gate where kind = 'app') as app;`, "rollback;"].join("\n"));
+  } catch (err) {
+    out.push({ name: "assistant allow list · every function", granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` });
+  }
+  if (gate) {
+    const wantAllowed = [...ASSISTANT_MENU.rpc].sort().join(",");
+    const pathOutcome = (mp: string) =>
+      gate!.paths.split("; ").find((x) => x.startsWith(`${mp} `))?.slice(mp.length + 1);
+    const menuPaths = ["GET /commitments", "HEAD /issues", "POST /commitments", "POST /issues", "POST /success_measure_entries", "GET /rpc/assistant_meeting_summaries"];
+    const offPaths = ["PATCH /commitments", "DELETE /commitments", "GET /coaching_conversations", "GET /meetings", "POST /rpc/graphql", "POST /notifications", "GET /priority_progress", "GET /"];
+    const menuOk = menuPaths.every((p) => pathOutcome(p) === "allowed");
+    const offOk = offPaths.every((p) => pathOutcome(p) === "refused");
+    const ok = (gate.allowed ?? "") === wantAllowed && gate.refused === gate.total - 1 &&
+      gate.config === "pgrst.db_pre_request=public.assistant_request_gate" && menuOk && offOk && gate.app === "allowed";
+    out.push({
+      name: "assistant allow list · every function",
+      granted: `functions an assistant may call: ${gate.allowed ?? "none"} (want ${wantAllowed}) | menu paths: ${menuOk ? "allowed" : "SOME REFUSED"} | the app's own sign-in through the gate: ${gate.app}`,
+      withheld: `functions refused: ${gate.refused} of ${gate.total} callable by a signed-in user, the planted one among them | off-menu paths: ${offOk ? "refused" : "SOME ALLOWED"} | gate wired: ${gate.config ?? "NO"}`,
+      ok,
+      detail: ok
+        ? "an assistant may call one function and the menu's paths, every other function and path is refused before it runs, and the app is not"
+        : `THE GATE LETS AN ASSISTANT REACH SOMETHING OFF THE MENU, or refuses the app (paths: ${gate.paths})`,
+    });
+  }
+  return out;
+}
+
+// Behaviour, as one person with and without an assistant's client_id.
+// The same rows decide both; the only difference is the claim.
+//   reads     the menu reads the same with and without it; their own
+//             Aimee conversation and notification read 0 with it; a
+//             meeting reads 0 directly and comes back, without its
+//             transcript, through the summary function
+//   adds      their own open commitment, an open issue and a new
+//             measure value land; a commitment for somebody else, one
+//             already kept, a resolved issue, and a value over an
+//             existing week are refused
+//   never     updating or deleting their own commitment, or changing a
+//             value, reaches 0 rows (and does reach 1 without the
+//             claim, so the refusal is the assistant rule's)
+// Red before 0270: every off-menu read and write lands.
+async function assistantAllowListBehaviour(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const M = ids.member;
+  const CO = ids.memberCompany;
+  const A = ids.companyAdmin;
+  const ACO = ids.companyAdminCompany;
+  const [pick] = await run<{ measure: string | null }>(
+    `select (select m.id::text from public.success_measures m where m.company_id = '${ACO}' order by m.id limit 1) as measure;`
+  );
+  if (!pick?.measure) {
+    return [{ name: "assistant allow list · as the person", granted: "not attempted", withheld: "the company admin's company has no measure", ok: false, detail: "NOT PROVEN" }];
+  }
+  const row = { commitment: randomUUID(), conversation: randomUUID(), meeting: randomUUID() };
+  const WEEK = "2099-01-02";
+  const setup = `${pending}
+insert into public.commitments (id, company_id, owner_id, description, week_ending, due_date, status)
+values ('${row.commitment}', '${CO}', '${M}', 'harness 0270 mine', current_date, current_date, 'open');
+insert into public.coaching_conversations (id, company_id, created_by, title, mode)
+values ('${row.conversation}', '${CO}', '${M}', 'harness 0270 private', 'general');
+insert into public.notifications (recipient_id, company_id, kind, href, title)
+values ('${M}', '${CO}', 'harness', '/dashboard', 'harness 0270');
+insert into public.meetings (id, company_id, provider_file_id, file_name, content_hash, transcript_text, meeting_title, status)
+values ('${row.meeting}', '${CO}', 'harness-0270', 'harness.txt', 'harness-0270', 'HARNESS SECRET TRANSCRIPT', 'harness 0270 meeting', 'complete');
+insert into public.meeting_analyses (meeting_id, analysis_markdown, model, facilitation_review_json)
+values ('${row.meeting}', 'harness 0270 summary', 'harness', '{"secret":"HARNESS SECRET REVIEW"}');
+insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${pick.measure}', '2098-12-26', 1);`;
+
+  const as = async (sub: string, assistant: boolean, stmt: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>([
+        "begin;", setup, "set local role authenticated;",
+        assistant ? ASSISTANT_CLAIMS(sub) : `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`,
+        stmt, "rollback;",
+      ].join("\n"));
+      const v = rows[0] ? Object.values(rows[0])[0] : "no row";
+      return String(v);
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/row-level security|42501/i.test(msg)) return "refused";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 70)}`;
+    }
+  };
+  const count = (from: string) => `select count(*)::int as n from ${from};`;
+  const wrote = (stmt: string) => `with w as (${stmt} returning 1) select count(*)::int as n from w;`;
+
+  // Reads: the menu the same either way; private reads to 0.
+  const menuTables = ["public.commitments", "public.issues", "public.success_measures", "public.functions", "public.profiles", "public.companies"];
+  const menuWith: string[] = [];
+  const menuWithout: string[] = [];
+  for (const t of menuTables) {
+    menuWithout.push(await as(M, false, count(t)));
+    menuWith.push(await as(M, true, count(t)));
+  }
+  const menuSame = menuWith.join(",") === menuWithout.join(",") && menuWithout.every((n) => Number(n) > 0);
+  const privateRead = async (from: string) => [await as(M, false, count(from)), await as(M, true, count(from))].join("→");
+  const conversation = await privateRead(`public.coaching_conversations where id = '${row.conversation}'`);
+  const notification = await privateRead(`public.notifications where recipient_id = '${M}' and title = 'harness 0270'`);
+  const meetingDirect = await privateRead(`public.meetings where id = '${row.meeting}'`);
+  const analysisDirect = await privateRead(`public.meeting_analyses where meeting_id = '${row.meeting}'`);
+  const summary = await as(M, true,
+    `select coalesce((select summary from public.assistant_meeting_summaries('${CO}', 20) where meeting_id = '${row.meeting}'), 'none') as s;`);
+  const summaryLeaks = await as(M, true,
+    `select count(*)::int as n from public.assistant_meeting_summaries('${CO}', 20) s where s::text ilike '%HARNESS SECRET%';`);
+
+  // Adds.
+  const ownCommitment = await as(M, true, wrote(`insert into public.commitments (company_id, owner_id, description, week_ending, due_date) values ('${CO}', '${M}', 'harness 0270 added', current_date, current_date)`));
+  const othersCommitment = await as(A, true, wrote(`insert into public.commitments (company_id, owner_id, description, week_ending, due_date) values ('${ACO}', (select id from public.profiles where company_id = '${ACO}' and id <> '${A}' and status = 'active' limit 1), 'harness 0270 theirs', current_date, current_date)`));
+  const keptCommitment = await as(M, true, wrote(`insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status, completed_at) values ('${CO}', '${M}', 'harness 0270 kept', current_date, current_date, 'kept_on_time', now())`));
+  const openIssue = await as(M, true, wrote(`insert into public.issues (company_id, title) values ('${CO}', 'harness 0270 issue')`));
+  const resolvedIssue = await as(M, true, wrote(`insert into public.issues (company_id, title, status, resolved_at) values ('${CO}', 'harness 0270 resolved', 'resolved', now())`));
+  const newValue = await as(A, true, wrote(`insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${pick.measure}', '${WEEK}', 5)`));
+  const overValue = await as(A, true, wrote(`insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${pick.measure}', '2098-12-26', 9) on conflict (measure_id, week_ending) do update set value_number = excluded.value_number`));
+
+  // Never: reaches nothing with the claim, reaches the row without it.
+  const pair = async (sub: string, stmt: string) => [await as(sub, false, wrote(stmt)), await as(sub, true, wrote(stmt))].join("→");
+  const markKept = await pair(M, `update public.commitments set status = 'kept_on_time', completed_at = now(), resolved_by_role = 'owner' where id = '${row.commitment}'`);
+  const deleteOwn = await pair(M, `delete from public.commitments where id = '${row.commitment}'`);
+  const changeValue = await pair(A, `update public.success_measure_entries set value_number = 2 where measure_id = '${pick.measure}' and week_ending = '2098-12-26'`);
+
+  const readsOk = menuSame && conversation === "1→0" && notification === "1→0" && meetingDirect === "1→0" &&
+    analysisDirect === "1→0" && summary === "harness 0270 summary" && summaryLeaks === "0";
+  const addsOk = ownCommitment === "1" && othersCommitment === "refused" && keptCommitment === "refused" &&
+    openIssue === "1" && resolvedIssue === "refused" && newValue === "1" && overValue === "refused";
+  const neverOk = markKept === "1→0" && deleteOwn === "1→0" && changeValue === "1→0";
+  return [
+    {
+      name: "assistant allow list · reads as the person",
+      granted: `menu tables (${menuTables.map((t) => t.replace("public.", "")).join(", ")}) with the claim ${menuWith.join(",")} = without ${menuWithout.join(",")} | a meeting summary through the function: ${summary}`,
+      withheld: `own Aimee conversation ${conversation}, own notification ${notification}, a meeting read directly ${meetingDirect}, its analysis ${analysisDirect} (want 1→0 each, without→with) | transcript or review text in what the function returns: ${summaryLeaks} (want 0)`,
+      ok: readsOk,
+      detail: readsOk
+        ? "an assistant reads the menu exactly as the person does, and nothing private: not their own Aimee conversation, not a transcript"
+        : "AN ASSISTANT READS OFF THE MENU, or reads the menu differently from the person (is 0270 applied?)",
+    },
+    {
+      name: "assistant allow list · the three adds",
+      granted: `own open commitment ${ownCommitment}, open issue ${openIssue}, new measure value ${newValue} (want 1 each)`,
+      withheld: `a commitment for somebody else ${othersCommitment}, one already kept ${keptCommitment}, a resolved issue ${resolvedIssue}, a value over an existing week ${overValue} (want refused each)`,
+      ok: addsOk,
+      detail: addsOk
+        ? "an assistant adds the person's own open commitment, an open issue and a new value, and nothing dressed as more"
+        : "AN ASSISTANT'S ADD IS REFUSED, or a dressed-up add lands (is 0270 applied?)",
+    },
+    {
+      name: "assistant allow list · never update or delete",
+      granted: `the same statements without the claim reach the row: mark kept ${markKept.split("→")[0]}, delete ${deleteOwn.split("→")[0]}, change a value ${changeValue.split("→")[0]}`,
+      withheld: `with the claim: mark own commitment kept ${markKept.split("→")[1]}, delete it ${deleteOwn.split("→")[1]}, change a value ${changeValue.split("→")[1]} (want 0 each)`,
+      ok: neverOk,
+      detail: neverOk
+        ? "an assistant cannot mark a commitment kept, delete one, or change a value; the person can, so the refusal is the assistant rule's"
+        : "AN ASSISTANT CAN UPDATE OR DELETE, or the control did not reach the row (is 0270 applied?)",
+    },
+  ];
+}
+
 // ---- Raw strengths answers stay the person's (0267) ---------------
 //
 // 0253 kept a person's raw strengths answers (strengths_responses) and
@@ -12717,12 +13046,16 @@ async function main(): Promise<void> {
   const companyContent = await companyContentProbes(run, pendingSql);
   const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
   const strengthsPersonOnly = await strengthsAnswersPersonOnlyProbes(run, ids, pendingSql);
+  const assistant = [
+    ...(await assistantAllowListCoverage(run, pendingSql)),
+    ...(await assistantAllowListBehaviour(run, ids, pendingSql)),
+  ];
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...assistant, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12826,6 +13159,7 @@ async function main(): Promise<void> {
     companyContent.some((p) => !p.ok) ||
     strengthsAnswers.some((p) => !p.ok) ||
     strengthsPersonOnly.some((p) => !p.ok) ||
+    assistant.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);
