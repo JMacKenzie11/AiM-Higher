@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Server-action tests for src/lib/measures/actions.ts. Two behaviors
 // carry most of the risk here: the blank-row skip (so partial saves
@@ -12,9 +12,18 @@ const mocks = vi.hoisted(() => {
   // .from("success_measure_entries").upsert(rows, { onConflict: ... })
   const entriesUpsert = vi.fn();
 
+  // The measures the caller can see, with their rhythm and age, and
+  // their company's timezone: what the week rule reads.
+  const measures = vi.fn();
   const fromBuilder = (table: string) => {
     if (table === "success_measure_entries") {
       return { upsert: entriesUpsert };
+    }
+    if (table === "success_measures") {
+      return { select: () => ({ in: measures }) };
+    }
+    if (table === "companies") {
+      return { select: () => ({ in: async () => ({ data: [{ id: "co_acme", timezone: "America/Anchorage" }] }) }) };
     }
     throw new Error(`Unexpected table in test: ${table}`);
   };
@@ -26,6 +35,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     entriesUpsert,
+    measures,
     serverClient,
     requireProfile,
     scoreMeasureDraft,
@@ -55,6 +65,12 @@ function primeHappyPath() {
     profile: { id: "user_1", role: "team_member", company_id: "co_acme" },
   });
   mocks.entriesUpsert.mockResolvedValue({ error: null });
+  // Every measure the tests name, weekly and long-standing.
+  mocks.measures.mockImplementation(async (_col: string, ids: string[]) => ({
+    data: ids
+      .filter((id) => id !== "m_hidden")
+      .map((id) => ({ id, company_id: "co_acme", update_frequency: "weekly", created_at: "2025-01-01T00:00:00Z" })),
+  }));
 }
 
 // ==============================================================
@@ -64,6 +80,41 @@ describe("logMeasureEntriesAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     primeHappyPath();
+    // The tests write for the week ending Friday 14 August 2026, so it
+    // is that week: open to everyone.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-13T20:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("refuses a week that is no longer open, and writes nothing", async () => {
+    const { logMeasureEntriesAction } = await import("./actions");
+
+    const res = await logMeasureEntriesAction(
+      [{ measureId: "m1", valueType: "number", rawValue: "5", weekEnding: "2026-07-31" }],
+      "2026-08-14"
+    );
+
+    expect(res).toEqual({
+      ok: false,
+      message: "Only this week and last week are open. An admin can change an older week.",
+    });
+    expect(mocks.entriesUpsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses a measure the caller cannot see", async () => {
+    const { logMeasureEntriesAction } = await import("./actions");
+
+    const res = await logMeasureEntriesAction(
+      [{ measureId: "m_hidden", valueType: "number", rawValue: "5" }],
+      "2026-08-14"
+    );
+
+    expect(res).toEqual({ ok: false, message: "One of those measures isn't one you can see." });
+    expect(mocks.entriesUpsert).not.toHaveBeenCalled();
   });
 
   it("rejects a missing or malformed week (must be YYYY-MM-DD)", async () => {
