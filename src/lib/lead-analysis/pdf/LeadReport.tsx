@@ -85,30 +85,39 @@ const s = StyleSheet.create({
     paddingHorizontal: 54,
     fontFamily: "Figtree",
     fontSize: 10.5,
-    lineHeight: 1.55,
     color: C.midnight,
   },
-  header: {
+  // The reading text's line spacing, 1.55 x 10.5, on the content and in
+  // points. Not on the page: see the header's note.
+  content: { lineHeight: "16.3pt" },
+  // THE HEADER AND FOOTER ARE SEPARATE PINNED PIECES, each with a fixed
+  // size, never a row of children inside one fixed View. That row form
+  // broke on long reports: @react-pdf/renderer re-lays a fixed element
+  // out on every page a section continues onto, and the footer row (with
+  // its page-number line) grew about 64 times per page until pdfkit
+  // refused the number ("unsupported number: -9.6e+21") and the PDF route
+  // returned a blank page. First seen on a real 37-page report,
+  // 2026-10-13; lead-report.test.tsx renders a long one to hold it.
+  headerLogo: { position: "absolute", top: 20, left: 54, width: 30, height: 30 },
+  headerText: {
     position: "absolute",
-    top: 24,
-    left: 54,
+    top: 31,
     right: 54,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    width: 420,
+    height: 10,
+    textAlign: "right",
+    fontFamily: "Inter",
+    fontSize: 8,
+    fontWeight: 700,
+    letterSpacing: 1.4,
+    color: C.muted,
+    textTransform: "uppercase",
   },
-  headerLogo: { width: 30, height: 30 },
-  headerText: { fontFamily: "Inter", fontSize: 8, fontWeight: 700, letterSpacing: 1.4, color: C.muted, textTransform: "uppercase" },
-  footer: {
+  headerRule: { position: "absolute", top: 56, left: 54, right: 54, height: 1, backgroundColor: C.border },
+  footerText: {
     position: "absolute",
     bottom: 24,
-    left: 54,
-    right: 54,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    height: 10,
     fontFamily: "Inter",
     fontSize: 8,
     color: C.faint,
@@ -201,20 +210,21 @@ function PageFrame({
 }) {
   return (
     <Page size="LETTER" style={s.page}>
-      <View style={s.header} fixed>
-        {/* eslint-disable-next-line jsx-a11y/alt-text -- a react-pdf Image, not an <img>: it has no alt prop */}
-        <Image src={path.join(ASSETS, "logo-navy.png")} style={s.headerLogo} />
-        <Text style={s.headerText}>
-          {section} {"·"} {row.company_name}
-        </Text>
-      </View>
-      {children}
-      <View style={s.footer} fixed>
-        <Text>
-          Prepared for {row.full_name}, {row.company_name}
-        </Text>
-        <Text render={({ pageNumber, totalPages }) => `The AiMS Institute · ${pageNumber} of ${totalPages}`} />
-      </View>
+      {/* eslint-disable-next-line jsx-a11y/alt-text -- a react-pdf Image, not an <img>: it has no alt prop */}
+      <Image src={path.join(ASSETS, "logo-navy.png")} style={s.headerLogo} fixed />
+      <Text style={s.headerText} fixed>
+        {section} {"\u00b7"} {row.company_name}
+      </Text>
+      <View style={s.headerRule} fixed />
+      <View style={s.content}>{children}</View>
+      <Text style={[s.footerText, { left: 54, width: 330 }]} fixed>
+        Prepared for {row.full_name}, {row.company_name}
+      </Text>
+      <Text
+        style={[s.footerText, { right: 54, width: 170, height: undefined, textAlign: "right" }]}
+        fixed
+        render={({ pageNumber, totalPages }) => `The AiMS Institute \u00b7 ${pageNumber} of ${totalPages}`}
+      />
     </Page>
   );
 }
