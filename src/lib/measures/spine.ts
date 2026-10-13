@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDays, thisFriday } from "@/lib/dates";
 import { storageWeekFor } from "./frequency";
+import { GRID_WEEKS } from "./entry-window";
 import type {
   MetricValueType,
   TargetDirection,
@@ -58,19 +59,9 @@ import type { MeasureScale } from "./value-format";
 
 export const BOARD_WEEKS = 13;
 
-// How far back /measures scrolls: a rolling twelve months of Fridays,
-// current week included.
-//
-// 52 rather than 26, decided once the grid existed. Six months shows
-// a season; a year shows the same season last year, which is the
-// comparison most of these numbers are actually read for. The window
-// rolls with today rather than resetting in January, so it never has
-// a thin week in the first days of a year.
-//
-// It is a window, not paging. Everything on file across the fleet
-// today sits inside it, and the company that outgrows a year wants a
-// different surface rather than a longer table.
-export const GRID_WEEKS = 52;
+// How far back /measures scrolls. Defined beside the entry rule, which
+// the grid reads too (entry-window.ts).
+export { GRID_WEEKS };
 
 // How far back the Manager's "recent" pills reach. Five weeks plus the
 // current one, matching what the row renders.

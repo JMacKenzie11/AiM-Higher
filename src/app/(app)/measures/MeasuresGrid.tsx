@@ -17,6 +17,7 @@ import {
   type MeasureEntryInput,
 } from "@/lib/measures/actions";
 import { storageWeekFor } from "@/lib/measures/frequency";
+import { isEntryWeekOpen } from "@/lib/measures/entry-window";
 import { monthKeyOf, monthLabel, weekLabel, weekOfMonth } from "@/lib/measures/months";
 import type { GridData, GridRow,
   GridGroup,
@@ -411,27 +412,14 @@ export function MeasuresGrid({
   const storageWeek = (row: GridRow, week: string) =>
     storageWeekFor(row.frequency, week);
 
-  // A MONTHLY MEASURE IS OPEN FOR ITS WHOLE MONTH.
-  //
-  // Without this the feature does not exist. A monthly value lives on
-  // the month's last week, and the ordinary window is "this week and
-  // the one just closed" — so on the 3rd, the week the value belongs
-  // to is three weeks away and unwritable, which is precisely the
-  // thing somebody asked to be able to do.
-  //
-  // The month stays open while its own week is still in the ordinary
-  // window, so the grace after month end is the same grace every
-  // other measure gets rather than a second rule.
-  const monthIsOpen = (row: GridRow, week: string): boolean => {
-    if (isAdmin) return true;
-    const own = storageWeek(row, week);
-    return monthKeyOf(week) === monthKeyOf(weekEnding) || openWeeks.includes(own);
-  };
-
+  // WHETHER A BOX IS OPEN is the shared entry rule (measures/
+  // entry-window.ts), the same one the server checks before it writes
+  // a value. A monthly measure is open for its whole month, and after
+  // month end while its own week is still in the ordinary window; an
+  // admin may edit any week on the page; everyone else, this week and
+  // the one just closed.
   const cellEditable = (row: GridRow, week: string): boolean =>
-    row.frequency === "monthly"
-      ? monthIsOpen(row, week)
-      : editableWeeks.includes(week);
+    isEntryWeekOpen({ frequency: row.frequency, week, currentWeek: weekEnding, isAdmin });
 
   // THE WEEKS THAT ARE STILL OPEN, which is not the same question as
   // the weeks this caller may type into.
