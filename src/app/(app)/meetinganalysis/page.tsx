@@ -5,6 +5,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { LEAD_LIST_COLUMNS, type LeadListRow } from "@/lib/lead-analysis/types";
 import { NewLeadAnalysisForm } from "./NewLeadAnalysisForm";
 import { StatusChip } from "./StatusChip";
+import { AutoRefresh } from "./AutoRefresh";
 import styles from "../admin/companies/admin.module.css";
 import lead from "./lead.module.css";
 
@@ -25,6 +26,7 @@ export default async function MeetingAnalysisLeadsPage() {
     .order("created_at", { ascending: false })
     .limit(200);
   const rows = (data ?? []) as LeadListRow[];
+  const running = rows.some((r) => r.status === "pending" || r.status === "analyzing");
 
   return (
     <div className={styles.stage}>
@@ -40,6 +42,7 @@ export default async function MeetingAnalysisLeadsPage() {
       </section>
 
       <div className={styles.content}>
+        {running ? <AutoRefresh /> : null}
         <section className={styles.card} aria-labelledby="new-analysis">
           <h2 id="new-analysis" className={styles.h2}>
             New analysis

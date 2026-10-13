@@ -13,7 +13,7 @@ Run the AiMS meeting analysis on a prospect's leadership meeting and get a brand
 2. Upload the transcript as a .txt, .vtt or .docx file, or paste it into the box.
 3. Select **Analyze Meeting**.
 
-The analysis takes two to four minutes. You land on its page, which updates by itself when it is ready.
+The analysis takes two to four minutes. You land on its page, and the status changes on screen as it goes, from Queued to Analyzing to Ready. You don't need to refresh. The list of past analyses updates the same way.
 
 ## Get the PDF
 
