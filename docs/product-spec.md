@@ -17,6 +17,7 @@ pull requests, not here.*
 ## 1. Tenancy & Roles
 
 - **Tenant** = Company. Everything below is company-scoped via RLS.
+  - **A row stays in the company it was created in** (2026-10-13, 0266). On commitments, issues, priorities, annual goals, focus areas, Aimee conversations, notifications, guide nudges and strengths assessments, the trigger `keep_company_id` refuses any change to `company_id` from a signed-in caller, whatever their role. The owner rules on those tables checked only the owner on the way out. Measured on dev before the trigger: the owner of a commitment or an Aimee conversation, and a company admin over a commitment, could rewrite its company and push it into another company; on issues, priorities, goals and focus areas the move was refused only because Postgres also checks an updated row against the company-based select rules. Nothing in the app offered it. The service role and migrations are not stopped, so a guarded one-off repair stays possible. Meetings are deliberately not covered: an admin re-routes a meeting between companies. Harness probe `a row stays in its company`.
 - **Roles:**
   - `system_admin` — vendor staff, cross-tenant scope; only role that can author Classroom content. May *also* hold `guide_assignments` rows as a caseload marker (see Guide HQ); those rows never grant new access (sysadmin scope is already unrestricted) and unassigning never reduces access.
   - `company_admin` — owner/leaders, full write on their company.

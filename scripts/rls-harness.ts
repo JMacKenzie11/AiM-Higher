@@ -10915,6 +10915,127 @@ async function conversationPrivacyProbes(run: Runner, ids: Identities, pending: 
   return out;
 }
 
+// ---- A row stays in its company (0266) ---------------------------
+//
+// The owner rules on these tables checked the owner on the way out and
+// nothing else, so the owner of a row could rewrite its company_id and
+// push it into another company. As the row's owner (a team member),
+// and as a company admin over a commitment in its own company:
+//   granted   an ordinary edit to the row still lands
+//   withheld  setting company_id to another company is refused
+// Red before 0266: the commitment and the conversation move, as the
+// owner and as a company admin. (The other four were refused already,
+// by the company-based select rules checking the updated row.)
+async function companyStaysProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const M = ids.member;
+  const CO = ids.memberCompany;
+  const OTHER = ids.otherCompany;
+  const row = {
+    commitment: randomUUID(),
+    issue: randomUUID(),
+    priority: randomUUID(),
+    goal: randomUUID(),
+    sfa: randomUUID(),
+    conversation: randomUUID(),
+    adminCommitment: randomUUID(),
+  };
+  const [quarter] = await run<{ id: string | null }>(
+    `select (select id from public.quarters where company_id = '${CO}' order by start_date desc limit 1) as id;`
+  );
+  if (!quarter?.id) {
+    return [{
+      name: "a row stays in its company",
+      granted: "NOT PROVEN",
+      withheld: "NOT PROVEN",
+      ok: false,
+      detail: "NOT PROVEN: the member's company needs a quarter to hold a priority.",
+    }];
+  }
+  const setup = `${pending}
+insert into public.commitments (id, company_id, owner_id, description, week_ending, due_date, status)
+values ('${row.commitment}', '${CO}', '${M}', 'harness 0266 mine', current_date, current_date, 'open');
+insert into public.issues (id, company_id, created_by, title)
+values ('${row.issue}', '${CO}', '${M}', 'harness 0266 mine');
+insert into public.annual_goals (id, company_id, owner_id, title)
+values ('${row.goal}', '${CO}', '${M}', 'harness 0266 mine');
+insert into public.strategic_focus_areas (id, company_id, sponsor_id, title)
+values ('${row.sfa}', '${CO}', '${M}', 'harness 0266 mine');
+insert into public.priorities (id, company_id, quarter_id, owner_id, title)
+values ('${row.priority}', '${CO}', '${quarter.id}', '${M}', 'harness 0266 mine');
+insert into public.coaching_conversations (id, company_id, created_by, title, mode)
+values ('${row.conversation}', '${CO}', '${M}', 'harness 0266 mine', 'general');
+insert into public.commitments (id, company_id, owner_id, description, week_ending, due_date, status)
+values ('${row.adminCommitment}', '${ids.companyAdminCompany}', '${ids.companyAdmin}', 'harness 0266 admin', current_date, current_date, 'open');`;
+
+  // Rows the statement reached, or why it was refused.
+  const reached = async (sub: string, stmt: string): Promise<string> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        asCaller(sub, setup, `with w as (${stmt} returning 1) select count(*)::int as n from w;`)
+      );
+      return String(r?.n ?? "no row");
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/company_id_fixed/.test(msg)) return "refused";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 80)}`;
+    }
+  };
+
+  // A move is judged by where the row ends up, read back as postgres
+  // after the caller's statement. RETURNING would ask the select rules
+  // to show a row that now sits in another company, which refuses it
+  // for the wrong reason and proves nothing about the update.
+  const moved = async (sub: string, table: string, id: string): Promise<string> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        asCaller(sub, setup, `update public.${table} set company_id = '${OTHER}' where id = '${id}';
+reset role;
+select count(*)::int as n from public.${table} where id = '${id}' and company_id = '${OTHER}';`)
+      );
+      return r?.n === 1 ? "moved" : r?.n === 0 ? "stayed" : `no row`;
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/company_id_fixed/.test(msg)) return "refused";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 80)}`;
+    }
+  };
+
+  const tables: Array<[string, string, string]> = [
+    ["commitments", row.commitment, "description"],
+    ["issues", row.issue, "title"],
+    ["priorities", row.priority, "title"],
+    ["annual_goals", row.goal, "title"],
+    ["strategic_focus_areas", row.sfa, "title"],
+    ["coaching_conversations", row.conversation, "title"],
+  ];
+  const edits: string[] = [];
+  const moves: string[] = [];
+  for (const [table, id, text] of tables) {
+    edits.push(`${table} ${await reached(M, `update public.${table} set ${text} = 'harness 0266 edited' where id = '${id}'`)}`);
+    moves.push(`${table} ${await moved(M, table, id)}`);
+  }
+  const adminEdit = await reached(
+    ids.companyAdmin,
+    `update public.commitments set description = 'harness 0266 edited' where id = '${row.adminCommitment}'`
+  );
+  const adminMove = await moved(ids.companyAdmin, "commitments", row.adminCommitment);
+
+  const ok =
+    edits.every((e) => e.endsWith(" 1")) &&
+    moves.every((m) => m.endsWith(" refused")) &&
+    adminEdit === "1" &&
+    adminMove === "refused";
+  return [{
+    name: "a row stays in its company",
+    granted: `owner edits: ${edits.join(", ")}; company admin edit ${adminEdit} (want 1 each)`,
+    withheld: `owner moves: ${moves.join(", ")}; company admin move ${adminMove} (want refused each)`,
+    ok,
+    detail: ok
+      ? "the owner of a row, and a company admin, still edit it, and neither can move it to another company"
+      : "A ROW CAN BE MOVED TO ANOTHER COMPANY, or an ordinary edit is refused (is 0266 applied?)",
+  }];
+}
+
 // ---- A mark that only rewording clears (0250) ---------------------
 //
 // needs_rewording on commitments and issues is set when the row is
@@ -12412,6 +12533,7 @@ async function main(): Promise<void> {
   const hubspotProbes = await hubspotRecipeProbes(run, pendingSql);
   const timeouts = await authenticatorTimeoutProbes(run, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
+  const companyStays = await companyStaysProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
   const panelEvents = [
@@ -12419,7 +12541,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...companyStays, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12517,6 +12639,7 @@ async function main(): Promise<void> {
     contractProbes.some((p) => !p.ok) ||
     hubspotProbes.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
+    companyStays.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||
     !batchOk
