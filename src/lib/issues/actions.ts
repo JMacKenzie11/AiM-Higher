@@ -10,6 +10,7 @@ import { trackAfter } from "@/lib/analytics/track";
 import type { Commitment, Issue } from "@/lib/types";
 import { todayInTimezone } from "@/lib/dates";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { insertIssue, type IssueResult } from "./create";
 
 // Server actions for the Issues/Solutions page. Edit rights follow
 // the same pattern as commitments: creator OR company_admin
@@ -17,9 +18,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // share this scope so anyone with edit rights can reorder — the
 // order is company-wide, not per-user.
 
-export type IssueResult =
-  | { ok: true; issue: Issue }
-  | { ok: false; message: string };
+export type { IssueResult };
 
 async function loadIssue(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -42,73 +41,32 @@ function canEditIssue(
 }
 
 // ---- Create ---------------------------------------------------
-// Any company member may create an issue. New issues land at the
-// bottom of the open rank (max(rank) + 1). Source meeting id is
-// optional; set by the meeting-summary "Add to open issues" flow
-// added in Phase 3.
+// Any company member may create an issue. The rules and the write are
+// insertIssue's (create.ts); this reads the form and the scoped
+// company. Source meeting id is optional; set by the meeting-summary
+// "Add to open issues" flow added in Phase 3.
 export async function createIssueAction(
   _prev: IssueResult | undefined,
   formData: FormData
 ): Promise<IssueResult> {
   const session = await requireProfile();
-
-  const title = String(formData.get("title") ?? "").trim();
-  if (!title) {
-    return { ok: false, message: "Name the issue plainly." };
-  }
-  if (title.length > 200) {
-    return { ok: false, message: "Keep the issue title under 200 characters." };
-  }
-  const desiredOutcomeRaw = String(formData.get("desired_outcome") ?? "").trim();
-  const desiredOutcome = desiredOutcomeRaw === "" ? null : desiredOutcomeRaw;
-  const sourceMeetingIdRaw = String(
-    formData.get("source_meeting_id") ?? ""
-  ).trim();
-  const sourceMeetingId =
-    sourceMeetingIdRaw === "" ? null : sourceMeetingIdRaw;
-
   const companyId = await getEffectiveCompanyId(session);
-  if (!companyId) {
-    return { ok: false, message: "Pick a company scope first." };
-  }
-
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-
-  // Land at the bottom of the open list.
-  const { data: rankRow } = await supabase
-    .from("issues")
-    .select("rank")
-    .eq("company_id", companyId)
-    .eq("status", "open")
-    .order("rank", { ascending: false })
-    .limit(1)
-    .maybeSingle<{ rank: number }>();
-  const nextRank = (rankRow?.rank ?? -1) + 1;
-
-  const { data, error } = await supabase
-    .from("issues")
-    .insert({
-      company_id: companyId,
-      title,
-      desired_outcome: desiredOutcome,
-      rank: nextRank,
-      source_meeting_id: sourceMeetingId,
-      created_by: session.profile.id,
-    })
-    .select("*")
-    .single<Issue>();
-  if (error || !data) {
-    return { ok: false, message: "Couldn't save that issue." };
-  }
+  const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const result = await insertIssue({ db, profile: session.profile }, companyId, {
+    title: String(formData.get("title") ?? ""),
+    desiredOutcome: String(formData.get("desired_outcome") ?? ""),
+    sourceMeetingId: String(formData.get("source_meeting_id") ?? ""),
+  });
+  if (!result.ok) return result;
 
   revalidatePath("/issues");
   trackAfter(
     session.profile.id,
     "issue.created",
-    { from_meeting: Boolean(sourceMeetingId) },
-    { company: data.company_id }
+    { from_meeting: Boolean(result.issue.source_meeting_id) },
+    { company: result.issue.company_id }
   );
-  return { ok: true, issue: data };
+  return result;
 }
 
 // ---- Rename (inline title edit) -------------------------------
