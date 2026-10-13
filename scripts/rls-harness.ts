@@ -10732,6 +10732,63 @@ async function companyContentProbes(run: Runner, pending: string): Promise<Grant
   }];
 }
 
+// ---- Raw strengths answers stay the person's (0267) ---------------
+//
+// 0253 kept a person's raw strengths answers (strengths_responses) and
+// their assessment conversation (strengths_narrative_messages) private,
+// but 0191 had already given every portfolio admin a read of both,
+// across every company, with no assignment. As a portfolio admin:
+//   granted   still reads the person's strengths results (0253 opened them)
+//   withheld  reads none of their raw answers or assessment conversation
+// And the person still reads their own. Red before 0267: the portfolio
+// admin reads 1 answer and 1 message.
+async function strengthsAnswersProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "strengths answers · not a portfolio admin's";
+  const PA = "aaaa0267-0000-4000-8000-000000000001";
+  const asm = randomUUID();
+  const [pick] = await run<{ item: string | null }>("select min(id)::text as item from public.strengths_items;");
+  if (!pick?.item) {
+    return [{ name, granted: "not attempted", withheld: "the clone has no strengths items", ok: false, detail: "NOT PROVEN" }];
+  }
+  const setup = `${pending}
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${PA}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA}', null, 'Harness 0267 PA', 'portfolio_admin', 'active');
+insert into public.company_features (company_id, feature) values ('${ids.memberCompany}', 'strengths') on conflict do nothing;
+insert into public.strengths_assessments (id, user_id, company_id, version, status)
+values ('${asm}', '${ids.member}', '${ids.memberCompany}', 90267, 'completed');
+insert into public.strengths_results (assessment_id, profile, summary, model) values ('${asm}', '{}', 'harness 0267', 'harness');
+insert into public.strengths_responses (assessment_id, item_id, value) values ('${asm}', '${pick.item}', 3);
+insert into public.strengths_narrative_messages (assessment_id, role, content) values ('${asm}', 'user', 'harness 0267');`;
+  const counts = `select concat_ws(',',
+      (select count(*) from public.strengths_results where assessment_id = '${asm}'),
+      (select count(*) from public.strengths_responses where assessment_id = '${asm}'),
+      (select count(*) from public.strengths_narrative_messages where assessment_id = '${asm}')) as n;`;
+  const read = async (sub: string): Promise<string> => {
+    try {
+      const [row] = await run<{ n: string }>(asCaller(sub, setup, counts));
+      return row?.n ?? "no row";
+    } catch (err) {
+      return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+    }
+  };
+  const portfolio = await read(PA);
+  const person = await read(ids.member);
+  const ok = portfolio === "1,0,0" && person === "1,1,1";
+  return [{
+    name,
+    granted: `portfolio admin reads results, answers, conversation: ${portfolio} (want 1,0,0) | the person: ${person} (want 1,1,1)`,
+    withheld: `portfolio admin's answers and conversation: ${portfolio.split(",").slice(1).join(",")} (want 0,0)`,
+    ok,
+    detail: ok
+      ? "a portfolio admin reads a person's strengths results and none of their raw answers or assessment conversation; the person reads all three"
+      : "A PORTFOLIO ADMIN CAN READ RAW STRENGTHS ANSWERS, or results or the person's own read stopped (is 0267 applied?)",
+  }];
+}
+
 // ---- An Aimee conversation is its owner's alone (0251) -----------
 //
 // The principle (docs/investigations/open-data.md): only the person who
@@ -12536,12 +12593,13 @@ async function main(): Promise<void> {
   const companyStays = await companyStaysProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
+  const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...companyStays, ...conversations, ...companyContent, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12642,6 +12700,7 @@ async function main(): Promise<void> {
     companyStays.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||
+    strengthsAnswers.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);
