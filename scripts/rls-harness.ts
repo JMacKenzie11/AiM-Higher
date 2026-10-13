@@ -10789,6 +10789,72 @@ insert into public.strengths_narrative_messages (assessment_id, role, content) v
   }];
 }
 
+// ---- Raw strengths answers: the person, and support (0269) --------
+//
+// Jason, 2026-10-13: only the person reads their own raw answers and
+// assessment conversation; a system admin keeps a read for support;
+// their company admin and a portfolio admin do not. A person in the
+// company admin's own company takes an assessment. Reading answers and
+// conversation, as each role:
+//   granted   the person 1,1; a system admin 1,1
+//   withheld  their company admin 0,0; a colleague 0,0; a portfolio
+//             admin 0,0
+// Red before 0269: the company admin reads 1,1.
+async function strengthsAnswersPersonOnlyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "strengths answers · the person and support only";
+  const CO = ids.companyAdminCompany;
+  const PA = "aaaa0269-0000-4000-8000-000000000001";
+  const asm = randomUUID();
+  const [pick] = await run<{ item: string | null; person: string | null; colleague: string | null }>(`
+    select (select min(id)::text from public.strengths_items) as item,
+           (select id::text from public.profiles where company_id = '${CO}' and status = 'active'
+              and id <> '${ids.companyAdmin}' order by id limit 1) as person,
+           (select id::text from public.profiles where company_id = '${CO}' and status = 'active'
+              and id <> '${ids.companyAdmin}' order by id offset 1 limit 1) as colleague;`);
+  if (!pick?.item || !pick.person || !pick.colleague) {
+    return [{ name, granted: "not attempted", withheld: "the company admin's company needs two other people and the clone strengths items", ok: false, detail: "NOT PROVEN" }];
+  }
+  const setup = `${pending}
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${PA}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA}', null, 'Harness 0269 PA', 'portfolio_admin', 'active');
+insert into public.portfolio_assignments (portfolio_admin_id, company_id) values ('${PA}', '${CO}');
+insert into public.company_features (company_id, feature) values ('${CO}', 'strengths') on conflict do nothing;
+insert into public.strengths_assessments (id, user_id, company_id, version, status)
+values ('${asm}', '${pick.person}', '${CO}', 90269, 'completed');
+insert into public.strengths_responses (assessment_id, item_id, value) values ('${asm}', '${pick.item}', 3);
+insert into public.strengths_narrative_messages (assessment_id, role, content) values ('${asm}', 'user', 'harness 0269');`;
+  const counts = `select concat_ws(',',
+      (select count(*) from public.strengths_responses where assessment_id = '${asm}'),
+      (select count(*) from public.strengths_narrative_messages where assessment_id = '${asm}')) as n;`;
+  const read = async (sub: string): Promise<string> => {
+    try {
+      const [row] = await run<{ n: string }>(asCaller(sub, setup, counts));
+      return row?.n ?? "no row";
+    } catch (err) {
+      return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 80)}`;
+    }
+  };
+  const person = await read(pick.person);
+  const support = await read(ids.systemAdmin);
+  const companyAdmin = await read(ids.companyAdmin);
+  const colleague = await read(pick.colleague);
+  const portfolio = await read(PA);
+  const ok = person === "1,1" && support === "1,1" && companyAdmin === "0,0" && colleague === "0,0" && portfolio === "0,0";
+  return [{
+    name,
+    granted: `answers, conversation: the person ${person}, a system admin ${support} (want 1,1 each)`,
+    withheld: `their company admin ${companyAdmin}, a colleague ${colleague}, an assigned portfolio admin ${portfolio} (want 0,0 each)`,
+    ok,
+    detail: ok
+      ? "a person's raw strengths answers and assessment conversation are read by the person and by a system admin, and by nobody else"
+      : "SOMEBODY OTHER THAN THE PERSON OR SUPPORT READS RAW STRENGTHS ANSWERS, or the person cannot (is 0269 applied?)",
+  }];
+}
+
 // ---- An Aimee conversation is its owner's alone (0251) -----------
 //
 // The principle (docs/investigations/open-data.md): only the person who
@@ -12650,12 +12716,13 @@ async function main(): Promise<void> {
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
   const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
+  const strengthsPersonOnly = await strengthsAnswersPersonOnlyProbes(run, ids, pendingSql);
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -12758,6 +12825,7 @@ async function main(): Promise<void> {
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||
     strengthsAnswers.some((p) => !p.ok) ||
+    strengthsPersonOnly.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);
