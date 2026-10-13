@@ -643,4 +643,25 @@ describe("setNewPasswordAction", () => {
     expect(res.ok).toBe(false);
     expect(mocks.updateUser).not.toHaveBeenCalled();
   });
+
+  it("sends the current password when the profile page gives one, and none from a reset", async () => {
+    const { setNewPasswordAction } = await import("./actions");
+    await setNewPasswordAction(
+      undefined,
+      formDataFrom({ password: "hunter22!", confirm: "hunter22!", current_password: "old-one!" })
+    );
+    expect(mocks.updateUser).toHaveBeenLastCalledWith({ password: "hunter22!", current_password: "old-one!" });
+    await setNewPasswordAction(undefined, formDataFrom({ password: "hunter22!", confirm: "hunter22!" }));
+    expect(mocks.updateUser).toHaveBeenLastCalledWith({ password: "hunter22!" });
+  });
+
+  it("says plainly when the current password is wrong", async () => {
+    mocks.updateUser.mockResolvedValueOnce({ data: { user: null }, error: { code: "current_password_invalid", message: "x" } });
+    const { setNewPasswordAction } = await import("./actions");
+    const res = await setNewPasswordAction(
+      undefined,
+      formDataFrom({ password: "hunter22!", confirm: "hunter22!", current_password: "wrong" })
+    );
+    expect(res).toEqual({ ok: false, message: "That isn't your current password." });
+  });
 });

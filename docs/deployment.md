@@ -87,7 +87,9 @@ takes effect on the next deploy. Each instance also needs Supabase's
 OAuth server switched on in its own project (Authentication, OAuth
 Server: enabled, Authorization Path `/oauth/consent`, dynamic
 registration on) and its Site URL pointing at the instance, because the
-consent address is built from it. On 2026-10-13 that is done on the dev
+consent address is built from it, and *require current password* on
+(`security_update_password_require_current_password`), which is what
+stops an assistant's token changing a password. On 2026-10-13 that is done on the dev
 project only.
 
 `PROD_*` has a second job. The cron routes are excluded from instance

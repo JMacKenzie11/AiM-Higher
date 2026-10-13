@@ -20,6 +20,21 @@ export function ChangePasswordForm() {
   return (
     <form action={formAction} className={styles.form}>
       <div className={styles.field}>
+        <label htmlFor="current-password" className={styles.label}>
+          Current password
+        </label>
+        <input
+          id="current-password"
+          name="current_password"
+          type={showPassword ? "text" : "password"}
+          autoComplete="current-password"
+          required
+          className={styles.input}
+          disabled={pending}
+        />
+      </div>
+
+      <div className={styles.field}>
         <label htmlFor="new-password" className={styles.label}>
           New password
         </label>

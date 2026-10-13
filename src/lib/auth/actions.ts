@@ -416,9 +416,26 @@ export async function setNewPasswordAction(
     return { ok: false, message: "The two passwords don't match yet." };
   }
 
+  // The profile page sends the current password; Supabase requires it
+  // for anyone who already has one (security_update_password_require_
+  // current_password), which is what stops an outside assistant's
+  // token, which never has it, from changing a password. The reset
+  // page's fallback sends none: a reset session is exempt.
+  const currentPassword = String(formData.get("current_password") ?? "");
+
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data, error } = await supabase.auth.updateUser({ password });
+  const { data, error } = await supabase.auth.updateUser(
+    currentPassword ? { password, current_password: currentPassword } : { password }
+  );
   if (error || !data.user) {
+    // Supabase's source names it _mismatch; the live API answered
+    // _invalid on 2026-10-13. Either means the same thing.
+    if (error?.code === "current_password_mismatch" || error?.code === "current_password_invalid") {
+      return { ok: false, message: "That isn't your current password." };
+    }
+    if (error?.code === "current_password_required") {
+      return { ok: false, message: "Enter your current password to change it." };
+    }
     const detail = error?.message?.trim();
     return {
       ok: false,

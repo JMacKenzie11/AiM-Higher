@@ -11137,6 +11137,48 @@ select (select outcome from _s where k = 'live') as live,
   }];
 }
 
+// ---- No self-service email change (0271) ---------------------------
+//
+// The Auth API does not run as the token's role, so the allow list
+// cannot stop an assistant's token asking to change the person's
+// email; tested with a real token on dev, nothing in Supabase refused
+// it. 0271 refuses the request where Supabase records it
+// (auth.users.email_change, and phone_change), for every caller.
+//   granted   the admin path (People page, admin API) sets the address
+//             directly, and still lands; clearing a pending value lands
+//   withheld  recording a requested email change, or phone change
+// Red before 0271: the request is recorded.
+async function selfServiceContactChangeProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "sign-in email · no self-service change";
+  const U = ids.member;
+  const attempt = async (stmt: string): Promise<string> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        ["begin;", pending, `with w as (${stmt} returning 1) select count(*)::int as n from w;`, "rollback;"].join("\n")
+      );
+      return String(r?.n ?? "no row");
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/email_change_refused|phone_change_refused/.test(msg)) return "refused";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 80)}`;
+    }
+  };
+  const requestEmail = await attempt(`update auth.users set email_change = 'harness-0271@example.invalid', email_change_sent_at = now() where id = '${U}'`);
+  const requestPhone = await attempt(`update auth.users set phone_change = '+15550100271' where id = '${U}'`);
+  const adminEmail = await attempt(`update auth.users set email = 'harness-0271-admin@example.invalid' where id = '${U}'`);
+  const clearPending = await attempt(`update auth.users set email_change = '' where id = '${U}'`);
+  const ok = requestEmail === "refused" && requestPhone === "refused" && adminEmail === "1" && clearPending === "1";
+  return [{
+    name,
+    granted: `an admin setting the address directly ${adminEmail}, clearing a pending change ${clearPending} (want 1 each)`,
+    withheld: `recording a requested email change ${requestEmail}, phone change ${requestPhone} (want refused each)`,
+    ok,
+    detail: ok
+      ? "nobody can ask the Auth API to change their own sign-in email or phone; an admin still changes it directly"
+      : "A SELF-SERVICE EMAIL OR PHONE CHANGE CAN BE RECORDED, or the admin path is refused (is 0271 applied?)",
+  }];
+}
+
 // ---- Raw strengths answers stay the person's (0267) ---------------
 //
 // 0253 kept a person's raw strengths answers (strengths_responses) and
@@ -13127,12 +13169,13 @@ async function main(): Promise<void> {
     ...(await assistantAllowListBehaviour(run, ids, pendingSql)),
     ...(await assistantSessionProbes(run, ids, pendingSql)),
   ];
+  const contactChange = await selfServiceContactChangeProbes(run, ids, pendingSql);
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...assistant, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -13237,6 +13280,7 @@ async function main(): Promise<void> {
     strengthsAnswers.some((p) => !p.ok) ||
     strengthsPersonOnly.some((p) => !p.ok) ||
     assistant.some((p) => !p.ok) ||
+    contactChange.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);

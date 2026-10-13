@@ -52,7 +52,7 @@ Only you can read your Memory. Not your manager, your company admin, your AiMS G
 
 ## How to change your password
 
-Enter a new password of at least 8 characters and save. You stay signed in on this device.
+Enter your current password, then a new one of at least 8 characters, and save. You stay signed in on this device. Forgotten your current password? Sign out and use **Forgot password?** on the sign-in page.
 
 ## Common questions
 
