@@ -10,7 +10,7 @@ import { computeOverall } from "@/lib/leadership/facilitation/score";
 import { commitmentQuality } from "@/lib/lead-analysis/context";
 import type { LeadAnalysisRow } from "@/lib/lead-analysis/types";
 import { StatusChip } from "../StatusChip";
-import { AutoRefresh } from "./AutoRefresh";
+import { AutoRefresh } from "../AutoRefresh";
 import { RetryButton } from "./RetryButton";
 import styles from "../../admin/companies/admin.module.css";
 import lead from "../lead.module.css";
@@ -126,7 +126,7 @@ export default async function LeadAnalysisPage({ params }: { params: Promise<{ i
           </div>
           {running ? (
             <p className={styles.fieldHint} role="status">
-              Analyzing the transcript. This takes two to four minutes, and the page updates when it is done.
+              Analyzing the transcript. This takes two to four minutes, and the page updates by itself.
             </p>
           ) : null}
           {row.status === "failed" ? (
