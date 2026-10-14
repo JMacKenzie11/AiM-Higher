@@ -2,6 +2,7 @@ import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { currentRequestOrigin } from "@/lib/instances/origin";
 import { mcpOpenTo } from "@/lib/mcp/switch";
 import { mcpEnabledHere } from "@/lib/mcp/switch-here";
+import { isClientApproved } from "@/lib/mcp/client-approval";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assistantClient, verifyAssistantToken } from "@/lib/mcp/auth";
@@ -406,6 +407,9 @@ async function route(request: Request): Promise<Response> {
     async (_req, bearer) => {
       const caller = await verifyAssistantToken(bearer);
       if (!caller) return undefined;
+      // Approved assistants only (0280): a token for any other client
+      // is refused here as well as by the token hook and the database.
+      if (!(await isClientApproved(caller.clientId))) return undefined;
       return {
         token: bearer as string,
         clientId: caller.clientId,

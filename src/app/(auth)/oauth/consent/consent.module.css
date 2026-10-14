@@ -31,3 +31,9 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* The consent text: a gap between paragraphs, which the shared helper
+   text style (margin 0) does not give. */
+.copy > p + p {
+  margin-top: var(--space-3);
+}

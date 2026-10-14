@@ -10851,7 +10851,8 @@ select n.nspname as s, c.relname as r, c.relrowsecurity as rls,
     // measures the menu alone.
     // Likewise the route check (0275), its own probe below.
     const liveSession = `create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
-create or replace function public.assistant_through_route() returns boolean language sql as 'select true';`;
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';`;
     [gate] = await run(["begin;", pending, plant, liveSession, `
 create temp table _gate (kind text, item text, outcome text) on commit drop;
 do $$
@@ -11083,9 +11084,11 @@ async function assistantSessionProbes(run: Runner, ids: Identities, pending: str
   const M = ids.member;
   let row: { live: string; revoked: string; wrong_client: string; app: string } | undefined;
   try {
-    // The route check (0275) is its own probe; here it always passes.
+    // The route check (0275) and the client check (0280) are their own
+    // probes; here they always pass.
     [row] = await run(["begin;", pending, `
 create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';
 insert into auth.oauth_clients (id, client_name, registration_type, redirect_uris, grant_types, token_endpoint_auth_method)
 values ('${C}', 'harness 0272', 'manual', 'http://127.0.0.1/callback', 'authorization_code', 'none'),
        ('${OTHER}', 'harness 0272 other', 'manual', 'http://127.0.0.1/callback', 'authorization_code', 'none');
@@ -11314,8 +11317,10 @@ async function assistantRouteOnlyProbes(run: Runner, ids: Identities, pending: s
   let row: Record<string, string> | undefined;
   try {
     [row] = await run(["begin;", pending, `
--- The session check (0272) is its own probe; here it always passes.
+-- The session check (0272) and the client check (0280) are their own
+-- probes; here they always pass.
 create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';
 do $$ begin
   if to_regclass('aims_private.mcp_route_key') is not null then
     execute 'delete from aims_private.mcp_route_key';
@@ -11750,6 +11755,72 @@ select jsonb_object_agg(k, v)::text as r from _s;`, "rollback;"].join("\n"));
     detail: ok
       ? "the outside assistants switch is off by default, and only the company's admin or a system admin can switch it"
       : "THE COMPANY ASSISTANTS SWITCH IS MISSING OR THE WRONG PEOPLE CAN FLIP IT (is 0279 applied?)",
+  }];
+}
+
+// ---- Approved assistants only (0280) ----------------------------------
+//
+// Jason, 2026-10-14: with open registration, a client is approved only
+// if every redirect address it registered is on the allow-list.
+//   granted   Claude's and ChatGPT's real callback addresses; the gate
+//             passes an approved client; the token hook passes an app
+//             sign-in and an approved client unchanged
+//   withheld  an unknown host, a mixed registration, a claude.ai
+//             lookalike, plain http; the gate refuses an unapproved
+//             client (42501); the token hook refuses to issue one (403)
+// Red before 0280: none of the three functions exists.
+async function assistantTrustedClientProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "assistant clients · approved by where they return";
+  const M = ids.member;
+  const ok = randomUUID(), gpt = randomUUID(), evil = randomUUID(), mixed = randomUUID(), look = randomUUID(), http = randomUUID();
+  let r: Record<string, string> = {};
+  try {
+    const [row] = await run<{ r: string }>(["begin;", pending, `
+create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+insert into auth.oauth_clients (id, client_name, registration_type, redirect_uris, grant_types, token_endpoint_auth_method) values
+  ('${ok}', 'Claude', 'dynamic', 'https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback', 'authorization_code', 'none'),
+  ('${gpt}', 'ChatGPT', 'dynamic', 'https://chatgpt.com/connector/oauth/abc_123', 'authorization_code', 'none'),
+  ('${evil}', 'Claude', 'dynamic', 'https://evil.example/cb', 'authorization_code', 'none'),
+  ('${mixed}', 'Claude', 'dynamic', 'https://claude.ai/api/mcp/auth_callback,https://evil.example/cb', 'authorization_code', 'none'),
+  ('${look}', 'Claude', 'dynamic', 'https://claude.ai.evil.example/api/mcp/auth_callback', 'authorization_code', 'none'),
+  ('${http}', 'Claude', 'dynamic', 'http://claude.ai/api/mcp/auth_callback', 'authorization_code', 'none');
+create temp table _t (k text, v text) on commit drop;
+do $$
+declare o text; c record;
+begin
+  for c in select * from (values ('claude', '${ok}'), ('chatgpt', '${gpt}'), ('evil', '${evil}'), ('mixed', '${mixed}'), ('lookalike', '${look}'), ('http', '${http}')) v(k, id) loop
+    insert into _t values ('trusted_' || c.k, public.assistant_client_trusted(c.id)::text);
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated","client_id":"%s"}', '${M}', c.id), true);
+    perform set_config('request.method', 'GET', true);
+    perform set_config('request.path', '/commitments', true);
+    begin perform public.assistant_request_gate(); o := 'allowed';
+    exception when others then o := 'refused ' || sqlstate; end;
+    insert into _t values ('gate_' || c.k, o);
+    insert into _t values ('hook_' || c.k, coalesce(
+      public.mcp_access_token_hook(jsonb_build_object('claims', jsonb_build_object('sub', '${M}', 'client_id', c.id))) -> 'error' ->> 'http_code', 'issued'));
+  end loop;
+  insert into _t values ('hook_app', coalesce(
+    public.mcp_access_token_hook(jsonb_build_object('claims', jsonb_build_object('sub', '${M}'))) -> 'error' ->> 'http_code', 'issued'));
+end $$;
+select jsonb_object_agg(k, v)::text as r from _t;`, "rollback;"].join("\n"));
+    r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const good = ["claude", "chatgpt"], bad = ["evil", "mixed", "lookalike", "http"];
+  const pass = good.every((k) => r[`trusted_${k}`] === "true" && r[`gate_${k}`] === "allowed" && r[`hook_${k}`] === "issued")
+    && bad.every((k) => r[`trusted_${k}`] === "false" && r[`gate_${k}`] === "refused 42501" && r[`hook_${k}`] === "403")
+    && r.hook_app === "issued";
+  return [{
+    name,
+    granted: `Claude's callbacks: gate ${r.gate_claude}, token ${r.hook_claude} | ChatGPT per-connector: gate ${r.gate_chatgpt}, token ${r.hook_chatgpt} | an app sign-in's token: ${r.hook_app}`,
+    withheld: bad.map((k) => `${k}: gate ${r[`gate_${k}`]}, token ${r[`hook_${k}`]}`).join(" | ") + " (want refused 42501 and 403 each)",
+    ok: pass,
+    detail: pass
+      ? "only clients whose every redirect address is approved get a token or reach the database; app sign-ins are untouched"
+      : "AN UNAPPROVED ASSISTANT CLIENT GETS A TOKEN OR REACHES THE DATABASE (is 0280 applied?)",
   }];
 }
 
@@ -13787,6 +13858,7 @@ async function main(): Promise<void> {
     ...(await assistantSessionProbes(run, ids, pendingSql)),
     ...(await assistantActionLogProbes(run, pendingSql)),
     ...(await assistantRouteOnlyProbes(run, ids, pendingSql)),
+    ...(await assistantTrustedClientProbes(run, ids, pendingSql)),
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
     ...(await assistantAddProbes(run, ids, pendingSql)),
     ...(await companyAssistantsSwitchProbes(run, ids, pendingSql)),

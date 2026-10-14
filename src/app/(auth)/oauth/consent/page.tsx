@@ -8,6 +8,10 @@ import { mcpOpenTo } from "@/lib/mcp/switch";
 import { mcpEnabledHere } from "@/lib/mcp/switch-here";
 import { consentPathFor, isAuthorizationId } from "@/lib/mcp/consent-path";
 import { ConsentForm } from "./ConsentForm";
+import consentStyles from "./consent.module.css";
+import { isClientApproved } from "@/lib/mcp/client-approval";
+import { assistantLabel } from "@/lib/mcp/trusted-clients";
+import { recordAction } from "@/lib/mcp/log";
 
 // Where an outside assistant's sign-in lands (Supabase's OAuth server
 // sends the person here with an authorization_id: the dev project's
@@ -50,7 +54,37 @@ export default async function ConsentPage({
   if (!("authorization_id" in data) && "redirect_url" in data) {
     redirect(data.redirect_url);
   }
-  const details = data as { authorization_id: string; redirect_uri: string; client: { name: string } };
+  const details = data as { authorization_id: string; redirect_uri: string; client: { id: string; name: string } };
+  // "Claude (claude.ai)": the name it gave, and where it sends you back,
+  // which is the part that cannot be faked.
+  const label = assistantLabel(details.client.name, details.redirect_uri);
+
+  // APPROVED ASSISTANTS ONLY (0280). Every address the client registered
+  // must be on the allow-list; otherwise no Allow, whoever is asking,
+  // and the attempt is logged.
+  if (!(await isClientApproved(details.client.id))) {
+    await recordAction({
+      profileId: session.profile.id,
+      companyId: null,
+      clientId: details.client.id,
+      tool: "consent",
+      outcome: "refused",
+      reason: "client_not_approved",
+    });
+    return (
+      <AuthShell
+        cardLabel="Connect an assistant"
+        headline={<>This assistant isn&apos;t approved for AiMS</>}
+        subtitle={`${label} asked to connect to your AiMS account.`}
+      >
+        <p className={formStyles.message}>
+          AiMS works with approved assistants only, such as Claude and ChatGPT. Nothing has been shared.
+        </p>
+        <ConsentForm authorizationId={details.authorization_id} canApprove={false} />
+      </AuthShell>
+    );
+  }
+
   const canApprove = mcpOpenTo(session.profile.role);
   const name = session.profile.full_name ?? "you";
   let returnsTo = details.redirect_uri;
@@ -63,11 +97,11 @@ export default async function ConsentPage({
   return (
     <AuthShell
       cardLabel="Connect an assistant"
-      headline={<>Connect {details.client.name || "an assistant"} to AiMS?</>}
+      headline={<>Connect {label} to AiMS?</>}
       subtitle={`It will act as ${name}, and only as ${name}.`}
     >
       {canApprove ? (
-        <div className={formStyles.helperText}>
+        <div className={`${formStyles.helperText} ${consentStyles.copy}`}>
           <p>It can read your commitments and your team&apos;s, your company&apos;s plan, priorities, goals and core values, your measures and their recent values, open issues, meeting summaries and the functional chart.</p>
           <p>It can add a commitment of your own with a due date, an issue, or a value for a measure you lead (any measure, if you&apos;re an admin) in a week that has none. Each one shows as added via {details.client.name || "this assistant"}.</p>
           <p>It cannot change or delete anything, mark a commitment kept or missed, or read any Aimee conversation.</p>
