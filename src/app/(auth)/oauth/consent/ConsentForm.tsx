@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import formStyles from "@/components/auth-shell/AuthForm.module.css";
+import styles from "./consent.module.css";
 import {
   approveAssistantAction,
   declineAssistantAction,
@@ -34,7 +35,7 @@ export function ConsentForm({ authorizationId, canApprove }: { authorizationId: 
       ) : null}
       <form action={decline}>
         <input type="hidden" name="authorization_id" value={authorizationId} />
-        <button type="submit" className={formStyles.reveal} disabled={pending}>
+        <button type="submit" className={styles.decline} disabled={pending}>
           {declining ? "Declining…" : "Decline"}
         </button>
       </form>
