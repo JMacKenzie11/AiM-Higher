@@ -46,6 +46,9 @@ export default async function ProfilePage() {
           Details
         </h2>
         <p className={styles.email}>Signed in as {session.email}</p>
+        <p className={styles.subtitleInline}>
+          To change the email you sign in with, ask an admin at your company.
+        </p>
         <ProfileDetailsForm
           id={session.profile.id}
           fullName={session.profile.full_name}

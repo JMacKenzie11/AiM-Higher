@@ -50,9 +50,13 @@ Aimee never keeps notes about health or medical matters, or about family and per
 
 Only you can read your Memory. Not your manager, your company admin, your AiMS Guide, or anyone at AiMS.
 
+## How to change your email
+
+Ask an admin at your company. They change it on your People page; it can't be changed from here.
+
 ## How to change your password
 
-Enter a new password of at least 8 characters and save. You stay signed in on this device.
+Enter your current password, then a new one of at least 8 characters, and save. You stay signed in on this device. Forgotten your current password? Sign out and use **Forgot password?** on the sign-in page.
 
 ## Common questions
 
