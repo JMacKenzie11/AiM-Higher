@@ -58,6 +58,8 @@ export function parseInstanceHeader(
       supabaseUrl: c.supabaseUrl,
       supabaseAnonKey: c.supabaseAnonKey,
       supabaseServiceKey: c.supabaseServiceKey,
+      // Optional (0275): absent, assistants are refused on this instance.
+      ...(typeof c.mcpRouteSecret === "string" && c.mcpRouteSecret ? { mcpRouteSecret: c.mcpRouteSecret } : {}),
       status: c.status,
     };
   } catch {

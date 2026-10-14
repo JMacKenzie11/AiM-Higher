@@ -77,6 +77,7 @@ type EnvSource = {
   url: string | undefined;
   anonKey: string | undefined;
   serviceKey: string | undefined;
+  routeSecret: string | undefined;
 };
 
 function fallbackInstanceConfig(): InstanceConfig {
@@ -89,6 +90,7 @@ function fallbackInstanceConfig(): InstanceConfig {
       url: process.env[`${PROD_PREFIX}_SUPABASE_URL`],
       anonKey: process.env[`${PROD_PREFIX}_SUPABASE_ANON_KEY`],
       serviceKey: process.env[`${PROD_PREFIX}_SUPABASE_SERVICE_KEY`],
+      routeSecret: process.env[`${PROD_PREFIX}_MCP_ROUTE_SECRET`],
     },
     // The developer's answer. Same three variables the resolver
     // honours in src/lib/instances/resolve.ts, so a developer who has
@@ -103,6 +105,7 @@ function fallbackInstanceConfig(): InstanceConfig {
       url: process.env.LOCAL_INSTANCE_SUPABASE_URL,
       anonKey: process.env.LOCAL_INSTANCE_SUPABASE_ANON_KEY,
       serviceKey: process.env.LOCAL_INSTANCE_SUPABASE_SERVICE_KEY,
+      routeSecret: process.env.LOCAL_INSTANCE_MCP_ROUTE_SECRET,
     },
   ];
 
@@ -114,6 +117,7 @@ function fallbackInstanceConfig(): InstanceConfig {
         supabaseUrl: source.url,
         supabaseAnonKey: source.anonKey,
         supabaseServiceKey: source.serviceKey,
+        mcpRouteSecret: source.routeSecret || undefined,
         status: "active",
       };
     }

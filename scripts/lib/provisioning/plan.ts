@@ -41,7 +41,7 @@ import {
   type InstanceState,
 } from "./state.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { routeKeyFor, routeKeyHash } from "@/lib/mcp/route-key";
+import { generateRouteSecret, routeKeyHash } from "@/lib/mcp/route-key";
 
 import { createCompany } from "@/lib/companies/create-company";
 import {
@@ -463,6 +463,11 @@ function envSpecsFor(
       value: state.serviceKey ?? "",
       type: "sensitive",
     },
+    // The MCP route secret (secure-auth-and-mcp generated it; 0275).
+    // Sensitive, like the service key.
+    ...(state.mcpRouteSecret
+      ? [{ key: `${envPrefix}_MCP_ROUTE_SECRET`, value: state.mcpRouteSecret, type: "sensitive" as VercelEnvType }]
+      : []),
   ];
 }
 
@@ -600,6 +605,7 @@ async function recordFleetCredentials(
   const { added, alreadyPresent } = deps.recordFleetCredentials({
     [`${ctx.envPrefix}_SUPABASE_URL`]: state.apiUrl,
     [`${ctx.envPrefix}_SUPABASE_SERVICE_KEY`]: state.serviceKey,
+    ...(state.mcpRouteSecret ? { [`${ctx.envPrefix}_MCP_ROUTE_SECRET`]: state.mcpRouteSecret } : {}),
   });
 
   if (added.length === 0) {
@@ -1041,10 +1047,12 @@ async function checkPreconditions(
 //                                                    token cannot change a password
 //   site_url / uri_allow_list                        the instance's own host
 //
-// and the MCP route key's hash (0275), derived from the SAME service key
-// write-vercel-env puts on Vercel, so the deployed app's key and the
-// database's hash agree by construction. Without it, every assistant
-// is refused on this instance (0275 fails closed).
+// and the MCP route secret (0275): its own random secret, generated
+// here once and kept in the state file, then written to Vercel by
+// write-vercel-env and to .env.provisioning by record-fleet-credentials,
+// so the deployed app and the database's hash agree by construction.
+// Without it, every assistant is refused on this instance (0275 fails
+// closed).
 //
 // It does NOT switch the OAuth server on. That stays a deliberate,
 // separate decision per instance.
@@ -1066,9 +1074,9 @@ async function secureAuthAndMcp(
   deps: ProvisionDeps
 ): Promise<StepResult> {
   const state = deps.readState(ctx.subdomain);
-  if (!state?.projectRef || !state.serviceKey) {
+  if (!state?.projectRef) {
     throw new Error(
-      `No project ref or service key in .provisioning-state/${ctx.subdomain}.json. ` +
+      `No project ref in .provisioning-state/${ctx.subdomain}.json. ` +
         "Run create-supabase-project first."
     );
   }
@@ -1087,7 +1095,13 @@ async function secureAuthAndMcp(
     changed.push(`auth: ${Object.keys(patch).join(", ")}`);
   }
 
-  const hash = routeKeyHash(routeKeyFor(state.serviceKey));
+  let secret = state.mcpRouteSecret;
+  if (!secret) {
+    secret = generateRouteSecret();
+    deps.writeState(ctx.subdomain, { mcpRouteSecret: secret });
+    changed.push("MCP route secret generated");
+  }
+  const hash = routeKeyHash(secret);
   const [row] = await deps.management.runQuery<{ h: string | null }>(
     state.projectRef,
     "select (select key_sha256 from aims_private.mcp_route_key) as h;"
@@ -1134,7 +1148,7 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "secure-auth-and-mcp",
     describe: (c) =>
-      `sign-up off, authenticator enrolment off, current password required, site URL https://${c.subdomain}.aims-hq.com; write the MCP route key (the OAuth server stays off)`,
+      `sign-up off, authenticator enrolment off, current password required, site URL https://${c.subdomain}.aims-hq.com; generate the MCP route secret and write its hash (the OAuth server stays off)`,
     execute: secureAuthAndMcp,
   },
   // DEFERRED VERIFICATION, to be done when this step is implemented.
@@ -1161,7 +1175,7 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "write-vercel-env",
     describe: (c) =>
-      `write ${c.envPrefix}_SUPABASE_URL / _ANON_KEY / _SERVICE_KEY to Vercel Production (service key sensitive)`,
+      `write ${c.envPrefix}_SUPABASE_URL / _ANON_KEY / _SERVICE_KEY / _MCP_ROUTE_SECRET to Vercel Production (keys and secret sensitive)`,
     execute: writeVercelEnv,
   },
   {

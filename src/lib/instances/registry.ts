@@ -196,6 +196,7 @@ async function fetchInstance(
     supabaseUrl: url,
     supabaseAnonKey: anonKey,
     supabaseServiceKey: serviceKey,
+    mcpRouteSecret: process.env[`${prefix}_MCP_ROUTE_SECRET`] || undefined,
     status: toStatus(row.status, row.subdomain),
   };
 }
