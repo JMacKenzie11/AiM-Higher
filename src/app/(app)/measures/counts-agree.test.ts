@@ -40,7 +40,7 @@ function block(name: string): string {
 describe("the outstanding line and the save count one population", () => {
   it("derives the chased set once", () => {
     const rows = block("writableRows");
-    expect(rows).toContain("g.canLog");
+    expect(rows).toContain("g.canEnter");
     // And only rows actually due in the week being chased. A
     // fortnightly measure in an off week is not outstanding.
     expect(rows).toContain("isDueInWeek");
@@ -65,11 +65,11 @@ describe("the outstanding line and the save count one population", () => {
   it("saves every editable cell it owns, across both open weeks", () => {
     // Wider than the chased set on purpose, and only in one
     // direction: a value typed into the current column has to save
-    // too, or the box lies. Still filtered to canLog, so it never
+    // too, or the box lies. Still filtered to canEnter, so it never
     // reaches another function.
     const save = code.slice(code.indexOf("function save()"));
     const upToTransition = save.slice(0, save.indexOf("startTransition"));
-    expect(upToTransition).toContain("filter((g) => g.canLog)");
+    expect(upToTransition).toContain("filter((g) => g.canEnter)");
     expect(upToTransition).toContain("editableWeeks");
     expect(upToTransition).toContain("isDueInWeek");
   });
@@ -77,7 +77,7 @@ describe("the outstanding line and the save count one population", () => {
   it("scopes the line to what the caller can write", () => {
     // A count spanning other people's functions would tell a leader
     // they had six things to do when they have none.
-    expect(block("writableRows")).toContain("filter((g) => g.canLog)");
+    expect(block("writableRows")).toContain("filter((g) => g.canEnter)");
   });
 
   it("says nothing at all to somebody with nothing to log", () => {
@@ -94,14 +94,14 @@ describe("the outstanding line and the save count one population", () => {
 //
 // The worry worth guarding is not that the save would write somebody
 // else's row: it would not, because `writableRows` is filtered above
-// and RLS on success_measure_entries admits only the lead, an admin
-// or a guide. It is that the page might INVITE the typing. An input
+// and RLS on success_measure_entries admits only the lead, the
+// tracker, an admin or a guide. It is that the page might INVITE the typing. An input
 // you can fill in and then quietly lose on save is worse than no
 // input, and it is the shape of bug that survives review because
 // everything behind it is correct.
 describe("only your own functions get an input", () => {
-  it("renders an input only on an editable week AND with canLog", () => {
-    expect(code).toContain("if (editable && canLog) {");
+  it("renders an input only on an editable week AND with canEnter", () => {
+    expect(code).toContain("if (editable && canEnter) {");
   });
 
   it("opens two weeks to everyone, and the whole page to an admin", () => {
@@ -131,12 +131,13 @@ describe("only your own functions get an input", () => {
     );
   });
 
-  it("passes canLog down per function, not per page", () => {
-    // `group.canLog`, not the page-wide `authoring`. An admin gets
-    // every function because their canLog is true everywhere, which
+  it("passes canEnter down per function, not per page", () => {
+    // `group.canEnter`, not the page-wide `authoring`. An admin gets
+    // every function because their canEnter is true everywhere, which
     // is the same rule reaching a different answer rather than a
-    // second rule.
-    expect(code).toContain("canLog={group.canLog}");
+    // second rule. Not `canLog` either: a Tracker enters values
+    // without authoring the measures.
+    expect(code).toContain("canEnter={group.canEnter}");
   });
 
   it("falls back to reading the value, not to a disabled box", () => {

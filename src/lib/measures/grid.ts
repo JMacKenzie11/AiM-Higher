@@ -122,7 +122,14 @@ export type GridGroup = {
   // the measure, which is how the spreadsheet's merged Owner cells
   // already work.
   ownerName: string | null;
+  // Who may AUTHOR this function's measures: add, edit, archive,
+  // reorder, connect a source. An admin here, or the function's Lead
+  // (0217). Not the Tracker.
   canLog: boolean;
+  // Who gets an input box for the values. Everyone `canLog` admits,
+  // plus the function's Tracker, which is who the entry policy on
+  // success_measure_entries admits.
+  canEnter: boolean;
   rows: GridRow[];
 };
 
@@ -317,18 +324,16 @@ export function buildGridData(
     rowsByFunction.set(csf.function_id, list);
   }
 
-// THE TRACK SEAT IS NOT CONSULTED, and that is not an oversight.
+// THE TRACK SEAT GETS THE ENTRY BOX AND NOTHING ELSE (Jason,
+// 2026-10-14). The entry policy on success_measure_entries has
+// always admitted `f.track_id`, so a Tracker without a box was
+// refused by the page for something the database allows.
 //
-// `functions.track_id` has no input anywhere in src/app or
-// src/components. chart/actions.ts reads it from FormData that no
-// form submits, so every function written through the application
-// sets it null. Fleet-wide on production: 60 functions, 34 with a
-// Lead, three with a track_id, two of which differ from the lead.
-//
-// Reading a column nothing populates is a branch that cannot be
-// tested and cannot be trusted, so it comes out here. The columns
-// stay: dropping them is a fleet migration for two rows and is
-// tracked on its own.
+// It stays out of `canLog`: 0217 gave authoring to the Lead and
+// deliberately not the Tracker. `functions.track_id` still has no
+// input anywhere in the app, so this reaches only the rows that
+// already carry one: on 2026-10-14, two functions on production
+// (one where the Tracker is not the Lead) and none on PromiseOne.
 
   // Chart order, not sort_order: Visionary first, Integrator second,
   // every other function following its parent. The grid reads as the
@@ -344,16 +349,22 @@ export function buildGridData(
   // a drag whose result only some viewers see is not a saved order.
   const orderedFunctions = orderFunctionsByHierarchy(spine.functions);
 
-  const groups: GridGroup[] = orderedFunctions.map((fn) => ({
-    functionId: fn.id,
-    functionTitle: fn.title,
-    parentFunctionId: fn.parent_function_id,
-    ownerName: fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null,
-    // Same rule the entry policy on success_measure_entries enforces, so the page never
-    // draws an input the server would refuse.
-    canLog: includeAll || fn.lead_id === userId,
-    rows: rowsByFunction.get(fn.id) ?? [],
-  }));
+  const groups: GridGroup[] = orderedFunctions.map((fn) => {
+    // The rule success_measures_write_by_function enforces.
+    const canLog = includeAll || fn.lead_id === userId;
+    return {
+      functionId: fn.id,
+      functionTitle: fn.title,
+      parentFunctionId: fn.parent_function_id,
+      ownerName: fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null,
+      canLog,
+      // The rule the entry policy on success_measure_entries enforces,
+      // so the page draws every input the server would accept and none
+      // it would refuse.
+      canEnter: canLog || (fn.track_id !== null && fn.track_id === userId),
+      rows: rowsByFunction.get(fn.id) ?? [],
+    };
+  });
 
   return {
     weeks,

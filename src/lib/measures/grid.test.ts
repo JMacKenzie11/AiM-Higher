@@ -293,6 +293,30 @@ describe("who gets an input", () => {
     const grid = buildGridData(spine(), "u_someone", true);
     expect(grid.groups[0].canLog).toBe(true);
   });
+
+  // The entry policy on success_measure_entries admits the Tracker;
+  // success_measures_write_by_function (0217) does not.
+  const tracked = () =>
+    spine({
+      functions: [{ ...spine().functions[0], track_id: "u_tracker" }],
+    });
+
+  it("gives the Tracker the entry box and nothing else", () => {
+    const grid = buildGridData(tracked(), "u_tracker", false);
+    expect(grid.groups[0].canEnter).toBe(true);
+    expect(grid.groups[0].canLog).toBe(false);
+  });
+
+  it("gives the Lead and an admin the entry box too", () => {
+    expect(buildGridData(tracked(), "u_woody", false).groups[0].canEnter).toBe(true);
+    expect(buildGridData(tracked(), "u_someone", true).groups[0].canEnter).toBe(true);
+  });
+
+  it("gives nobody else an entry box", () => {
+    expect(buildGridData(tracked(), "u_someone", false).groups[0].canEnter).toBe(false);
+    // An untracked function admits no tracker by accident.
+    expect(buildGridData(spine(), "u_someone", false).groups[0].canEnter).toBe(false);
+  });
 });
 
 describe("cellStatus", () => {
