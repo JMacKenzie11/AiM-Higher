@@ -26,6 +26,9 @@ import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
 import { QuarterCard } from "./QuarterCard";
 import { getQuarterCardData } from "@/lib/quarters/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { AssistantsSwitchForm } from "./AssistantsSwitchForm";
+import { mcpOpenTo } from "@/lib/mcp/switch";
+import { mcpEnabledHere } from "@/lib/mcp/switch-here";
 
 // One row of company_settings_events, narrowed to the timezone
 // changes this page renders. `actor` is null for a service-role write
@@ -244,6 +247,27 @@ export default async function CompanyDetailPage({
             <IndustryForm
               companyId={company.id}
               initial={company.industry}
+            />
+          </section>
+        ) : null}
+
+        {/* Outside assistants (0279): the company's own switch, off by
+            default. Shown only where someone here could use them: MCP
+            on for this instance, and the viewer a system admin, or a
+            company admin or guide once outside assistants are open to
+            everyone (MCP_FOR_EVERYONE). */}
+        {(await mcpEnabledHere()) &&
+        (isSystemAdmin ||
+          (mcpOpenTo("company_admin") &&
+            (isCompanyAdmin || session.profile.role === "aims_guide"))) ? (
+          <section className={styles.accentCard} aria-labelledby="assistants-heading">
+            <h2 id="assistants-heading" className={styles.h2}>
+              Outside assistants
+            </h2>
+            <AssistantsSwitchForm
+              companyId={company.id}
+              companyName={company.name}
+              initial={company.assistants_enabled === true}
             />
           </section>
         ) : null}

@@ -8,6 +8,9 @@ import { AvatarUpload } from "./AvatarUpload";
 import { ProfileDetailsForm } from "./ProfileDetailsForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import styles from "./profile.module.css";
+import { ConnectedAssistants } from "./ConnectedAssistants";
+import { listMyAssistantsAction } from "@/lib/mcp/grants";
+import { currentHelpViewer, helpFeaturesFor } from "@/lib/help/loader";
 
 // /profile — self-serve edit for the signed-in user.
 // Name + position live on public.profiles; password change goes
@@ -20,6 +23,9 @@ export default async function ProfilePage() {
   // Newest first already. The card takes all of them and pages in
   // place, so there is no second page to send anybody to.
   const { rows: memories } = await listMyMemoriesAction();
+
+  const [assistants, viewer] = await Promise.all([listMyAssistantsAction(), currentHelpViewer()]);
+  const assistantsVisible = helpFeaturesFor(session.profile.role, viewer).has("outside_assistants");
 
   return (
     <PageShell
@@ -68,6 +74,23 @@ export default async function ProfilePage() {
         </p>
         <StrengthsEditor userId={session.profile.id} initial={strengths} heading="" />
       </section>
+
+      {/* Connected assistants (Phase 4): shown where this person could
+          use outside assistants, or when they already have one
+          connected, so a connection is never hidden from the person
+          who can revoke it. */}
+      {assistantsVisible || assistants.length > 0 ? (
+        <section className={styles.card} aria-labelledby="assistants">
+          <h2 id="assistants" className={styles.h2}>
+            Connected assistants
+          </h2>
+          <p className={styles.subtitleInline}>
+            Outside assistants you&apos;ve allowed to act as you in AiMS. Disconnect one and it stops
+            reaching AiMS at once.
+          </p>
+          <ConnectedAssistants initial={assistants} />
+        </section>
+      ) : null}
 
       {/* What Aimee remembers, where the other things that are you
           already live. This replaced a sidebar entry of its own: a

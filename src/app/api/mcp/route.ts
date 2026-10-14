@@ -1,6 +1,7 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { currentRequestOrigin } from "@/lib/instances/origin";
-import { mcpEnabled, mcpOpenTo } from "@/lib/mcp/switch";
+import { mcpOpenTo } from "@/lib/mcp/switch";
+import { mcpEnabledHere } from "@/lib/mcp/switch-here";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assistantClient, verifyAssistantToken } from "@/lib/mcp/auth";
@@ -125,6 +126,15 @@ async function runTool<A>(
       }
       company = choice.company;
       companyId = company.id;
+      // THE COMPANY'S OWN SWITCH (0279), for everyone, system admins
+      // included: no company's data reaches an outside assistant until
+      // that company has switched it on.
+      if (!company.assistantsOn) {
+        await log("refused", "company_off");
+        return say(
+          `Outside assistants are switched off for ${company.name}. A company admin can switch them on in the company's settings in AiMS.`
+        );
+      }
       const companyBroken = limitBroken({ lastMinute: 0, lastHour: 0 }, await recentCounts("company_id", company.id));
       if (companyBroken) {
         await log("rate_limited", companyBroken);
@@ -194,10 +204,18 @@ const handler = createMcpHandler(
       "list_my_companies",
       {
         title: "List my companies",
-        description: "The AiMS companies you can see, by name and id. Every other tool takes one of these as its company.",
+        description:
+          "The AiMS companies you can see, by name and id, and whether each has outside assistants switched on. Every other tool takes one of these as its company, and works only where they are on.",
         annotations: READ_ONLY,
       },
-      async (ctx) => runTool("list_my_companies", false, ctx, {}, async ({ db }) => ({ companies: await visibleCompanies(db) }))
+      async (ctx) =>
+        runTool("list_my_companies", false, ctx, {}, async ({ db }) => ({
+          companies: (await visibleCompanies(db)).map((c) => ({
+            id: c.id,
+            name: c.name,
+            outside_assistants: c.assistantsOn ? "on" : "off: a company admin can switch them on",
+          })),
+        }))
     );
 
     server.registerTool(
@@ -381,7 +399,7 @@ const handler = createMcpHandler(
 );
 
 async function route(request: Request): Promise<Response> {
-  if (!mcpEnabled()) return new Response("Not found", { status: 404 });
+  if (!(await mcpEnabledHere())) return new Response("Not found", { status: 404 });
   const origin = await currentRequestOrigin();
   const authed = withMcpAuth(
     handler,

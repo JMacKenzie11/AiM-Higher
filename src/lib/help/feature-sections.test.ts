@@ -30,27 +30,40 @@ describe("feature-scoped help sections", () => {
 
   it("is off for everyone while MCP is switched off", () => {
     vi.stubEnv("MCP_ENABLED", "");
-    expect(helpFeaturesFor("system_admin").has("outside_assistants")).toBe(false);
-    expect(helpFeaturesFor("team_member").has("outside_assistants")).toBe(false);
+    expect(helpFeaturesFor("system_admin", { subdomain: "@", companyAssistantsOn: true }).has("outside_assistants")).toBe(false);
+    expect(helpFeaturesFor("team_member", { subdomain: "@", companyAssistantsOn: true }).has("outside_assistants")).toBe(false);
   });
 
   it("is on for system admins only while MCP is admins-only", () => {
     vi.stubEnv("MCP_ENABLED", "true");
     vi.stubEnv("MCP_FOR_EVERYONE", "");
-    expect(helpFeaturesFor("system_admin").has("outside_assistants")).toBe(true);
-    expect(helpFeaturesFor("company_admin").has("outside_assistants")).toBe(false);
-    expect(helpFeaturesFor("team_member").has("outside_assistants")).toBe(false);
+    const on = { subdomain: "@", companyAssistantsOn: true };
+    expect(helpFeaturesFor("system_admin", on).has("outside_assistants")).toBe(true);
+    expect(helpFeaturesFor("company_admin", on).has("outside_assistants")).toBe(false);
+    expect(helpFeaturesFor("team_member", on).has("outside_assistants")).toBe(false);
+  });
+
+  it("needs the viewer's company switch once open to everyone, and the instance", () => {
+    vi.stubEnv("MCP_ENABLED", "true");
+    vi.stubEnv("MCP_FOR_EVERYONE", "true");
+    vi.stubEnv("MCP_INSTANCES", "@");
+    expect(helpFeaturesFor("team_member", { subdomain: "@", companyAssistantsOn: false }).has("outside_assistants")).toBe(false);
+    expect(helpFeaturesFor("team_member", { subdomain: "@", companyAssistantsOn: true }).has("outside_assistants")).toBe(true);
+    expect(helpFeaturesFor("team_member", { subdomain: "promiseone", companyAssistantsOn: true }).has("outside_assistants")).toBe(false);
+    // A system admin needs no company switch to read the help.
+    expect(helpFeaturesFor("system_admin", { subdomain: "@", companyAssistantsOn: false }).has("outside_assistants")).toBe(true);
   });
 
   it("shows a client no outside-assistant help anywhere in the real docs", async () => {
     vi.stubEnv("MCP_ENABLED", "true");
     vi.stubEnv("MCP_FOR_EVERYONE", "");
+    const viewer = { subdomain: "@", companyAssistantsOn: true };
     for (const role of ["team_member", "company_admin", "aims_guide", "portfolio_admin"] as const) {
-      const docs = await loadAllHelpFor(role);
+      const docs = await loadAllHelpFor(role, viewer);
       const text = docs.map((d) => d.markdown).join("\n");
       expect(text).not.toMatch(/outside assistant|via Claude|ask every time/i);
     }
-    const admin = (await loadAllHelpFor("system_admin")).map((d) => d.markdown).join("\n");
+    const admin = (await loadAllHelpFor("system_admin", viewer)).map((d) => d.markdown).join("\n");
     expect(admin).toMatch(/Connecting an outside assistant/);
   });
 

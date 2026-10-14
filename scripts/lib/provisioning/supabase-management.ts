@@ -94,6 +94,10 @@ export type ManagementClient = {
   // seed and for reading applied migration versions, which saves
   // needing psql on the machine running this.
   runQuery: <T>(ref: string, query: string) => Promise<T[]>;
+  // The project's Auth settings (Authentication in the dashboard), read
+  // and patched. Used by secure-auth-and-mcp.
+  getAuthConfig: (ref: string) => Promise<Record<string, unknown>>;
+  updateAuthConfig: (ref: string, patch: Record<string, unknown>) => Promise<Record<string, unknown>>;
 };
 
 export function createManagementClient(opts: {
@@ -164,6 +168,11 @@ export function createManagementClient(opts: {
 
     runQuery: <T,>(ref: string, query: string) =>
       request<T[]>("POST", `/v1/projects/${ref}/database/query`, { query }),
+
+    getAuthConfig: (ref) => request<Record<string, unknown>>("GET", `/v1/projects/${ref}/config/auth`),
+
+    updateAuthConfig: (ref, patch) =>
+      request<Record<string, unknown>>("PATCH", `/v1/projects/${ref}/config/auth`, patch),
   };
 }
 

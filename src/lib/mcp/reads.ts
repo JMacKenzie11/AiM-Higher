@@ -37,9 +37,9 @@ function must<T>(res: { data: T | null; error: { code?: string } | null }): T {
 
 export async function visibleCompanies(db: Db): Promise<VisibleCompany[]> {
   const rows = must(
-    await db.from("companies").select("id, name").is("deleted_at", null).order("name")
-  ) as Array<{ id: string; name: string }>;
-  return rows.map((r) => ({ id: r.id, name: r.name }));
+    await db.from("companies").select("id, name, assistants_enabled").is("deleted_at", null).order("name")
+  ) as Array<{ id: string; name: string; assistants_enabled: boolean }>;
+  return rows.map((r) => ({ id: r.id, name: r.name, assistantsOn: r.assistants_enabled === true }));
 }
 
 async function companyTimezone(db: Db, companyId: string): Promise<string> {

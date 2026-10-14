@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { mcpEnabled, mcpOpenTo } from "./switch";
+import { mcpOpenTo } from "./switch";
+import { mcpEnabledHere } from "./switch-here";
 import { isAuthorizationId } from "./consent-path";
 
 // The person's answer to an outside assistant's sign-in request.
@@ -18,7 +19,7 @@ import { isAuthorizationId } from "./consent-path";
 export type ConsentResult = { ok: false; message: string };
 
 async function answer(formData: FormData, approve: boolean): Promise<ConsentResult> {
-  if (!mcpEnabled()) return { ok: false, message: "Outside assistants aren't available." };
+  if (!(await mcpEnabledHere())) return { ok: false, message: "Outside assistants aren't available." };
   const session = await requireProfile();
   const id = String(formData.get("authorization_id") ?? "");
   if (!isAuthorizationId(id)) return { ok: false, message: "That sign-in request isn't valid. Start again from your assistant." };

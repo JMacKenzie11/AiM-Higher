@@ -69,6 +69,8 @@ function makeDeps(opts: {
         { db_host: "aws-0-us-east-1.pooler.supabase.com", db_port: 6543, db_user: "postgres.x", db_name: "postgres" },
       ]),
       runQuery: vi.fn(async () => []),
+      getAuthConfig: vi.fn(async () => ({})),
+      updateAuthConfig: vi.fn(async () => ({})),
     },
     organizationId: "org1",
     vercel: {

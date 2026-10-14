@@ -31,6 +31,7 @@ describe("the provisioning plan", () => {
       "create-supabase-project",
       "apply-migrations",
       "seed-data",
+      "secure-auth-and-mcp",
       "write-vercel-env",
       "record-fleet-credentials",
       "trigger-redeploy",
