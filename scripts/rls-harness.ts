@@ -10749,6 +10749,8 @@ export const ASSISTANT_MENU = {
   add: ["commitments", "issues", "success_measure_entries"],
   // Readable only inside assistant_meeting_summaries().
   summaries: ["meetings", "meeting_analyses"],
+  // An assistant may add here and read nothing back (0281).
+  addOnly: ["aimee_handoffs"],
   // The only functions the gate lets an assistant call.
   rpc: ["assistant_meeting_summaries"],
 } as const;
@@ -10756,6 +10758,9 @@ export const ASSISTANT_MENU = {
 // The restrictive rules a table must carry, by where it sits on the menu.
 export function requiredAssistantRules(schema: string, table: string): string[] {
   const m = ASSISTANT_MENU;
+  if (schema === "public" && (m.addOnly as readonly string[]).includes(table)) {
+    return ["assistant_insert:INSERT", "assistant_no_delete:DELETE", "assistant_no_select:SELECT", "assistant_no_update:UPDATE", "assistant_through_route:ALL"].sort();
+  }
   if (schema !== "public" || !([...m.read, ...m.summaries] as readonly string[]).includes(table)) {
     return ["assistant_refused:ALL"];
   }
@@ -11821,6 +11826,119 @@ select jsonb_object_agg(k, v)::text as r from _t;`, "rollback;"].join("\n"));
     detail: pass
       ? "only clients whose every redirect address is approved get a token or reach the database; app sign-ins are untouched"
       : "AN UNAPPROVED ASSISTANT CLIENT GETS A TOKEN OR REACHES THE DATABASE (is 0280 applied?)",
+  }];
+}
+
+// ---- Work with Aimee: the handoff (0281) -------------------------------
+//
+// Jason, 2026-10-14: an assistant hands a short topic to Aimee; the link
+// opens once, for the same person, within 24 hours.
+//   granted   the assistant adds a handoff for its person; the person
+//             opens it once and gets its company and topic back
+//   withheld  the assistant reads nothing back, cannot set expiry, use
+//             or agent, cannot add without the route key, and cannot
+//             open a link; another person cannot open it; a second
+//             open and an expired one are refused
+// Red before 0281: the table does not exist.
+async function aimeeHandoffProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "work with Aimee · the handoff";
+  const M = ids.member, CO = ids.memberCompany, OTHER = ids.companyAdmin;
+  const T1 = "harness-handoff-token-0281-a", T2 = "harness-handoff-token-0281-b", T3 = "harness-handoff-token-0281-c";
+  let r: Record<string, string> = {};
+  try {
+    const [row] = await run<{ r: string }>(["begin;", pending, `
+create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';
+create or replace function public.assistant_through_route() returns boolean language sql as $f$ select coalesce(current_setting('aims.route_ok', true), '') = '1' $f$;
+create temp table _h (k text, v text) on commit drop;
+grant all on _h to authenticated;
+set local role authenticated;
+do $$
+declare n int; o text; c record;
+  sha text;
+begin
+  -- The assistant, through the route, adds a handoff and tries to dress it up.
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated","client_id":"harness-0281"}', true);
+  perform set_config('aims.route_ok', '1', true);
+  begin
+    insert into public.aimee_handoffs (token_sha256, company_id, topic) values (encode(sha256(convert_to('${T1}', 'UTF8')), 'hex'), '${CO}', 'harness topic one');
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _h values ('assistant_add', o);
+  begin
+    execute format('insert into public.aimee_handoffs (token_sha256, company_id, topic, expires_at, used_at, agent_slug) values (%L, %L, %L, now() + interval ''30 days'', now(), %L)',
+      encode(sha256(convert_to('${T2}', 'UTF8')), 'hex'), '${CO}', 'harness topic two', 'functional-chart-builder');
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _h values ('assistant_dressed_add', o);
+  begin
+    select count(*) into n from public.aimee_handoffs;
+    o := n::text;
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _h values ('assistant_reads', o);
+  begin
+    select state into o from public.claim_aimee_handoff('${T1}');
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _h values ('assistant_opens', o);
+  -- Without the route key.
+  perform set_config('aims.route_ok', '0', true);
+  begin
+    insert into public.aimee_handoffs (token_sha256, company_id, topic) values (encode(sha256(convert_to('${T3}', 'UTF8')), 'hex'), '${CO}', 'harness topic three');
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _h values ('assistant_add_no_route', o);
+end $$;
+reset role;
+-- Below the API (no column grants), as the person: the database still
+-- stamps who, when, expiry and the opened fields.
+select set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+insert into public.aimee_handoffs (token_sha256, profile_id, company_id, topic, expires_at, used_at, agent_slug)
+values (encode(sha256(convert_to('${T2}', 'UTF8')), 'hex'), '${OTHER}', '${CO}', 'harness topic two', now() + interval '30 days', now(), 'functional-chart-builder');
+insert into _h select 'stamped', (expires_at between now() + interval '23 hours 59 minutes' and now() + interval '24 hours 1 minute' and used_at is null and agent_slug is null and profile_id = '${M}')::text
+  from public.aimee_handoffs where token_sha256 = encode(sha256(convert_to('${T2}', 'UTF8')), 'hex');
+set local role authenticated;
+do $$
+declare c record;
+begin
+  -- Someone else, signed in normally, tries the link.
+  perform set_config('request.jwt.claims', '{"sub":"${OTHER}","role":"authenticated"}', true);
+  select * into c from public.claim_aimee_handoff('${T1}');
+  insert into _h values ('other_opens', c.state);
+  -- The person opens it, then again.
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  select * into c from public.claim_aimee_handoff('${T1}');
+  insert into _h values ('owner_opens', c.state || '|' || coalesce(c.topic, ''));
+  select * into c from public.claim_aimee_handoff('${T1}');
+  insert into _h values ('owner_opens_again', c.state);
+end $$;
+reset role;
+update public.aimee_handoffs set expires_at = now() - interval '1 minute' where token_sha256 = encode(sha256(convert_to('${T2}', 'UTF8')), 'hex');
+set local role authenticated;
+do $$
+declare c record;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  select * into c from public.claim_aimee_handoff('${T2}');
+  insert into _h values ('owner_opens_expired', c.state);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _h;`, "rollback;"].join("\n"));
+    r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const ok = r.assistant_add === "inserted" && r.assistant_dressed_add === "refused 42501" && r.stamped === "true"
+    && (r.assistant_reads === "0" || r.assistant_reads === "refused 42501") && r.assistant_opens === "refused" && /^refused /.test(r.assistant_add_no_route ?? "")
+    && r.other_opens === "not_yours" && r.owner_opens === "ok|harness topic one" && r.owner_opens_again === "used" && r.owner_opens_expired === "expired";
+  return [{
+    name,
+    granted: `assistant adds a handoff: ${r.assistant_add} | the database stamps who, 24h, unused and no agent whatever is supplied: ${r.stamped} | the person opens it: ${r.owner_opens}`,
+    withheld: `the assistant naming expiry/used/agent: ${r.assistant_dressed_add}, reading handoffs back: ${r.assistant_reads}, opening a link: ${r.assistant_opens}, adds without the route key: ${r.assistant_add_no_route} | another person opens it: ${r.other_opens} | opened twice: ${r.owner_opens_again} | expired: ${r.owner_opens_expired}`,
+    ok,
+    detail: ok
+      ? "an assistant can only add a handoff; it opens once, for the same person, within 24 hours, and the assistant sees nothing back"
+      : "THE AIMEE HANDOFF LEAKS, OPENS FOR SOMEONE ELSE, OR OPENS TWICE (is 0281 applied?)",
   }];
 }
 
@@ -13859,6 +13977,7 @@ async function main(): Promise<void> {
     ...(await assistantActionLogProbes(run, pendingSql)),
     ...(await assistantRouteOnlyProbes(run, ids, pendingSql)),
     ...(await assistantTrustedClientProbes(run, ids, pendingSql)),
+    ...(await aimeeHandoffProbes(run, ids, pendingSql)),
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
     ...(await assistantAddProbes(run, ids, pendingSql)),
     ...(await companyAssistantsSwitchProbes(run, ids, pendingSql)),

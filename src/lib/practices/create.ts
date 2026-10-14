@@ -8,6 +8,7 @@ import { resolveAgent } from "./resolve";
 import { liveVersionIdFor } from "./version-config";
 import { practiceGate } from "./gate";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { mayUseCompany } from "@/lib/auth/permissions";
 
 // Pure creation logic for a practice conversation. Kept in its own
 // module (no "use server" directive) so it's safe to call from both
@@ -51,6 +52,9 @@ export async function createPracticeConversation(
     debriefingMeetingId?: string;
     opener?: string;
     handoffSummary?: string;
+    // The company, instead of the current scope (an Aimee handoff names
+    // its own, 0281). Must be one this person may use.
+    companyId?: string;
     offeredInMessageId?: string;
   }
 ): Promise<CreateResult> {
@@ -64,7 +68,10 @@ export async function createPracticeConversation(
   // Route resolution through the canonical helper so system_admin
   // and aims_guide callers both work (guide-only fallback lives
   // inside getEffectiveCompanyId).
-  const companyId = await getEffectiveCompanyId(session);
+  if (options?.companyId && !mayUseCompany(session.profile, options.companyId)) {
+    return { ok: false, message: "That company isn't one you can use." };
+  }
+  const companyId = options?.companyId ?? (await getEffectiveCompanyId(session));
   if (!companyId) {
     return {
       ok: false,

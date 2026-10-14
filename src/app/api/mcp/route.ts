@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assistantClient, verifyAssistantToken } from "@/lib/mcp/auth";
 import { AddRefused, addCommitment, addIssue, addMeasureValue } from "@/lib/mcp/adds";
+import { workWithAimee } from "@/lib/mcp/handoff";
 import { chooseCompany, type VisibleCompany } from "@/lib/mcp/company";
 import { limitBroken, limitMessage } from "@/lib/mcp/limits";
 import { recentCounts, recordAction } from "@/lib/mcp/log";
@@ -169,6 +170,12 @@ const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: 
 // removed. Not idempotent: calling twice adds twice, which the
 // commitment duplicate guard and the empty-week rule refuse.
 const ADDS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
+// work_with_aimee (0281). It writes one short-lived record and changes
+// nothing in the company's data, but it is not read-only, so it is not
+// labelled as such: an assistant asks before calling it unless the
+// person has allowed it. Not destructive, not idempotent (each call is
+// a new link).
+const HANDOFF = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 const company = z
   .string()
   .max(200)
@@ -395,8 +402,24 @@ const handler = createMcpHandler(
         runTool("add_measure_value", true, ctx, args, (c, a) =>
           addMeasureValue({ ...c, company: c.company! }, { measure_id: a.measure_id, value: a.value, week_beginning: a.week_beginning }))
     );
+
+    server.registerTool(
+      "work_with_aimee",
+      {
+        title: "Work with Aimee in AiMS",
+        description:
+          "Use this when the person wants help that Aimee, AiMS's coach, handles better inside AiMS: coaching on a person or on their own leadership, preparing or handling a hard conversation, designing or changing the functional chart, writing a role description, or debriefing a meeting. Do not coach on these yourself at length; offer this instead. Write a short, neutral summary of what they want help with as the topic (one or two sentences, no names of anyone's health, family or private life). Only that topic is sent to AiMS, never this conversation. Returns a link that opens Aimee in AiMS with the right guide loaded and the topic filled in; show the person the returned message with the link. It does not coach and returns nothing from Aimee. The link works once, for this person only, for 24 hours.",
+        inputSchema: z.object({
+          company,
+          topic: z.string().min(1).max(500).describe("A short summary of what the person wants help with, in one or two sentences."),
+        }),
+        annotations: HANDOFF,
+      },
+      async (args, ctx) =>
+        runTool("work_with_aimee", true, ctx, args, (c, a) => workWithAimee({ ...c, company: c.company! }, { topic: a.topic }))
+    );
   },
-  { serverInfo: { name: "AiMS HQ", version: "0.4.0" } }
+  { serverInfo: { name: "AiMS HQ", version: "0.5.0" } }
 );
 
 async function route(request: Request): Promise<Response> {
