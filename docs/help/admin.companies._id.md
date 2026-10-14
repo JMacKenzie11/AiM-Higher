@@ -91,13 +91,19 @@ If the champion is deactivated or moves to another company, the seat empties and
 :::
 
 ::: feature outside_assistants
-## Outside assistants
+## Connect AI apps
 
-**On for every company by default.** You can switch it off here at any time. While it's off, nobody at the company can use an outside assistant, such as Claude or ChatGPT, with its AiMS work, not even a system admin.
+**On for every company by default.** You can switch it off here at any time. While it's off, nobody at the company can use AiMS HQ in an AI app, such as Claude or ChatGPT, not even a system admin.
 
-When it's on, each person still decides whether to connect one, from their profile. A connected assistant reads what that person can read and can add their own commitments, issues and measure values. It can't change or delete anything.
+When it's on, each person still decides whether to connect one, from their profile. A connected AI app reads what that person can read and can add their own commitments, issues and measure values. It can't change or delete anything. **How to connect** opens the steps for each app.
 
-The company's admin can switch it, and so can an assigned guide or a system admin. Every change is recorded with who made it. Portfolio admins can't connect an outside assistant. AiMS never lets your data be used to train AI models. Once it reaches the assistant, the assistant's terms and privacy policy apply instead, along with your own settings there.
+The company's admin can switch it, and so can an assigned guide or a system admin. Every change is recorded with who made it. Portfolio admins can't connect an AI app. AiMS never lets your data be used to train AI models. Once it reaches the AI app, that app's terms and privacy policy apply instead, along with your own settings there.
+:::
+
+::: feature ai_apps_off
+## Connect AI apps
+
+AI apps are switched off for this company. Tick **Let people at the company use AiMS HQ in AI apps like Claude and ChatGPT** and save to switch them back on. Every change is recorded with who made it.
 :::
 
 ::: role company_admin,system_admin,portfolio_admin

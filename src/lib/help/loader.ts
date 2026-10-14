@@ -115,14 +115,15 @@ export function parseRoles(value: string | string[] | undefined, slug = "?"): Ro
 // them. What Aimee's help search and page index read (help/search.ts),
 // so she can never quote help the "?" would not show this person.
 export async function loadAllHelpFor(role: Role, viewer?: HelpViewer): Promise<HelpDoc[]> {
-  const features = helpFeaturesFor(role, viewer ?? (await currentHelpViewer()));
+  const v = viewer ?? (await currentHelpViewer());
+  const features = helpFeaturesFor(role, v);
   const files = (await fs.readdir(HELP_DIR)).filter((f) => f.endsWith(".md") && f !== "README.md");
   const docs: HelpDoc[] = [];
   for (const file of files.sort()) {
     const doc = await readDoc(file.replace(/\.md$/, ""));
     if (!doc) continue;
     if (doc.roles && !doc.roles.includes(role)) continue;
-    docs.push({ ...doc, markdown: filterFeatureSections(filterRoleSections(doc.markdown, role), features) });
+    docs.push({ ...doc, markdown: withMcpAddress(filterFeatureSections(filterRoleSections(doc.markdown, role), features), v) });
   }
   return docs;
 }
@@ -230,28 +231,46 @@ export function filterRoleSections(markdown: string, role: Role): string {
 //   outside_assistants   MCP is on for this instance (MCP_ENABLED,
 //                        MCP_INSTANCES), the viewer's role is open to
 //                        it (every role but portfolio admins), and,
-//                        for anyone but a system admin, their company
-//                        has switched outside assistants on (0279).
+//                        for anyone but a system admin, a company they
+//                        belong to or are assigned to has AI apps
+//                        switched on (0279).
+//   ai_apps_off          the same, except that no such company has them
+//                        on: the help then says they are switched off
+//                        and to ask the company admin (Jason,
+//                        2026-10-14). Never for a system admin, who
+//                        needs no company switch to read the help.
+//
+// `{{mcp_address}}` in a doc is replaced with this instance's AI app
+// server address (`<origin>/api/mcp`), so the one article in
+// docs/help/ai-apps.md serves the drawer and Aimee with the address
+// for wherever the person is.
 
-export const HELP_FEATURES = ["outside_assistants"] as const;
+export const HELP_FEATURES = ["outside_assistants", "ai_apps_off"] as const;
 export type HelpFeature = (typeof HELP_FEATURES)[number];
 
 export type HelpViewer = {
   // The request's instance, for MCP_INSTANCES.
   subdomain?: string;
-  // Whether the viewer's own company has outside assistants on.
+  // Whether a company the viewer belongs to, or is assigned to as a
+  // guide, has AI apps on.
   companyAssistantsOn: boolean;
+  // This instance's AI app server address, for {{mcp_address}}.
+  mcpAddress?: string;
 };
+
+export const MCP_ADDRESS_PLACEHOLDER = "{{mcp_address}}";
+
+// The address where it is known; otherwise a description of where to
+// find it, so a doc never shows the raw placeholder.
+export function withMcpAddress(markdown: string, viewer?: HelpViewer): string {
+  if (!markdown.includes(MCP_ADDRESS_PLACEHOLDER)) return markdown;
+  return markdown.split(MCP_ADDRESS_PLACEHOLDER).join(viewer?.mcpAddress ?? "your AiMS HQ address followed by /api/mcp");
+}
 
 export function helpFeaturesFor(role: Role, viewer: HelpViewer): Set<HelpFeature> {
   const on = new Set<HelpFeature>();
-  if (
-    mcpEnabled(viewer.subdomain) &&
-    mcpOpenTo(role) &&
-    (role === "system_admin" || viewer.companyAssistantsOn)
-  ) {
-    on.add("outside_assistants");
-  }
+  if (!mcpEnabled(viewer.subdomain) || !mcpOpenTo(role)) return on;
+  on.add(role === "system_admin" || viewer.companyAssistantsOn ? "outside_assistants" : "ai_apps_off");
   return on;
 }
 
@@ -264,15 +283,19 @@ export async function currentHelpViewer(): Promise<HelpViewer> {
     const { getCurrentSession } = await import("@/lib/auth/current-user");
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const instance = await getCurrentInstanceConfig();
+    const { currentRequestOrigin } = await import("@/lib/instances/origin");
     const session = await getCurrentSession();
-    const companyId = session?.profile?.company_id;
     let companyAssistantsOn = false;
-    if (companyId) {
+    if (session?.profile) {
+      // As the viewer, so RLS limits it to the companies they can see:
+      // their own, or for a guide the companies they are assigned to.
+      // A guide has no home company, and reading only that left them
+      // with no AI app help anywhere.
       const db = await createSupabaseServerClient(instance);
-      const { data } = await db.from("companies").select("assistants_enabled").eq("id", companyId).maybeSingle<{ assistants_enabled: boolean }>();
-      companyAssistantsOn = data?.assistants_enabled === true;
+      const { data } = await db.from("companies").select("id").eq("assistants_enabled", true).limit(1);
+      companyAssistantsOn = (data ?? []).length > 0;
     }
-    return { subdomain: instance.subdomain, companyAssistantsOn };
+    return { subdomain: instance.subdomain, companyAssistantsOn, mcpAddress: `${await currentRequestOrigin()}/api/mcp` };
   } catch {
     return { subdomain: undefined, companyAssistantsOn: false };
   }
@@ -314,12 +337,13 @@ export async function loadHelpForRoute(
   role: Role,
   viewer?: HelpViewer
 ): Promise<HelpDoc | null> {
-  const features = helpFeaturesFor(role, viewer ?? (await currentHelpViewer()));
+  const v = viewer ?? (await currentHelpViewer());
+  const features = helpFeaturesFor(role, v);
   for (const slug of candidateSlugs(pathname)) {
     const doc = await readDoc(slug);
     if (!doc) continue;
     if (doc.roles && !doc.roles.includes(role)) continue;
-    return { ...doc, markdown: filterFeatureSections(filterRoleSections(doc.markdown, role), features) };
+    return { ...doc, markdown: withMcpAddress(filterFeatureSections(filterRoleSections(doc.markdown, role), features), v) };
   }
   return null;
 }

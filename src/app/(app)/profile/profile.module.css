@@ -212,3 +212,8 @@
   color: var(--aims-danger);
   font: var(--text-body-sm);
 }
+
+.assistantActions {
+  display: flex;
+  margin-top: var(--space-4);
+}

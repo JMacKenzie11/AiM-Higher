@@ -1,5 +1,7 @@
 import "server-only";
 
+import { aiAppsPromptBlock } from "@/lib/ai-apps/aimee";
+import { currentHelpViewer, helpFeaturesFor } from "@/lib/help/loader";
 import { NextRequest } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -352,9 +354,16 @@ export async function POST(req: NextRequest): Promise<Response> {
           })
         )
       : "";
+  // AI APPS (Jason, 2026-10-14): the words, and whether this person
+  // can connect one here, by the same rule as the help and the How to
+  // connect drawer (lib/ai-apps/aimee.ts). Plain Aimee only.
+  const aiAppsBlock = plainAimee
+    ? aiAppsPromptBlock(helpFeaturesFor(session.profile.role, await currentHelpViewer()))
+    : "";
   const systemPromptText =
     (await loadSystemPrompt(convo.mode, agentConfig)) +
     (helpIndexBlock ? `\n\n${helpIndexBlock}` : "") +
+    (aiAppsBlock ? `\n\n${aiAppsBlock}` : "") +
     (offerBlock ? `\n\n${offerBlock}` : "") +
     (fromPanel ? `\n\n${PANEL_PROMPT_BLOCK}` : "");
 
