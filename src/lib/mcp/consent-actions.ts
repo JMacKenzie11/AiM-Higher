@@ -7,6 +7,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { mcpOpenTo } from "./switch";
 import { mcpEnabledHere } from "./switch-here";
 import { isAuthorizationId } from "./consent-path";
+import { isClientApproved } from "./client-approval";
 
 // The person's answer to an outside assistant's sign-in request.
 //
@@ -27,6 +28,15 @@ async function answer(formData: FormData, approve: boolean): Promise<ConsentResu
     return { ok: false, message: "Outside assistants aren't open to your account yet." };
   }
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  // Asked again here, on the server, not only by hiding the button: an
+  // unapproved client is never allowed (0280).
+  if (approve) {
+    const { data: details } = await supabase.auth.oauth.getAuthorizationDetails(id);
+    const clientId = details && "client" in details ? (details.client as { id?: string }).id : undefined;
+    if (!(await isClientApproved(clientId))) {
+      return { ok: false, message: "This assistant isn't approved for AiMS." };
+    }
+  }
   const { data, error } = approve
     ? await supabase.auth.oauth.approveAuthorization(id, { skipBrowserRedirect: true })
     : await supabase.auth.oauth.denyAuthorization(id, { skipBrowserRedirect: true });

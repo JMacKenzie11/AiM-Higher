@@ -104,9 +104,19 @@ consent address is built from it, and *require current password* on
 (`security_update_password_require_current_password`), which is what
 stops an assistant's token changing a password. Authenticator-app enrolment off
 (`mfa_totp_enroll_enabled` false), which stops one enrolling a factor.
-On 2026-10-13 all of this is on the dev project only; production and
-PromiseOne wait for Jason's go. On 2026-10-13 that is done on the dev
-project only.
+And the custom access token hook on (`hook_custom_access_token_enabled`,
+URI `pg-functions://postgres/public/mcp_access_token_hook`, 0280): with
+dynamic registration on, anyone can register a client, and the hook is
+what refuses a token to any client whose redirect addresses are not all
+on the allow-list (0280 and `src/lib/mcp/trusted-clients.ts`).
+`MCP_INSTANCES` (optional) names the instances where MCP may run at all
+(`@` is production), since one deployment serves every instance. A new
+instance gets its auth settings and route secret from the provisioning
+step `secure-auth-and-mcp`; the OAuth server stays off there until
+switched on deliberately. As of 2026-10-14: dev has all of it; production
+has the OAuth server on with registration off and two hand-registered
+clients, waiting for Jason's go on registration and the hook; PromiseOne
+has the OAuth server off.
 
 `PROD_*` has a second job. The cron routes are excluded from instance
 resolution entirely, because a scheduled invocation has no visitor and
