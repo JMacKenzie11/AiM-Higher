@@ -73,5 +73,5 @@ It can also add a commitment of your own (with a due date), an issue, or a value
 
 **Keep AiMS's add tools on "ask every time"** in the assistant's settings, so nothing is added without you seeing it first. Assistants ask by default; leave it that way rather than allowing them always.
 
-Once AiMS data reaches the assistant, the assistant company's terms and privacy policy apply to it, not ours. Before you connect one, check the assistant's settings for how long it keeps your conversations and whether it uses them to train its models.
+AiMS never lets your data be used to train AI models. Once it reaches the assistant, the assistant's terms and privacy policy apply instead, along with your own settings there.
 :::
