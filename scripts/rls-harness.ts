@@ -4349,7 +4349,7 @@ export const BATCHES: readonly Batch[] = [
               and p.company_id = c.id and p.id <> lead.id
               and not exists (select 1 from public.functions f3
                                where f3.company_id = c.id
-                                 and (f3.lead_id = p.id or f3.track_id = p.id))
+                                 and f3.lead_id = p.id)
             limit 1)  as bystander,
           (select p.id from public.profiles p
             where p.role = 'company_admin' and p.status = 'active'
@@ -4368,7 +4368,6 @@ export const BATCHES: readonly Batch[] = [
         join public.success_measure_entries own_e on own_e.measure_id = own_m.id
         join public.functions other on other.company_id = c.id and other.id <> own.id
                                    and other.lead_id is distinct from lead.id
-                                   and other.track_id is distinct from lead.id
         join public.success_measures other_m on other_m.function_id = other.id
         join public.success_measure_entries other_e on other_e.measure_id = other_m.id
         where lead.role = 'team_member' and lead.status = 'active'
@@ -4378,7 +4377,7 @@ export const BATCHES: readonly Batch[] = [
                and b.company_id = c.id and b.id <> lead.id
                and not exists (select 1 from public.functions f3
                                 where f3.company_id = c.id
-                                  and (f3.lead_id = b.id or f3.track_id = b.id)))
+                                  and f3.lead_id = b.id))
           and exists (
             select 1 from public.profiles a
              where a.role = 'company_admin' and a.status = 'active' and a.company_id = c.id)
@@ -6200,20 +6199,6 @@ export const BATCHES: readonly Batch[] = [
             "('33333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'probe measure', 'kpi');",
           sql: "with i as (insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('33333333-3333-4333-8333-333333333333', current_date, 1) returning id) select count(*)::int as n from i;",
           expect: "1",
-        },
-        {
-          // 0274 (Jason, 2026-10-14): Lead, Track and Decide are one
-          // seat, the Lead. A separate track_id no longer writes. Was
-          // expect "1" through 0247; red until 0274 is applied.
-          name: "a separate TRACKER cannot record an entry on the function's measure",
-          caller: "member",
-          setup:
-            "insert into public.functions (id, company_id, title, track_id) values " +
-            "('22222222-2222-4222-8222-222222222222', '$company', 'probe fn', '$member'); " +
-            "insert into public.success_measures (id, function_id, description, kind) values " +
-            "('33333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'probe measure', 'kpi');",
-          sql: "with i as (insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('33333333-3333-4333-8333-333333333333', current_date, 1) returning id) select count(*)::int as n from i;",
-          expect: "42501",
         },
         {
           // Same member, same company, same shape of function — the
@@ -11246,9 +11231,11 @@ select (select v from _a where k = 'person') as person,
 // Jason, 2026-10-14: Lead, Track and Decide are one seat, the Lead.
 //   granted   a team member who LEADS a function records a value on its
 //             measure, and changes it
-//   withheld  the same team member set only as a separate TRACKER (the
-//             retired track_id) records nothing and changes nothing
-// Red before 0274: the Tracker's insert lands.
+//   withheld  the same team member on a function they do not lead
+//             records nothing and changes nothing; and the separate
+//             seats are gone: functions has no track_id or decide_id
+// Red before 0274 (a separate Tracker's insert landed) and before 0277
+// (the columns still existed).
 async function leadIsOnlySeatProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "measure values · the Lead is the only seat";
   const LF = randomUUID(), LM = randomUUID(), TF = randomUUID(), TM = randomUUID(), TE = randomUUID();
@@ -11257,7 +11244,7 @@ async function leadIsOnlySeatProbes(run: Runner, ids: Identities, pending: strin
   try {
     [row] = await run(["begin;", pending, `
 insert into public.functions (id, company_id, title, lead_id) values ('${LF}', '${C}', 'probe 0274 led', '${M}');
-insert into public.functions (id, company_id, title, track_id) values ('${TF}', '${C}', 'probe 0274 tracked', '${M}');
+insert into public.functions (id, company_id, title) values ('${TF}', '${C}', 'probe 0274 not led');
 insert into public.success_measures (id, function_id, description) values ('${LM}', '${LF}', 'probe led measure'), ('${TM}', '${TF}', 'probe tracked measure');
 insert into public.success_measure_entries (id, measure_id, week_ending, value_number) values ('${TE}', '${TM}', public.friday_of(current_date - 14), 5);
 create temp table _l (k text, v text) on commit drop;
@@ -11283,7 +11270,9 @@ begin
   get diagnostics n = row_count; insert into _l values ('tracker_update', n::text);
 end $$;
 reset role;
-select (select v from _l where k = 'lead_insert') as lead_insert,
+select (select count(*)::text from information_schema.columns
+         where table_schema = 'public' and table_name = 'functions' and column_name in ('track_id', 'decide_id')) as seat_columns,
+       (select v from _l where k = 'lead_insert') as lead_insert,
        (select v from _l where k = 'lead_update') as lead_update,
        (select v from _l where k = 'tracker_insert') as tracker_insert,
        (select v from _l where k = 'tracker_update') as tracker_update;`, "rollback;"].join("\n"));
@@ -11292,15 +11281,15 @@ select (select v from _l where k = 'lead_insert') as lead_insert,
       detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
   }
   const ok = row?.lead_insert === "inserted" && row?.lead_update === "1"
-    && row?.tracker_insert === "refused 42501" && row?.tracker_update === "0";
+    && row?.tracker_insert === "refused 42501" && row?.tracker_update === "0" && row?.seat_columns === "0";
   return [{
     name,
     granted: `the function's Lead records a value: ${row?.lead_insert} | and changes it: ${row?.lead_update} row`,
-    withheld: `the same person as a separate Tracker records one: ${row?.tracker_insert} | changes one: ${row?.tracker_update} rows (want refused 42501, 0)`,
+    withheld: `the same person on a function they do not lead records one: ${row?.tracker_insert} | changes one: ${row?.tracker_update} rows | track_id/decide_id columns left: ${row?.seat_columns} (want refused 42501, 0, 0)`,
     ok,
     detail: ok
-      ? "only the Lead (and admins) write a function's values; a separate Tracker writes nothing"
-      : "A SEPARATE TRACKER STILL WRITES MEASURE VALUES (is 0274 applied?)",
+      ? "only the Lead (and admins) write a function's values, and the separate Track and Decide seats are gone"
+      : "SOMEONE BUT THE LEAD WRITES MEASURE VALUES, OR THE TRACK/DECIDE COLUMNS REMAIN (are 0274 and 0277 applied?)",
   }];
 }
 

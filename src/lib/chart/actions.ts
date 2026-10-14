@@ -212,7 +212,7 @@ export async function renameFunctionAction(
 // FormData. A caller sending only these three would have it read as
 // absent and nulled: the description silently emptied by a save that
 // said nothing about it. (It also used to clear track_id and
-// decide_id; those seats are retired, 0274, and nothing writes them.)
+// decide_id, separate seats retired by 0274 and dropped by 0277.)
 export async function updateFunctionDetailsAction(
   functionId: string,
   fields: {

@@ -427,8 +427,8 @@ export type FunctionNode = {
   description: string | null;
   // The function's Lead, who holds Lead, Track and Decide: one seat
   // (Jason, 2026-10-14). Historically leader_id; 0020 renamed it and
-  // added track_id and decide_id as separate seats, which 0274
-  // retired. Those columns are no longer read or written.
+  // added track_id and decide_id as separate seats, which 0274 retired
+  // and 0277 dropped.
   lead_id: string | null;
   sort_order: number;
   archived: boolean;

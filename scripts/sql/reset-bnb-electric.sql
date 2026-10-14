@@ -21,7 +21,7 @@
 --   • sponsor_id on remaining SFAs whose sponsor was deleted
 --   • reports_to on Joel if his manager was deleted
 --   • accountable_id on functional_areas whose accountable was deleted
---   • leader_id / track_id / decide_id on chart seats
+--   • lead_id on chart seats (track_id and decide_id were dropped, 0277)
 --
 -- Run in Supabase SQL editor. The DO block is atomic — if any
 -- statement inside raises, the whole block rolls back. On success,
