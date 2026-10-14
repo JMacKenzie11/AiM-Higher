@@ -41,7 +41,9 @@ Read every function's critical success factors, targets and weekly numbers. Chan
 
 It's laid out like a spreadsheet: Functional Area, Owner, Critical Success Factor, Frequency, Target, then one column per week. Functional Area and Owner are written once per function.
 
+::: feature outside_assistants
 A value entered through an outside assistant connected to someone's account says *Entered via* and the assistant's name when you hover over it.
+:::
 
 **Weeks are numbered within the month:** Week 1, Week 2, and so on. Week 1 is the week starting on the month's first Monday, so a month has four or five. Log on whichever day suits your team. A week belongs to the month it starts in, so the week beginning Monday 28 September is Week 4 of September even though it runs into October.
 

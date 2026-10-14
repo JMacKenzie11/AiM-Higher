@@ -3,6 +3,7 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ROLES, type Role } from "@/lib/types";
+import { mcpEnabled, mcpOpenTo } from "@/lib/mcp/switch";
 
 // Resolves an in-app help doc for a given URL pathname and caller
 // role. Docs live in `docs/help/*.md` and use a naming convention:
@@ -120,7 +121,7 @@ export async function loadAllHelpFor(role: Role): Promise<HelpDoc[]> {
     const doc = await readDoc(file.replace(/\.md$/, ""));
     if (!doc) continue;
     if (doc.roles && !doc.roles.includes(role)) continue;
-    docs.push({ ...doc, markdown: filterRoleSections(doc.markdown, role) });
+    docs.push({ ...doc, markdown: filterFeatureSections(filterRoleSections(doc.markdown, role), helpFeaturesFor(role)) });
   }
   return docs;
 }
@@ -209,6 +210,62 @@ export function filterRoleSections(markdown: string, role: Role): string {
   return out.join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
+// ---- Feature-scoped section filter ----------------------------------
+//
+// Help for a feature a viewer cannot use is not shown to them (Jason,
+// 2026-10-14: "Clients must not see help for a feature they can't
+// use"). Same shape as a role block:
+//
+//   ::: feature outside_assistants
+//   Content only people with outside assistants switched on see.
+//   :::
+//
+// FAILS CLOSED, unlike a role block: an unclosed feature block drops
+// everything after its opener, because showing a hidden feature's help
+// is the thing this exists to prevent. helpDocProblems() makes that
+// unreachable in practice by failing CI on an unclosed block.
+//
+// Known features:
+//   outside_assistants   MCP_ENABLED, and the viewer's role is open to
+//                        it (lib/mcp/switch.ts): system admins until
+//                        MCP_FOR_EVERYONE.
+
+export const HELP_FEATURES = ["outside_assistants"] as const;
+export type HelpFeature = (typeof HELP_FEATURES)[number];
+
+export function helpFeaturesFor(role: Role): Set<HelpFeature> {
+  const on = new Set<HelpFeature>();
+  if (mcpEnabled() && mcpOpenTo(role)) on.add("outside_assistants");
+  return on;
+}
+
+const FEATURE_BLOCK_OPEN = /^:::\s+feature\s+([a-z_]+)\s*$/;
+
+export function filterFeatureSections(markdown: string, enabled: ReadonlySet<string>): string {
+  const out: string[] = [];
+  let inBlock = false;
+  let keep = false;
+  for (const line of markdown.split("\n")) {
+    if (!inBlock) {
+      const m = FEATURE_BLOCK_OPEN.exec(line);
+      if (m) {
+        inBlock = true;
+        keep = enabled.has(m[1]);
+        continue;
+      }
+      out.push(line);
+      continue;
+    }
+    if (ROLE_BLOCK_CLOSE.test(line)) {
+      inBlock = false;
+      keep = false;
+      continue;
+    }
+    if (keep) out.push(line);
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
 // Resolve the most specific help doc that (a) exists and (b) is
 // visible to the caller's role. Applies section-level role filters
 // before returning so the response contains only what this role
@@ -221,7 +278,7 @@ export async function loadHelpForRoute(
     const doc = await readDoc(slug);
     if (!doc) continue;
     if (doc.roles && !doc.roles.includes(role)) continue;
-    return { ...doc, markdown: filterRoleSections(doc.markdown, role) };
+    return { ...doc, markdown: filterFeatureSections(filterRoleSections(doc.markdown, role), helpFeaturesFor(role)) };
   }
   return null;
 }
@@ -253,6 +310,18 @@ export async function helpDocProblems(): Promise<string[]> {
     }
     let open = false;
     for (const [i, line] of body.split("\n").entries()) {
+      const feature = FEATURE_BLOCK_OPEN.exec(line);
+      if (feature) {
+        if (open) problems.push(`help doc ${slug}: block opened inside another (line ${i + 1})`);
+        open = true;
+        if (!(HELP_FEATURES as readonly string[]).includes(feature[1])) {
+          problems.push(`help doc ${slug}: unknown feature "${feature[1]}" in a feature block (line ${i + 1})`);
+        }
+        continue;
+      }
+      if (/^:::\s+feature\b/.test(line)) {
+        problems.push(`help doc ${slug}: malformed feature block opener (line ${i + 1})`);
+      }
       const opener = ROLE_BLOCK_OPEN.exec(line);
       if (opener) {
         if (open) problems.push(`help doc ${slug}: role block opened inside another (line ${i + 1})`);
