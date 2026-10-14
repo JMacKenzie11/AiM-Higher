@@ -131,6 +131,7 @@ export async function resolveInstance(
       supabaseUrl: localUrl,
       supabaseAnonKey: localAnonKey,
       supabaseServiceKey: localServiceKey,
+      mcpRouteSecret: env.LOCAL_INSTANCE_MCP_ROUTE_SECRET || undefined,
       status: "active",
     };
   }
@@ -154,6 +155,7 @@ export async function resolveInstance(
       supabaseUrl: previewUrl,
       supabaseAnonKey: previewAnonKey,
       supabaseServiceKey: previewServiceKey,
+      mcpRouteSecret: env.PREVIEW_INSTANCE_MCP_ROUTE_SECRET || undefined,
       status: "active",
     };
   }

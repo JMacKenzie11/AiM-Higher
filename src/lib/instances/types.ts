@@ -66,6 +66,11 @@ export type InstanceConfig = {
   supabaseAnonKey: string;
   // Service-role key. Server-side only, never sent to a browser.
   supabaseServiceKey: string;
+  // The MCP route secret (<PREFIX>_MCP_ROUTE_SECRET): what /api/mcp sends
+  // the database so it accepts an outside assistant's token (0275). Its
+  // own secret, separate from the service key (Jason, 2026-10-14).
+  // Optional: unset, every assistant is refused on this instance.
+  mcpRouteSecret?: string;
   // Suspended instances still resolve. What suspension means (a
   // billing screen, a read-only mode, a hard block) is the caller's
   // decision, not this library's.

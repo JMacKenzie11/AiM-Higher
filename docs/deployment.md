@@ -87,20 +87,16 @@ takes effect on the next deploy. The MCP route also needs the
 instance's service key, which it already has, to write the action log
 (`assistant_actions`, 0273) and count the rate limits from it; 0273
 must be on the instance before the route is switched on there. Then 0275 and the instance's
-MCP route key: `npm run mcp:route-key -- --prefix <ENV_PREFIX>` writes
-the key's hash (derived from that instance's service key, so nothing new
-to store), and `--check` confirms it. Without it every assistant is
-refused there (0275 fails closed). `MCP_INSTANCES` (optional) names the instances,
-by subdomain (`@` is production), where MCP may run at all: one Vercel
-deployment serves every instance, so `MCP_ENABLED=true` with
-`MCP_INSTANCES=@` switches production on and leaves PromiseOne at 404.
-A new instance gets its auth settings and route key from the
-provisioning step `secure-auth-and-mcp` (sign-up off, authenticator
-enrolment off, current password required, site URL, route key derived
-from the same service key `write-vercel-env` writes); the OAuth server
-stays off until switched on deliberately. Rotating the service key changes the
-route key: run it again afterwards. A write to a live database, so on
-Jason's go per instance; `--dev` for the dev clone. Each instance also needs Supabase's
+MCP route secret: `npm run mcp:route-key -- --prefix <ENV_PREFIX>
+--generate` makes a random secret for that instance, writes it to Vercel
+as `<ENV_PREFIX>_MCP_ROUTE_SECRET` (sensitive, Production only) and to
+`.env.provisioning`, then writes its SHA-256 to the instance's database;
+redeploy for the app to send it. `--check` compares the local copy with
+the database and confirms the Vercel variable is there. It is its own
+secret, never derived from the service key (Jason, 2026-10-14), so
+rotating either one leaves the other alone. A write to Vercel and a live
+database, so on Jason's go per instance; `--dev` uses
+`LOCAL_INSTANCE_MCP_ROUTE_SECRET` in `.env.local`. Each instance also needs Supabase's
 OAuth server switched on in its own project (Authentication, OAuth
 Server: enabled, Authorization Path `/oauth/consent`, dynamic
 registration on) and its Site URL pointing at the instance, because the
