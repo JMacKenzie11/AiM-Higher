@@ -15,7 +15,6 @@ import { TermTooltip } from "@/components/ui/TermTooltip";
 import type { Profile } from "@/lib/types";
 import styles from "../people.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { ViaAssistantBadge } from "@/components/ui/ViaAssistantBadge";
 
 // Person Scorecard — Section 8.6.
 
@@ -213,7 +212,6 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                     <tr key={commitment.id}>
                       <td>
                         {commitment.description}
-                        <ViaAssistantBadge name={commitment.added_via_assistant} />
                       </td>
                       <td className={styles.mutedCell}>
                         {commitment.priority ? (
@@ -277,7 +275,6 @@ export default async function PersonScorecardPage({ params }: PageProps) {
                       <tr key={commitment.id}>
                         <td>
                           {commitment.description}
-                          <ViaAssistantBadge name={commitment.added_via_assistant} />
                           {commitment.missed_reason ? (
                             <p className={styles.reasonNote}>
                               Reason: {commitment.missed_reason}

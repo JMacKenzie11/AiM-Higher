@@ -26,7 +26,6 @@ import { ClarityChip, clarityState } from "./ClarityStrip";
 import { ClarityDrawer } from "./ClarityDrawer";
 import styles from "./commitments.module.css";
 import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
-import { ViaAssistantBadge } from "@/components/ui/ViaAssistantBadge";
 
 // A single commitment row.
 //
@@ -1116,11 +1115,12 @@ function OwnerCell({
     return <span className={styles.rowOwnerUnassignedChip}>Unassigned</span>;
   }
 
-  // Added through an outside assistant: said beside the name (0278).
-  const via = <ViaAssistantBadge name={commitment.added_via_assistant} />;
-
+  // No "via" badge on commitments (Jason, 2026-10-14): a commitment
+  // added through an outside assistant is the person's own and reads
+  // like any other. The database still records which assistant added
+  // it (added_via_assistant, 0278).
   if (canReassign) {
-    const button = (
+    return (
       <button
         type="button"
         className={styles.rowOwnerButton}
@@ -1131,21 +1131,11 @@ function OwnerCell({
         {commitment.owner?.full_name ?? "—"}
       </button>
     );
-    // One grid cell either way: the row is a grid, and a second
-    // element here would take the next column.
-    if (!commitment.added_via_assistant) return button;
-    return (
-      <span className={styles.rowOwnerWithVia}>
-        {button}
-        {via}
-      </span>
-    );
   }
 
   return (
     <span className={styles.rowOwner}>
       {commitment.owner?.full_name ?? "—"}
-      {via}
     </span>
   );
 }
