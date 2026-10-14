@@ -95,11 +95,14 @@ async function runTool<A>(
     }
 
     const db = await assistantClient(caller.token);
-    const { data: profile } = await db
+    const { data: profile, error: profileError } = await db
       .from("profiles")
       .select("role, status")
       .eq("id", caller.userId)
       .maybeSingle<{ role: string; status: string }>();
+    // A failed read (a revoked token's PT401 among them) is an error,
+    // not a missing profile.
+    if (profileError) throw new ReadFailed(profileError.code ?? "unknown");
     if (!profile || profile.status !== "active") {
       await log("refused", "no_active_profile");
       return say("No active AiMS profile for this sign-in.");
@@ -158,11 +161,12 @@ const handler = createMcpHandler(
       },
       async (ctx) =>
         runTool("who_am_i", false, ctx, {}, async ({ db, userId }) => {
-          const { data: p } = await db
+          const { data: p, error } = await db
             .from("profiles")
             .select("full_name, role, company_id")
             .eq("id", userId)
             .maybeSingle<{ full_name: string | null; role: string; company_id: string | null }>();
+          if (error) throw new ReadFailed(error.code ?? "unknown");
           let home: string | null = null;
           if (p?.company_id) {
             const { data } = await db.from("companies").select("name").eq("id", p.company_id).maybeSingle<{ name: string }>();
