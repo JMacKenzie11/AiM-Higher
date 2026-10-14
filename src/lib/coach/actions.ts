@@ -471,7 +471,7 @@ export async function generateConversationTitleAction(
       // transcript, on every conversation's first exchange, at
       // max_tokens 40. Nothing about the task rewards a larger
       // model and the volume is one call per conversation started.
-      model: "claude-haiku-4-5",
+      model: "claude-haiku-5-5",
       max_tokens: 40,
       system:
         "You produce short, specific titles for coaching conversations. Return 4–8 words of plain text that capture the topic. No quotes, no trailing punctuation, no markdown formatting (no asterisks, underscores, backticks, or hash marks). Prefer concrete nouns and verbs over generic labels.",
@@ -487,7 +487,7 @@ export async function generateConversationTitleAction(
         conversationId: convo.id,
         companyId: convo.company_id,
         purpose: "title",
-        model: "claude-haiku-4-5",
+        model: "claude-haiku-5-5",
         usage: response.usage,
       });
     }

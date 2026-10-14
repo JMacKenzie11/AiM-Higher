@@ -9,7 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Quarter } from "@/lib/types";
 import { fridayOf, todayInTimezone } from "@/lib/dates";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, usageLogger } from "@/lib/coach/usage";
 import { track } from "@/lib/analytics/track";
 import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyze";
 import {
@@ -184,6 +184,7 @@ export async function analyzeMeeting(
       model,
       transcript: meetingRow.transcript_text,
       companyContextBlock: companyBlock,
+      onMessage: usageLogger({ companyId: meetingRow.company_id, purpose: "speakers", model }),
     });
     const speakerBlock = formatSpeakerMap(speakerMap);
     if (!speakerMap) {
@@ -437,6 +438,7 @@ export async function analyzeMeeting(
       transcript: meetingRow.transcript_text,
       extracted: validated.map((c) => c.description),
       speakerBlock,
+      onMessage: usageLogger({ companyId: meetingRow.company_id, purpose: "coverage", model }),
     });
 
     // The review, started with the analysis above (Call 3).
@@ -467,6 +469,7 @@ export async function analyzeMeeting(
             ].filter((a) => a.length > 0)
           ),
         ],
+        onMessage: usageLogger({ companyId: meetingRow.company_id, purpose: "questions", model }),
       });
       facilitationReview = {
         ...facilitationReview,

@@ -28,7 +28,7 @@ export const maxDuration = 300;
 const SAMPLE_LIMIT = 200;
 // Haiku, deliberately: this runs fleet-wide on a schedule and
 // the work is extraction rather than judgement.
-const MODEL = "claude-haiku-4-5";
+const MODEL = "claude-haiku-5-5";
 
 export async function POST(req: NextRequest): Promise<Response> {
   return handle(req);

@@ -5,7 +5,7 @@ import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { logCoachTokenUsage, usageLogger } from "@/lib/coach/usage";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { personalDetailMatcher, PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
 import { analyzeMeetingFacilitation } from "@/lib/leadership/facilitation/analyze";
@@ -190,9 +190,19 @@ export async function runLeadAnalysis(
       usage: message.usage,
     });
   };
+  // The other calls, each under its own purpose (0285), and only when
+  // asked, like the rest.
+  const logAs = (purpose: "speakers" | "questions") => (message: Anthropic.Message) => {
+    if (options.logUsage) usageLogger({ companyId: null, purpose, model })(message);
+  };
 
   // Who was speaking, first, as for a client meeting.
-  const speakerMap = await mapSpeakers(client, { model, transcript, companyContextBlock: companyBlock });
+  const speakerMap = await mapSpeakers(client, {
+    model,
+    transcript,
+    companyContextBlock: companyBlock,
+    onMessage: logAs("speakers"),
+  });
   const speakerBlock = formatSpeakerMap(speakerMap);
 
   // The analysis, the extraction and the review, together.
@@ -272,6 +282,7 @@ export async function runLeadAnalysis(
           [...identifiedSpeakers(speakerMap), ...attendeesFromSummary(analysisMarkdown)].filter((a) => a.length > 0)
         ),
       ],
+      onMessage: logAs("questions"),
     });
     review = { ...review, next_week_questions: questions.nextWeek, opening_questions: questions.opened };
   }

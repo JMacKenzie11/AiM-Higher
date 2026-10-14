@@ -283,6 +283,8 @@ export async function generateMeetingQuestions(
     // The people identified as present: the only names that may be
     // credited (attendees.ts).
     attendees: string[];
+    // Logged under its own purpose by the caller (0285).
+    onMessage?: (message: Anthropic.Message) => void;
   }
 ): Promise<{ nextWeek: NextWeekQuestion[]; opened: OpenedQuestion[] }> {
   const strengths =
@@ -297,13 +299,14 @@ export async function generateMeetingQuestions(
     `${input.speakerBlock}\n\n<transcript>\n${input.transcript.slice(0, 60000)}\n</transcript>`;
 
   const ask = async (messages: Anthropic.MessageParam[]): Promise<RawOut> => {
-    const { data } = await requestJson(client, {
+    const { data, message } = await requestJson(client, {
       model: input.model,
       max_tokens: 1500,
       system: SYSTEM,
       schema: QUESTIONS_SCHEMA,
       messages,
     });
+    input.onMessage?.(message);
     return unwrapRaw(data && typeof data === "object" ? (data as RawOut) : {});
   };
 

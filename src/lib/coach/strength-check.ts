@@ -10,7 +10,7 @@
 // in the weekly figures like any other.
 import type Anthropic from "@anthropic-ai/sdk";
 
-export const STRENGTH_CHECK_MODEL = "claude-haiku-4-5";
+export const STRENGTH_CHECK_MODEL = "claude-haiku-5-5";
 const TIME_LIMIT_MS = 2500;
 const HAS_A_TURN = /\b(?:but|though|although|yet|except)\b/i;
 

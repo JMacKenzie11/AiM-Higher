@@ -13,6 +13,8 @@ import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { loadCoachingPrinciples } from "@/lib/coach/principles";
 import { checkAgentPrompt, type PrinciplesConflict } from "./principles-check";
+import { usageLogger } from "@/lib/coach/usage";
+import { transcriptModel } from "@/lib/transcripts/model";
 
 // Writes for agent config. system_admin only, enforced by RLS (0228)
 // and failed fast here.
@@ -387,7 +389,9 @@ export async function checkAgentPrinciplesAction(
   const principles = await loadCoachingPrinciples();
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const result = apiKey
-    ? await checkAgentPrompt(new Anthropic({ apiKey }), prompt, principles)
+    ? await checkAgentPrompt(new Anthropic({ apiKey }), prompt, principles, (usage) =>
+        usageLogger({ companyId: null, purpose: "principles_check", model: transcriptModel() })({ usage })
+      )
     : { status: "failed" as const, conflicts: [] as PrinciplesConflict[] };
 
   const supabase = await db();

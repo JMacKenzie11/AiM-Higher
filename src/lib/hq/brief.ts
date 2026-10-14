@@ -1,6 +1,7 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { usageLogger } from "@/lib/coach/usage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { compareOverall } from "@/lib/maturity/compute";
 import { loadCompanyScorecard } from "@/lib/maturity/service";
@@ -249,6 +250,7 @@ export async function generateSessionBrief(
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });
+    usageLogger({ companyId, purpose: "session_brief", model })(response);
     content = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)

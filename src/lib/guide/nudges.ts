@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Anthropic from "@anthropic-ai/sdk";
+import { usageLogger } from "@/lib/coach/usage";
 import { generateInvitationCard } from "./headline";
 import { meetingLabel } from "./meeting-label";
 
@@ -140,6 +141,7 @@ export async function raiseMeetingDebriefNudge(
       championName: champion?.full_name ?? null,
       strengths: input.strengths,
       recentInvitations,
+      onMessage: usageLogger({ companyId: input.companyId, purpose: "invitation", model: input.model }),
     });
     const headline = spell(card.headline);
     const invitation = spell(card.invitation);

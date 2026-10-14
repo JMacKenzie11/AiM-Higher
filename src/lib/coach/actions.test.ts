@@ -611,7 +611,7 @@ describe("generateConversationTitleAction", () => {
         // what coach_usage_log prices the call at, so a model
         // change that forgets the log line mis-attributes cost
         // silently.
-        model: "claude-haiku-4-5",
+        model: "claude-haiku-5-5",
       })
     );
   });

@@ -61,8 +61,8 @@ describe("configFromVersion", () => {
   });
 
   it("keeps a model that is on the allowlist", () => {
-    expect(configFromVersion(row({ model: "claude-haiku-4-5" })).model).toBe(
-      "claude-haiku-4-5"
+    expect(configFromVersion(row({ model: "claude-haiku-5-5" })).model).toBe(
+      "claude-haiku-5-5"
     );
   });
 

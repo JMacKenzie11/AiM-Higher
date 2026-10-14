@@ -25,7 +25,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
   },
 }));
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
-vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: vi.fn() }));
+vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: vi.fn(), usageLogger: () => () => {} }));
 vi.mock("@/lib/analytics/track", () => ({ track: h.track }));
 vi.mock("@/lib/guide/nudges", () => ({ raiseMeetingDebriefNudge: h.nudge }));
 vi.mock("@/lib/leadership/facilitation/analyze", () => ({ analyzeMeetingFacilitation: h.facilitation }));

@@ -18,7 +18,7 @@
 // ---- WHY IT IS NOT DERIVED FROM THE CODE'S OWN CONSTANTS -----
 //
 // Every module here carries its own `DEFAULT_MODEL = "claude-sonnet-5"`
-// and the crons carry `"claude-haiku-4-5"`. Those are decisions about
+// and the crons carry `"claude-haiku-5-5"`. Those are decisions about
 // what a particular surface runs, and reading them as "the set of
 // models an agent may use" would conflate two different questions
 // and change this list every time somebody retunes a cron.
@@ -41,8 +41,8 @@ export const AGENT_MODEL_OPTIONS: ReadonlyArray<AgentModelOption> = [
     hint: "Slower and dearer. For an agent doing genuinely hard reasoning.",
   },
   {
-    value: "claude-haiku-4-5",
-    label: "Haiku 4.5",
+    value: "claude-haiku-5-5",
+    label: "Haiku 5.5",
     hint: "Fast and cheap. Suits a narrow, well-scripted flow.",
   },
 ];
