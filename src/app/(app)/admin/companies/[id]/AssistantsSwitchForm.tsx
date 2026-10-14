@@ -39,8 +39,9 @@ export function AssistantsSwitchForm({
       <p className={`${styles.formFull} ${styles.subtitleInline}`}>
         When this is on, people at {companyName} can connect an outside assistant, such as Claude or
         ChatGPT, to read their AiMS work and add commitments, issues and measure values for them, as
-        themselves. Each person still chooses whether to connect one. Once AiMS data reaches an
-        assistant, that assistant company&apos;s terms and privacy policy apply to it, not ours.
+        themselves. Each person still chooses whether to connect one. AiMS never lets your data be
+        used to train AI models. Once it reaches the assistant, the assistant&apos;s terms and
+        privacy policy apply instead, along with your own settings there.
       </p>
       <label className={`${styles.checkOption} ${styles.formFull}`}>
         <input

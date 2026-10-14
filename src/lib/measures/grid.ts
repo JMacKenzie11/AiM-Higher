@@ -73,8 +73,6 @@ export type GridCell = {
   // The target this week was judged against, which is not necessarily
   // the one on the row today.
   target: string | null;
-  // The outside assistant this week's value was entered through (0278).
-  viaAssistant: string | null;
 };
 
 // Short enough to sit in a pinned column. FREQUENCY_LABELS reads
@@ -239,15 +237,11 @@ export function buildGridData(
     string,
     { number: number | null; text: string | null }
   >();
-  const viaByMeasureWeek = new Map<string, string>();
   for (const row of spine.entryRows) {
     entriesByMeasureWeek.set(`${row.measure_id}|${row.week_ending}`, {
       number: row.value_number,
       text: row.value_text,
     });
-    if (row.added_via_assistant) {
-      viaByMeasureWeek.set(`${row.measure_id}|${row.week_ending}`, row.added_via_assistant);
-    }
   }
   const targetsByMeasure = groupTargetHistory(spine.targetRows);
 
@@ -300,7 +294,6 @@ export function buildGridData(
           value
         ),
         target,
-        viaAssistant: viaByMeasureWeek.get(`${csf.id}|${week}`) ?? null,
       };
     });
 

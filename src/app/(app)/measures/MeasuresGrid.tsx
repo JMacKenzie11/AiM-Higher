@@ -1615,16 +1615,11 @@ function GridCellView({
     .filter(Boolean)
     .join(" ");
 
-  const targetNote = change
+  const title = change
     ? `Target changed from ${change.from ?? "none"} to ${change.to ?? "none"}`
     : cell.target
       ? `Target ${cell.target} this week`
       : undefined;
-  // A value entered through an outside assistant says so (0278). A
-  // cell has no room for a badge and no name beside it, so the mark is
-  // the cell's own hover text, beside the target note.
-  const viaNote = cell.viaAssistant ? `Entered via ${cell.viaAssistant}` : undefined;
-  const title = [targetNote, viaNote].filter(Boolean).join(" · ") || undefined;
 
   if (editable && canLog) {
     return (
