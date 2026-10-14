@@ -12,11 +12,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 //     performance_tracking entitlement: when the company has it, EVERY
 //     measure must carry a target — otherwise the "on track / behind"
 //     rollup silently ignores the untargetted rows.
-//   - upsertMeasureEntryAction dual-auths (admin OR Lead OR Track).
-//     A team member who isn't LTD MUST NOT write measure entries even
-//     if they get past RLS somehow.
-//   - upsertMeasureEntryAction retries on SQLSTATE 57014 (statement
-//     timeout) — but NEVER on constraint violations.
 
 // ---- Shared spies + fakes -------------------------------------
 const mocks = vi.hoisted(() => {
@@ -589,121 +584,6 @@ describe("createMeasureAction", () => {
     };
     expect(patch.value_type).toBe("number");
     expect(patch.target_direction).toBe("higher_is_better");
-  });
-});
-
-// ==============================================================
-// upsertMeasureEntryAction — dual-auth + coercion + retry
-// ==============================================================
-describe("upsertMeasureEntryAction", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    primeHappyPath();
-  });
-
-  it("blocks a team_member who isn't the function's Lead OR Track", async () => {
-    // Dual-auth contract: admin OR Lead OR Track can log. Everyone
-    // else is out — even if RLS would let a peer through, the action
-    // fails fast with a clear message.
-    mocks.requireProfile.mockResolvedValue({
-      profile: {
-        id: "peer_1",
-        role: "team_member",
-        company_id: "co_acme",
-      },
-    });
-    const { upsertMeasureEntryAction } = await import("./actions");
-
-    const res = await upsertMeasureEntryAction("m_1", "2026-08-14", "5");
-
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.message).toMatch(/Lead \/ Track \/ an admin/);
-    expect(mocks.entriesUpsertPayload).not.toHaveBeenCalled();
-  });
-
-  it("allows the Lead to log an entry even without an admin role", async () => {
-    mocks.requireProfile.mockResolvedValue({
-      profile: {
-        id: "leader_1",
-        role: "team_member",
-        company_id: "co_acme",
-      },
-    });
-    const { upsertMeasureEntryAction } = await import("./actions");
-
-    const res = await upsertMeasureEntryAction("m_1", "2026-08-14", "5");
-
-    expect(res.ok).toBe(true);
-    expect(mocks.entriesUpsertPayload).toHaveBeenCalledTimes(1);
-  });
-
-  it("routes text values to value_text and leaves value_number null", async () => {
-    mocks.measuresJoinedMaybeSingle.mockResolvedValueOnce({
-      data: {
-        id: "m_1",
-        value_type: "text",
-        function: {
-          id: "fn_1",
-          company_id: "co_acme",
-          lead_id: "leader_1",
-          track_id: "tracker_1",
-        },
-      },
-      error: null,
-    });
-    const { upsertMeasureEntryAction } = await import("./actions");
-
-    await upsertMeasureEntryAction("m_1", "2026-08-14", "on track");
-
-    const payload = mocks.entriesUpsertPayload.mock.calls[0][0] as {
-      value_number: number | null;
-      value_text: string | null;
-    };
-    expect(payload).toEqual(
-      expect.objectContaining({ value_number: null, value_text: "on track" })
-    );
-  });
-
-  it("strips non-digits for numeric measures ('$1,234.50' → 1234.50)", async () => {
-    const { upsertMeasureEntryAction } = await import("./actions");
-
-    await upsertMeasureEntryAction("m_1", "2026-08-14", "$1,234.50");
-
-    const payload = mocks.entriesUpsertPayload.mock.calls[0][0] as {
-      value_number: number | null;
-    };
-    expect(payload.value_number).toBe(1234.5);
-  });
-
-  it("retries once on SQLSTATE 57014 (statement timeout)", async () => {
-    mocks.entriesUpsertSingle
-      .mockResolvedValueOnce({
-        data: null,
-        error: { code: "57014", message: "canceling statement due to timeout" },
-      })
-      .mockResolvedValueOnce({
-        data: { id: "e_1" },
-        error: null,
-      });
-    const { upsertMeasureEntryAction } = await import("./actions");
-
-    const res = await upsertMeasureEntryAction("m_1", "2026-08-14", "5");
-
-    expect(res.ok).toBe(true);
-    expect(mocks.entriesUpsertSingle).toHaveBeenCalledTimes(2);
-  });
-
-  it("does NOT retry on constraint violations — a bad row would silently double", async () => {
-    mocks.entriesUpsertSingle.mockResolvedValueOnce({
-      data: null,
-      error: { code: "23514", message: "check constraint violated" },
-    });
-    const { upsertMeasureEntryAction } = await import("./actions");
-
-    const res = await upsertMeasureEntryAction("m_1", "2026-08-14", "5");
-
-    expect(res.ok).toBe(false);
-    expect(mocks.entriesUpsertSingle).toHaveBeenCalledTimes(1);
   });
 });
 

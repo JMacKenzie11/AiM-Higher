@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
-import { isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
+import { scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   CSF_AS_OUTCOME_COLUMNS,
@@ -21,16 +21,13 @@ import type {
   FunctionRole,
   MetricValueType,
   SuccessMeasure,
-  SuccessMeasureEntry,
   TargetDirection,
   UpdateFrequency,
 } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
   parseScale,
-  parseTypedNumber,
   storedTargetText,
-  toStoredNumber,
 } from "@/lib/measures/value-format";
 
 // Chart write actions. RLS gates access (admin OR the function's
@@ -1121,144 +1118,6 @@ export async function archiveMeasureAction(
   revalidatePath("/chart");
   revalidatePath("/measures");
   return { ok: true, item: data };
-}
-
-// ---- Weekly measure entries -------------------------------------
-// Admin OR the function's Lead / Track person may write these.
-// RLS enforces it a second time.
-
-export async function upsertMeasureEntryAction(
-  measureId: string,
-  weekEnding: string,
-  rawValue: string
-): Promise<ChartResult<SuccessMeasureEntry>> {
-  const session = await requireProfile();
-
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-
-  // Load the measure and its function so we can (a) authorize and
-  // (b) coerce the input based on the measure's value_type. Critical
-  // success factors and KPIs both hang off a function directly, which
-  // is what makes one query serve both kinds.
-  const { data: measureRow } = await supabase
-    .from("success_measures")
-    .select(
-      "id, value_type, value_scale, function:functions!inner(id, company_id, lead_id)"
-    )
-    .eq("id", measureId)
-    .maybeSingle<{
-      id: string;
-      value_type: MetricValueType;
-      value_scale: string | null;
-      function:
-        | {
-            id: string;
-            company_id: string;
-            lead_id: string | null;
-          }
-        | Array<{
-            id: string;
-            company_id: string;
-            lead_id: string | null;
-          }>;
-    }>();
-  if (!measureRow) return { ok: false, message: "Measure not found." };
-
-  const fn = Array.isArray(measureRow.function)
-    ? measureRow.function[0]
-    : measureRow.function;
-  if (!fn) return { ok: false, message: "Measure not found." };
-  const isAdmin = isAdminForCompany(session.profile, fn.company_id);
-  const isLtd =
-    fn.lead_id === session.profile.id;
-  if (!isAdmin && !isLtd) {
-    return {
-      ok: false,
-      message: "Only the function's Lead / Track / an admin can log this.",
-    };
-  }
-
-  let value_number: number | null = null;
-  let value_text: string | null = null;
-  if (measureRow.value_type === "text") {
-    value_text = rawValue.trim() || null;
-  } else {
-    // TYPED IN THE MEASURE'S UNIT, STORED AS THE TRUE NUMBER.
-    //
-    // 18 on a millions measure is 18000000 in the column, which is
-    // also exactly what an external pull writes for the same week.
-    // That is the whole reason the scale lives on the measure rather
-    // than being applied to the sheet on the way in: both paths land
-    // on one figure and nothing downstream has to ask which wrote it.
-    const typed = parseTypedNumber(rawValue);
-    value_number =
-      typed === null
-        ? null
-        : toStoredNumber(
-            typed,
-            measureRow.value_type,
-            parseScale(measureRow.value_scale)
-          );
-  }
-
-  // One retry on Postgres statement timeout — see the same pattern
-  // in logMeasureEntriesAction for the reasoning.
-  let attempt = 0;
-  let lastError: { message?: string; code?: string } | null = null;
-  let data: SuccessMeasureEntry | null = null;
-  while (attempt < 2) {
-    const res = await supabase
-      .from("success_measure_entries")
-      .upsert(
-        {
-          measure_id: measureId,
-          week_ending: weekEnding,
-          value_number,
-          value_text,
-          entered_by: session.profile.id,
-          // A hand-typed value clears any pulled origin on the week.
-          // See the longer note on logMeasureEntriesAction; an
-          // upsert leaves omitted columns alone, so this has to be
-          // said rather than implied. Migration 0212.
-          origin: null,
-          pulled_at: null,
-        },
-        { onConflict: "measure_id,week_ending" }
-      )
-      .select("*")
-      .single<SuccessMeasureEntry>();
-    if (res.data && !res.error) {
-      data = res.data;
-      lastError = null;
-      break;
-    }
-    lastError = res.error ?? { message: "Couldn't log that entry." };
-    if (!isTimeoutError(lastError)) break;
-    attempt += 1;
-  }
-  if (!data) {
-    if (lastError && isTimeoutError(lastError)) {
-      return {
-        ok: false,
-        message: "The database took too long to respond. Try again in a moment.",
-      };
-    }
-    return { ok: false, message: lastError?.message ?? "Couldn't log that entry." };
-  }
-
-  revalidatePath("/chart");
-  revalidatePath(`/chart/function/${fn.id}`);
-  revalidatePath("/measures");
-  return { ok: true, item: data };
-}
-
-function isTimeoutError(err: { message?: string; code?: string }): boolean {
-  const msg = (err.message ?? "").toLowerCase();
-  return (
-    err.code === "57014" ||
-    msg.includes("statement timeout") ||
-    msg.includes("canceling statement")
-  );
 }
 
 // ---- Decision Rights & Competency Indicators --------------------

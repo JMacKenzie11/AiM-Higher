@@ -647,7 +647,7 @@ Nav label: **Critical Success Factors**, under *Workspace*.
 **Access**
 
 - Everyone in the company reads every function.
-- Writing is per function. `getMeasuresTree` returns `canLog` on each one: `isAdmin || lead_id === me || track_id === me`, matching what `upsertMeasureEntryAction` enforces.
+- Writing is per function. `getMeasuresTree` returns `canLog` on each one: `isAdmin || lead_id === me || track_id === me`, matching the entry policy on `success_measure_entries` (admin, the function's Lead or tracker).
 - Read-only cells render the value, not a disabled input. The save button and the outstanding line follow `canLog`.
 - Authoring controls (add, edit, archive) render for admins, company admins scoped here, and guides assigned to the company.
 

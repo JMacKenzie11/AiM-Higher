@@ -349,7 +349,7 @@ export function buildGridData(
     functionTitle: fn.title,
     parentFunctionId: fn.parent_function_id,
     ownerName: fn.lead_id ? rosterById.get(fn.lead_id) ?? null : null,
-    // Same rule upsertMeasureEntryAction enforces, so the page never
+    // Same rule the entry policy on success_measure_entries enforces, so the page never
     // draws an input the server would refuse.
     canLog: includeAll || fn.lead_id === userId,
     rows: rowsByFunction.get(fn.id) ?? [],
