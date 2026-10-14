@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { routeKeyFor, ROUTE_KEY_HEADER } from "./route-key";
 
 // AN OUTSIDE ASSISTANT'S TOKEN, checked and turned into a client that
 // acts as the person.
@@ -15,7 +16,11 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 //
 // The client it returns sends that token and nothing else: never the
 // service role. Every read and write it makes runs as the person,
-// through RLS and the allow list.
+// through RLS and the allow list. It also sends this instance's route
+// key (0275, lib/mcp/route-key.ts), which is how the database knows the
+// request came through /api/mcp and so was logged and rate limited. The
+// key is not a credential for anything: without the person's token it
+// reaches nothing, and the assistant never sees it.
 
 export type AssistantCaller = {
   db: SupabaseClient;
@@ -27,7 +32,12 @@ export type AssistantCaller = {
 export async function assistantClient(token: string): Promise<SupabaseClient> {
   const instance = await getCurrentInstanceConfig();
   return createClient(instance.supabaseUrl, instance.supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        [ROUTE_KEY_HEADER]: routeKeyFor(instance.supabaseServiceKey),
+      },
+    },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }

@@ -86,7 +86,13 @@ and team members, guides, portfolio admins last). An environment change
 takes effect on the next deploy. The MCP route also needs the
 instance's service key, which it already has, to write the action log
 (`assistant_actions`, 0273) and count the rate limits from it; 0273
-must be on the instance before the route is switched on there. Each instance also needs Supabase's
+must be on the instance before the route is switched on there. Then 0275 and the instance's
+MCP route key: `npm run mcp:route-key -- --prefix <ENV_PREFIX>` writes
+the key's hash (derived from that instance's service key, so nothing new
+to store), and `--check` confirms it. Without it every assistant is
+refused there (0275 fails closed). Rotating the service key changes the
+route key: run it again afterwards. A write to a live database, so on
+Jason's go per instance; `--dev` for the dev clone. Each instance also needs Supabase's
 OAuth server switched on in its own project (Authentication, OAuth
 Server: enabled, Authorization Path `/oauth/consent`, dynamic
 registration on) and its Site URL pointing at the instance, because the
