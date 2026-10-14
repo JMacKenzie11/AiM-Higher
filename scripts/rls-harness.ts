@@ -11942,6 +11942,93 @@ select jsonb_object_agg(k, v)::text as r from _h;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Work with Aimee: private, and the topic does not outlive the link (0282) ----
+//
+// Jason, 2026-10-14: a handoff holds a coaching topic, so only its
+// creator can ever read it, and the topic is blanked once the link is
+// opened or expires. To prove the rule rather than the current grants,
+// a future mistake is planted inside the transaction: a read grant to
+// everyone signed in and a policy letting anyone read every row.
+//   granted   the creator sees their own handoffs; opening returns the
+//             topic once
+//   withheld  a system admin, the company's admin, a guide, a portfolio
+//             admin and another team member see none; after opening, and
+//             after expiry and the sweep, the stored topic is gone
+// Red before 0282: the planted policy lets everyone read, and the topic
+// stays.
+async function aimeeHandoffPrivacyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "work with Aimee · private, and the topic is cleared";
+  const M = ids.member, CO = ids.memberCompany;
+  const T1 = "harness-private-token-0282-aa", T2 = "harness-private-token-0282-bb";
+  let r: Record<string, string> = {};
+  try {
+    const [row] = await run<{ r: string }>(["begin;", pending, `
+select set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+insert into public.aimee_handoffs (token_sha256, company_id, topic) values
+  (encode(sha256(convert_to('${T1}', 'UTF8')), 'hex'), '${CO}', 'harness private topic one'),
+  (encode(sha256(convert_to('${T2}', 'UTF8')), 'hex'), '${CO}', 'harness private topic two');
+update public.aimee_handoffs set expires_at = now() - interval '1 minute' where token_sha256 = encode(sha256(convert_to('${T2}', 'UTF8')), 'hex');
+-- The planted mistake: everyone signed in may read every handoff.
+grant select on public.aimee_handoffs to authenticated;
+create policy zz_harness_everyone_reads on public.aimee_handoffs for select to authenticated using (true);
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+do $$
+declare who text; sub uuid; n int; o text;
+  sa uuid := '${ids.systemAdmin}';
+  ca uuid := (select id from public.profiles where company_id = '${CO}' and role = 'company_admin' and status = 'active' order by id limit 1);
+  gd uuid := '${ids.guide}';
+  pa uuid := (select id from public.profiles where role = 'portfolio_admin' and status = 'active' order by id limit 1);
+  mm uuid := (select id from public.profiles where company_id = '${CO}' and role = 'team_member' and status = 'active' and id <> '${M}' order by id limit 1);
+begin
+  foreach who in array array['owner', 'system_admin', 'company_admin', 'guide', 'portfolio_admin', 'other_member'] loop
+    sub := case who when 'owner' then '${M}'::uuid when 'system_admin' then sa when 'company_admin' then ca when 'guide' then gd when 'portfolio_admin' then pa else mm end;
+    if sub is null then insert into _p values (who, 'nobody on this clone'); continue; end if;
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', sub), true);
+    execute 'set local role authenticated';
+    begin
+      select count(*) into n from public.aimee_handoffs where topic like 'harness private topic%';
+      o := n::text;
+    exception when others then o := 'refused ' || sqlstate; end;
+    execute 'reset role';
+    insert into _p values (who, o);
+  end loop;
+end $$;
+-- The owner opens link one; then the stored topic.
+select set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+set local role authenticated;
+insert into _p select 'open', state || '|' || coalesce(topic, '') from public.claim_aimee_handoff('${T1}');
+reset role;
+insert into _p select 'stored_after_open', coalesce(topic, 'cleared') from public.aimee_handoffs where token_sha256 = encode(sha256(convert_to('${T1}', 'UTF8')), 'hex');
+-- The expiry sweep, as pg_cron runs it.
+do $$ begin
+  if to_regprocedure('public.clear_expired_aimee_handoff_topics()') is not null then
+    perform public.clear_expired_aimee_handoff_topics();
+  end if;
+end $$;
+insert into _p select 'stored_after_expiry', coalesce(topic, 'cleared') from public.aimee_handoffs where token_sha256 = encode(sha256(convert_to('${T2}', 'UTF8')), 'hex');
+insert into _p select 'sweep_scheduled', (count(*) > 0)::text from pg_extension e where e.extname = 'pg_cron';
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+    r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const others = ["system_admin", "company_admin", "guide", "portfolio_admin", "other_member"];
+  const noneSee = others.every((k) => r[k] === "0" || r[k] === "nobody on this clone");
+  const ok = r.owner === "2" && noneSee && r.open === "ok|harness private topic one"
+    && r.stored_after_open === "cleared" && r.stored_after_expiry === "cleared";
+  return [{
+    name,
+    granted: `the creator sees their handoffs: ${r.owner} of 2 | opening returns the topic once: ${r.open}`,
+    withheld: `${others.map((k) => `${k.replace("_", " ")}: ${r[k]}`).join(" | ")} (want 0 each, even with everyone granted reads) | stored topic after opening: ${r.stored_after_open} | after expiry: ${r.stored_after_expiry}`,
+    ok,
+    detail: ok
+      ? "only the creator can ever read a handoff, and its topic is gone once the link is opened or expires"
+      : "SOMEONE BUT THE CREATOR CAN READ A HANDOFF, OR ITS TOPIC OUTLIVES THE LINK (is 0282 applied?)",
+  }];
+}
+
 // ---- No self-service email change (0271) ---------------------------
 //
 // The Auth API does not run as the token's role, so the allow list
@@ -13978,6 +14065,7 @@ async function main(): Promise<void> {
     ...(await assistantRouteOnlyProbes(run, ids, pendingSql)),
     ...(await assistantTrustedClientProbes(run, ids, pendingSql)),
     ...(await aimeeHandoffProbes(run, ids, pendingSql)),
+    ...(await aimeeHandoffPrivacyProbes(run, ids, pendingSql)),
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
     ...(await assistantAddProbes(run, ids, pendingSql)),
     ...(await companyAssistantsSwitchProbes(run, ids, pendingSql)),
