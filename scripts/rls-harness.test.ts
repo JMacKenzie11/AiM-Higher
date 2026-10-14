@@ -896,6 +896,12 @@ describe("requiredAssistantRules", () => {
     ]);
   });
 
+  it("lets an assistant add a handoff and read nothing back (0281)", () => {
+    expect(requiredAssistantRules("public", "aimee_handoffs")).toEqual([
+      "assistant_insert:INSERT", "assistant_no_delete:DELETE", "assistant_no_select:SELECT", "assistant_no_update:UPDATE", "assistant_through_route:ALL",
+    ]);
+  });
+
   it("asks every menu table for the route check, and nothing off it (0275)", () => {
     expect(requiredAssistantRules("public", "commitments")).toContain("assistant_through_route:ALL");
     expect(requiredAssistantRules("public", "notifications")).not.toContain("assistant_through_route:ALL");

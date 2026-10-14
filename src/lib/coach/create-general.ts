@@ -7,6 +7,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { trackAfter } from "@/lib/analytics/track";
 import { defaultTitleForToday } from "./title";
 import type { CoachingConversation } from "./service";
+import { mayUseCompany } from "@/lib/auth/permissions";
 
 // Starting a plain Ask Aimee conversation.
 //
@@ -39,14 +40,25 @@ export type CreateGeneralResult =
 // which never writes coach memory. Everything else is 'page', the
 // column's default.
 export async function createGeneralConversation(
-  opts: { origin?: "page" | "panel" } = {}
+  opts: {
+    origin?: "page" | "panel";
+    // A topic handed over from an outside assistant (0281): shown on
+    // the conversation and opened from, like a session offer's summary.
+    handoffSummary?: string;
+    // The company the conversation belongs to, instead of the current
+    // scope (a handoff names its own). Must be one this person may use.
+    companyId?: string;
+  } = {}
 ): Promise<CreateGeneralResult> {
   const session = await requireProfile();
 
   // Single-source-of-truth resolver: regular members return their
   // own company_id, system_admins their scope cookie, aims_guides
-  // cookie-or-single-assignment.
-  const companyId = await getEffectiveCompanyId(session);
+  // cookie-or-single-assignment. A named company must be one they may use.
+  if (opts.companyId && !mayUseCompany(session.profile, opts.companyId)) {
+    return { ok: false, message: "That company isn't one you can use." };
+  }
+  const companyId = opts.companyId ?? (await getEffectiveCompanyId(session));
   if (!companyId) {
     return {
       ok: false,
@@ -66,6 +78,7 @@ export async function createGeneralConversation(
       context_kind: "execution",
       mode: "general",
       ...(opts.origin === "panel" ? { origin: "panel" } : {}),
+      ...(opts.handoffSummary ? { handoff_summary: opts.handoffSummary } : {}),
     })
     .select("*")
     .single<CoachingConversation>();

@@ -50,6 +50,10 @@ const EXPECTED: Record<string, { expect: Expectation; why: string }> = {
     expect: "no-sweep",
     why: "creates and redirects; the page it lands on sweeps",
   },
+  "ask-aimee/handoff/unavailable/page.tsx": {
+    expect: "no-sweep",
+    why: "says a work-with-Aimee link can't be opened; no conversation here (0281)",
+  },
 };
 
 async function coachingPages(): Promise<string[]> {

@@ -120,6 +120,13 @@ export function canViewCompany(
   return isAdminForCompany(profile, companyId);
 }
 
+// May this person work in this company at all: their own company, or one
+// they may view (an admin, an assigned guide, a portfolio admin). For a
+// conversation that names its company instead of the current scope.
+export function mayUseCompany(profile: SessionProfileLike, companyId: string): boolean {
+  return profile.company_id === companyId || canViewCompany(profile, companyId);
+}
+
 /**
  * Standard "admin OR owner" check used by every commitment write path.
  * The row must expose `company_id` and `owner_id` (which may be null

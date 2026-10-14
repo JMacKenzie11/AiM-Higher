@@ -26,8 +26,10 @@ describe("tool annotations", () => {
     expect(route).toMatch(/const ADDS = \{ readOnlyHint: false, destructiveHint: false/);
   });
 
-  it("marks every other tool read only", () => {
-    for (const t of tools.filter((x) => !x.name.startsWith("add_"))) expect(t.annotations).toBe("READ_ONLY");
+  it("marks every other tool read only, except the Aimee handoff, which writes a record", () => {
+    for (const t of tools.filter((x) => !x.name.startsWith("add_") && x.name !== "work_with_aimee")) expect(t.annotations).toBe("READ_ONLY");
+    expect(tools.find((t) => t.name === "work_with_aimee")?.annotations).toBe("HANDOFF");
+    expect(route).toMatch(/const HANDOFF = \{ readOnlyHint: false, destructiveHint: false/);
   });
 
   it("tells the assistant to ask the person before each add", () => {

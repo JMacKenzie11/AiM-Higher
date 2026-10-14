@@ -77,6 +77,7 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/ask-aimee", roles: "all", feature: null, link: true },
   { pattern: "/ask-aimee/memory", roles: "all", feature: null, link: true },
   { pattern: "/ask-aimee/new", roles: "all", feature: null, link: false },
+  { pattern: "/ask-aimee/handoff/unavailable", roles: "all", feature: null, link: false },
   { pattern: "/ask-aimee/[conversationId]", roles: "all", feature: null, link: false },
   { pattern: "/coach/[profileId]", roles: ["system_admin", "company_admin"], feature: null, link: false },
   { pattern: "/coach/[profileId]/[conversationId]", roles: ["system_admin", "company_admin"], feature: null, link: false },
