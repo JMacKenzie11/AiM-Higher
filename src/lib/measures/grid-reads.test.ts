@@ -280,7 +280,7 @@ describe("getGridData — scoping", () => {
       false
     );
 
-    // Lead and Track both write, matching upsertMeasureEntryAction.
+    // Lead and Track both write, matching the entry policy on success_measure_entries.
     // Everything else is readable and not writable.
     expect(
       Object.fromEntries(groups.map((g) => [g.functionTitle, g.canLog]))
