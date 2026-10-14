@@ -52,3 +52,11 @@ export function invitationCard(
   const invitation = typeof payload.invitation === "string" && payload.invitation.trim() ? payload.invitation.trim() : null;
   return { meetingLabel: label, meetingHref: `/leadership/meetings/${meetingId}`, invitation };
 }
+
+// The body line of the AI apps notice, from its payload. Undefined for
+// any other kind, so a body can't be added to one by its payload alone.
+export function noticeBody(kind: string, payload: Record<string, unknown> | null | undefined): string | undefined {
+  if (kind !== "ai-apps-on" || !payload) return undefined;
+  const body = typeof payload.body === "string" ? payload.body.trim() : "";
+  return body || undefined;
+}

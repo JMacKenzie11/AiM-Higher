@@ -1,6 +1,6 @@
 import "server-only";
 import { isAimsChampion } from "@/lib/guide/champion";
-import { invitationCard } from "./kinds";
+import { invitationCard, noticeBody } from "./kinds";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -49,7 +49,12 @@ export type NotificationKind =
   // by the database itself (0235) at the moment the seat is
   // vacated, because the alternative is a company that quietly
   // stops hearing from Aimee with nothing on screen saying why.
-  | "champion-empty";
+  | "champion-empty"
+  // A one-off notice to company admins and assigned guides that AI apps
+  // are now on for their company (Jason, 2026-10-14). Sent once, by
+  // hand, when AI apps went on by default (0284); it carries a body
+  // line under its title, which nothing else in the bell does.
+  | "ai-apps-on";
 
 export type NotificationItem = {
   // Stable id for React key. Synthetic (kind-prefixed) for computed
@@ -76,6 +81,8 @@ export type NotificationItem = {
   // summary, and the invitation line under the headline. Absent on
   // invitations raised before the card, which show as they did.
   card?: { meetingLabel: string; meetingHref: string; invitation: string | null };
+  // A line under the title, read whole (noticeBody in ./kinds).
+  body?: string;
 };
 
 export async function getHeaderNotifications({
@@ -245,6 +252,7 @@ export async function getHeaderNotifications({
       createdAt: row.created_at,
       dismissible: true,
       card: invitationCard(row.kind, row.payload),
+      body: noticeBody(row.kind, row.payload),
     });
   }
 
