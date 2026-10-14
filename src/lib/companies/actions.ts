@@ -258,7 +258,7 @@ export async function setCompanyAssistantsAction(
     .select("*")
     .single<Company>();
   if (error || !data) {
-    return { ok: false, message: "Couldn't change the outside assistants setting." };
+    return { ok: false, message: "Couldn't change the AI apps setting." };
   }
   revalidatePath(`/admin/companies/${companyId}`);
   return { ok: true, company: data };

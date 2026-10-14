@@ -102,13 +102,14 @@ a feature they can't use):
 
 ```md
 ::: feature outside_assistants
-Help about connecting an outside assistant.
+Help about connecting an AI app.
 :::
 ```
 
 - Known features are listed in `HELP_FEATURES` (`src/lib/help/loader.ts`).
   `outside_assistants` is on when `MCP_ENABLED` is set and the viewer's
-  role is open to it (system admins until `MCP_FOR_EVERYONE`).
+  role is open to it (every role but portfolio admins) and, for anyone
+  but a system admin, their company has it switched on.
 - **Fail-closed**, unlike role fences: an unclosed feature fence drops
   everything after it. `helpDocProblems()` fails the test suite on an
   unclosed or unknown fence, so that never ships.

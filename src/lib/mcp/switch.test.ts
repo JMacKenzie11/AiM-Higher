@@ -25,13 +25,19 @@ describe("the outside assistant switches", () => {
     expect(mcpEnabled("@")).toBe(false);
   });
 
-  it("admit system admins only, until opened to everyone", () => {
-    vi.stubEnv("MCP_FOR_EVERYONE", "");
-    expect(mcpOpenTo("system_admin")).toBe(true);
-    for (const role of ["company_admin", "team_member", "aims_guide", "portfolio_admin", null]) {
+  it("admit every role but portfolio admins", () => {
+    for (const role of ["system_admin", "company_admin", "aims_guide", "team_member"]) {
+      expect(mcpOpenTo(role)).toBe(true);
+    }
+    for (const role of ["portfolio_admin", "someone_new", "", null, undefined]) {
       expect(mcpOpenTo(role)).toBe(false);
     }
+  });
+
+  it("no longer read MCP_FOR_EVERYONE", () => {
     vi.stubEnv("MCP_FOR_EVERYONE", "true");
+    expect(mcpOpenTo("portfolio_admin")).toBe(false);
+    vi.stubEnv("MCP_FOR_EVERYONE", "");
     expect(mcpOpenTo("team_member")).toBe(true);
   });
 });

@@ -15,7 +15,7 @@ export function ConnectedAssistants({ initial }: { initial: ConnectedAssistant[]
   const [error, setError] = useState<string | null>(null);
 
   if (items.length === 0) {
-    return <p className={styles.subtitleInline}>No outside assistants are connected to your account.</p>;
+    return <p className={styles.subtitleInline}>No AI apps are connected to your account.</p>;
   }
 
   function revoke(a: ConnectedAssistant) {
@@ -24,7 +24,7 @@ export function ConnectedAssistants({ initial }: { initial: ConnectedAssistant[]
     startTransition(async () => {
       const result = await revokeAssistantAction(a.clientId);
       if (result.ok) setItems((xs) => xs.filter((x) => x.clientId !== a.clientId));
-      else setError(result.message ?? "Couldn't disconnect that assistant.");
+      else setError(result.message ?? "Couldn't disconnect that AI app.");
     });
   }
 

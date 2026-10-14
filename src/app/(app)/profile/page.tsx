@@ -9,6 +9,7 @@ import { ProfileDetailsForm } from "./ProfileDetailsForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import styles from "./profile.module.css";
 import { ConnectedAssistants } from "./ConnectedAssistants";
+import { HowToConnectButton } from "@/components/ai-apps/ConnectAiAppsDrawer";
 import { listMyAssistantsAction } from "@/lib/mcp/grants";
 import { currentHelpViewer, helpFeaturesFor } from "@/lib/help/loader";
 
@@ -25,7 +26,10 @@ export default async function ProfilePage() {
   const { rows: memories } = await listMyMemoriesAction();
 
   const [assistants, viewer] = await Promise.all([listMyAssistantsAction(), currentHelpViewer()]);
-  const assistantsVisible = helpFeaturesFor(session.profile.role, viewer).has("outside_assistants");
+  // Shown where this person's role can use AI apps here, on or off for
+  // their company: switched off, How to connect says so and who to ask.
+  const helpFeatures = helpFeaturesFor(session.profile.role, viewer);
+  const assistantsVisible = helpFeatures.has("outside_assistants") || helpFeatures.has("ai_apps_off");
 
   return (
     <PageShell
@@ -82,13 +86,18 @@ export default async function ProfilePage() {
       {assistantsVisible || assistants.length > 0 ? (
         <section className={styles.card} aria-labelledby="assistants">
           <h2 id="assistants" className={styles.h2}>
-            Connected assistants
+            Your connected AI apps
           </h2>
           <p className={styles.subtitleInline}>
-            Outside assistants you&apos;ve allowed to act as you in AiMS. Disconnect one and it stops
-            reaching AiMS at once.
+            AI apps, such as Claude and ChatGPT, that you&apos;ve allowed to act as you in AiMS HQ.
+            Disconnect one and it stops reaching AiMS at once.
           </p>
           <ConnectedAssistants initial={assistants} />
+          {assistantsVisible ? (
+            <div className={styles.assistantActions}>
+              <HowToConnectButton />
+            </div>
+          ) : null}
         </section>
       ) : null}
 

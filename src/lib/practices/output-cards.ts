@@ -31,7 +31,8 @@ export type OutputCardName =
   | "ChartProposalCard"
   | "RoleDescriptionCard"
   | "CommitmentDraftCard"
-  | "SessionOfferCard";
+  | "SessionOfferCard"
+  | "ConnectAiAppCard";
 
 export const OUTPUT_CARD_BY_TAG: Readonly<Record<string, OutputCardName>> = {
   script: "ScriptCard",
@@ -45,6 +46,9 @@ export const OUTPUT_CARD_BY_TAG: Readonly<Record<string, OutputCardName>> = {
   // in open conversations only: the route tells no one else how to
   // write it, and the start action refuses an offer anywhere else.
   session_offer: "SessionOfferCard",
+  // Aimee's button to the How to connect drawer, an AI app chosen
+  // (lib/ai-apps/aimee.ts); only where the person can connect one.
+  connect_ai_app: "ConnectAiAppCard",
 };
 
 // A card's fence only opens a code block at the start of a line, and

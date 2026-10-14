@@ -198,6 +198,7 @@ export function NotificationBell({
                     >
                       {item.title}
                     </span>
+                    {item.body ? <span className={styles.bellMenuItemText}>{item.body}</span> : null}
                     <span className={styles.bellMenuItemHint}>
                       {hintFor(item.href)}
                     </span>

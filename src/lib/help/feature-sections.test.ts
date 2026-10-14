@@ -34,18 +34,25 @@ describe("feature-scoped help sections", () => {
     expect(helpFeaturesFor("team_member", { subdomain: "@", companyAssistantsOn: true }).has("outside_assistants")).toBe(false);
   });
 
-  it("is on for system admins only while MCP is admins-only", () => {
+  it("is on for every role but portfolio admins", () => {
     vi.stubEnv("MCP_ENABLED", "true");
-    vi.stubEnv("MCP_FOR_EVERYONE", "");
     const on = { subdomain: "@", companyAssistantsOn: true };
-    expect(helpFeaturesFor("system_admin", on).has("outside_assistants")).toBe(true);
-    expect(helpFeaturesFor("company_admin", on).has("outside_assistants")).toBe(false);
-    expect(helpFeaturesFor("team_member", on).has("outside_assistants")).toBe(false);
+    for (const role of ["system_admin", "company_admin", "aims_guide", "team_member"] as const) {
+      expect(helpFeaturesFor(role, on).has("outside_assistants")).toBe(true);
+    }
+    expect(helpFeaturesFor("portfolio_admin", on).has("outside_assistants")).toBe(false);
   });
 
-  it("needs the viewer's company switch once open to everyone, and the instance", () => {
+  it("shows the switched-off help instead where no company of theirs has it on", () => {
     vi.stubEnv("MCP_ENABLED", "true");
-    vi.stubEnv("MCP_FOR_EVERYONE", "true");
+    const off = { subdomain: "@", companyAssistantsOn: false };
+    expect([...helpFeaturesFor("aims_guide", off)]).toEqual(["ai_apps_off"]);
+    expect([...helpFeaturesFor("system_admin", off)]).toEqual(["outside_assistants"]);
+    expect([...helpFeaturesFor("portfolio_admin", off)]).toEqual([]);
+  });
+
+  it("needs the viewer's company switch, and the instance", () => {
+    vi.stubEnv("MCP_ENABLED", "true");
     vi.stubEnv("MCP_INSTANCES", "@");
     expect(helpFeaturesFor("team_member", { subdomain: "@", companyAssistantsOn: false }).has("outside_assistants")).toBe(false);
     expect(helpFeaturesFor("team_member", { subdomain: "@", companyAssistantsOn: true }).has("outside_assistants")).toBe(true);
@@ -54,17 +61,21 @@ describe("feature-scoped help sections", () => {
     expect(helpFeaturesFor("system_admin", { subdomain: "@", companyAssistantsOn: false }).has("outside_assistants")).toBe(true);
   });
 
-  it("shows a client no outside-assistant help anywhere in the real docs", async () => {
+  it("shows no outside-assistant help where it is off, in the real docs", async () => {
     vi.stubEnv("MCP_ENABLED", "true");
-    vi.stubEnv("MCP_FOR_EVERYONE", "");
+    const off = { subdomain: "@", companyAssistantsOn: false };
+    for (const role of ["team_member", "company_admin", "aims_guide"] as const) {
+      const text = (await loadAllHelpFor(role, off)).map((d) => d.markdown).join("\n");
+      expect(text).not.toMatch(/outside assistant|Connect Claude|Connect ChatGPT|api\/mcp|ask every time/i);
+    }
     const viewer = { subdomain: "@", companyAssistantsOn: true };
-    for (const role of ["team_member", "company_admin", "aims_guide", "portfolio_admin"] as const) {
+    for (const role of ["portfolio_admin"] as const) {
       const docs = await loadAllHelpFor(role, viewer);
       const text = docs.map((d) => d.markdown).join("\n");
-      expect(text).not.toMatch(/outside assistant|via Claude|ask every time/i);
+      expect(text).not.toMatch(/outside assistant|Connect Claude|Connect ChatGPT|api\/mcp|ask every time/i);
     }
     const admin = (await loadAllHelpFor("system_admin", viewer)).map((d) => d.markdown).join("\n");
-    expect(admin).toMatch(/Connecting an outside assistant/);
+    expect(admin).toMatch(/Your connected AI apps/);
   });
 
   it("finds no broken blocks in the real docs", async () => {

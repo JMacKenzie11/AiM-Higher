@@ -55,10 +55,10 @@ export async function listMyAssistantsAction(): Promise<ConnectedAssistant[]> {
 
 export async function revokeAssistantAction(clientId: string): Promise<{ ok: boolean; message?: string }> {
   await requireProfile();
-  if (!/^[0-9a-f-]{36}$/i.test(clientId)) return { ok: false, message: "That isn't an assistant id." };
+  if (!/^[0-9a-f-]{36}$/i.test(clientId)) return { ok: false, message: "That isn't an AI app id." };
   const db = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await db.auth.oauth.revokeGrant({ clientId });
-  if (error) return { ok: false, message: "Couldn't disconnect that assistant. Try again." };
+  if (error) return { ok: false, message: "Couldn't disconnect that AI app. Try again." };
   revalidatePath("/profile");
   return { ok: true };
 }

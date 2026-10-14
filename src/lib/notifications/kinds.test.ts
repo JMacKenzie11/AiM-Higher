@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { splitNotifications, invitationCard } from "./kinds";
+import { splitNotifications, invitationCard, noticeBody } from "./kinds";
 import type { NotificationItem } from "./service";
 
 const item = (kind: NotificationItem["kind"]): NotificationItem => ({
@@ -62,5 +62,17 @@ describe("invitationCard", () => {
     expect(invitationCard("guide-nudge", { nudge_id: "n", meeting_id: meeting })).toBeUndefined();
     expect(invitationCard("chat_shared", { meeting_id: meeting, meeting_label: "x" })).toBeUndefined();
     expect(invitationCard("guide-nudge", { meeting_id: "../admin", meeting_label: "x" })).toBeUndefined();
+  });
+});
+
+describe("noticeBody", () => {
+  it("reads the AI apps notice's body from its payload", () => {
+    expect(noticeBody("ai-apps-on", { body: " People at Acme can now use AiMS HQ. " })).toBe("People at Acme can now use AiMS HQ.");
+  });
+
+  it("is undefined for every other kind, and for an empty body", () => {
+    expect(noticeBody("chat_shared", { body: "x" })).toBeUndefined();
+    expect(noticeBody("ai-apps-on", { body: "  " })).toBeUndefined();
+    expect(noticeBody("ai-apps-on", null)).toBeUndefined();
   });
 });

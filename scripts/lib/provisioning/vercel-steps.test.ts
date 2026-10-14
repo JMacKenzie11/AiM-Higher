@@ -70,6 +70,7 @@ function makeDeps(opts: {
   const vercel = {
     getProject: vi.fn(async () => ({ id: "prj", name: "aims-higher" })),
     listEnv: vi.fn(async () => opts.existingEnv ?? []),
+    readEnvValue: vi.fn(async () => ""),
     // Typed param so the assertions can read the created spec back.
     createEnv: vi.fn(async (input: { key: string; type: string; target: string[] }) => {
       void input;

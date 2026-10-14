@@ -1036,9 +1036,9 @@ async function checkPreconditions(
 
 // ---- secure-auth-and-mcp ---------------------------------------------
 //
-// What every instance's Auth must say before anyone signs in, and what
-// outside assistants need before they can ever be switched on there
-// (Jason, 2026-10-13/14; done by hand for production and PromiseOne):
+// What every instance's Auth must say before anyone signs in, and
+// outside assistants switched on there (Jason, 2026-10-14: on by
+// default, everywhere; done by hand for production and PromiseOne):
 //
 //   disable_signup                                   true: people are invited
 //   mfa_totp_enroll_enabled                          false: an assistant's token
@@ -1046,6 +1046,14 @@ async function checkPreconditions(
 //   security_update_password_require_current_password true: an assistant's
 //                                                    token cannot change a password
 //   site_url / uri_allow_list                        the instance's own host
+//   oauth_server_enabled, _authorization_path        the sign-in server for AI
+//                                                    apps, consent at /oauth/consent
+//   oauth_server_allow_dynamic_registration          open registration: people
+//                                                    paste only the address; the
+//                                                    allow-list (0280) approves a
+//                                                    client by where it returns
+//   hook_custom_access_token_*                       the token hook that marks an
+//                                                    assistant's token (0269)
 //
 // and the MCP route secret (0275): its own random secret, generated
 // here once and kept in the state file, then written to Vercel by
@@ -1054,9 +1062,12 @@ async function checkPreconditions(
 // Without it, every assistant is refused on this instance (0275 fails
 // closed).
 //
-// It does NOT switch the OAuth server on. That stays a deliberate,
-// separate decision per instance.
+// And the instance added to Vercel's MCP_INSTANCES, the list of
+// instances where /api/mcp answers at all. Unset means every instance,
+// so an unset list is left unset. MCP_ENABLED is global: this step
+// reports it and never sets it.
 //
+// Every check is logged as ok or changed, by name; never a value.
 // Idempotent: reads first, writes only what differs, and says so.
 export function desiredAuthConfig(subdomain: string): Record<string, unknown> {
   const host = `https://${subdomain}.aims-hq.com`;
@@ -1066,7 +1077,21 @@ export function desiredAuthConfig(subdomain: string): Record<string, unknown> {
     security_update_password_require_current_password: true,
     site_url: host,
     uri_allow_list: `${host}/**`,
+    oauth_server_enabled: true,
+    oauth_server_authorization_path: "/oauth/consent",
+    oauth_server_allow_dynamic_registration: true,
+    hook_custom_access_token_enabled: true,
+    hook_custom_access_token_uri: "pg-functions://postgres/public/mcp_access_token_hook",
   };
+}
+
+// MCP_INSTANCES with this subdomain added, or null when it is already
+// there (or the list is unset, which means every instance).
+export function withInstance(list: string | null, subdomain: string): string | null {
+  if (list === null) return null;
+  const names = list.split(",").map((s) => s.trim()).filter(Boolean);
+  if (names.includes(subdomain)) return null;
+  return [...names, subdomain].join(",");
 }
 
 async function secureAuthAndMcp(
@@ -1085,6 +1110,7 @@ async function secureAuthAndMcp(
   const want = desiredAuthConfig(ctx.subdomain);
   const have = await deps.management.getAuthConfig(state.projectRef);
   const patch = Object.fromEntries(Object.entries(want).filter(([k, v]) => have[k] !== v));
+  for (const k of Object.keys(want)) deps.log(`      ${k in patch ? "set" : "ok"} — auth ${k}`);
   if (Object.keys(patch).length > 0) {
     await deps.management.updateAuthConfig(state.projectRef, patch);
     const after = await deps.management.getAuthConfig(state.projectRef);
@@ -1114,9 +1140,28 @@ async function secureAuthAndMcp(
     );
     changed.push("MCP route key written");
   }
+  deps.log(`      ${row?.h === hash ? "ok" : "set"} — MCP route key`);
+
+  const env = (await deps.vercel.listEnv()).filter((e) => (e.target ?? []).includes("production"));
+  const enabled = env.find((e) => e.key === "MCP_ENABLED");
+  const enabledValue = enabled ? await deps.vercel.readEnvValue(enabled.id) : "";
+  deps.log(
+    enabledValue === "true"
+      ? "      ok — MCP_ENABLED is on"
+      : "      NOTE — MCP_ENABLED is not on in Vercel Production; AI apps stay off everywhere until it is (global, not set here)"
+  );
+  const instances = env.find((e) => e.key === "MCP_INSTANCES");
+  const next = withInstance(instances ? await deps.vercel.readEnvValue(instances.id) : null, ctx.subdomain);
+  if (instances && next !== null) {
+    await deps.vercel.updateEnv(instances.id, { value: next, type: "encrypted", target: ENV_TARGET });
+    changed.push(`MCP_INSTANCES: ${ctx.subdomain} added`);
+    deps.log(`      set — MCP_INSTANCES now ${next}`);
+  } else {
+    deps.log(`      ok — MCP_INSTANCES ${instances ? `includes ${ctx.subdomain}` : "unset (every instance)"}`);
+  }
 
   return changed.length === 0
-    ? { status: "skipped", detail: "auth settings and the MCP route key already as required" }
+    ? { status: "skipped", detail: "auth settings, the MCP route key and MCP_INSTANCES already as required" }
     : { status: "done", detail: changed.join("; ") };
 }
 
@@ -1148,7 +1193,7 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "secure-auth-and-mcp",
     describe: (c) =>
-      `sign-up off, authenticator enrolment off, current password required, site URL https://${c.subdomain}.aims-hq.com; generate the MCP route secret and write its hash (the OAuth server stays off)`,
+      `sign-up off, authenticator enrolment off, current password required, site URL https://${c.subdomain}.aims-hq.com; AI apps on: the sign-in server with consent at /oauth/consent, open registration, the token hook, the MCP route secret and its hash, and "${c.subdomain}" added to Vercel's MCP_INSTANCES`,
     execute: secureAuthAndMcp,
   },
   // DEFERRED VERIFICATION, to be done when this step is implemented.

@@ -36,6 +36,6 @@ describe("the approved assistants list", () => {
   it("names the assistant by the domain it returns to", () => {
     expect(assistantLabel("Claude", "https://claude.ai/api/mcp/auth_callback")).toBe("Claude (claude.ai)");
     expect(assistantLabel("Claude", "https://evil.example/cb")).toBe("Claude (evil.example)");
-    expect(assistantLabel("", "https://chatgpt.com/connector/oauth/x")).toBe("An assistant (chatgpt.com)");
+    expect(assistantLabel("", "https://chatgpt.com/connector/oauth/x")).toBe("An AI app (chatgpt.com)");
   });
 });
