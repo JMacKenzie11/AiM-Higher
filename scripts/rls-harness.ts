@@ -10771,7 +10771,9 @@ export function requiredAssistantRules(schema: string, table: string): string[] 
   if (schema !== "public" || !([...m.read, ...m.summaries] as readonly string[]).includes(table)) {
     return ["assistant_refused:ALL"];
   }
-  const rules = ["assistant_no_update:UPDATE", "assistant_no_delete:DELETE"];
+  // 0275: every menu table also refuses an assistant that did not come
+  // through /api/mcp.
+  const rules = ["assistant_no_update:UPDATE", "assistant_no_delete:DELETE", "assistant_through_route:ALL"];
   rules.push((m.add as readonly string[]).includes(table) ? "assistant_insert:INSERT" : "assistant_no_insert:INSERT");
   if ((m.summaries as readonly string[]).includes(table)) rules.push("assistant_summaries_only:SELECT");
   return rules.sort();
@@ -10859,7 +10861,9 @@ select n.nspname as s, c.relname as r, c.relrowsecurity as rls,
     // The session check (0272) is its own probe below; here every
     // simulated assistant counts as having a live session, so this
     // measures the menu alone.
-    const liveSession = `create or replace function public.assistant_session_live() returns boolean language sql as 'select true';`;
+    // Likewise the route check (0275), its own probe below.
+    const liveSession = `create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';`;
     [gate] = await run(["begin;", pending, plant, liveSession, `
 create temp table _gate (kind text, item text, outcome text) on commit drop;
 do $$
@@ -10967,7 +10971,10 @@ async function assistantAllowListBehaviour(run: Runner, ids: Identities, pending
   }
   const row = { commitment: randomUUID(), conversation: randomUUID(), meeting: randomUUID() };
   const WEEK = "2099-01-02";
+  // The route check (0275) is its own probe; here every simulated
+  // assistant counts as having come through /api/mcp.
   const setup = `${pending}
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
 insert into public.commitments (id, company_id, owner_id, description, week_ending, due_date, status)
 values ('${row.commitment}', '${CO}', '${M}', 'harness 0270 mine', current_date, current_date, 'open');
 insert into public.coaching_conversations (id, company_id, created_by, title, mode)
@@ -11087,7 +11094,9 @@ async function assistantSessionProbes(run: Runner, ids: Identities, pending: str
   const M = ids.member;
   let row: { live: string; revoked: string; wrong_client: string; app: string } | undefined;
   try {
+    // The route check (0275) is its own probe; here it always passes.
     [row] = await run(["begin;", pending, `
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
 insert into auth.oauth_clients (id, client_name, registration_type, redirect_uris, grant_types, token_endpoint_auth_method)
 values ('${C}', 'harness 0272', 'manual', 'http://127.0.0.1/callback', 'authorization_code', 'none'),
        ('${OTHER}', 'harness 0272 other', 'manual', 'http://127.0.0.1/callback', 'authorization_code', 'none');
@@ -11288,6 +11297,99 @@ select (select v from _l where k = 'lead_insert') as lead_insert,
     detail: ok
       ? "only the Lead (and admins) write a function's values; a separate Tracker writes nothing"
       : "A SEPARATE TRACKER STILL WRITES MEASURE VALUES (is 0274 applied?)",
+  }];
+}
+
+// ---- Through the route only (0275) -----------------------------------
+//
+// Jason, 2026-10-14 (Phase 2b): an assistant's token reaches the
+// database only through /api/mcp, so every call is logged and limited.
+// The route sends the instance's route key; the database holds its hash.
+// Here a test key's hash is planted for the length of the transaction.
+//   granted   with the key: the gate passes a menu read and an add; the
+//             person's commitments read as an assistant; an add lands.
+//             The app's own sign-in, with no key, is untouched.
+//   withheld  the same assistant token without the key, or with a wrong
+//             one: the gate refuses (42501) a read and an add, the table
+//             reads 0 rows, and the add is refused.
+// Red before 0275: without the key everything is allowed.
+async function assistantRouteOnlyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "assistant · only through the MCP route";
+  const M = ids.member, CO = ids.memberCompany;
+  const KEY = "harness-route-key-0275";
+  const C = "harness-0275";
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+-- The session check (0272) is its own probe; here it always passes.
+create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+do $$ begin
+  if to_regclass('aims_private.mcp_route_key') is not null then
+    execute 'delete from aims_private.mcp_route_key';
+    execute format('insert into aims_private.mcp_route_key (id, key_sha256) values (true, %L)', encode(sha256(convert_to('${KEY}', 'UTF8')), 'hex'));
+  end if;
+end $$;
+insert into public.commitments (company_id, owner_id, description, week_ending, due_date) values ('${CO}', '${M}', 'harness 0275 seen', current_date, current_date);
+create temp table _r (k text, v text) on commit drop;
+grant all on _r to authenticated;
+set local role authenticated;
+do $$
+declare n int; outcome text; hdr text;
+begin
+  foreach hdr in array array['none', 'wrong', 'right'] loop
+    perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated","client_id":"${C}"}', true);
+    perform set_config('request.headers', case hdr
+      when 'none' then '{}'
+      when 'wrong' then '{"x-aims-route-key":"not-the-key"}'
+      else '{"x-aims-route-key":"${KEY}"}' end, true);
+    perform set_config('request.method', 'GET', true);
+    perform set_config('request.path', '/commitments', true);
+    begin perform public.assistant_request_gate(); outcome := 'allowed';
+    exception when others then outcome := 'refused ' || sqlstate; end;
+    insert into _r values (hdr || '_gate_read', outcome);
+    perform set_config('request.method', 'POST', true);
+    begin perform public.assistant_request_gate(); outcome := 'allowed';
+    exception when others then outcome := 'refused ' || sqlstate; end;
+    insert into _r values (hdr || '_gate_add', outcome);
+    select count(*) into n from public.commitments where owner_id = '${M}';
+    insert into _r values (hdr || '_rows', n::text);
+    begin
+      insert into public.commitments (company_id, owner_id, description, week_ending, due_date)
+      values ('${CO}', '${M}', 'harness 0275 added ' || hdr, current_date, current_date);
+      outcome := 'inserted';
+    exception when others then outcome := 'refused ' || sqlstate; end;
+    insert into _r values (hdr || '_add', outcome);
+  end loop;
+  -- The app's own sign-in: no client_id, no key.
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  perform set_config('request.headers', '{}', true);
+  perform set_config('request.method', 'GET', true);
+  begin perform public.assistant_request_gate(); outcome := 'allowed';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _r values ('app_gate', outcome);
+  select count(*) into n from public.commitments where owner_id = '${M}';
+  insert into _r values ('app_rows', n::text);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _r;`, "rollback;"].join("\n"));
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const ok =
+    r.right_gate_read === "allowed" && r.right_gate_add === "allowed" && Number(r.right_rows) > 0 && r.right_add === "inserted" &&
+    r.app_gate === "allowed" && Number(r.app_rows) > 0 &&
+    ["none", "wrong"].every((h) =>
+      r[`${h}_gate_read`] === "refused 42501" && r[`${h}_gate_add`] === "refused 42501" && r[`${h}_rows`] === "0" && r[`${h}_add`] === "refused 42501");
+  return [{
+    name,
+    granted: `with the route key: gate read ${r.right_gate_read}, gate add ${r.right_gate_add}, reads ${r.right_rows} rows, add ${r.right_add} | the app's own sign-in, no key: gate ${r.app_gate}, reads ${r.app_rows} rows`,
+    withheld: `no key: gate read ${r.none_gate_read}, gate add ${r.none_gate_add}, reads ${r.none_rows} rows, add ${r.none_add} | wrong key: gate read ${r.wrong_gate_read}, gate add ${r.wrong_gate_add}, reads ${r.wrong_rows} rows, add ${r.wrong_add} (want refused 42501, refused 42501, 0, refused 42501)`,
+    ok,
+    detail: ok
+      ? "an assistant's token reads and adds only through /api/mcp; sent straight to the database it is refused at the gate and at the table"
+      : "AN ASSISTANT'S TOKEN STILL REACHES THE DATABASE AROUND THE MCP ROUTE (is 0275 applied?)",
   }];
 }
 
@@ -13324,6 +13426,7 @@ async function main(): Promise<void> {
     ...(await assistantAllowListBehaviour(run, ids, pendingSql)),
     ...(await assistantSessionProbes(run, ids, pendingSql)),
     ...(await assistantActionLogProbes(run, pendingSql)),
+    ...(await assistantRouteOnlyProbes(run, ids, pendingSql)),
   ];
   const contactChange = await selfServiceContactChangeProbes(run, ids, pendingSql);
   const panelEvents = [
