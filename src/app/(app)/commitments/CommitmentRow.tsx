@@ -1115,10 +1115,9 @@ function OwnerCell({
     return <span className={styles.rowOwnerUnassignedChip}>Unassigned</span>;
   }
 
-  // No "via" badge on commitments (Jason, 2026-10-14): a commitment
-  // added through an outside assistant is the person's own and reads
-  // like any other. The database still records which assistant added
-  // it (added_via_assistant, 0278).
+  // No "via" mark anywhere (Jason, 2026-10-14): what an outside
+  // assistant adds is the person's own and reads like anything else.
+  // The database still records which assistant added it (0278).
   if (canReassign) {
     return (
       <button
