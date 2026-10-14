@@ -39,6 +39,11 @@
  *     allowedRoles, so a plain team_member must not see it and this
  *     one must. Two fixtures whose only difference is the lead_id is
  *     the whole experiment.
+ *   - E2E_GUIDE_EMAIL — aims_guide, no company of its own, assigned to
+ *     the fixture company. Added 2026-10-14 so a guide can be tested as
+ *     a guide (outside assistants, first of all) rather than through
+ *     the system admin's assignment, which proves nothing about the
+ *     role because a system admin passes every check anyway.
  *
  * Usage:
  *   npm run seed:e2e
@@ -127,7 +132,7 @@ type UserSpec = {
   email: string;
   password: string;
   fullName: string;
-  role: "system_admin" | "company_admin" | "team_member" | "portfolio_admin";
+  role: "system_admin" | "company_admin" | "team_member" | "portfolio_admin" | "aims_guide";
   companyId: string | null;
 };
 
@@ -231,6 +236,8 @@ async function main() {
   const companyAdminPassword = required("E2E_COMPANY_ADMIN_PASSWORD");
   const leadEmail = required("E2E_LEAD_EMAIL");
   const leadPassword = required("E2E_LEAD_PASSWORD");
+  const guideEmail = required("E2E_GUIDE_EMAIL");
+  const guidePassword = required("E2E_GUIDE_PASSWORD");
 
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -399,6 +406,14 @@ async function main() {
     companyId,
   });
 
+  const guideId = await upsertUser(admin, {
+    email: guideEmail,
+    password: guidePassword,
+    fullName: "E2E Guide",
+    role: "aims_guide",
+    companyId: null,
+  });
+
   const portfolioId = await upsertUser(admin, {
     email: portfolioEmail,
     password: portfolioPassword,
@@ -510,6 +525,11 @@ async function main() {
     );
   if (assignmentError) throw assignmentError;
   console.log(`  guide assignment → ${adminEmail} covers "${COMPANY_NAME}"`);
+  const { error: guideAssignmentError } = await admin
+    .from("guide_assignments")
+    .upsert({ guide_id: guideId, company_id: companyId }, { onConflict: "guide_id,company_id" });
+  if (guideAssignmentError) throw guideAssignmentError;
+  console.log(`  guide assignment → ${guideEmail} covers "${COMPANY_NAME}"`);
 
   // ---- the test-only agent, reset to its code default ------------
   //

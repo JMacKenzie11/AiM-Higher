@@ -49,6 +49,11 @@ export const users = {
     email: credential("E2E_LEAD_EMAIL"),
     password: credential("E2E_LEAD_PASSWORD"),
   }),
+  // An aims_guide with no company, assigned to the fixture company.
+  guide: () => ({
+    email: credential("E2E_GUIDE_EMAIL"),
+    password: credential("E2E_GUIDE_PASSWORD"),
+  }),
   // A real portfolio_admin: no company, no assignments, instance-wide
   // read and three container writes. Not a system_admin standing in
   // for one — the thing under test is what this role can and cannot
