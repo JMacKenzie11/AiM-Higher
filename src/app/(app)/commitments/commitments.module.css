@@ -1408,19 +1408,3 @@ a.fromMeetingChip:hover {
   border-color: var(--aims-cobalt);
   color: var(--aims-cobalt);
 }
-
-/* The owner's reassign button with a "via [assistant]" badge (0278):
-   one grid cell, the badge under the name so the column keeps its
-   width, shortened with an ellipsis if it must be (its hover text
-   carries the full name). */
-.rowOwnerWithVia {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 0;
-}
-
-.rowOwnerWithVia > :last-child {
-  margin-left: 0;
-}

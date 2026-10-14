@@ -103,14 +103,14 @@ export default async function ConsentPage({
       {canApprove ? (
         <div className={`${formStyles.helperText} ${consentStyles.copy}`}>
           <p>It can read your commitments and your team&apos;s, your company&apos;s plan, priorities, goals and core values, your measures and their recent values, open issues, meeting summaries and the functional chart.</p>
-          <p>It can add a commitment of your own with a due date, an issue, or a value for a measure you lead (any measure, if you&apos;re an admin) in a week that has none. Each one shows as added via {details.client.name || "this assistant"}.</p>
+          <p>It can add a commitment of your own with a due date, an issue, or a value for a measure you lead (any measure, if you&apos;re an admin) in a week that has none.</p>
           <p>It cannot change or delete anything, mark a commitment kept or missed, or read any Aimee conversation.</p>
           {/* Jason, 2026-10-14: say plainly whose rules apply once the
               data leaves AiMS. Wording approved by him. This page lists
               only what the MCP server offers, so the add line matches
               the three add tools (lib/mcp/adds.ts). */}
           <p>
-            Once AiMS data reaches {details.client.name || "this assistant"}, that company&apos;s terms and privacy policy apply to it, not ours. Check its settings for how long it keeps your conversations and whether it uses them to train its models.
+            AiMS never lets your data be used to train AI models. Once it reaches {details.client.name || "this assistant"}, {details.client.name || "this assistant"}&apos;s terms and privacy policy apply instead, along with your own settings there.
           </p>
           <p>It returns to {returnsTo}.</p>
         </div>

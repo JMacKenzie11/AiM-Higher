@@ -21,7 +21,6 @@ import { BoardView } from "../measures/board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
 import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import styles from "./dashboard.module.css";
-import { ViaAssistantBadge } from "@/components/ui/ViaAssistantBadge";
 
 // Company Dashboard — Section 8.2.
 
@@ -259,10 +258,7 @@ export default async function DashboardPage() {
               {data.recentSuccesses.map((win) => (
                 <li key={win.id} className={styles.successItem}>
                   <div className={styles.successHeader}>
-                    <span className={styles.successOwner}>
-                      {win.ownerName}
-                      <ViaAssistantBadge name={win.viaAssistant} />
-                    </span>
+                    <span className={styles.successOwner}>{win.ownerName}</span>
                     <span className={styles.successWhen}>
                       {win.completedAt
                         ? formatShortDate(win.completedAt.slice(0, 10))

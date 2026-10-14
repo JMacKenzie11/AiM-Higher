@@ -67,11 +67,11 @@ Enter your current password, then a new one of at least 8 characters, and save. 
 
 Some AiMS accounts can connect an outside assistant, such as Claude or ChatGPT, so it can read your AiMS work for you. It signs in as you, sees only what you can see, and asks you to allow it first.
 
-It can also add a commitment of your own (with a due date), an issue, or a value for a measure you lead, in a week that has no value yet. Anything it adds shows **via** and the assistant's name beside your name. It can't change or delete anything.
+It can also add a commitment of your own (with a due date), an issue, or a value for a measure you lead, in a week that has no value yet. Issues and measure values it adds show **via** and the assistant's name; commitments look like any other. It can't change or delete anything.
 
 **Connected assistants** lists every assistant you've allowed, when you connected it and when it was last used. **Disconnect** stops it reaching AiMS at once; you can connect it again later. An assistant only works for a company that has outside assistants switched on.
 
 **Keep AiMS's add tools on "ask every time"** in the assistant's settings, so nothing is added without you seeing it first. Assistants ask by default; leave it that way rather than allowing them always.
 
-Once AiMS data reaches the assistant, the assistant company's terms and privacy policy apply to it, not ours. Before you connect one, check the assistant's settings for how long it keeps your conversations and whether it uses them to train its models.
+AiMS never lets your data be used to train AI models. Once it reaches the assistant, the assistant's terms and privacy policy apply instead, along with your own settings there.
 :::
