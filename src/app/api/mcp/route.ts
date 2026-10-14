@@ -116,7 +116,7 @@ async function runTool<A>(
     }
     if (!mcpOpenTo(profile.role)) {
       await log("refused", "not_open");
-      return say("Outside assistants aren't open to your AiMS account yet.");
+      return say("AI apps aren't open to your AiMS account yet.");
     }
 
     let company: VisibleCompany | null = null;
@@ -134,7 +134,7 @@ async function runTool<A>(
       if (!company.assistantsOn) {
         await log("refused", "company_off");
         return say(
-          `Outside assistants are switched off for ${company.name}. A company admin can switch them on in the company's settings in AiMS.`
+          `AI apps are switched off for ${company.name}. Ask your company admin; they can switch them on in the company's settings in AiMS HQ.`
         );
       }
       const companyBroken = limitBroken({ lastMinute: 0, lastHour: 0 }, await recentCounts("company_id", company.id));
@@ -157,7 +157,7 @@ async function runTool<A>(
     await log("error", refused ? "db_refused" : "db_error");
     return say(
       code === "PT401"
-        ? "This assistant's access to AiMS has ended. Connect it again."
+        ? "This AI app's access to AiMS has ended. Connect it again."
         : "AiMS couldn't answer that just now."
     );
   }

@@ -31,5 +31,5 @@ export function assistantLabel(name: string | null | undefined, redirectUri: str
   } catch {
     // Not a URL; show it as given.
   }
-  return `${(name ?? "").trim() || "An assistant"} (${host})`;
+  return `${(name ?? "").trim() || "An AI app"} (${host})`;
 }

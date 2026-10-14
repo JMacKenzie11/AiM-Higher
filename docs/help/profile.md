@@ -63,15 +63,23 @@ Enter your current password, then a new one of at least 8 characters, and save. 
 **Who sees what I put here?** Your photo, name and position show to everyone at your company. Your strengths show on your scorecard and help Aimee coach you. Your password and your Memory are yours alone.
 
 ::: feature outside_assistants
-## Connecting an outside assistant
+## Your connected AI apps
 
-Some AiMS accounts can connect an outside assistant, such as Claude or ChatGPT, so it can read your AiMS work for you. It signs in as you, sees only what you can see, and asks you to allow it first.
+You can use AiMS HQ inside an AI app, such as Claude or ChatGPT, so it can read your AiMS work for you. It signs in as you, sees only what you can see, and asks you to allow it first. Aimee is different: she's built into AiMS HQ and needs no connecting.
 
-It can also add a commitment of your own (with a due date), an issue, or a value for a measure you lead, in a week that has no value yet. It can start a conversation with Aimee in AiMS for you. It can't change or delete anything.
+**How to connect** opens the steps for each app, with your AiMS HQ server address to copy.
 
-**Connected assistants** lists every assistant you've allowed, when you connected it and when it was last used. **Disconnect** stops it reaching AiMS at once; you can connect it again later. An assistant only works for a company that has outside assistants switched on.
+A connected AI app can also add a commitment of your own (with a due date), an issue, or a value for a measure you lead, in a week that has no value yet. It can start a conversation with Aimee in AiMS for you. It can't change or delete anything.
 
-**Keep AiMS's add tools on "ask every time"** in the assistant's settings, so nothing is added without you seeing it first. Assistants ask by default; leave it that way rather than allowing them always.
+**Your connected AI apps** lists every AI app you've allowed, when you connected it and when it was last used. **Disconnect** stops it reaching AiMS at once; you can connect it again later.
 
-AiMS never lets your data be used to train AI models. Once it reaches the assistant, the assistant's terms and privacy policy apply instead, along with your own settings there.
+**Keep the AI app asking before it adds anything**, so nothing is added without you seeing it first. AI apps ask by default; leave it that way rather than allowing them always.
+
+AiMS never lets your data be used to train AI models. Once it reaches the AI app, that app's terms and privacy policy apply instead, along with your own settings there.
+:::
+
+::: feature ai_apps_off
+## Your connected AI apps
+
+Your company has AI apps, such as Claude and ChatGPT, switched off, so you can't connect one yet. Ask your company admin: they can switch them on in your company's settings in AiMS HQ.
 :::

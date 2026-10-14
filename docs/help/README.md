@@ -102,7 +102,7 @@ a feature they can't use):
 
 ```md
 ::: feature outside_assistants
-Help about connecting an outside assistant.
+Help about connecting an AI app.
 :::
 ```
 

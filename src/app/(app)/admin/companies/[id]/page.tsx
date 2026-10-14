@@ -261,7 +261,7 @@ export default async function CompanyDetailPage({
         (isSystemAdmin || isCompanyAdmin || session.profile.role === "aims_guide") ? (
           <section className={styles.accentCard} aria-labelledby="assistants-heading">
             <h2 id="assistants-heading" className={styles.h2}>
-              Outside assistants
+              Connect AI apps
             </h2>
             <AssistantsSwitchForm
               companyId={company.id}

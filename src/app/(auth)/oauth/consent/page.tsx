@@ -30,8 +30,8 @@ export default async function ConsentPage({
   const { authorization_id: id } = await searchParams;
   if (!isAuthorizationId(id)) {
     return (
-      <AuthShell cardLabel="Connect an assistant" headline={<>This link isn&apos;t complete.</>}>
-        <p className={formStyles.message}>Start again from your assistant.</p>
+      <AuthShell cardLabel="Connect an AI app" headline={<>This link isn&apos;t complete.</>}>
+        <p className={formStyles.message}>Start again from the AI app.</p>
       </AuthShell>
     );
   }
@@ -45,8 +45,8 @@ export default async function ConsentPage({
   const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(id);
   if (error || !data) {
     return (
-      <AuthShell cardLabel="Connect an assistant" headline={<>This request has expired.</>}>
-        <p className={formStyles.message}>Start again from your assistant.</p>
+      <AuthShell cardLabel="Connect an AI app" headline={<>This request has expired.</>}>
+        <p className={formStyles.message}>Start again from the AI app.</p>
       </AuthShell>
     );
   }
@@ -73,12 +73,12 @@ export default async function ConsentPage({
     });
     return (
       <AuthShell
-        cardLabel="Connect an assistant"
-        headline={<>This assistant isn&apos;t approved for AiMS</>}
+        cardLabel="Connect an AI app"
+        headline={<>This AI app isn&apos;t approved for AiMS</>}
         subtitle={`${label} asked to connect to your AiMS account.`}
       >
         <p className={formStyles.message}>
-          AiMS works with approved assistants only, such as Claude and ChatGPT. Nothing has been shared.
+          AiMS works with approved AI apps only, such as Claude and ChatGPT. Nothing has been shared.
         </p>
         <ConsentForm authorizationId={details.authorization_id} canApprove={false} />
       </AuthShell>
@@ -96,7 +96,7 @@ export default async function ConsentPage({
 
   return (
     <AuthShell
-      cardLabel="Connect an assistant"
+      cardLabel="Connect an AI app"
       headline={<>Connect {label} to AiMS?</>}
       subtitle={`It will act as ${name}, and only as ${name}.`}
     >
@@ -111,12 +111,12 @@ export default async function ConsentPage({
               only what the MCP server offers, so the add line matches
               the three add tools (lib/mcp/adds.ts). */}
           <p>
-            AiMS never lets your data be used to train AI models. Once it reaches {details.client.name || "this assistant"}, {details.client.name || "this assistant"}&apos;s terms and privacy policy apply instead, along with your own settings there.
+            AiMS never lets your data be used to train AI models. Once it reaches {details.client.name || "this AI app"}, {details.client.name || "this AI app"}&apos;s terms and privacy policy apply instead, along with your own settings there.
           </p>
           <p>It returns to {returnsTo}.</p>
         </div>
       ) : (
-        <p className={formStyles.message}>Outside assistants aren&apos;t open to your account yet.</p>
+        <p className={formStyles.message}>AI apps aren&apos;t open to your account yet.</p>
       )}
       <ConsentForm authorizationId={details.authorization_id} canApprove={canApprove} />
     </AuthShell>

@@ -36,8 +36,8 @@ export function limitMessage(broken: NonNullable<ReturnType<typeof limitBroken>>
     case "person_hour":
       return `That's more than ${LIMITS.person.perHour} AiMS requests from you in the last hour. Try again later.`;
     case "company_minute":
-      return `That company has had more than ${LIMITS.company.perMinute} assistant requests in the last minute. Wait a minute and try again.`;
+      return `That company has had more than ${LIMITS.company.perMinute} AI app requests in the last minute. Wait a minute and try again.`;
     case "company_hour":
-      return `That company has had more than ${LIMITS.company.perHour} assistant requests in the last hour. Try again later.`;
+      return `That company has had more than ${LIMITS.company.perHour} AI app requests in the last hour. Try again later.`;
   }
 }

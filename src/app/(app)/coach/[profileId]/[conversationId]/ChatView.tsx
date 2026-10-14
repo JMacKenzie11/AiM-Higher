@@ -33,6 +33,7 @@ import { ScriptCard } from "@/components/practices/ScriptCard";
 import { CommitmentDraftCard } from "@/components/coach/CommitmentDraftCard";
 import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
 import { SessionOfferCard } from "@/components/aimee/SessionOfferCard";
+import { ConnectAiAppCard } from "@/components/ai-apps/ConnectAiAppCard";
 import { RoleDescriptionCard } from "@/components/practices/RoleDescriptionCard";
 import {
   AgentPicker,
@@ -1172,6 +1173,8 @@ function renderCard(
           messageId={messageId}
         />
       );
+    case "ConnectAiAppCard":
+      return <ConnectAiAppCard raw={raw} streaming={streaming} />;
     case "ScriptCard":
       return <ScriptCard raw={raw} streaming={streaming} />;
     case "ChartProposalCard":

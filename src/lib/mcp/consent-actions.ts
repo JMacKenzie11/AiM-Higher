@@ -20,12 +20,12 @@ import { isClientApproved } from "./client-approval";
 export type ConsentResult = { ok: false; message: string };
 
 async function answer(formData: FormData, approve: boolean): Promise<ConsentResult> {
-  if (!(await mcpEnabledHere())) return { ok: false, message: "Outside assistants aren't available." };
+  if (!(await mcpEnabledHere())) return { ok: false, message: "AI apps aren't available here." };
   const session = await requireProfile();
   const id = String(formData.get("authorization_id") ?? "");
-  if (!isAuthorizationId(id)) return { ok: false, message: "That sign-in request isn't valid. Start again from your assistant." };
+  if (!isAuthorizationId(id)) return { ok: false, message: "That sign-in request isn't valid. Start again from the AI app." };
   if (approve && !mcpOpenTo(session.profile.role)) {
-    return { ok: false, message: "Outside assistants aren't open to your account yet." };
+    return { ok: false, message: "AI apps aren't open to your account yet." };
   }
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   // Asked again here, on the server, not only by hiding the button: an
@@ -34,14 +34,14 @@ async function answer(formData: FormData, approve: boolean): Promise<ConsentResu
     const { data: details } = await supabase.auth.oauth.getAuthorizationDetails(id);
     const clientId = details && "client" in details ? (details.client as { id?: string }).id : undefined;
     if (!(await isClientApproved(clientId))) {
-      return { ok: false, message: "This assistant isn't approved for AiMS." };
+      return { ok: false, message: "This AI app isn't approved for AiMS." };
     }
   }
   const { data, error } = approve
     ? await supabase.auth.oauth.approveAuthorization(id, { skipBrowserRedirect: true })
     : await supabase.auth.oauth.denyAuthorization(id, { skipBrowserRedirect: true });
   if (error || !data?.redirect_url) {
-    return { ok: false, message: "That sign-in request has expired. Start again from your assistant." };
+    return { ok: false, message: "That sign-in request has expired. Start again from the AI app." };
   }
   redirect(data.redirect_url);
 }
