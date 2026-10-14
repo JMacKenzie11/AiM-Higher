@@ -66,6 +66,10 @@ export type VercelClient = {
     id: string,
     input: { value: string; type: VercelEnvType; target: string[] }
   ) => Promise<unknown>;
+  // One variable's plaintext, from the single-variable endpoint, which
+  // decrypts an encrypted var where the list does not (measured
+  // 2026-10-14 on MCP_INSTANCES). A sensitive var still comes back "".
+  readEnvValue: (id: string) => Promise<string>;
   latestProductionDeployment: () => Promise<VercelDeployment | null>;
   redeploy: (input: {
     name: string;
@@ -131,6 +135,14 @@ export function createVercelClient(opts: {
 
     updateEnv: (id, input) =>
       request("PATCH", `/v9/projects/${opts.projectId}/env/${id}`, input),
+
+    async readEnvValue(id) {
+      const result = await request<{ value?: string }>(
+        "GET",
+        `/v1/projects/${opts.projectId}/env/${id}`
+      );
+      return result?.value ?? "";
+    },
 
     async latestProductionDeployment() {
       const result = await request<{ deployments: VercelDeployment[] }>(

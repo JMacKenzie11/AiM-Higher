@@ -96,6 +96,7 @@ function makeDeps(opts: {
     vercel: {
       getProject: vi.fn(async () => ({ id: "prj", name: "aims-higher" })),
       listEnv: vi.fn(async () => []),
+      readEnvValue: vi.fn(async () => ""),
       createEnv: vi.fn(async () => ({})),
       updateEnv: vi.fn(async () => ({})),
       latestProductionDeployment: vi.fn(async () => null),

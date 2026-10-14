@@ -4,9 +4,9 @@ import { useState, useTransition } from "react";
 import { setCompanyAssistantsAction } from "@/lib/companies/actions";
 import styles from "../admin.module.css";
 
-// The company's own switch for outside assistants (0279). Off by
-// default: while it is off, no assistant may read or add anything for
-// this company, whoever asks.
+// The company's own switch for outside assistants (0279). On by
+// default since 0284: while it is off, no assistant may read or add
+// anything for this company, whoever asks.
 export function AssistantsSwitchForm({
   companyId,
   companyName,
@@ -39,7 +39,8 @@ export function AssistantsSwitchForm({
       <p className={`${styles.formFull} ${styles.subtitleInline}`}>
         When this is on, people at {companyName} can connect an outside assistant, such as Claude or
         ChatGPT, to read their AiMS work and add commitments, issues and measure values for them, as
-        themselves. Each person still chooses whether to connect one. AiMS never lets your data be
+        themselves. Each person still chooses whether to connect one. This is on by default, and
+        you can switch it off at any time. AiMS never lets your data be
         used to train AI models. Once it reaches the assistant, the assistant&apos;s terms and
         privacy policy apply instead, along with your own settings there.
       </p>

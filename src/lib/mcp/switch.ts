@@ -1,15 +1,12 @@
 // WHO MAY CONNECT AN OUTSIDE ASSISTANT, and whether anyone may.
 //
-// Two environment switches, read per request on the server, the same
+// Environment switches, read per request on the server, the same
 // pattern the Aimee panel shipped behind (git show
 // b8f6907:src/lib/aimee/panel-audience.ts):
 //
 //   MCP_ENABLED        the global switch. Off unless "true": the MCP
 //                      route, its metadata and the consent page all
 //                      answer 404, so nothing is discoverable.
-//   MCP_FOR_EVERYONE   widens it from system admins to everyone.
-//                      Jason, 2026-10-13: system admins first, and only
-//                      once the allow-list rules (0270) are proven.
 //
 // The checks are enforced where the work happens (the route, the
 // consent page and its actions), not only in what a page shows.
@@ -34,6 +31,12 @@ export function mcpEnabled(subdomain?: string): boolean {
   return subdomain !== undefined && only.includes(subdomain);
 }
 
+// Every role but portfolio admins (Jason, 2026-10-14; it replaced the
+// system-admins-only MCP_FOR_EVERYONE). The database gate refuses a
+// portfolio admin's assistant token too (0284). Unknown or missing
+// roles are refused: fail closed.
+const OPEN_ROLES = new Set(["system_admin", "company_admin", "aims_guide", "team_member"]);
+
 export function mcpOpenTo(role: string | null | undefined): boolean {
-  return role === "system_admin" || process.env.MCP_FOR_EVERYONE === "true";
+  return typeof role === "string" && OPEN_ROLES.has(role);
 }

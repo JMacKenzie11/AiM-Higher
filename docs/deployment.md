@@ -75,14 +75,13 @@ change.
 code since 2026-10-02, and the variable does nothing. Delete it from
 any Vercel environment that still has it.
 
-`MCP_ENABLED` and `MCP_FOR_EVERYONE` — outside assistants (the MCP
-server, `/api/mcp`). **Both off unless set to `true`.** With
-`MCP_ENABLED` unset, `/api/mcp`, its metadata under
-`/.well-known/oauth-protected-resource` and the consent page
-`/oauth/consent` all answer 404. With it set, only system admins may
-connect an assistant; `MCP_FOR_EVERYONE` widens that to everyone, and
-is Jason's call (2026-10-13: system admins first, then company admins
-and team members, guides, portfolio admins last). An environment change
+`MCP_ENABLED` — outside assistants (the MCP server, `/api/mcp`).
+**Off unless set to `true`.** With it unset, `/api/mcp`, its metadata
+under `/.well-known/oauth-protected-resource` and the consent page
+`/oauth/consent` all answer 404. With it set, every role but portfolio
+admins may connect an assistant (Jason, 2026-10-14; this replaced
+`MCP_FOR_EVERYONE`, which nothing reads any more and can be deleted
+from Vercel). An environment change
 takes effect on the next deploy. The MCP route also needs the
 instance's service key, which it already has, to write the action log
 (`assistant_actions`, 0273) and count the rate limits from it; 0273
@@ -110,13 +109,16 @@ dynamic registration on, anyone can register a client, and the hook is
 what refuses a token to any client whose redirect addresses are not all
 on the allow-list (0280 and `src/lib/mcp/trusted-clients.ts`).
 `MCP_INSTANCES` (optional) names the instances where MCP may run at all
-(`@` is production), since one deployment serves every instance. A new
-instance gets its auth settings and route secret from the provisioning
-step `secure-auth-and-mcp`; the OAuth server stays off there until
-switched on deliberately. As of 2026-10-14: dev has all of it; production
-has the OAuth server on with registration off and two hand-registered
-clients, waiting for Jason's go on registration and the hook; PromiseOne
-has the OAuth server off.
+(`@` is production), since one deployment serves every instance. AI apps are on
+by default, everywhere (Jason, 2026-10-14), so a new instance gets all
+of it from the provisioning step `secure-auth-and-mcp`: the auth
+settings above, the OAuth server with consent at `/oauth/consent`,
+dynamic registration, the token hook, the route secret and its hash,
+and its subdomain added to `MCP_INSTANCES` (left alone when that is
+unset, which means every instance). The step logs each check as ok or
+set, by name. It reports `MCP_ENABLED` and never sets it: that switch
+is global. As of 2026-10-14: dev, production and PromiseOne have all of
+it.
 
 `PROD_*` has a second job. The cron routes are excluded from instance
 resolution entirely, because a scheduled invocation has no visitor and

@@ -229,7 +229,7 @@ export function filterRoleSections(markdown: string, role: Role): string {
 // Known features:
 //   outside_assistants   MCP is on for this instance (MCP_ENABLED,
 //                        MCP_INSTANCES), the viewer's role is open to
-//                        it (system admins until MCP_FOR_EVERYONE), and,
+//                        it (every role but portfolio admins), and,
 //                        for anyone but a system admin, their company
 //                        has switched outside assistants on (0279).
 

@@ -251,15 +251,14 @@ export default async function CompanyDetailPage({
           </section>
         ) : null}
 
-        {/* Outside assistants (0279): the company's own switch, off by
-            default. Shown only where someone here could use them: MCP
-            on for this instance, and the viewer a system admin, or a
-            company admin or guide once outside assistants are open to
-            everyone (MCP_FOR_EVERYONE). */}
+        {/* Outside assistants (0279): the company's own switch, on by
+            default since 0284. Shown where MCP is on for this instance,
+            to the people who may flip it: a system admin, the company's
+            admin or an assigned guide. Never a portfolio admin, whose
+            role assistants are not open to. */}
         {(await mcpEnabledHere()) &&
-        (isSystemAdmin ||
-          (mcpOpenTo("company_admin") &&
-            (isCompanyAdmin || session.profile.role === "aims_guide"))) ? (
+        mcpOpenTo(session.profile.role) &&
+        (isSystemAdmin || isCompanyAdmin || session.profile.role === "aims_guide") ? (
           <section className={styles.accentCard} aria-labelledby="assistants-heading">
             <h2 id="assistants-heading" className={styles.h2}>
               Outside assistants

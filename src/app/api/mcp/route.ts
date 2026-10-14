@@ -43,8 +43,8 @@ import {
 // database's allow list (0270) refuses that token everything off the
 // menu, whatever this code does.
 //
-// Switched off unless MCP_ENABLED is "true", and open only to system
-// admins unless MCP_FOR_EVERYONE is (lib/mcp/switch.ts).
+// Switched off unless MCP_ENABLED is "true", and open to every role but
+// portfolio admins (lib/mcp/switch.ts; the database gate agrees, 0284).
 
 type Caller = { token: string; userId: string; clientId: string };
 

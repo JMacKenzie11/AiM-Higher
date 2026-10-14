@@ -11734,8 +11734,8 @@ begin
     exception when others then o := 'refused ' || sqlstate; end;
     execute 'reset role';
     insert into _s values (who, o);
-    -- back to off for the next caller
-    execute format('update public.companies set assistants_enabled = false where id = %L', '${CO}');
+    -- back to the default for the next caller
+    execute format('update public.companies set assistants_enabled = %L where id = %L', (select column_default from information_schema.columns where table_schema = 'public' and table_name = 'companies' and column_name = 'assistants_enabled') = 'true', '${CO}');
   end loop;
 exception when undefined_column then
   insert into _s values ('error', 'no assistants_enabled column');
@@ -11748,18 +11748,19 @@ select jsonb_object_agg(k, v)::text as r from _s;`, "rollback;"].join("\n"));
   }
   void OTHER;
   const zeroOrRefused = (v?: string) => v === "0" || /^refused /.test(v ?? "");
-  const ok = r.default === "false" && r.company_admin === "1" && r.system_admin === "1"
+  // On by default since 0284 (Jason, 2026-10-14); off before it.
+  const ok = r.default === "true" && r.company_admin === "1" && r.system_admin === "1"
     && zeroOrRefused(r.member) && zeroOrRefused(r.other_admin)
     && (zeroOrRefused(r.portfolio_admin) || r.portfolio_admin === "no such person on this clone")
     && /^refused /.test(r.admin_timezone ?? "");
   return [{
     name,
-    granted: `off by default: ${r.default} | the company's admin switches it: ${r.company_admin ?? r.error} | a system admin: ${r.system_admin}`,
+    granted: `on by default: ${r.default} | the company's admin switches it: ${r.company_admin ?? r.error} | a system admin: ${r.system_admin}`,
     withheld: `a team member: ${r.member} | another company's admin: ${r.other_admin} | a portfolio admin: ${r.portfolio_admin} | the company admin moving the timezone: ${r.admin_timezone} (want 0 or refused, and refused)`,
     ok,
     detail: ok
-      ? "the outside assistants switch is off by default, and only the company's admin or a system admin can switch it"
-      : "THE COMPANY ASSISTANTS SWITCH IS MISSING OR THE WRONG PEOPLE CAN FLIP IT (is 0279 applied?)",
+      ? "the outside assistants switch is on by default, and only the company's admin or a system admin can switch it"
+      : "THE COMPANY ASSISTANTS SWITCH IS MISSING, NOT ON BY DEFAULT, OR THE WRONG PEOPLE CAN FLIP IT (are 0279 and 0284 applied?)",
   }];
 }
 
@@ -12026,6 +12027,55 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
     detail: ok
       ? "only the creator can ever read a handoff, and its topic is gone once the link is opened or expires"
       : "SOMEONE BUT THE CREATOR CAN READ A HANDOFF, OR ITS TOPIC OUTLIVES THE LINK (is 0282 applied?)",
+  }];
+}
+
+// ---- Every role but portfolio admins (0284) ---------------------------
+//
+// Jason, 2026-10-14: outside assistants are open to every role except
+// portfolio admins. The database gate refuses a portfolio admin's
+// assistant token, beside the route, consent page and profile.
+//   granted   a system admin, company admin, guide and team member reach
+//             the menu
+//   withheld  a portfolio admin is refused (42501)
+// Red before 0284: the portfolio admin reaches the menu.
+async function assistantRoleProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "assistant roles · all but portfolio admins";
+  let r: Record<string, string> = {};
+  try {
+    const [row] = await run<{ r: string }>(["begin;", pending, `
+create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+create temp table _r (k text, v text) on commit drop;
+do $$
+declare who text; sub uuid; o text;
+begin
+  foreach who in array array['system_admin', 'company_admin', 'aims_guide', 'team_member', 'portfolio_admin'] loop
+    select id into sub from public.profiles where role = who and status = 'active' order by id limit 1;
+    if sub is null then insert into _r values (who, 'nobody on this clone'); continue; end if;
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated","client_id":"harness-0284"}', sub), true);
+    perform set_config('request.method', 'GET', true);
+    perform set_config('request.path', '/commitments', true);
+    begin perform public.assistant_request_gate(); o := 'allowed';
+    exception when others then o := 'refused ' || sqlstate; end;
+    insert into _r values (who, o);
+  end loop;
+end $$;
+select jsonb_object_agg(k, v)::text as r from _r;`, "rollback;"].join("\n"));
+    r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const open = ["system_admin", "company_admin", "aims_guide", "team_member"];
+  const ok = open.every((k) => r[k] === "allowed" || r[k] === "nobody on this clone") && r.portfolio_admin === "refused 42501";
+  return [{
+    name,
+    granted: open.map((k) => `${k.replace("_", " ")}: ${r[k]}`).join(" | "),
+    withheld: `portfolio admin: ${r.portfolio_admin} (want refused 42501)`,
+    ok,
+    detail: ok ? "every role but portfolio admins reaches the assistant menu" : "THE WRONG ROLES REACH THE ASSISTANT MENU (is 0284 applied?)",
   }];
 }
 
@@ -14066,6 +14116,7 @@ async function main(): Promise<void> {
     ...(await assistantTrustedClientProbes(run, ids, pendingSql)),
     ...(await aimeeHandoffProbes(run, ids, pendingSql)),
     ...(await aimeeHandoffPrivacyProbes(run, ids, pendingSql)),
+    ...(await assistantRoleProbes(run, ids, pendingSql)),
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
     ...(await assistantAddProbes(run, ids, pendingSql)),
     ...(await companyAssistantsSwitchProbes(run, ids, pendingSql)),
