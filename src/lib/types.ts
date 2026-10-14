@@ -292,6 +292,12 @@ export type Commitment = {
   // supplies.
   created_by: string | null;
   updated_at: string;
+  // Set by the database only, from the token, when an outside
+  // assistant added this (0278): its OAuth client_id and its name.
+  // Optional on the type because loaders that name their columns may
+  // not ask for them.
+  added_via_client_id?: string | null;
+  added_via_assistant?: string | null;
 };
 
 // ---- Issues / Solution Seeking (migration 0143) ----------------
@@ -326,6 +332,12 @@ export type Issue = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Set by the database only, from the token, when an outside
+  // assistant added this (0278): its OAuth client_id and its name.
+  // Optional on the type because loaders that name their columns may
+  // not ask for them.
+  added_via_client_id?: string | null;
+  added_via_assistant?: string | null;
 };
 
 // Per-week resolution row for ongoing commitments (migration 0140).
@@ -563,6 +575,12 @@ export type SuccessMeasureEntry = {
   pulled_at: string | null;
   created_at: string;
   updated_at: string;
+  // Set by the database only, from the token, when an outside
+  // assistant added this (0278): its OAuth client_id and its name.
+  // Optional on the type because loaders that name their columns may
+  // not ask for them.
+  added_via_client_id?: string | null;
+  added_via_assistant?: string | null;
 };
 
 // ---- Foundation + marketing (Sections 4.6 + 4.7) -----------------

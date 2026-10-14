@@ -14,6 +14,8 @@ The list runs soonest due first. Anything from an earlier week that's still open
 
 **Strategic** commitments are attached to a quarterly priority. **Operational** ones aren't, even when they're tied to an issue or a function. The *Type* filter shows one or the other.
 
+**via Claude** (or another assistant's name) beside the owner means they added it through an outside assistant connected to their account. It counts like any other commitment.
+
 ::: role team_member
 ## What you can do here
 

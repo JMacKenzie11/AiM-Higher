@@ -57,10 +57,16 @@ export type MeasureEntryWriter = {
   profile: SessionProfile;
 };
 
+// `onlyEmptyWeeks`: insert, never upsert, so a week that already has a
+// value is refused rather than overwritten. For an outside assistant
+// (Jason, 2026-10-13: "add only when the week is empty, never
+// overwrite"), which also has no update rule in the database (0270), so
+// an upsert onto a filled week would be refused anyway, less clearly.
 export async function writeMeasureEntries(
   writer: MeasureEntryWriter,
   entries: MeasureEntryInput[],
-  weekEnding: string
+  weekEnding: string,
+  options: { onlyEmptyWeeks?: boolean } = {}
 ): Promise<LogEntryResult> {
   if (!weekEnding || !/^\d{4}-\d{2}-\d{2}$/.test(weekEnding)) {
     return { ok: false, message: "Missing or invalid week." };
@@ -172,9 +178,11 @@ export async function writeMeasureEntries(
   let attempt = 0;
   let lastError: { message?: string; code?: string } | null = null;
   while (attempt < 2) {
-    const { error } = await supabase
-      .from("success_measure_entries")
-      .upsert(rows, { onConflict: "measure_id,week_ending" });
+    const { error } = options.onlyEmptyWeeks
+      ? await supabase.from("success_measure_entries").insert(rows)
+      : await supabase
+          .from("success_measure_entries")
+          .upsert(rows, { onConflict: "measure_id,week_ending" });
     if (!error) {
       lastError = null;
       break;
@@ -190,6 +198,12 @@ export async function writeMeasureEntries(
         message:
           "The database took too long to respond. Try again in a moment.",
       };
+    }
+    if (options.onlyEmptyWeeks && lastError.code === "23505") {
+      return { ok: false, message: "That week already has a value. It can only be changed in AiMS." };
+    }
+    if (lastError.code === "42501") {
+      return { ok: false, message: "Only an admin or the function's Lead can enter values for this measure." };
     }
     return { ok: false, message: lastError.message ?? "Save failed." };
   }

@@ -12,6 +12,8 @@ Each issue sits on its own line: what the issue is, and *What we want*. Its comm
 
 A commitment made here also shows on Commitments, tagged *From issue*, and counts toward the owner's follow-through and the scorecard like any other.
 
+**via Claude** (or another assistant's name) beside an issue or a commitment means it was added through an outside assistant connected to that person's account.
+
 The counts at the top (*Open*, *No commitment yet*, *Resolved this quarter*) always cover the whole list, so they don't change when you filter.
 
 ::: role team_member

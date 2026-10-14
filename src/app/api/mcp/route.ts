@@ -4,6 +4,7 @@ import { mcpEnabled, mcpOpenTo } from "@/lib/mcp/switch";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assistantClient, verifyAssistantToken } from "@/lib/mcp/auth";
+import { AddRefused, addCommitment, addIssue, addMeasureValue } from "@/lib/mcp/adds";
 import { chooseCompany, type VisibleCompany } from "@/lib/mcp/company";
 import { limitBroken, limitMessage } from "@/lib/mcp/limits";
 import { recentCounts, recordAction } from "@/lib/mcp/log";
@@ -135,6 +136,10 @@ async function runTool<A>(
     await log("ok", null, rowsIn(data));
     return { content: [{ type: "text" as const, text: JSON.stringify(data) }], structuredContent: data };
   } catch (e) {
+    if (e instanceof AddRefused) {
+      await log("refused", e.reason);
+      return say(e.message);
+    }
     const code = e instanceof ReadFailed ? e.code : "";
     const refused = code === "42501" || code === "PT401";
     await log("error", refused ? "db_refused" : "db_error");
@@ -147,6 +152,12 @@ async function runTool<A>(
 }
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
+// Every add (Phase 3). readOnlyHint false is what tells an assistant
+// this changes something, so it asks the person before calling it by
+// default (Jason, 2026-10-14). Never destructive: nothing is replaced or
+// removed. Not idempotent: calling twice adds twice, which the
+// commitment duplicate guard and the empty-week rule refuse.
+const ADDS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 const company = z
   .string()
   .max(200)
@@ -306,8 +317,67 @@ const handler = createMcpHandler(
       },
       async (args, ctx) => runTool("company_plan", true, ctx, args, (c) => companyPlan({ ...c, company: c.company! }))
     );
+
+    server.registerTool(
+      "add_commitment",
+      {
+        title: "Add a commitment",
+        description:
+          "Adds a commitment for the signed-in person (never anyone else) in a company. It counts at once, with no draft step. A due date is required. AiMS checks its clarity the same way as in the app, and refuses the same wording twice on the same day. Ask the person before calling this.",
+        inputSchema: z.object({
+          company,
+          description: z.string().min(1).max(500).describe("What the person commits to, in their words."),
+          due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("When it is due, YYYY-MM-DD. Required."),
+        }),
+        annotations: ADDS,
+      },
+      async (args, ctx) =>
+        runTool("add_commitment", true, ctx, args, (c, a) =>
+          addCommitment({ ...c, company: c.company! }, { description: a.description, due_date: a.due_date }))
+    );
+
+    server.registerTool(
+      "add_issue",
+      {
+        title: "Add an issue",
+        description:
+          "Adds an open issue to a company's list, raised by the signed-in person. Ask the person before calling this.",
+        inputSchema: z.object({
+          company,
+          title: z.string().min(1).max(200).describe("The issue, in a line."),
+          desired_outcome: z.string().max(1000).optional().describe("What a good outcome looks like, if the person said."),
+        }),
+        annotations: ADDS,
+      },
+      async (args, ctx) =>
+        runTool("add_issue", true, ctx, args, (c, a) =>
+          addIssue({ ...c, company: c.company! }, { title: a.title, desired_outcome: a.desired_outcome }))
+    );
+
+    server.registerTool(
+      "add_measure_value",
+      {
+        title: "Add a measure value",
+        description:
+          "Enters a value for one week of a measure, only if that week has none. Only an admin or the measure's function Lead may. Never changes an existing value. The measures tool gives the measure ids. Ask the person before calling this.",
+        inputSchema: z.object({
+          company,
+          measure_id: z.string().uuid().describe("The measure's id, from the measures tool."),
+          value: z.string().min(1).max(200).describe('The value as the person said it, such as "12,500" or "95%".'),
+          week_beginning: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional()
+            .describe("The Monday the week begins, YYYY-MM-DD. Default: this week."),
+        }),
+        annotations: ADDS,
+      },
+      async (args, ctx) =>
+        runTool("add_measure_value", true, ctx, args, (c, a) =>
+          addMeasureValue({ ...c, company: c.company! }, { measure_id: a.measure_id, value: a.value, week_beginning: a.week_beginning }))
+    );
   },
-  { serverInfo: { name: "AiMS HQ", version: "0.3.0" } }
+  { serverInfo: { name: "AiMS HQ", version: "0.4.0" } }
 );
 
 async function route(request: Request): Promise<Response> {
