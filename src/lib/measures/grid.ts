@@ -321,8 +321,7 @@ export function buildGridData(
 // Lead holds Lead, Track and Decide; there is no separate Tracker or
 // Decider. 0274 took track_id out of the entry policy, so who may
 // enter values is who may author the measure: an admin here, or the
-// function's Lead. The track_id and decide_id columns are retired and
-// no longer read; dropping them is a later migration.
+// function's Lead. 0277 dropped the track_id and decide_id columns.
 
   // Chart order, not sort_order: Visionary first, Integrator second,
   // every other function following its parent. The grid reads as the

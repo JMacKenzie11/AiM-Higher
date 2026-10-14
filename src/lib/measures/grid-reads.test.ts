@@ -258,9 +258,9 @@ describe("getGridData — scoping", () => {
 
   it("marks only the caller's own seats as writable", async () => {
     // THE TRACK SEAT IS NOT A SEAT (Jason, 2026-10-14: the Lead holds
-    // Lead, Track and Decide). `f_tracked` names this caller in the
-    // retired track_id column, as a few old rows still do, and is not
-    // writable: 0274 took the Tracker out of the entry policy too.
+    // Lead, Track and Decide). `f_tracked` names this caller in a
+    // track_id key the database no longer has (0277), and is not
+    // writable: only lead_id decides.
     seed("functions", [
       fn("f_mine", "Sales", 0, null, { lead_id: "u_leader" }),
       fn("f_tracked", "Ops", 1, null, { track_id: "u_leader" }),

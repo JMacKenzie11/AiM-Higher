@@ -317,8 +317,7 @@ async function getPendingMeasuresForUser({
     .select("id")
     .eq("company_id", companyId)
     .eq("archived", false)
-    // Lead only: the Lead holds Lead, Track and Decide (0274 retired
-    // track_id as a separate seat).
+    // Lead only: the Lead holds Lead, Track and Decide (0274, 0277).
     .eq("lead_id", userId);
   const functionIds = (functions ?? []).map((f) => f.id as string);
   if (functionIds.length === 0) return empty;
