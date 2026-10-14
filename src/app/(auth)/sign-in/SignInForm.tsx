@@ -10,7 +10,7 @@ import { signInAction, type AuthActionResult } from "@/lib/auth/actions";
 
 const INITIAL: AuthActionResult = { ok: true };
 
-export function SignInForm() {
+export function SignInForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState(signInAction, INITIAL);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -22,6 +22,7 @@ export function SignInForm() {
       action={formAction}
       aria-describedby={errorMessage ? "sign-in-error" : undefined}
     >
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <div className={formStyles.field}>
         <label htmlFor="email" className={formStyles.label}>
           Email
