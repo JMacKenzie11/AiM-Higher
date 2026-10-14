@@ -25,20 +25,29 @@ export function ConsentForm({ authorizationId, canApprove }: { authorizationId: 
 
   return (
     <div className={formStyles.form}>
-      {canApprove ? (
-        <form action={approve}>
+      {/* One pair, the same size and shape: Decline outlined, Allow
+          filled, with room above them so they read apart from the text. */}
+      <div className={styles.actions}>
+        <form action={decline} className={styles.actionForm}>
           <input type="hidden" name="authorization_id" value={authorizationId} />
-          <button type="submit" className={formStyles.submit} disabled={pending} data-loading={approving ? "true" : undefined}>
-            {approving ? "Connecting…" : "Allow"}
+          <button type="submit" className={`${styles.button} ${styles.decline}`} disabled={pending}>
+            {declining ? "Declining…" : "Decline"}
           </button>
         </form>
-      ) : null}
-      <form action={decline}>
-        <input type="hidden" name="authorization_id" value={authorizationId} />
-        <button type="submit" className={styles.decline} disabled={pending}>
-          {declining ? "Declining…" : "Decline"}
-        </button>
-      </form>
+        {canApprove ? (
+          <form action={approve} className={styles.actionForm}>
+            <input type="hidden" name="authorization_id" value={authorizationId} />
+            <button
+              type="submit"
+              className={`${styles.button} ${styles.allow}`}
+              disabled={pending}
+              data-loading={approving ? "true" : undefined}
+            >
+              {approving ? "Connecting…" : "Allow"}
+            </button>
+          </form>
+        ) : null}
+      </div>
       {message ? (
         <div role="alert" className={formStyles.errorMessage}>
           <p>{message}</p>
