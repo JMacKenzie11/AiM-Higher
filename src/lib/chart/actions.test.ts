@@ -307,7 +307,6 @@ function primeHappyPath() {
         id: "fn_1",
         company_id: "co_acme",
         lead_id: "leader_1",
-        track_id: "tracker_1",
       },
     },
     error: null,

@@ -425,12 +425,11 @@ export type FunctionNode = {
   parent_function_id: string | null;
   title: string;
   description: string | null;
-  // LTD (Lead / Track / Decide). Historically stored as leader_id;
-  // migration 0020 renamed → lead_id and added the other two roles.
-  // Track and Decide are nullable — the UI falls back to Lead.
+  // The function's Lead, who holds Lead, Track and Decide: one seat
+  // (Jason, 2026-10-14). Historically leader_id; 0020 renamed it and
+  // added track_id and decide_id as separate seats, which 0274
+  // retired. Those columns are no longer read or written.
   lead_id: string | null;
-  track_id: string | null;
-  decide_id: string | null;
   sort_order: number;
   archived: boolean;
   created_at: string;

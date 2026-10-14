@@ -317,9 +317,8 @@ async function getPendingMeasuresForUser({
     .select("id")
     .eq("company_id", companyId)
     .eq("archived", false)
-    // Lead only. track_id has no input anywhere in the app, so it is
-    // null on every function written through it and this .or() was a
-    // second predicate over an empty set.
+    // Lead only: the Lead holds Lead, Track and Decide (0274 retired
+    // track_id as a separate seat).
     .eq("lead_id", userId);
   const functionIds = (functions ?? []).map((f) => f.id as string);
   if (functionIds.length === 0) return empty;

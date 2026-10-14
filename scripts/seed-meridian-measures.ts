@@ -88,7 +88,6 @@ type FunctionRow = {
   id: string;
   title: string;
   lead_id: string | null;
-  track_id: string | null;
 };
 
 type OutcomeRow = {
@@ -132,7 +131,7 @@ async function main() {
   const { data: measuresRaw, error: measuresErr } = await admin
     .from("success_measures")
     .select(
-      "id, description, target, value_type, target_direction, outcome:function_outcomes!inner(function:functions!inner(id, title, lead_id, track_id, company_id, archived))"
+      "id, description, target, value_type, target_direction, outcome:function_outcomes!inner(function:functions!inner(id, title, lead_id, company_id, archived))"
     )
     .eq("archived", false)
     .eq("outcome.function.company_id", company.id)
@@ -171,7 +170,7 @@ async function main() {
   for (const m of measures) {
     const fn = unwrapFn(m.outcome);
     const enteredBy = fn
-      ? fn.lead_id ?? fn.track_id ?? fallbackEnteredBy
+      ? fn.lead_id ?? fallbackEnteredBy
       : fallbackEnteredBy;
     if (!enteredBy) {
       skippedNoEnteredBy += 1;

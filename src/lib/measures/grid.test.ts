@@ -35,7 +35,6 @@ function spine(over: Partial<MeasuresSpine> = {}): MeasuresSpine {
         id: "f1",
         title: "Sales and Business Dev",
         lead_id: "u_woody",
-        track_id: null,
         sort_order: 0,
         parent_function_id: null,
       },

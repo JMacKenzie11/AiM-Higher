@@ -257,14 +257,10 @@ describe("getGridData — scoping", () => {
   });
 
   it("marks only the caller's own seats as writable", async () => {
-    // THE TRACK SEAT IS NOT A SEAT. `f_tracked` names this caller in
-    // track_id and is not writable, which reverses what this test
-    // asserted before. No form in the app submits track_id, so it is
-    // null on every function written through it: fleet-wide there are
-    // three rows with one, two of which differ from the lead. A
-    // branch over a column nothing populates cannot be trusted, so it
-    // came out rather than being carried forward into the Lead
-    // authoring widening.
+    // THE TRACK SEAT IS NOT A SEAT (Jason, 2026-10-14: the Lead holds
+    // Lead, Track and Decide). `f_tracked` names this caller in the
+    // retired track_id column, as a few old rows still do, and is not
+    // writable: 0274 took the Tracker out of the entry policy too.
     seed("functions", [
       fn("f_mine", "Sales", 0, null, { lead_id: "u_leader" }),
       fn("f_tracked", "Ops", 1, null, { track_id: "u_leader" }),
@@ -280,8 +276,9 @@ describe("getGridData — scoping", () => {
       false
     );
 
-    // Lead and Track both write, matching the entry policy on success_measure_entries.
-    // Everything else is readable and not writable.
+    // Only the Lead writes, matching the entry policy on
+    // success_measure_entries since 0274. Everything else is readable
+    // and not writable.
     expect(
       Object.fromEntries(groups.map((g) => [g.functionTitle, g.canLog]))
     ).toEqual({ Sales: true, Ops: false, Finance: false });
