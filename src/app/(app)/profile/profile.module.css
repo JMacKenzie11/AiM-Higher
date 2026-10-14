@@ -153,3 +153,62 @@
   composes: btnPrimary from "../../../components/ui/ui.module.css";
 }
 
+
+/* Connected assistants (Phase 4): one row per assistant, its name and
+   when it was connected and last used, and Disconnect on the right. */
+.assistantList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.assistantItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.assistantItem:last-child {
+  border-bottom: none;
+}
+
+.assistantName {
+  margin: 0;
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.assistantMeta {
+  margin: 2px 0 0;
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.assistantRevoke {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--aims-danger);
+  font: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.assistantRevoke:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.assistantError {
+  margin: var(--space-2) 0 0;
+  color: var(--aims-danger);
+  font: var(--text-body-sm);
+}

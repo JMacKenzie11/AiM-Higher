@@ -41,6 +41,7 @@ import {
   type InstanceState,
 } from "./state.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { routeKeyFor, routeKeyHash } from "@/lib/mcp/route-key";
 
 import { createCompany } from "@/lib/companies/create-company";
 import {
@@ -1027,6 +1028,84 @@ async function checkPreconditions(
   return { status: "done", detail: `${checks.length} checks passed` };
 }
 
+// ---- secure-auth-and-mcp ---------------------------------------------
+//
+// What every instance's Auth must say before anyone signs in, and what
+// outside assistants need before they can ever be switched on there
+// (Jason, 2026-10-13/14; done by hand for production and PromiseOne):
+//
+//   disable_signup                                   true: people are invited
+//   mfa_totp_enroll_enabled                          false: an assistant's token
+//                                                    could otherwise enrol a factor
+//   security_update_password_require_current_password true: an assistant's
+//                                                    token cannot change a password
+//   site_url / uri_allow_list                        the instance's own host
+//
+// and the MCP route key's hash (0275), derived from the SAME service key
+// write-vercel-env puts on Vercel, so the deployed app's key and the
+// database's hash agree by construction. Without it, every assistant
+// is refused on this instance (0275 fails closed).
+//
+// It does NOT switch the OAuth server on. That stays a deliberate,
+// separate decision per instance.
+//
+// Idempotent: reads first, writes only what differs, and says so.
+export function desiredAuthConfig(subdomain: string): Record<string, unknown> {
+  const host = `https://${subdomain}.aims-hq.com`;
+  return {
+    disable_signup: true,
+    mfa_totp_enroll_enabled: false,
+    security_update_password_require_current_password: true,
+    site_url: host,
+    uri_allow_list: `${host}/**`,
+  };
+}
+
+async function secureAuthAndMcp(
+  ctx: ProvisionContext,
+  deps: ProvisionDeps
+): Promise<StepResult> {
+  const state = deps.readState(ctx.subdomain);
+  if (!state?.projectRef || !state.serviceKey) {
+    throw new Error(
+      `No project ref or service key in .provisioning-state/${ctx.subdomain}.json. ` +
+        "Run create-supabase-project first."
+    );
+  }
+  const changed: string[] = [];
+
+  const want = desiredAuthConfig(ctx.subdomain);
+  const have = await deps.management.getAuthConfig(state.projectRef);
+  const patch = Object.fromEntries(Object.entries(want).filter(([k, v]) => have[k] !== v));
+  if (Object.keys(patch).length > 0) {
+    await deps.management.updateAuthConfig(state.projectRef, patch);
+    const after = await deps.management.getAuthConfig(state.projectRef);
+    const still = Object.keys(want).filter((k) => after[k] !== want[k]);
+    if (still.length > 0) {
+      throw new Error(`Auth settings did not take: ${still.join(", ")}`);
+    }
+    changed.push(`auth: ${Object.keys(patch).join(", ")}`);
+  }
+
+  const hash = routeKeyHash(routeKeyFor(state.serviceKey));
+  const [row] = await deps.management.runQuery<{ h: string | null }>(
+    state.projectRef,
+    "select (select key_sha256 from aims_private.mcp_route_key) as h;"
+  );
+  if (row?.h !== hash) {
+    await deps.management.runQuery(
+      state.projectRef,
+      `insert into aims_private.mcp_route_key (id, key_sha256) values (true, '${hash}')
+       on conflict (id) do update set key_sha256 = excluded.key_sha256, set_at = now();`
+    );
+    changed.push("MCP route key written");
+  }
+
+  return changed.length === 0
+    ? { status: "skipped", detail: "auth settings and the MCP route key already as required" }
+    : { status: "done", detail: changed.join("; ") };
+}
+
 export const PROVISION_STEPS: readonly ProvisionStep[] = [
   {
     name: "check-preconditions",
@@ -1051,6 +1130,12 @@ export const PROVISION_STEPS: readonly ProvisionStep[] = [
     describe: () =>
       "run supabase/seed/instance-seed.sql — reference data that ships with the code (empty today; Classroom moved to sync:content)",
     execute: seedData,
+  },
+  {
+    name: "secure-auth-and-mcp",
+    describe: (c) =>
+      `sign-up off, authenticator enrolment off, current password required, site URL https://${c.subdomain}.aims-hq.com; write the MCP route key (the OAuth server stays off)`,
+    execute: secureAuthAndMcp,
   },
   // DEFERRED VERIFICATION, to be done when this step is implemented.
   //

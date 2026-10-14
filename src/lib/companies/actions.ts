@@ -236,6 +236,34 @@ export async function setCompanyIndustryAction(
   return { ok: true, company: data };
 }
 
+// The company's switch for outside assistants (0279). Off by default.
+// Roles: system_admin, the company's company_admin, an assigned
+// aims_guide. Not a portfolio_admin: their column list on companies is
+// the container's (0192, 0203), and the guard refuses them this column.
+// The write goes through the caller's own client, so RLS and the column
+// guard decide; the change is logged by companies_log_settings_changes.
+export async function setCompanyAssistantsAction(
+  companyId: string,
+  on: boolean
+): Promise<CompanyResult> {
+  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  if (!isAdminForCompany(session.profile, companyId)) {
+    return { ok: false, message: "Not your company to change." };
+  }
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ assistants_enabled: on })
+    .eq("id", companyId)
+    .select("*")
+    .single<Company>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't change the outside assistants setting." };
+  }
+  revalidatePath(`/admin/companies/${companyId}`);
+  return { ok: true, company: data };
+}
+
 // Move a company's clock. system_admin only, and the narrowness is
 // the point rather than an oversight.
 //

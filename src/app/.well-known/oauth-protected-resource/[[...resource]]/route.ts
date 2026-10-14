@@ -1,7 +1,7 @@
 import { generateProtectedResourceMetadata } from "mcp-handler";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { currentRequestOrigin } from "@/lib/instances/origin";
-import { mcpEnabled } from "@/lib/mcp/switch";
+import { mcpEnabledHere } from "@/lib/mcp/switch-here";
 
 // OAuth Protected Resource Metadata (RFC 9728) for the MCP server.
 //
@@ -13,7 +13,7 @@ import { mcpEnabled } from "@/lib/mcp/switch";
 // ask for. Per instance by construction: the origin and the Supabase
 // project both come from the host the request arrived on.
 export async function GET(): Promise<Response> {
-  if (!mcpEnabled()) return new Response("Not found", { status: 404 });
+  if (!(await mcpEnabledHere())) return new Response("Not found", { status: 404 });
   const origin = await currentRequestOrigin();
   const instance = await getCurrentInstanceConfig();
   const metadata = generateProtectedResourceMetadata({

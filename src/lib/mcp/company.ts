@@ -11,7 +11,13 @@
 // ignore case and surrounding space; nothing partial, so "Acme" never
 // quietly lands on "Acme Holdings".
 
-export type VisibleCompany = { id: string; name: string };
+export type VisibleCompany = {
+  id: string;
+  name: string;
+  // The company's own switch (0279). Off: no assistant request may name
+  // it, whoever asks.
+  assistantsOn?: boolean;
+};
 
 export type CompanyChoice =
   | { ok: true; company: VisibleCompany }

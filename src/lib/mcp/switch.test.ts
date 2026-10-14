@@ -11,6 +11,20 @@ describe("the outside assistant switches", () => {
     expect(mcpEnabled()).toBe(true);
   });
 
+  it("run only on the instances named, when any are named", () => {
+    vi.stubEnv("MCP_ENABLED", "true");
+    vi.stubEnv("MCP_INSTANCES", "@");
+    expect(mcpEnabled("@")).toBe(true);
+    expect(mcpEnabled("promiseone")).toBe(false);
+    // Asked without an instance while a list is set: no.
+    expect(mcpEnabled()).toBe(false);
+    vi.stubEnv("MCP_INSTANCES", "");
+    expect(mcpEnabled("promiseone")).toBe(true);
+    vi.stubEnv("MCP_ENABLED", "");
+    vi.stubEnv("MCP_INSTANCES", "@");
+    expect(mcpEnabled("@")).toBe(false);
+  });
+
   it("admit system admins only, until opened to everyone", () => {
     vi.stubEnv("MCP_FOR_EVERYONE", "");
     expect(mcpOpenTo("system_admin")).toBe(true);

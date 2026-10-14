@@ -4,7 +4,8 @@ import formStyles from "@/components/auth-shell/AuthForm.module.css";
 import { getCurrentSession } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { mcpEnabled, mcpOpenTo } from "@/lib/mcp/switch";
+import { mcpOpenTo } from "@/lib/mcp/switch";
+import { mcpEnabledHere } from "@/lib/mcp/switch-here";
 import { consentPathFor, isAuthorizationId } from "@/lib/mcp/consent-path";
 import { ConsentForm } from "./ConsentForm";
 
@@ -21,7 +22,7 @@ export default async function ConsentPage({
 }: {
   searchParams: Promise<{ authorization_id?: string }>;
 }) {
-  if (!mcpEnabled()) notFound();
+  if (!(await mcpEnabledHere())) notFound();
   const { authorization_id: id } = await searchParams;
   if (!isAuthorizationId(id)) {
     return (

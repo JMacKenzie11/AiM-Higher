@@ -114,14 +114,15 @@ export function parseRoles(value: string | string[] | undefined, slug = "?"): Ro
 // same rules loadHelpForRoute applies to one page, applied to all of
 // them. What Aimee's help search and page index read (help/search.ts),
 // so she can never quote help the "?" would not show this person.
-export async function loadAllHelpFor(role: Role): Promise<HelpDoc[]> {
+export async function loadAllHelpFor(role: Role, viewer?: HelpViewer): Promise<HelpDoc[]> {
+  const features = helpFeaturesFor(role, viewer ?? (await currentHelpViewer()));
   const files = (await fs.readdir(HELP_DIR)).filter((f) => f.endsWith(".md") && f !== "README.md");
   const docs: HelpDoc[] = [];
   for (const file of files.sort()) {
     const doc = await readDoc(file.replace(/\.md$/, ""));
     if (!doc) continue;
     if (doc.roles && !doc.roles.includes(role)) continue;
-    docs.push({ ...doc, markdown: filterFeatureSections(filterRoleSections(doc.markdown, role), helpFeaturesFor(role)) });
+    docs.push({ ...doc, markdown: filterFeatureSections(filterRoleSections(doc.markdown, role), features) });
   }
   return docs;
 }
@@ -226,17 +227,55 @@ export function filterRoleSections(markdown: string, role: Role): string {
 // unreachable in practice by failing CI on an unclosed block.
 //
 // Known features:
-//   outside_assistants   MCP_ENABLED, and the viewer's role is open to
-//                        it (lib/mcp/switch.ts): system admins until
-//                        MCP_FOR_EVERYONE.
+//   outside_assistants   MCP is on for this instance (MCP_ENABLED,
+//                        MCP_INSTANCES), the viewer's role is open to
+//                        it (system admins until MCP_FOR_EVERYONE), and,
+//                        for anyone but a system admin, their company
+//                        has switched outside assistants on (0279).
 
 export const HELP_FEATURES = ["outside_assistants"] as const;
 export type HelpFeature = (typeof HELP_FEATURES)[number];
 
-export function helpFeaturesFor(role: Role): Set<HelpFeature> {
+export type HelpViewer = {
+  // The request's instance, for MCP_INSTANCES.
+  subdomain?: string;
+  // Whether the viewer's own company has outside assistants on.
+  companyAssistantsOn: boolean;
+};
+
+export function helpFeaturesFor(role: Role, viewer: HelpViewer): Set<HelpFeature> {
   const on = new Set<HelpFeature>();
-  if (mcpEnabled() && mcpOpenTo(role)) on.add("outside_assistants");
+  if (
+    mcpEnabled(viewer.subdomain) &&
+    mcpOpenTo(role) &&
+    (role === "system_admin" || viewer.companyAssistantsOn)
+  ) {
+    on.add("outside_assistants");
+  }
   return on;
+}
+
+// The viewer, from the request: its instance, and its own company's
+// switch read as the viewer. Anything that cannot be read leaves the
+// feature off (fail closed): help is hidden, never shown by accident.
+export async function currentHelpViewer(): Promise<HelpViewer> {
+  try {
+    const { getCurrentInstanceConfig } = await import("@/lib/instances/current");
+    const { getCurrentSession } = await import("@/lib/auth/current-user");
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const instance = await getCurrentInstanceConfig();
+    const session = await getCurrentSession();
+    const companyId = session?.profile?.company_id;
+    let companyAssistantsOn = false;
+    if (companyId) {
+      const db = await createSupabaseServerClient(instance);
+      const { data } = await db.from("companies").select("assistants_enabled").eq("id", companyId).maybeSingle<{ assistants_enabled: boolean }>();
+      companyAssistantsOn = data?.assistants_enabled === true;
+    }
+    return { subdomain: instance.subdomain, companyAssistantsOn };
+  } catch {
+    return { subdomain: undefined, companyAssistantsOn: false };
+  }
 }
 
 const FEATURE_BLOCK_OPEN = /^:::\s+feature\s+([a-z_]+)\s*$/;
@@ -272,13 +311,15 @@ export function filterFeatureSections(markdown: string, enabled: ReadonlySet<str
 // should see.
 export async function loadHelpForRoute(
   pathname: string,
-  role: Role
+  role: Role,
+  viewer?: HelpViewer
 ): Promise<HelpDoc | null> {
+  const features = helpFeaturesFor(role, viewer ?? (await currentHelpViewer()));
   for (const slug of candidateSlugs(pathname)) {
     const doc = await readDoc(slug);
     if (!doc) continue;
     if (doc.roles && !doc.roles.includes(role)) continue;
-    return { ...doc, markdown: filterFeatureSections(filterRoleSections(doc.markdown, role), helpFeaturesFor(role)) };
+    return { ...doc, markdown: filterFeatureSections(filterRoleSections(doc.markdown, role), features) };
   }
   return null;
 }

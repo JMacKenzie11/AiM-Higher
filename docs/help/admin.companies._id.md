@@ -90,6 +90,16 @@ Being champion gives no extra access, and removing someone takes none away. The 
 If the champion is deactivated or moves to another company, the seat empties and the company's admins get a notification saying so.
 :::
 
+::: feature outside_assistants
+## Outside assistants
+
+**Off for every company until someone switches it on here.** While it's off, nobody at the company can use an outside assistant, such as Claude or ChatGPT, with its AiMS work, not even a system admin.
+
+When it's on, each person still decides whether to connect one, from their profile. A connected assistant reads what that person can read and can add their own commitments, issues and measure values, marked *via* the assistant's name. It can't change or delete anything.
+
+The company's admin can switch it, and so can a system admin. Every change is recorded with who made it. Once AiMS data reaches an assistant, that assistant company's terms and privacy policy apply to it, not ours.
+:::
+
 ::: role company_admin,system_admin,portfolio_admin
 ## Assigned access
 

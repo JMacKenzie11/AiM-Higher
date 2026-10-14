@@ -11684,6 +11684,75 @@ select jsonb_object_agg(k, v)::text as r from _x;`, "rollback;"].join("\n"));
   return out;
 }
 
+// ---- Company assistants switch (0279) --------------------------------
+//
+// Jason, 2026-10-13/14: a company's outside-assistants switch is off by
+// default and its company admin turns it on.
+//   granted   the company's company_admin switches it on; a system
+//             admin can too
+//   withheld  a team member of the company; another company's admin;
+//             a portfolio_admin; and the company admin still cannot
+//             move the timezone (the guard is otherwise unchanged)
+// Red before 0279: the column does not exist, and the company admin's
+// change is refused by the guard.
+async function companyAssistantsSwitchProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "company assistants switch · who may flip it";
+  const A = ids.companyAdmin, CO = ids.companyAdminCompany, SA = ids.systemAdmin, OTHER = ids.otherCompany;
+  let r: Record<string, string> = {};
+  try {
+    const [row] = await run<{ r: string }>(["begin;", pending, `
+create temp table _s (k text, v text) on commit drop;
+grant all on _s to authenticated;
+do $$
+declare n int; o text; member uuid; outsider_admin uuid; pa uuid; who text; sub uuid; target uuid; stmt text;
+begin
+  select id into member from public.profiles where company_id = '${CO}' and role = 'team_member' and status = 'active' order by id limit 1;
+  select id into outsider_admin from public.profiles where company_id is distinct from '${CO}' and role = 'company_admin' and status = 'active' order by id limit 1;
+  select id into pa from public.profiles where role = 'portfolio_admin' and status = 'active' order by id limit 1;
+  insert into _s values ('default', (select coalesce((to_jsonb(c) ->> 'assistants_enabled'), 'no column') from public.companies c where id = '${CO}'));
+  foreach who in array array['company_admin', 'system_admin', 'member', 'other_admin', 'portfolio_admin', 'admin_timezone'] loop
+    sub := case who when 'company_admin' then '${A}'::uuid when 'admin_timezone' then '${A}'::uuid when 'system_admin' then '${SA}'::uuid
+                    when 'member' then member when 'other_admin' then outsider_admin else pa end;
+    if sub is null then insert into _s values (who, 'no such person on this clone'); continue; end if;
+    stmt := case who when 'admin_timezone' then format('update public.companies set timezone = %L where id = %L', 'Pacific/Honolulu', '${CO}')
+                     else format('update public.companies set assistants_enabled = not assistants_enabled where id = %L', '${CO}') end;
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', sub), true);
+    execute 'set local role authenticated';
+    begin
+      execute stmt;
+      get diagnostics n = row_count; o := n::text;
+    exception when others then o := 'refused ' || sqlstate; end;
+    execute 'reset role';
+    insert into _s values (who, o);
+    -- back to off for the next caller
+    execute format('update public.companies set assistants_enabled = false where id = %L', '${CO}');
+  end loop;
+exception when undefined_column then
+  insert into _s values ('error', 'no assistants_enabled column');
+end $$;
+select jsonb_object_agg(k, v)::text as r from _s;`, "rollback;"].join("\n"));
+    r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  void OTHER;
+  const zeroOrRefused = (v?: string) => v === "0" || /^refused /.test(v ?? "");
+  const ok = r.default === "false" && r.company_admin === "1" && r.system_admin === "1"
+    && zeroOrRefused(r.member) && zeroOrRefused(r.other_admin)
+    && (zeroOrRefused(r.portfolio_admin) || r.portfolio_admin === "no such person on this clone")
+    && /^refused /.test(r.admin_timezone ?? "");
+  return [{
+    name,
+    granted: `off by default: ${r.default} | the company's admin switches it: ${r.company_admin ?? r.error} | a system admin: ${r.system_admin}`,
+    withheld: `a team member: ${r.member} | another company's admin: ${r.other_admin} | a portfolio admin: ${r.portfolio_admin} | the company admin moving the timezone: ${r.admin_timezone} (want 0 or refused, and refused)`,
+    ok,
+    detail: ok
+      ? "the outside assistants switch is off by default, and only the company's admin or a system admin can switch it"
+      : "THE COMPANY ASSISTANTS SWITCH IS MISSING OR THE WRONG PEOPLE CAN FLIP IT (is 0279 applied?)",
+  }];
+}
+
 // ---- No self-service email change (0271) ---------------------------
 //
 // The Auth API does not run as the token's role, so the allow list
@@ -13720,6 +13789,7 @@ async function main(): Promise<void> {
     ...(await assistantRouteOnlyProbes(run, ids, pendingSql)),
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
     ...(await assistantAddProbes(run, ids, pendingSql)),
+    ...(await companyAssistantsSwitchProbes(run, ids, pendingSql)),
   ];
   const contactChange = await selfServiceContactChangeProbes(run, ids, pendingSql);
   const panelEvents = [

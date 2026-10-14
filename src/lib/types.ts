@@ -89,6 +89,10 @@ export type Company = {
   // that they go to somebody else. Not a permission: see the header
   // in 0235 and the help line on the settings card.
   aims_champion_profile_id: string | null;
+  // Outside assistants may read and add for this company only while
+  // true (0279). Off by default; optional on the type because loaders
+  // that name their columns may not ask for it.
+  assistants_enabled?: boolean;
   created_at: string;
   updated_at: string;
   // Soft-delete timestamp (migration 0148). Non-null rows are
