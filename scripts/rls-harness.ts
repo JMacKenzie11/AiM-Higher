@@ -10853,7 +10853,11 @@ select n.nspname as s, c.relname as r, c.relrowsecurity as rls,
   // ---- functions and entry points
   let gate: { allowed: string | null; refused: number; total: number; config: string | null; paths: string; app: string } | undefined;
   try {
-    [gate] = await run(["begin;", pending, plant, `
+    // The session check (0272) is its own probe below; here every
+    // simulated assistant counts as having a live session, so this
+    // measures the menu alone.
+    const liveSession = `create or replace function public.assistant_session_live() returns boolean language sql as 'select true';`;
+    [gate] = await run(["begin;", pending, plant, liveSession, `
 create temp table _gate (kind text, item text, outcome text) on commit drop;
 do $$
 declare f record; outcome text;
@@ -11059,6 +11063,78 @@ insert into public.success_measure_entries (measure_id, week_ending, value_numbe
         : "AN ASSISTANT CAN UPDATE OR DELETE, or the control did not reach the row (is 0270 applied?)",
     },
   ];
+}
+
+// ---- A revoked assistant is refused at once (0272) -----------------
+//
+// Revoking an assistant deletes its session, but its access token is a
+// signed JWT that stays valid for up to an hour. The gate now checks the
+// token's session still exists, is the caller's and this client's. A
+// real OAuth client and session are created in the transaction:
+//   granted   a live session reaches the menu; the app's own sign-in
+//             (no client_id) passes with no session at all
+//   withheld  the same token once its session is deleted (what revoking
+//             does), and a token naming another client's session
+// Red before 0272: the deleted session still reaches the menu.
+async function assistantSessionProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "assistant session · revoked is refused at once";
+  const C = randomUUID();
+  const OTHER = randomUUID();
+  const S = randomUUID();
+  const M = ids.member;
+  let row: { live: string; revoked: string; wrong_client: string; app: string } | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.oauth_clients (id, client_name, registration_type, redirect_uris, grant_types, token_endpoint_auth_method)
+values ('${C}', 'harness 0272', 'manual', 'http://127.0.0.1/callback', 'authorization_code', 'none'),
+       ('${OTHER}', 'harness 0272 other', 'manual', 'http://127.0.0.1/callback', 'authorization_code', 'none');
+insert into auth.sessions (id, user_id, oauth_client_id) values ('${S}', '${M}', '${C}');
+create temp table _s (k text, outcome text) on commit drop;
+do $$
+declare outcome text;
+begin
+  perform set_config('request.method', 'GET', true);
+  perform set_config('request.path', '/commitments', true);
+  -- live session, its own client
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated","client_id":"${C}","session_id":"${S}"}', true);
+  begin perform public.assistant_request_gate(); outcome := 'allowed';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _s values ('live', outcome);
+  -- another client's id on this session
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated","client_id":"${OTHER}","session_id":"${S}"}', true);
+  begin perform public.assistant_request_gate(); outcome := 'allowed';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _s values ('wrong_client', outcome);
+  -- the app's own sign-in: no client_id, no session needed
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  begin perform public.assistant_request_gate(); outcome := 'allowed';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _s values ('app', outcome);
+  -- revoked: the session is gone
+  delete from auth.sessions where id = '${S}';
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated","client_id":"${C}","session_id":"${S}"}', true);
+  begin perform public.assistant_request_gate(); outcome := 'allowed';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _s values ('revoked', outcome);
+end $$;
+select (select outcome from _s where k = 'live') as live,
+       (select outcome from _s where k = 'revoked') as revoked,
+       (select outcome from _s where k = 'wrong_client') as wrong_client,
+       (select outcome from _s where k = 'app') as app;`, "rollback;"].join("\n"));
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const ok = row?.live === "allowed" && row?.app === "allowed" && row?.revoked === "refused PT401" && row?.wrong_client === "refused PT401";
+  return [{
+    name,
+    granted: `a live assistant session reaches the menu: ${row?.live} | the app's own sign-in, no session needed: ${row?.app}`,
+    withheld: `the same token after its session is deleted (revoked): ${row?.revoked} | naming another client's session: ${row?.wrong_client} (want refused PT401 each, a 401)`,
+    ok,
+    detail: ok
+      ? "an assistant's token stops reaching the database the moment its session is revoked, with a 401"
+      : "A REVOKED ASSISTANT TOKEN STILL REACHES THE DATABASE (is 0272 applied?)",
+  }];
 }
 
 // ---- Raw strengths answers stay the person's (0267) ---------------
@@ -13049,6 +13125,7 @@ async function main(): Promise<void> {
   const assistant = [
     ...(await assistantAllowListCoverage(run, pendingSql)),
     ...(await assistantAllowListBehaviour(run, ids, pendingSql)),
+    ...(await assistantSessionProbes(run, ids, pendingSql)),
   ];
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
