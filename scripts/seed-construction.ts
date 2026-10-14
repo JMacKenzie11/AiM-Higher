@@ -480,13 +480,9 @@ type OutcomeSeed = {
 
 type FunctionSeed = {
   title: string;
-  // Lead / Track / Decide (LTD). Track and Decide are optional —
-  // fall back to Lead when null, which is the common owner-operator
-  // case. A couple functions split them so the demo shows the
-  // three-role model in play.
+  // The Lead, who holds Lead, Track and Decide: one seat (Jason,
+  // 2026-10-14; 0274 retired separate Track and Decide seats).
   leadKey: string;
-  trackKey?: string;
-  decideKey?: string;
   description: string;
   outcomes: readonly OutcomeSeed[];
 };
@@ -495,8 +491,6 @@ const CHART_FUNCTIONS: readonly FunctionSeed[] = [
   {
     title: "Field Operations",
     leadKey: "marla",
-    trackKey: "ray",       // Ray keeps the field numbers — labor productivity, schedule adherence
-    decideKey: "marla",
     description:
       "Runs every active project — field productivity, schedule adherence, and the people delivering the work.",
     outcomes: [
@@ -517,8 +511,6 @@ const CHART_FUNCTIONS: readonly FunctionSeed[] = [
   {
     title: "Preconstruction & Business Development",
     leadKey: "kelsey",
-    trackKey: "nathan",    // Nathan tracks pursuit metrics + hit rate
-    decideKey: "dale",     // Dale has final say on go/no-go over $1M
     description:
       "Wins the right work — negotiated relationships, disciplined go/no-go, real budgets in front of owners ahead of shovel.",
     outcomes: [
@@ -563,8 +555,6 @@ const CHART_FUNCTIONS: readonly FunctionSeed[] = [
   {
     title: "Finance & Admin",
     leadKey: "priya",
-    trackKey: "priya",
-    decideKey: "dale",     // Priya runs the numbers; Dale calls the shots on cash + margin
     description:
       "Cash flows, margins hold, and every job closes at the number we bid.",
     outcomes: [
@@ -1328,8 +1318,6 @@ async function upsertChart(
 
   for (const [fnIdx, fn] of CHART_FUNCTIONS.entries()) {
     const leadId = people.get(fn.leadKey)!;
-    const trackId = fn.trackKey ? people.get(fn.trackKey) ?? null : null;
-    const decideId = fn.decideKey ? people.get(fn.decideKey) ?? null : null;
     const { data: fnRow, error: fnErr } = await admin
       .from("functions")
       .insert({
@@ -1337,8 +1325,6 @@ async function upsertChart(
         title: fn.title,
         description: fn.description,
         lead_id: leadId,
-        track_id: trackId,
-        decide_id: decideId,
         sort_order: fnIdx,
       })
       .select("id")
@@ -1389,7 +1375,7 @@ async function upsertChart(
             week_ending: week,
             value_number: null as number | null,
             value_text: null as string | null,
-            entered_by: trackId ?? leadId,
+            entered_by: leadId,
           };
           if (m.valueType === "text") {
             entry.value_text = rand() < 0.85 ? "Yes" : "No";

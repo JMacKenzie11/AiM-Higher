@@ -317,18 +317,12 @@ export function buildGridData(
     rowsByFunction.set(csf.function_id, list);
   }
 
-// THE TRACK SEAT IS NOT CONSULTED, and that is not an oversight.
-//
-// `functions.track_id` has no input anywhere in src/app or
-// src/components. chart/actions.ts reads it from FormData that no
-// form submits, so every function written through the application
-// sets it null. Fleet-wide on production: 60 functions, 34 with a
-// Lead, three with a track_id, two of which differ from the lead.
-//
-// Reading a column nothing populates is a branch that cannot be
-// tested and cannot be trusted, so it comes out here. The columns
-// stay: dropping them is a fleet migration for two rows and is
-// tracked on its own.
+// THE LEAD IS THE ONLY SEAT (Jason, 2026-10-14). Every functional
+// Lead holds Lead, Track and Decide; there is no separate Tracker or
+// Decider. 0274 took track_id out of the entry policy, so who may
+// enter values is who may author the measure: an admin here, or the
+// function's Lead. The track_id and decide_id columns are retired and
+// no longer read; dropping them is a later migration.
 
   // Chart order, not sort_order: Visionary first, Integrator second,
   // every other function following its parent. The grid reads as the

@@ -6183,7 +6183,7 @@ export const BATCHES: readonly Batch[] = [
           expect: "0",
           provenBy: "sysadmin",
         },
-        // ---- the lead and track branch, this batch's owner rule ----
+        // ---- the Lead branch, this batch's owner rule (Track retired, 0274) ----
         //
         // Self-provisioned per the batch 3 decision: the probe builds
         // a function it leads and a measure under it, then writes an
@@ -6202,7 +6202,10 @@ export const BATCHES: readonly Batch[] = [
           expect: "1",
         },
         {
-          name: "function TRACK owner records an entry on its measure",
+          // 0274 (Jason, 2026-10-14): Lead, Track and Decide are one
+          // seat, the Lead. A separate track_id no longer writes. Was
+          // expect "1" through 0247; red until 0274 is applied.
+          name: "a separate TRACKER cannot record an entry on the function's measure",
           caller: "member",
           setup:
             "insert into public.functions (id, company_id, title, track_id) values " +
@@ -6210,12 +6213,12 @@ export const BATCHES: readonly Batch[] = [
             "insert into public.success_measures (id, function_id, description, kind) values " +
             "('33333333-3333-4333-8333-333333333333', '22222222-2222-4222-8222-222222222222', 'probe measure', 'kpi');",
           sql: "with i as (insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('33333333-3333-4333-8333-333333333333', current_date, 1) returning id) select count(*)::int as n from i;",
-          expect: "1",
+          expect: "42501",
         },
         {
           // Same member, same company, same shape of function — the
-          // only difference is that they neither lead nor track it.
-          name: "team member records an entry on a function they neither lead nor track",
+          // only difference is that they do not lead it.
+          name: "team member records an entry on a function they do not lead",
           caller: "member",
           setup:
             "insert into public.functions (id, company_id, title) values " +
@@ -11225,6 +11228,69 @@ select (select v from _a where k = 'person') as person,
   }];
 }
 
+// ---- The Lead is the only seat (0274) ---------------------------------
+//
+// Jason, 2026-10-14: Lead, Track and Decide are one seat, the Lead.
+//   granted   a team member who LEADS a function records a value on its
+//             measure, and changes it
+//   withheld  the same team member set only as a separate TRACKER (the
+//             retired track_id) records nothing and changes nothing
+// Red before 0274: the Tracker's insert lands.
+async function leadIsOnlySeatProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "measure values · the Lead is the only seat";
+  const LF = randomUUID(), LM = randomUUID(), TF = randomUUID(), TM = randomUUID(), TE = randomUUID();
+  const M = ids.member, C = ids.memberCompany;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into public.functions (id, company_id, title, lead_id) values ('${LF}', '${C}', 'probe 0274 led', '${M}');
+insert into public.functions (id, company_id, title, track_id) values ('${TF}', '${C}', 'probe 0274 tracked', '${M}');
+insert into public.success_measures (id, function_id, description) values ('${LM}', '${LF}', 'probe led measure'), ('${TM}', '${TF}', 'probe tracked measure');
+insert into public.success_measure_entries (id, measure_id, week_ending, value_number) values ('${TE}', '${TM}', public.friday_of(current_date - 14), 5);
+create temp table _l (k text, v text) on commit drop;
+grant all on _l to authenticated;
+select set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+declare n int; outcome text;
+begin
+  begin
+    insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${LM}', public.friday_of(current_date - 7), 1);
+    outcome := 'inserted';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _l values ('lead_insert', outcome);
+  update public.success_measure_entries set value_number = 2 where measure_id = '${LM}';
+  get diagnostics n = row_count; insert into _l values ('lead_update', n::text);
+  begin
+    insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${TM}', public.friday_of(current_date - 7), 1);
+    outcome := 'inserted';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _l values ('tracker_insert', outcome);
+  update public.success_measure_entries set value_number = 9 where id = '${TE}';
+  get diagnostics n = row_count; insert into _l values ('tracker_update', n::text);
+end $$;
+reset role;
+select (select v from _l where k = 'lead_insert') as lead_insert,
+       (select v from _l where k = 'lead_update') as lead_update,
+       (select v from _l where k = 'tracker_insert') as tracker_insert,
+       (select v from _l where k = 'tracker_update') as tracker_update;`, "rollback;"].join("\n"));
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const ok = row?.lead_insert === "inserted" && row?.lead_update === "1"
+    && row?.tracker_insert === "refused 42501" && row?.tracker_update === "0";
+  return [{
+    name,
+    granted: `the function's Lead records a value: ${row?.lead_insert} | and changes it: ${row?.lead_update} row`,
+    withheld: `the same person as a separate Tracker records one: ${row?.tracker_insert} | changes one: ${row?.tracker_update} rows (want refused 42501, 0)`,
+    ok,
+    detail: ok
+      ? "only the Lead (and admins) write a function's values; a separate Tracker writes nothing"
+      : "A SEPARATE TRACKER STILL WRITES MEASURE VALUES (is 0274 applied?)",
+  }];
+}
+
 // ---- No self-service email change (0271) ---------------------------
 //
 // The Auth API does not run as the token's role, so the allow list
@@ -13252,6 +13318,7 @@ async function main(): Promise<void> {
   const companyContent = await companyContentProbes(run, pendingSql);
   const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
   const strengthsPersonOnly = await strengthsAnswersPersonOnlyProbes(run, ids, pendingSql);
+  const leadOnly = await leadIsOnlySeatProbes(run, ids, pendingSql);
   const assistant = [
     ...(await assistantAllowListCoverage(run, pendingSql)),
     ...(await assistantAllowListBehaviour(run, ids, pendingSql)),
@@ -13264,7 +13331,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

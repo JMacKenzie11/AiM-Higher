@@ -79,8 +79,6 @@ export async function createFunctionAction(
 
   const description = nullableString(formData.get("description"));
   const leadId = nullableString(formData.get("lead_id"));
-  const trackId = nullableString(formData.get("track_id"));
-  const decideId = nullableString(formData.get("decide_id"));
   const parentFunctionId = nullableString(formData.get("parent_function_id"));
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
@@ -92,8 +90,6 @@ export async function createFunctionAction(
       title,
       description,
       lead_id: leadId,
-      track_id: trackId,
-      decide_id: decideId,
     })
     .select("*")
     .single<FunctionNode>();
@@ -212,11 +208,11 @@ export async function renameFunctionAction(
 // a trash icon that does not delete until you press a button
 // somewhere else is a worse lie than an immediate delete.
 //
-// NOT updateFunctionAction, which writes description, track_id and
-// decide_id from the same FormData. A caller sending only these
-// three would have those columns read as absent and nulled: the
-// description silently emptied and the track/decide seats cleared,
-// by a save that said nothing about any of them.
+// NOT updateFunctionAction, which writes description from the same
+// FormData. A caller sending only these three would have it read as
+// absent and nulled: the description silently emptied by a save that
+// said nothing about it. (It also used to clear track_id and
+// decide_id; those seats are retired, 0274, and nothing writes them.)
 export async function updateFunctionDetailsAction(
   functionId: string,
   fields: {
@@ -368,8 +364,6 @@ export async function updateFunctionAction(
 
   const description = nullableString(formData.get("description"));
   const leadId = nullableString(formData.get("lead_id"));
-  const trackId = nullableString(formData.get("track_id"));
-  const decideId = nullableString(formData.get("decide_id"));
   const parentFunctionId = nullableString(formData.get("parent_function_id"));
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
@@ -379,8 +373,6 @@ export async function updateFunctionAction(
       title,
       description,
       lead_id: leadId,
-      track_id: trackId,
-      decide_id: decideId,
       parent_function_id: parentFunctionId,
     })
     .eq("id", id)
@@ -584,30 +576,6 @@ export async function deleteFunctionAction(
   if (error) return { ok: false, message: "Couldn't delete that function." };
   revalidatePath("/chart");
   return { ok: true };
-}
-
-// Set one of the LTD roles (lead / track / decide). Passing null
-// clears the explicit assignment; the app falls back to lead_id
-// for track/decide when they're null.
-export async function setFunctionRoleAction(
-  functionId: string,
-  role: "lead" | "track" | "decide",
-  personId: string | null
-): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const patch: Record<string, string | null> = {};
-  patch[`${role}_id`] = personId;
-  const { data, error } = await supabase
-    .from("functions")
-    .update(patch)
-    .eq("id", functionId)
-    .select("*")
-    .single<FunctionNode>();
-  if (error || !data) return { ok: false, message: `Couldn't update ${role}.` };
-  revalidatePath("/chart");
-  revalidatePath(`/chart/function/${functionId}`);
-  return { ok: true, item: data };
 }
 
 // ---- Outcomes ---------------------------------------------------
