@@ -75,9 +75,15 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
   // moment the assistant bubble mounts, which is before a single
   // token has streamed into it — so reading the transcript here got
   // the question back with an empty answer beneath it.
+  //
+  // Something, not forty characters of something. Aimee often answers
+  // with one short question, and "What tells you he's not ready for
+  // it?" is 37 characters: the forty-character floor failed a correct
+  // reply on 2026-10-13. Fifth ruler bug in this file. The composer
+  // check below is what says the reply is finished.
   await expect(async () => {
     const reply = await bubbles.last().innerText();
-    expect(reply.replace(/thinking|…|\./gi, "").trim().length).toBeGreaterThan(40);
+    expect(reply.replace(/thinking|…|\./gi, "").trim().length).toBeGreaterThan(0);
   }).toPass({ timeout: 180_000 });
 
   // And wait for it to have FINISHED. Forty characters arrive while the
@@ -105,6 +111,18 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
     const thread = await page.getByTestId("coach-thread").innerText();
     expect(thread.replace(text, "").trim().length).toBeGreaterThan(40);
   }).toPass({ timeout: 60_000 });
+
+  // AND READ THE STORED THREAD, NOT THE LIVE ONE. The check above can
+  // pass and the live view still re-render without the reply a moment
+  // later: on 2026-10-13 the recall test then read the question alone
+  // and reported that nothing was recalled. Every caller reads the
+  // thread straight after this, so reload until the stored thread
+  // carries the reply, and they read what the database holds.
+  await expect(async () => {
+    await page.reload();
+    const thread = await page.getByTestId("coach-thread").innerText();
+    expect(thread.replace(text, "").trim().length).toBeGreaterThan(40);
+  }).toPass({ timeout: 90_000 });
 }
 
 // WAIT FOR THE SWEEP BY WHAT IT WRITES, not by the clock.
@@ -515,11 +533,21 @@ test.describe("coach memory, about mode", () => {
 
     // And the other direction, which is the one that actually harms:
     // nothing Aimee worked out herself may be stored as the leader's
-    // own words. Any inference must be labelled as one.
+    // own words. Every row carries a label, and only these.
+    //
+    // This used to require at least one row labelled `inferred`, which
+    // asserts that the model chose to infer something from this
+    // conversation. It often does and sometimes does not (2026-10-13,
+    // failed on main with the leader's statements correctly stored as
+    // `said` and no inference written), and a test that fails when the
+    // model says less is testing the model's mood. Whether a given
+    // sentence is Aimee's inference or the leader's words is a judgement
+    // this spec cannot make by keyword; the extraction prompt's own
+    // tests own it.
     expect(
-      stored.filter((r) => r.kind === "inferred").length,
-      `expected at least one inference to be labelled as one.\nRows:\n${dump}`
-    ).toBeGreaterThan(0);
+      stored.every((r) => r.kind === "said" || r.kind === "inferred" || r.kind === "directed"),
+      `every memory row must be labelled said, inferred or directed.\nRows:\n${dump}`
+    ).toBe(true);
 
     // ---- Recall of BOTH, in a fresh about-mode conversation ------
     await page.goto(subjectPath);
