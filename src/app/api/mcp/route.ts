@@ -1,15 +1,33 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { currentRequestOrigin } from "@/lib/instances/origin";
 import { mcpEnabled, mcpOpenTo } from "@/lib/mcp/switch";
+import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { assistantClient, verifyAssistantToken } from "@/lib/mcp/auth";
+import { chooseCompany, type VisibleCompany } from "@/lib/mcp/company";
+import { limitBroken, limitMessage } from "@/lib/mcp/limits";
+import { recentCounts, recordAction } from "@/lib/mcp/log";
+import {
+  ReadFailed,
+  functionalChart,
+  measures,
+  meetingSummaries,
+  myCommitments,
+  openIssues,
+  teamCommitments,
+  visibleCompanies,
+} from "@/lib/mcp/reads";
 
-// THE AiMS MCP SERVER (Phase 1: the sign-in trial).
+// THE AiMS MCP SERVER (Phase 2: the read menu).
 //
 // An outside assistant (Claude, ChatGPT and similar) connects here after
 // the person signs in through Supabase's OAuth server and approves it on
-// /oauth/consent. One tool for now, who_am_i, to prove the whole path:
-// discovery, sign-in, consent, a token that acts as the person and
-// nothing more. The menu's tools arrive in Phase 2.
+// /oauth/consent. Phase 2 serves the reads (lib/mcp/reads.ts): who am I,
+// my companies, my and my team's commitments, measures with recent
+// values, open issues, meeting summaries and the functional chart. Each
+// request names a company, filled in for a person who sees one. Every
+// call is logged and rate limited (lib/mcp/log.ts, limits.ts). No adds
+// until Phase 3.
 //
 // Every request carries the assistant's token, which is checked by
 // verifyAssistantToken (this instance's signature and issuer, and a
@@ -21,55 +39,229 @@ import { assistantClient, verifyAssistantToken } from "@/lib/mcp/auth";
 // Switched off unless MCP_ENABLED is "true", and open only to system
 // admins unless MCP_FOR_EVERYONE is (lib/mcp/switch.ts).
 
+type Caller = { token: string; userId: string; clientId: string };
+
+function callerOf(ctx: unknown): Caller | null {
+  const info = (ctx as { http?: { authInfo?: { token?: string; clientId?: string; extra?: { userId?: unknown } } } })
+    .http?.authInfo;
+  const userId = info?.extra?.userId;
+  if (!info?.token || !info.clientId || typeof userId !== "string") return null;
+  return { token: info.token, userId, clientId: info.clientId };
+}
+
+const say = (text: string) => ({ isError: true, content: [{ type: "text" as const, text }] });
+
+// How many rows an answer carries, for the log: the length of every
+// list at its top level.
+function rowsIn(data: Record<string, unknown>): number {
+  return Object.values(data).reduce<number>((n, v) => n + (Array.isArray(v) ? v.length : 0), 0);
+}
+
+// EVERY TOOL RUNS THROUGH THIS. In order: the person is signed in and
+// active, and outside assistants are open to their role (the switch);
+// they are under their own limit; the company the request names is one
+// they can see, filled in when they see only one; the company is under
+// its limit; then the read, on the assistant's token. Every outcome,
+// refusals included, is one row in assistant_actions.
+async function runTool<A>(
+  tool: string,
+  needsCompany: boolean,
+  ctx: unknown,
+  args: A & { company?: string },
+  read: (c: { db: SupabaseClient; userId: string; company: VisibleCompany | null }, args: A) => Promise<Record<string, unknown>>
+) {
+  const caller = callerOf(ctx);
+  if (!caller) return say("Not signed in.");
+  const started = Date.now();
+  let companyId: string | null = null;
+  const log = (outcome: "ok" | "refused" | "error" | "rate_limited", reason: string | null, rowCount?: number) =>
+    recordAction({
+      profileId: caller.userId,
+      companyId,
+      clientId: caller.clientId,
+      tool,
+      outcome,
+      reason,
+      rowCount: rowCount ?? null,
+      durationMs: Date.now() - started,
+    });
+
+  try {
+    const personLoad = await recentCounts("profile_id", caller.userId);
+    const personBroken = limitBroken(personLoad, null);
+    if (personBroken) {
+      await log("rate_limited", personBroken);
+      return say(limitMessage(personBroken));
+    }
+
+    const db = await assistantClient(caller.token);
+    const { data: profile } = await db
+      .from("profiles")
+      .select("role, status")
+      .eq("id", caller.userId)
+      .maybeSingle<{ role: string; status: string }>();
+    if (!profile || profile.status !== "active") {
+      await log("refused", "no_active_profile");
+      return say("No active AiMS profile for this sign-in.");
+    }
+    if (!mcpOpenTo(profile.role)) {
+      await log("refused", "not_open");
+      return say("Outside assistants aren't open to your AiMS account yet.");
+    }
+
+    let company: VisibleCompany | null = null;
+    if (needsCompany) {
+      const choice = chooseCompany(await visibleCompanies(db), args.company);
+      if (!choice.ok) {
+        await log("refused", choice.reason);
+        return say(choice.message);
+      }
+      company = choice.company;
+      companyId = company.id;
+      const companyBroken = limitBroken({ lastMinute: 0, lastHour: 0 }, await recentCounts("company_id", company.id));
+      if (companyBroken) {
+        await log("rate_limited", companyBroken);
+        return say(limitMessage(companyBroken));
+      }
+    }
+
+    const data = await read({ db, userId: caller.userId, company }, args);
+    await log("ok", null, rowsIn(data));
+    return { content: [{ type: "text" as const, text: JSON.stringify(data) }], structuredContent: data };
+  } catch (e) {
+    const code = e instanceof ReadFailed ? e.code : "";
+    const refused = code === "42501" || code === "PT401";
+    await log("error", refused ? "db_refused" : "db_error");
+    return say(
+      code === "PT401"
+        ? "This assistant's access to AiMS has ended. Connect it again."
+        : "AiMS couldn't answer that just now."
+    );
+  }
+}
+
+const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
+const company = z
+  .string()
+  .max(200)
+  .optional()
+  .describe("The company, by name or id. Leave it out if you're in only one; list_my_companies shows the choices.");
+
 const handler = createMcpHandler(
   (server) => {
     server.registerTool(
       "who_am_i",
       {
         title: "Who am I in AiMS",
-        description:
-          "The AiMS HQ person this assistant is signed in as: their name, role and company. Read only.",
-        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        description: "The AiMS HQ person this assistant is signed in as: their name, role and home company. Read only.",
+        annotations: READ_ONLY,
       },
-      async (ctx) => {
-        const token = ctx.http?.authInfo?.token;
-        const userId = ctx.http?.authInfo?.extra?.userId;
-        if (!token || typeof userId !== "string") {
-          return { isError: true, content: [{ type: "text", text: "Not signed in." }] };
-        }
-        const db = await assistantClient(token);
-        const { data: profile } = await db
-          .from("profiles")
-          .select("full_name, role, company_id")
-          .eq("id", userId)
-          .maybeSingle<{ full_name: string | null; role: string; company_id: string | null }>();
-        if (!profile) {
-          return { isError: true, content: [{ type: "text", text: "No AiMS profile for this sign-in." }] };
-        }
-        if (!mcpOpenTo(profile.role)) {
-          return {
-            isError: true,
-            content: [{ type: "text", text: "Outside assistants aren't open to your AiMS account yet." }],
-          };
-        }
-        let company: string | null = null;
-        if (profile.company_id) {
-          const { data } = await db
-            .from("companies")
-            .select("name")
-            .eq("id", profile.company_id)
-            .maybeSingle<{ name: string }>();
-          company = data?.name ?? null;
-        }
-        const who = { name: profile.full_name, role: profile.role, company };
-        return {
-          content: [{ type: "text", text: JSON.stringify(who) }],
-          structuredContent: who,
-        };
-      }
+      async (ctx) =>
+        runTool("who_am_i", false, ctx, {}, async ({ db, userId }) => {
+          const { data: p } = await db
+            .from("profiles")
+            .select("full_name, role, company_id")
+            .eq("id", userId)
+            .maybeSingle<{ full_name: string | null; role: string; company_id: string | null }>();
+          let home: string | null = null;
+          if (p?.company_id) {
+            const { data } = await db.from("companies").select("name").eq("id", p.company_id).maybeSingle<{ name: string }>();
+            home = data?.name ?? null;
+          }
+          return { name: p?.full_name ?? null, role: p?.role ?? null, company: home };
+        })
+    );
+
+    server.registerTool(
+      "list_my_companies",
+      {
+        title: "List my companies",
+        description: "The AiMS companies you can see, by name and id. Every other tool takes one of these as its company.",
+        annotations: READ_ONLY,
+      },
+      async (ctx) => runTool("list_my_companies", false, ctx, {}, async ({ db }) => ({ companies: await visibleCompanies(db) }))
+    );
+
+    server.registerTool(
+      "my_commitments",
+      {
+        title: "My commitments",
+        description:
+          "Your own commitments in a company: everything open (parked ones marked), and what you resolved in the last four weeks. A weekly repeating commitment shows its recent weeks. Read only.",
+        inputSchema: z.object({ company }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("my_commitments", true, ctx, args, (c) => myCommitments({ ...c, company: c.company! }))
+    );
+
+    server.registerTool(
+      "team_commitments",
+      {
+        title: "My team's commitments",
+        description:
+          "Everyone else's open commitments in a company, and unassigned ones, with owner and due date. Parked ones are left out. Read only.",
+        inputSchema: z.object({ company }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("team_commitments", true, ctx, args, (c) => teamCommitments({ ...c, company: c.company! }))
+    );
+
+    server.registerTool(
+      "measures",
+      {
+        title: "Measures and recent values",
+        description:
+          "A company's critical success factors, grouped by function, with each one's target and its values for recent weeks. Weeks are named by the Monday they begin. Read only.",
+        inputSchema: z.object({
+          company,
+          weeks: z.number().int().min(1).max(13).optional().describe("How many recent weeks of values, 1 to 13. Default 6."),
+        }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) =>
+        runTool("measures", true, ctx, args, (c, a) => measures({ ...c, company: c.company! }, a.weeks ?? 6))
+    );
+
+    server.registerTool(
+      "open_issues",
+      {
+        title: "Open issues",
+        description: "A company's open issues in rank order, with the outcome wanted and who raised each. Read only.",
+        inputSchema: z.object({ company }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("open_issues", true, ctx, args, (c) => openIssues({ ...c, company: c.company! }))
+    );
+
+    server.registerTool(
+      "meeting_summaries",
+      {
+        title: "Meeting summaries",
+        description:
+          "Summaries of a company's recent analysed meetings, newest first, with the commitments each one found. Summaries only: never transcripts. Read only.",
+        inputSchema: z.object({
+          company,
+          limit: z.number().int().min(1).max(8).optional().describe("How many meetings, 1 to 8. Default 5."),
+        }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) =>
+        runTool("meeting_summaries", true, ctx, args, (c, a) => meetingSummaries({ ...c, company: c.company! }, a.limit ?? 5))
+    );
+
+    server.registerTool(
+      "functional_chart",
+      {
+        title: "The functional chart",
+        description:
+          "A company's functions in chart order: who each reports to, its Lead, its purpose, roles, decision rights and competencies. Read only.",
+        inputSchema: z.object({ company }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("functional_chart", true, ctx, args, (c) => functionalChart({ ...c, company: c.company! }))
     );
   },
-  { serverInfo: { name: "AiMS HQ", version: "0.1.0" } }
+  { serverInfo: { name: "AiMS HQ", version: "0.2.0" } }
 );
 
 async function route(request: Request): Promise<Response> {

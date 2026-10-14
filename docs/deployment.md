@@ -83,7 +83,10 @@ server, `/api/mcp`). **Both off unless set to `true`.** With
 connect an assistant; `MCP_FOR_EVERYONE` widens that to everyone, and
 is Jason's call (2026-10-13: system admins first, then company admins
 and team members, guides, portfolio admins last). An environment change
-takes effect on the next deploy. Each instance also needs Supabase's
+takes effect on the next deploy. The MCP route also needs the
+instance's service key, which it already has, to write the action log
+(`assistant_actions`, 0273) and count the rate limits from it; 0273
+must be on the instance before the route is switched on there. Each instance also needs Supabase's
 OAuth server switched on in its own project (Authentication, OAuth
 Server: enabled, Authorization Path `/oauth/consent`, dynamic
 registration on) and its Site URL pointing at the instance, because the

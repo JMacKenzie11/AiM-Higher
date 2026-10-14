@@ -11137,6 +11137,94 @@ select (select outcome from _s where k = 'live') as live,
   }];
 }
 
+// ---- The assistant action log (0273) ---------------------------------
+//
+// assistant_actions is written by the MCP route with the service role
+// and read by: the person (their own rows), a system admin, the
+// company's company_admin, an assigned guide.
+//   granted   the person reads both their rows (one naming the company,
+//             one naming none); the company's admin reads the company's
+//             one; a system admin reads both
+//   withheld  a member of another company reads none; the person cannot
+//             write a row; the person's own assistant token reads none
+// Red before 0273: the table does not exist.
+async function assistantActionLogProbes(run: Runner, pending: string): Promise<GrantProbe[]> {
+  const name = "assistant action log · who reads it";
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+create temp table _a (k text, v text) on commit drop;
+do $$
+declare
+  co uuid; subj uuid; adm uuid; outsider uuid; sa uuid; n int; outcome text;
+begin
+  select p.company_id, p.id into co, subj from public.profiles p
+   where p.role = 'team_member' and p.status = 'active' and p.company_id is not null
+     and exists (select 1 from public.profiles a where a.company_id = p.company_id and a.role = 'company_admin' and a.status = 'active')
+   order by p.id limit 1;
+  select id into adm from public.profiles where company_id = co and role = 'company_admin' and status = 'active' order by id limit 1;
+  select id into outsider from public.profiles where company_id is not null and company_id <> co and role = 'team_member' and status = 'active' order by id limit 1;
+  select id into sa from public.profiles where role = 'system_admin' and status = 'active' order by id limit 1;
+  insert into public.assistant_actions (profile_id, company_id, client_id, tool, outcome)
+  values (subj, co, 'harness-0273', 'open_issues', 'ok'), (subj, null, 'harness-0273', 'who_am_i', 'ok');
+
+  perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', subj), true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.assistant_actions where client_id = 'harness-0273';
+  execute 'reset role'; insert into _a values ('person', n::text);
+
+  perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', adm), true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.assistant_actions where client_id = 'harness-0273';
+  execute 'reset role'; insert into _a values ('company_admin', n::text);
+
+  perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', sa), true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.assistant_actions where client_id = 'harness-0273';
+  execute 'reset role'; insert into _a values ('system_admin', n::text);
+
+  perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', outsider), true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.assistant_actions where client_id = 'harness-0273';
+  execute 'reset role'; insert into _a values ('outsider', n::text);
+
+  perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated","client_id":"harness-0273"}', subj), true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.assistant_actions where client_id = 'harness-0273';
+  execute 'reset role'; insert into _a values ('assistant', n::text);
+
+  perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', subj), true);
+  execute 'set local role authenticated';
+  begin
+    insert into public.assistant_actions (profile_id, company_id, client_id, tool, outcome)
+    values (subj, co, 'harness-0273', 'forged', 'ok');
+    outcome := 'written';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  execute 'reset role'; insert into _a values ('person_write', outcome);
+end $$;
+select (select v from _a where k = 'person') as person,
+       (select v from _a where k = 'company_admin') as company_admin,
+       (select v from _a where k = 'system_admin') as system_admin,
+       (select v from _a where k = 'outsider') as outsider,
+       (select v from _a where k = 'assistant') as assistant,
+       (select v from _a where k = 'person_write') as person_write;`, "rollback;"].join("\n"));
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const ok = row?.person === "2" && row?.company_admin === "1" && row?.system_admin === "2"
+    && row?.outsider === "0" && row?.assistant === "0" && row?.person_write === "refused 42501";
+  return [{
+    name,
+    granted: `the person: ${row?.person} of 2 | their company admin: ${row?.company_admin} of 1 (the company's row) | a system admin: ${row?.system_admin} of 2`,
+    withheld: `another company's member: ${row?.outsider} | the person's assistant token: ${row?.assistant} | the person writing a row: ${row?.person_write} (want 0, 0, refused 42501)`,
+    ok,
+    detail: ok
+      ? "the action log reads as the person, their company admin and system admins, and nobody but the service role writes it"
+      : "THE ASSISTANT ACTION LOG READS OR WRITES WIDER THAN 0273 SAYS",
+  }];
+}
+
 // ---- No self-service email change (0271) ---------------------------
 //
 // The Auth API does not run as the token's role, so the allow list
@@ -13168,6 +13256,7 @@ async function main(): Promise<void> {
     ...(await assistantAllowListCoverage(run, pendingSql)),
     ...(await assistantAllowListBehaviour(run, ids, pendingSql)),
     ...(await assistantSessionProbes(run, ids, pendingSql)),
+    ...(await assistantActionLogProbes(run, pendingSql)),
   ];
   const contactChange = await selfServiceContactChangeProbes(run, ids, pendingSql);
   const panelEvents = [
