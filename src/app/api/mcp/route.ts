@@ -9,11 +9,14 @@ import { limitBroken, limitMessage } from "@/lib/mcp/limits";
 import { recentCounts, recordAction } from "@/lib/mcp/log";
 import {
   ReadFailed,
+  annualGoals,
+  companyPlan,
   functionalChart,
   measures,
   meetingSummaries,
   myCommitments,
   openIssues,
+  quarterlyPriorities,
   teamCommitments,
   visibleCompanies,
 } from "@/lib/mcp/reads";
@@ -264,8 +267,47 @@ const handler = createMcpHandler(
       },
       async (args, ctx) => runTool("functional_chart", true, ctx, args, (c) => functionalChart({ ...c, company: c.company! }))
     );
+
+    server.registerTool(
+      "quarterly_priorities",
+      {
+        title: "Quarterly priorities",
+        description:
+          "A company's priorities for one quarter, with owner, due date, status, and the annual goal and focus area each serves. Defaults to the open quarter. Read only.",
+        inputSchema: z.object({
+          company,
+          quarter: z.string().max(40).optional().describe('A quarter label as AiMS shows it, such as "Q3 2026". Default: the open quarter.'),
+        }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) =>
+        runTool("quarterly_priorities", true, ctx, args, (c, a) => quarterlyPriorities({ ...c, company: c.company! }, a.quarter))
+    );
+
+    server.registerTool(
+      "annual_goals",
+      {
+        title: "Annual goals",
+        description: "A company's annual goals, with owner, target date, status and the focus area each serves. Read only.",
+        inputSchema: z.object({ company }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("annual_goals", true, ctx, args, (c) => annualGoals({ ...c, company: c.company! }))
+    );
+
+    server.registerTool(
+      "company_plan",
+      {
+        title: "Core values and plan",
+        description:
+          "A company's purpose, vision, core values and strategic focus areas (with sponsor and status). Read only.",
+        inputSchema: z.object({ company }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("company_plan", true, ctx, args, (c) => companyPlan({ ...c, company: c.company! }))
+    );
   },
-  { serverInfo: { name: "AiMS HQ", version: "0.2.0" } }
+  { serverInfo: { name: "AiMS HQ", version: "0.3.0" } }
 );
 
 async function route(request: Request): Promise<Response> {

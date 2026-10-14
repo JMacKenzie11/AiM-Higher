@@ -67,9 +67,14 @@ export default async function ConsentPage({
     >
       {canApprove ? (
         <div className={formStyles.helperText}>
-          <p>It can read your commitments and your team&apos;s, your measures and their recent values, open issues, meeting summaries and the functional chart.</p>
+          <p>It can read your commitments and your team&apos;s, your company&apos;s plan, priorities, goals and core values, your measures and their recent values, open issues, meeting summaries and the functional chart.</p>
           <p>It can add a commitment of your own, an issue, or a measure value for a week that has none.</p>
           <p>It cannot delete anything, mark a commitment kept or missed, change anyone else&apos;s work, or read any Aimee conversation.</p>
+          {/* Jason, 2026-10-14: say plainly whose rules apply once the
+              data leaves AiMS. DRAFT wording, waiting for his approval. */}
+          <p>
+            Once AiMS data reaches {details.client.name || "this assistant"}, that company&apos;s terms and privacy policy apply to it, not ours. Check its settings for how long it keeps your conversations and whether it uses them to train its models.
+          </p>
           <p>It returns to {returnsTo}.</p>
         </div>
       ) : (

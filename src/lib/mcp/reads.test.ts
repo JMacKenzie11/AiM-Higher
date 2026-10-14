@@ -32,7 +32,12 @@ describe("fixed columns only", () => {
 
 describe("the menu, and nothing else", () => {
   const tables = [...reads.matchAll(/\.from\(\s*"([a-z_]+)"/g)].map((m) => m[1]);
-  const viaPart = [...reads.matchAll(/part\("([a-z_]+)"\)/g)].map((m) => m[1]);
+  // Tables named through the two helpers that take a table name.
+  const viaPart = [...reads.matchAll(/(?:part\(|titles\(db, )"([a-z_]+)"/g)].map((m) => m[1]);
+
+  it("finds the helpers' tables too", () => {
+    expect(viaPart).toEqual(expect.arrayContaining(["function_roles", "annual_goals", "strategic_focus_areas"]));
+  });
 
   it("reads only tables on the allow list (0270)", () => {
     const menu = new Set([
@@ -40,6 +45,8 @@ describe("the menu, and nothing else", () => {
       "success_measure_entries", "success_measure_targets", "functions",
       "function_roles", "function_decision_rights", "function_competencies",
       "companies", "profiles", "guide_assignments", "portfolio_assignments",
+      "quarters", "strategic_focus_areas", "annual_goals", "priorities",
+      "company_foundation", "foundation_items",
     ]);
     for (const t of [...tables, ...viaPart]) expect(menu.has(t)).toBe(true);
   });

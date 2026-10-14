@@ -61,3 +61,9 @@ Enter your current password, then a new one of at least 8 characters, and save. 
 ## Common questions
 
 **Who sees what I put here?** Your photo, name and position show to everyone at your company. Your strengths show on your scorecard and help Aimee coach you. Your password and your Memory are yours alone.
+
+## Connecting an outside assistant
+
+Some AiMS accounts can connect an outside assistant, such as Claude or ChatGPT, so it can read your AiMS work for you. It signs in as you, sees only what you can see, and asks you to allow it first.
+
+Once AiMS data reaches the assistant, the assistant company's terms and privacy policy apply to it, not ours. Before you connect one, check the assistant's settings for how long it keeps your conversations and whether it uses them to train its models.

@@ -323,3 +323,138 @@ export async function functionalChart({ db, company }: Ctx) {
   }));
   return { company: company.name, functions };
 }
+
+// ---- the plan (0276) ---------------------------------------------------
+
+type PlanRow = { id: string; title: string };
+
+async function titles(db: Db, table: string, ids: string[]): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const rows = must(await db.from(table).select("id, title").in("id", ids)) as PlanRow[];
+  return new Map(rows.map((r) => [r.id, r.title]));
+}
+
+const uniq = (xs: Array<string | null>) => [...new Set(xs.filter((x): x is string => !!x))];
+
+// A quarter's priorities. Left out, the quarter is the company's open
+// one, or its latest if none is open. Named, it is a quarter label as the
+// app shows it ("Q3 2026"), matched whole, ignoring case.
+export async function quarterlyPriorities({ db, company }: Ctx, quarterLabel: string | undefined) {
+  const quarters = must(
+    await db
+      .from("quarters")
+      .select("id, label, start_date, end_date, status")
+      .eq("company_id", company.id)
+      .order("start_date", { ascending: false })
+  ) as Array<{ id: string; label: string; start_date: string; end_date: string; status: string }>;
+  const wanted = (quarterLabel ?? "").trim().toLowerCase();
+  const quarter = wanted
+    ? quarters.find((q) => q.label.trim().toLowerCase() === wanted)
+    : quarters.find((q) => q.status === "open") ?? quarters[0];
+  if (!quarter) {
+    return {
+      company: company.name,
+      quarter: null,
+      quarters_available: quarters.map((q) => q.label),
+      priorities: [],
+    };
+  }
+  const [rows, names] = await Promise.all([
+    db
+      .from("priorities")
+      .select("id, title, description, owner_id, due_date, status, annual_goal_id, sfa_id")
+      .eq("company_id", company.id)
+      .eq("quarter_id", quarter.id)
+      .eq("archived", false)
+      .order("sort_order")
+      .then((res) => must(res) as Array<{ id: string; title: string; description: string | null; owner_id: string | null; due_date: string | null; status: string; annual_goal_id: string | null; sfa_id: string | null }>),
+    roster(db, company.id),
+  ]);
+  const [goals, areas] = await Promise.all([
+    titles(db, "annual_goals", uniq(rows.map((r) => r.annual_goal_id))),
+    titles(db, "strategic_focus_areas", uniq(rows.map((r) => r.sfa_id))),
+  ]);
+  return {
+    company: company.name,
+    quarter: { label: quarter.label, starts: quarter.start_date, ends: quarter.end_date, open: quarter.status === "open" },
+    quarters_available: quarters.map((q) => q.label),
+    priorities: rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      owner: r.owner_id ? names.get(r.owner_id) ?? null : null,
+      due_date: r.due_date,
+      status: r.status,
+      annual_goal: r.annual_goal_id ? goals.get(r.annual_goal_id) ?? null : null,
+      focus_area: r.sfa_id ? areas.get(r.sfa_id) ?? null : null,
+    })),
+  };
+}
+
+export async function annualGoals({ db, company }: Ctx) {
+  const [rows, names] = await Promise.all([
+    db
+      .from("annual_goals")
+      .select("id, title, description, owner_id, target_date, status, sfa_id")
+      .eq("company_id", company.id)
+      .eq("archived", false)
+      .order("sort_order")
+      .then((res) => must(res) as Array<{ id: string; title: string; description: string | null; owner_id: string | null; target_date: string | null; status: string; sfa_id: string | null }>),
+    roster(db, company.id),
+  ]);
+  const areas = await titles(db, "strategic_focus_areas", uniq(rows.map((r) => r.sfa_id)));
+  return {
+    company: company.name,
+    goals: rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      owner: r.owner_id ? names.get(r.owner_id) ?? null : null,
+      target_date: r.target_date,
+      status: r.status,
+      focus_area: r.sfa_id ? areas.get(r.sfa_id) ?? null : null,
+    })),
+  };
+}
+
+// The company's foundation and strategic plan: purpose, vision, core
+// values and strategic focus areas. Not differentiators, key success
+// metrics or the marketing strategy, which AiMS also holds.
+export async function companyPlan({ db, company }: Ctx) {
+  const [foundation, values, areas, names] = await Promise.all([
+    db
+      .from("company_foundation")
+      .select("purpose_statement, purpose_context, vision")
+      .eq("company_id", company.id)
+      .limit(1)
+      .then((res) => (must(res) as Array<{ purpose_statement: string | null; purpose_context: string | null; vision: string | null }>)[0] ?? null),
+    db
+      .from("foundation_items")
+      .select("title, body")
+      .eq("company_id", company.id)
+      .eq("kind", "core_value")
+      .order("sort_order")
+      .then((res) => must(res) as Array<{ title: string; body: string | null }>),
+    db
+      .from("strategic_focus_areas")
+      .select("title, description, sponsor_id, status")
+      .eq("company_id", company.id)
+      .eq("archived", false)
+      .order("sort_order")
+      .then((res) => must(res) as Array<{ title: string; description: string | null; sponsor_id: string | null; status: string }>),
+    roster(db, company.id),
+  ]);
+  return {
+    company: company.name,
+    purpose: foundation?.purpose_statement ?? null,
+    purpose_context: foundation?.purpose_context ?? null,
+    vision: foundation?.vision ?? null,
+    core_values: values.map((v) => ({ value: v.title, meaning: v.body })),
+    focus_areas: areas.map((a) => ({
+      title: a.title,
+      description: a.description,
+      sponsor: a.sponsor_id ? names.get(a.sponsor_id) ?? null : null,
+      status: a.status,
+    })),
+  };
+}

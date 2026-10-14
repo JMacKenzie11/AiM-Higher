@@ -10756,6 +10756,9 @@ export const ASSISTANT_MENU = {
     "success_measures", "success_measure_entries", "success_measure_targets",
     "functions", "function_roles", "function_decision_rights", "function_competencies",
     "companies", "profiles", "guide_assignments", "portfolio_assignments",
+    // The plan (0276).
+    "quarters", "strategic_focus_areas", "annual_goals", "priorities",
+    "company_foundation", "foundation_items",
   ],
   // Insertable, narrowed to a fresh row (assistant_insert).
   add: ["commitments", "issues", "success_measure_entries"],
@@ -10890,7 +10893,8 @@ begin
                           ('POST','/success_measure_entries'), ('GET','/rpc/assistant_meeting_summaries'),
                           ('PATCH','/commitments'), ('DELETE','/commitments'), ('GET','/coaching_conversations'),
                           ('GET','/meetings'), ('POST','/rpc/graphql'), ('GET','/'), ('POST','/notifications'),
-                          ('GET','/priority_progress')) v(m, p)
+                          ('GET','/priority_progress'), ('GET','/priorities'), ('GET','/foundation_items'),
+                          ('POST','/priorities'), ('PATCH','/annual_goals')) v(m, p)
   loop
     perform set_config('request.method', f.m, true);
     perform set_config('request.path', f.p, true);
@@ -10925,8 +10929,8 @@ select (select string_agg(item, ',' order by item) from _gate where kind = 'rpc'
     const wantAllowed = [...ASSISTANT_MENU.rpc].sort().join(",");
     const pathOutcome = (mp: string) =>
       gate!.paths.split("; ").find((x) => x.startsWith(`${mp} `))?.slice(mp.length + 1);
-    const menuPaths = ["GET /commitments", "HEAD /issues", "POST /commitments", "POST /issues", "POST /success_measure_entries", "GET /rpc/assistant_meeting_summaries"];
-    const offPaths = ["PATCH /commitments", "DELETE /commitments", "GET /coaching_conversations", "GET /meetings", "POST /rpc/graphql", "POST /notifications", "GET /priority_progress", "GET /"];
+    const menuPaths = ["GET /commitments", "HEAD /issues", "POST /commitments", "POST /issues", "POST /success_measure_entries", "GET /rpc/assistant_meeting_summaries", "GET /priorities", "GET /foundation_items"];
+    const offPaths = ["PATCH /commitments", "DELETE /commitments", "GET /coaching_conversations", "GET /meetings", "POST /rpc/graphql", "POST /notifications", "GET /priority_progress", "GET /", "POST /priorities", "PATCH /annual_goals"];
     const menuOk = menuPaths.every((p) => pathOutcome(p) === "allowed");
     const offOk = offPaths.every((p) => pathOutcome(p) === "refused");
     const ok = (gate.allowed ?? "") === wantAllowed && gate.refused === gate.total - 1 &&
@@ -11390,6 +11394,76 @@ select jsonb_object_agg(k, v)::text as r from _r;`, "rollback;"].join("\n"));
     detail: ok
       ? "an assistant's token reads and adds only through /api/mcp; sent straight to the database it is refused at the gate and at the table"
       : "AN ASSISTANT'S TOKEN STILL REACHES THE DATABASE AROUND THE MCP ROUTE (is 0275 applied?)",
+  }];
+}
+
+// ---- The plan, read by an assistant (0276) ----------------------------
+//
+// Jason, 2026-10-14: an assistant reads quarterly priorities, annual
+// goals, focus areas, purpose and vision, and core values.
+//   granted   each of the six plan tables reads the same rows as an
+//             assistant as it does for the person, and more than none
+//   withheld  an assistant adds a priority, renames a goal, or deletes
+//             a core value: refused, 0 rows, 0 rows
+// Red before 0276: assistant_refused gives the assistant 0 rows.
+// The route check (0275) has its own probe; it is stubbed open here.
+async function assistantPlanReadProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "assistant reads the plan · as the person";
+  const M = ids.member, CO = ids.memberCompany;
+  const Q = randomUUID(), S = randomUUID(), G = randomUUID(), P = randomUUID(), V = randomUUID();
+  const tables = ["quarters", "strategic_focus_areas", "annual_goals", "priorities", "company_foundation", "foundation_items"];
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+insert into public.quarters (id, company_id, label, start_date, end_date, status) values ('${Q}', '${CO}', 'Harness 0276', '2099-01-01', '2099-03-31', 'closed');
+insert into public.strategic_focus_areas (id, company_id, title) values ('${S}', '${CO}', 'harness 0276 focus');
+insert into public.annual_goals (id, company_id, sfa_id, title, owner_id) values ('${G}', '${CO}', '${S}', 'harness 0276 goal', '${M}');
+insert into public.priorities (id, company_id, quarter_id, annual_goal_id, title, owner_id) values ('${P}', '${CO}', '${Q}', '${G}', 'harness 0276 priority', '${M}');
+insert into public.company_foundation (company_id, purpose_statement) values ('${CO}', 'harness 0276 purpose') on conflict (company_id) do nothing;
+insert into public.foundation_items (id, company_id, kind, title) values ('${V}', '${CO}', 'core_value', 'harness 0276 value');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare t text; n int; outcome text;
+begin
+  foreach t in array array[${tables.map((t) => `'${t}'`).join(", ")}] loop
+    perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+    execute format('select count(*) from public.%I where company_id = %L', t, '${CO}') into n;
+    insert into _p values (t || '_person', n::text);
+    perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated","client_id":"harness-0276"}', true);
+    execute format('select count(*) from public.%I where company_id = %L', t, '${CO}') into n;
+    insert into _p values (t || '_assistant', n::text);
+  end loop;
+  begin
+    insert into public.priorities (company_id, quarter_id, title, owner_id) values ('${CO}', '${Q}', 'harness 0276 added', '${M}');
+    outcome := 'inserted';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _p values ('add_priority', outcome);
+  update public.annual_goals set title = 'renamed' where id = '${G}';
+  get diagnostics n = row_count; insert into _p values ('rename_goal', n::text);
+  delete from public.foundation_items where id = '${V}';
+  get diagnostics n = row_count; insert into _p values ('delete_value', n::text);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const reads = tables.map((t) => `${t} ${r[`${t}_person`]}→${r[`${t}_assistant`]}`);
+  const readsOk = tables.every((t) => Number(r[`${t}_person`]) > 0 && r[`${t}_person`] === r[`${t}_assistant`]);
+  const writesOk = r.add_priority === "refused 42501" && r.rename_goal === "0" && r.delete_value === "0";
+  return [{
+    name,
+    granted: `rows as the person → as their assistant: ${reads.join(" | ")}`,
+    withheld: `assistant adds a priority: ${r.add_priority} | renames a goal: ${r.rename_goal} rows | deletes a core value: ${r.delete_value} rows (want refused 42501, 0, 0)`,
+    ok: readsOk && writesOk,
+    detail: readsOk && writesOk
+      ? "an assistant reads the plan exactly as the person does, and changes none of it"
+      : "AN ASSISTANT READS THE PLAN DIFFERENTLY FROM THE PERSON, OR CHANGES IT (is 0276 applied?)",
   }];
 }
 
@@ -13427,6 +13501,7 @@ async function main(): Promise<void> {
     ...(await assistantSessionProbes(run, ids, pendingSql)),
     ...(await assistantActionLogProbes(run, pendingSql)),
     ...(await assistantRouteOnlyProbes(run, ids, pendingSql)),
+    ...(await assistantPlanReadProbes(run, ids, pendingSql)),
   ];
   const contactChange = await selfServiceContactChangeProbes(run, ids, pendingSql);
   const panelEvents = [

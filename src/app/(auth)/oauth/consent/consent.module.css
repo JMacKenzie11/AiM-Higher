@@ -1,0 +1,33 @@
+/* Decline: a quiet text button under Allow. It used the password
+   field's reveal style, which is positioned absolutely inside an input
+   and so floated over the consent text. */
+.decline {
+  display: block;
+  margin: 0 auto;
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: none;
+  color: var(--aims-white);
+  opacity: 0.85;
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.decline:hover:not(:disabled) {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.decline:focus-visible {
+  outline: 2px solid var(--aims-white);
+  outline-offset: 2px;
+}
+
+.decline:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
