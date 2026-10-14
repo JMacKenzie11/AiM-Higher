@@ -1313,6 +1313,48 @@ An outside assistant (Claude, ChatGPT and similar) connects to AiMS HQ as an MCP
 - **Proved on dev, 2026-10-13,** with a scripted client doing what an MCP client does (discovery, registration, PKCE, a real browser signing in and allowing, token exchange): `who_am_i` answers for the person; the same token straight at Supabase gets 403 on every off-menu table, function, GraphQL, update and delete, and 200 on the menu.
 - **Phase 2 proved on dev, 2026-10-14,** with Claude Code (2.1.x) connected to the local server and an assistant token from that same flow for the dev e2e accounts. As the system admin: every tool answered, a request naming no company was asked to name one from 14, a partial name was refused, values and meeting summaries matched the database, and no transcript, facilitation review or Aimee content appeared. As a team member (with `MCP_FOR_EVERYONE` on): their one company filled in; another company refused by name and by id; the same token straight at the database read 0 of that company's issues and got 403 on the log. The person limit refused the 31st call in a minute. With the switch back to system admins, the member's live token was refused.
 
+
+### Where AI apps stand (build closed 2026-10-14)
+
+**What's live.** Production (www) and PromiseOne, both at 0284, running main at `5f6a3901` (#454, with #455 merged into it).
+
+- Every company starts with AI apps on, and every existing company is on.
+- Every role but portfolio admins may connect one.
+- A person connects Claude (web and desktop) or ChatGPT (web, Developer mode) by pasting the address `https://<instance>/api/mcp`, signing in as themselves and clicking **Allow**. The app can then use the read tools, the three add tools, and the handoff to Aimee (0281, #453).
+- In the app:
+  - *Connect AI apps* on the company card, with the switch and *How to connect*.
+  - *Your connected AI apps* on the profile, with **Disconnect**.
+  - Aimee answers "how do I connect…" with a button that opens the drawer.
+- Proved on production on 2026-10-14. The smoke account (a company admin) connected with the address only, and `who_am_i` and `list_my_companies` answered. It was then disconnected from its profile.
+- The one-off notice `ai-apps-on` (Section 16a) went to:
+  - the 13 company admins on production
+  - Jeff Bouwman, a system admin holding guide assignments, once for each of his 7 companies
+- PromiseOne has no company admins or guides, so nobody there got the notice.
+
+**Switches and undo steps, narrowest first.** On production or PromiseOne, each one is Jason's call, every time.
+
+| To stop | Do this | Takes effect |
+|---|---|---|
+| One person's app | They click **Disconnect** under *Your connected AI apps* on their profile | At once |
+| One company | Its company admin, an assigned guide or a system admin unticks the box on the *Connect AI apps* card | At once: the route refuses every call naming the company (`company_off`) |
+| One instance | Remove its subdomain from Vercel `MCP_INSTANCES` (`@` is production), then redeploy | Next deploy: `/api/mcp`, its metadata and the consent page answer 404 there |
+| Everywhere | Unset `MCP_ENABLED` in Vercel, then redeploy | Next deploy: the same 404s on every instance |
+| New connections only | Switch dynamic registration off in the instance's Supabase Auth settings (OAuth Server) | At once. Address-only connections stop; connected apps keep working until disconnected |
+
+- **Undo "on by default" (0284):**
+  1. A new migration sets the `companies.assistants_enabled` default back to false.
+  2. To switch off only the companies 0284 switched on, use the rows in `company_settings_events` whose note is *switched on by AiMS default*.
+  3. Production's other 6 companies were switched on by hand earlier the same day. Those changes carry a person, not that note.
+- **Undo the notice:** delete the `notifications` rows with kind `ai-apps-on`. They leave every bell at once. This is a production write.
+
+**Open follow-ups.**
+
+- **#436:** Aimee's memory sometimes drops the leader's observation in about mode, and keeps only the commitment (`e2e/coach-memory.spec.ts`).
+- **#444:** AiMS has no meeting schedule (day, time, cadence, agenda). It would let Aimee help a leader prepare, and would allow a "next leadership meeting" read tool for AI apps.
+- **Claude Code and other local tools:** these return to a localhost address, which isn't on the approved list (0280), so they can't connect. Jason decides whether to allow them. If yes, `mcp_redirect_trusted` and `lib/mcp/trusted-clients.ts` change together, with the harness probe.
+- **Portfolio admin refusal, live:** Jason is testing it with Jason Testing Account. The database refusal is confirmed on both instances.
+- **Done: the Track and Decide seat columns are dropped** (0277, #445) on dev, production and PromiseOne. The Lead is the only seat.
+
 ## 15. Classroom (Shared Training Library)
 
 Feature-gated (`classroom`). Content is authored centrally by system admins and shared across every enabled company — one library, many audiences.
