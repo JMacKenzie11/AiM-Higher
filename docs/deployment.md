@@ -80,8 +80,7 @@ any Vercel environment that still has it.
 under `/.well-known/oauth-protected-resource` and the consent page
 `/oauth/consent` all answer 404. With it set, every role but portfolio
 admins may connect an assistant (Jason, 2026-10-14; this replaced
-`MCP_FOR_EVERYONE`, which nothing reads any more and can be deleted
-from Vercel). An environment change
+`MCP_FOR_EVERYONE`, which nothing reads any more). An environment change
 takes effect on the next deploy. The MCP route also needs the
 instance's service key, which it already has, to write the action log
 (`assistant_actions`, 0273) and count the rate limits from it; 0273
