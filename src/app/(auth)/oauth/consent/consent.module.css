@@ -1,35 +1,60 @@
-/* Decline: a quiet text button under Allow. It used the password
-   field's reveal style, which is positioned absolutely inside an input
-   and so floated over the consent text. */
-.decline {
-  display: block;
-  margin: 0 auto;
-  height: var(--control-h-md);
-  padding: 0 var(--space-3);
-  background: transparent;
-  border: none;
-  color: var(--aims-white);
-  opacity: 0.85;
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+/* Allow and Decline: one matching pair, side by side, each half the
+   row, the same height, shape and type. Allow is filled, Decline is
+   outlined. Space above separates them from the consent text. */
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.actionForm {
+  flex: 1 1 0;
+  display: flex;
+}
+
+.button {
+  flex: 1 1 auto;
+  height: var(--control-h-lg);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
   cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
-.decline:hover:not(:disabled) {
-  opacity: 1;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.decline:focus-visible {
+.button:focus-visible {
   outline: 2px solid var(--aims-white);
   outline-offset: 2px;
 }
 
-.decline:disabled {
+.button:disabled {
   opacity: 0.6;
-  cursor: default;
+  cursor: progress;
+}
+
+.allow {
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+  border: 1px solid var(--aims-chartreuse);
+}
+
+.allow:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--aims-chartreuse) 92%, var(--aims-navy));
+}
+
+.decline {
+  background: transparent;
+  color: var(--aims-white);
+  border: 1px solid color-mix(in srgb, var(--aims-white) 55%, transparent);
+}
+
+.decline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--aims-white) 10%, transparent);
+  border-color: var(--aims-white);
 }
 
 /* The consent text: a gap between paragraphs, which the shared helper
