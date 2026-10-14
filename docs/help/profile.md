@@ -62,8 +62,14 @@ Enter your current password, then a new one of at least 8 characters, and save. 
 
 **Who sees what I put here?** Your photo, name and position show to everyone at your company. Your strengths show on your scorecard and help Aimee coach you. Your password and your Memory are yours alone.
 
+::: feature outside_assistants
 ## Connecting an outside assistant
 
 Some AiMS accounts can connect an outside assistant, such as Claude or ChatGPT, so it can read your AiMS work for you. It signs in as you, sees only what you can see, and asks you to allow it first.
 
+It can also add a commitment of your own (with a due date), an issue, or a value for a measure you lead, in a week that has no value yet. Anything it adds shows **via** and the assistant's name beside your name. It can't change or delete anything.
+
+**Keep AiMS's add tools on "ask every time"** in the assistant's settings, so nothing is added without you seeing it first. Assistants ask by default; leave it that way rather than allowing them always.
+
 Once AiMS data reaches the assistant, the assistant company's terms and privacy policy apply to it, not ours. Before you connect one, check the assistant's settings for how long it keeps your conversations and whether it uses them to train its models.
+:::

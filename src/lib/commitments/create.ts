@@ -53,6 +53,12 @@ export type NewCommitment = {
   companyId?: string | null;
   // The Aimee message whose card it was saved from (0255).
   coachingMessageId?: string | null;
+  // Score clarity BEFORE the insert and write it with the row, instead
+  // of updating the row after. Same scorer, same inputs, same columns.
+  // For an outside assistant, which may add a commitment but never
+  // update one (0270), so the after-insert update would be refused and
+  // the commitment left unassessed.
+  clarityBeforeInsert?: boolean;
 };
 
 // Every surface a commitment mutation can change.
@@ -222,6 +228,15 @@ export async function insertCommitment(
   const isAdmin = isAdminForCompany(profile, companyId);
   const ownerId = isAdmin && input.ownerId ? input.ownerId : profile.id;
 
+  let preScore: Awaited<ReturnType<typeof scoreCommitmentClarity>> = null;
+  if (input.clarityBeforeInsert) {
+    try {
+      preScore = await scoreCommitmentClarity(description, dueDate);
+    } catch (err) {
+      console.warn("Clarity autoscore failed before insert", err);
+    }
+  }
+
   const { data, error } = await supabase
     .from("commitments")
     .insert({
@@ -237,6 +252,9 @@ export async function insertCommitment(
       is_ongoing: input.isOngoing ?? false,
       ...(dueDateDefaulted ? { due_date_defaulted: true } : {}),
       ...(input.coachingMessageId ? { coaching_message_id: input.coachingMessageId } : {}),
+      ...(preScore
+        ? { clarity_timeline: preScore.timeline, clarity_success: preScore.success, clarity_note: preScore.note }
+        : {}),
     })
     .select("*")
     .single<Commitment>();
@@ -245,6 +263,7 @@ export async function insertCommitment(
   }
 
   let finalRow: Commitment = data;
+  if (input.clarityBeforeInsert) return { ok: true, commitment: finalRow };
   try {
     const score = await scoreCommitmentClarity(description, dueDate);
     if (score) {

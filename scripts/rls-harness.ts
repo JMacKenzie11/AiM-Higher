@@ -11456,6 +11456,234 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Assistant adds (Phase 3, 0278) -----------------------------------
+//
+// Jason, 2026-10-14. One person, acting through an assistant that came
+// through /api/mcp (a test route key planted for the transaction):
+//   marker       the database stamps commitments, issues and values
+//                with the assistant's name and client id, whatever the
+//                request said; an app sign-in can't set it; nobody can
+//                change it after. Red before 0278.
+//   kept/missed  a commitment arriving already kept or missed: refused
+//   no change    the assistant updates or deletes nothing it added
+//   route        the same add without the route key: refused
+//   lead         a value on a measure whose function they don't lead:
+//                refused
+//   overwrite    a value over a filled week: refused, and the week keeps
+//                its value
+// The last five held before 0278; shown red against a planted removal.
+async function assistantAddProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const M = ids.member, CO = ids.memberCompany;
+  const C = randomUUID(), KEY = "harness-route-key-0278";
+  const F = randomUUID(), MS = randomUUID(), F2 = randomUUID(), MS2 = randomUUID();
+  const AC = randomUUID(), AI = randomUUID(), PC = randomUUID(), UC = randomUUID(), UI = randomUUID();
+  let r: Record<string, string> = {};
+  try {
+    const [row] = await run<{ r: string }>(["begin;", pending, `
+create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+do $$ begin
+  if to_regclass('aims_private.mcp_route_key') is not null then
+    execute 'delete from aims_private.mcp_route_key';
+    execute format('insert into aims_private.mcp_route_key (id, key_sha256) values (true, %L)', encode(sha256(convert_to('${KEY}', 'UTF8')), 'hex'));
+  end if;
+end $$;
+insert into auth.oauth_clients (id, client_name, registration_type, redirect_uris, grant_types, token_endpoint_auth_method)
+values ('${C}', 'Harness Assistant', 'manual', 'http://127.0.0.1/callback', 'authorization_code', 'none');
+insert into public.functions (id, company_id, title, lead_id) values ('${F}', '${CO}', 'probe 0278 led', '${M}');
+insert into public.functions (id, company_id, title) values ('${F2}', '${CO}', 'probe 0278 not led');
+insert into public.success_measures (id, function_id, description) values ('${MS}', '${F}', 'probe 0278 led measure'), ('${MS2}', '${F2}', 'probe 0278 other measure');
+insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${MS}', public.friday_of(current_date - 14), 5);
+-- The person's own open commitment and an issue, made in the app, for
+-- the assistant to try to change.
+insert into public.commitments (id, company_id, owner_id, description, week_ending, due_date) values ('${UC}', '${CO}', '${M}', 'probe 0278 theirs', public.friday_of(current_date), current_date);
+insert into public.issues (id, company_id, title, created_by) values ('${UI}', '${CO}', 'probe 0278 theirs', '${M}');
+create temp table _x (k text, v text) on commit drop;
+grant all on _x to authenticated;
+set local role authenticated;
+do $$
+declare n int; o text; v text;
+  as_assistant constant text := '{"sub":"${M}","role":"authenticated","client_id":"${C}"}';
+  as_app constant text := '{"sub":"${M}","role":"authenticated"}';
+  with_key constant text := '{"x-aims-route-key":"${KEY}"}';
+begin
+  perform set_config('request.jwt.claims', as_assistant, true);
+  perform set_config('request.headers', with_key, true);
+
+  -- marker: the request claims another name; the database decides.
+  begin
+    execute format('insert into public.commitments (id, company_id, owner_id, description, week_ending, due_date, added_via_assistant, added_via_client_id) values (%L, %L, %L, %L, public.friday_of(current_date), current_date, %L, %L)',
+      '${AC}', '${CO}', '${M}', 'probe 0278 via assistant', 'Not Really Claude', 'forged');
+    execute format('select coalesce(added_via_assistant, ''null'') || ''|'' || coalesce(added_via_client_id, ''null'') from public.commitments where id = %L', '${AC}') into v;
+    o := v;
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _x values ('marker_commitment', o);
+  begin
+    execute format('insert into public.issues (id, company_id, title, added_via_assistant) values (%L, %L, %L, %L)', '${AI}', '${CO}', 'probe 0278 issue', 'Not Really Claude');
+    execute format('select coalesce(added_via_assistant, ''null'') from public.issues where id = %L', '${AI}') into v;
+    o := v;
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _x values ('marker_issue', o);
+  begin
+    execute format('insert into public.success_measure_entries (measure_id, week_ending, value_number, added_via_assistant) values (%L, public.friday_of(current_date - 7), 1, %L)', '${MS}', 'Not Really Claude');
+    execute format('select coalesce(added_via_assistant, ''null'') from public.success_measure_entries where measure_id = %L and week_ending = public.friday_of(current_date - 7)', '${MS}') into v;
+    o := v;
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _x values ('marker_value', o);
+
+  -- kept / missed on arrival
+  begin
+    insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status, completed_at)
+    values ('${CO}', '${M}', 'probe 0278 kept', public.friday_of(current_date), current_date, 'kept_on_time', now());
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('arrive_kept', o);
+  begin
+    insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status, missed_reason)
+    values ('${CO}', '${M}', 'probe 0278 missed', public.friday_of(current_date), current_date, 'missed', 'x');
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('arrive_missed', o);
+
+  -- no update, no delete, even of what it added
+  begin
+    update public.commitments set status = 'kept_on_time', completed_at = now() where id = '${UC}';
+    get diagnostics n = row_count; o := n::text;
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('update_commitment', o);
+  begin
+    delete from public.commitments where id = '${UC}';
+    get diagnostics n = row_count; o := n::text;
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('delete_commitment', o);
+  begin
+    update public.issues set status = 'resolved', resolved_at = now() where id = '${UI}';
+    get diagnostics n = row_count; o := n::text;
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('update_issue', o);
+
+  -- a value on the function they lead, plainly (no marker column named)
+  begin
+    insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${MS}', public.friday_of(current_date - 21), 1);
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('lead_value', o);
+
+  -- a non-Lead's value
+  begin
+    insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${MS2}', public.friday_of(current_date - 7), 1);
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('non_lead_value', o);
+
+  -- overwrite a filled week, both ways
+  begin
+    insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${MS}', public.friday_of(current_date - 14), 9);
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('overwrite_insert', o);
+  begin
+    insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${MS}', public.friday_of(current_date - 14), 9)
+    on conflict (measure_id, week_ending) do update set value_number = excluded.value_number;
+    o := 'written';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('overwrite_upsert', o);
+  begin
+    update public.success_measure_entries set value_number = 9 where measure_id = '${MS}' and week_ending = public.friday_of(current_date - 14);
+    get diagnostics n = row_count; o := n::text;
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('overwrite_update', o);
+
+  -- the same add without the route key
+  perform set_config('request.headers', '{}', true);
+  begin
+    insert into public.commitments (company_id, owner_id, description, week_ending, due_date)
+    values ('${CO}', '${M}', 'probe 0278 no key', public.friday_of(current_date), current_date);
+    o := 'inserted';
+  exception when others then o := 'refused ' || sqlstate; end;
+  insert into _x values ('no_route_key', o);
+
+  -- the app's own sign-in: cannot set the marker, cannot clear it
+  perform set_config('request.jwt.claims', as_app, true);
+  begin
+    execute format('insert into public.commitments (id, company_id, owner_id, description, week_ending, due_date, added_via_assistant) values (%L, %L, %L, %L, public.friday_of(current_date), current_date, %L)',
+      '${PC}', '${CO}', '${M}', 'probe 0278 app', 'Not Really Claude');
+    execute format('select coalesce(added_via_assistant, ''null'') from public.commitments where id = %L', '${PC}') into v;
+    o := v;
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _x values ('app_sets_marker', o);
+  begin
+    execute format('update public.commitments set added_via_assistant = null, added_via_client_id = null where id = %L', '${AC}');
+    execute format('select coalesce(added_via_assistant, ''null'') from public.commitments where id = %L', '${AC}') into v;
+    o := v;
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _x values ('app_clears_marker', o);
+end $$;
+reset role;
+insert into _x select 'week_value', value_number::text from public.success_measure_entries where measure_id = '${MS}' and week_ending = public.friday_of(current_date - 14);
+select jsonb_object_agg(k, v)::text as r from _x;`, "rollback;"].join("\n"));
+    r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  } catch (err) {
+    const detail = `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}`;
+    return ["marker", "kept or missed", "no change", "route", "lead", "overwrite"].map((n) => ({
+      name: `assistant adds · ${n}`, granted: "not measured", withheld: "not measured", ok: false, detail,
+    }));
+  }
+  const refused = (k: string) => r[k] === "refused 42501";
+  const out: GrantProbe[] = [];
+  const markerOk = r.marker_commitment === `Harness Assistant|${C}` && r.marker_issue === "Harness Assistant" &&
+    r.marker_value === "Harness Assistant" && r.app_sets_marker === "null" && r.app_clears_marker === "Harness Assistant";
+  out.push({
+    name: "assistant adds · the marker",
+    granted: `an assistant's commitment: ${r.marker_commitment === `Harness Assistant|${C}` ? "Harness Assistant, its own client id" : r.marker_commitment} | issue: ${r.marker_issue} | value: ${r.marker_value} (each asked to say "Not Really Claude")`,
+    withheld: `the app's own sign-in setting it: ${r.app_sets_marker} | clearing it later: still ${r.app_clears_marker} (want null, Harness Assistant)`,
+    ok: markerOk,
+    detail: markerOk
+      ? "the database marks what an assistant adds, from the token, and nobody can fake, skip or remove the mark"
+      : "THE ASSISTANT MARK CAN BE SKIPPED, FAKED OR CHANGED (is 0278 applied?)",
+  });
+  const keptOk = refused("arrive_kept") && refused("arrive_missed");
+  out.push({
+    name: "assistant adds · never kept or missed",
+    granted: "an open commitment of their own (see the marker probe)",
+    withheld: `arriving kept: ${r.arrive_kept} | arriving missed: ${r.arrive_missed} (want refused 42501 each)`,
+    ok: keptOk,
+    detail: keptOk ? "an assistant can only add a commitment that is open" : "AN ASSISTANT CAN ADD A COMMITMENT ALREADY KEPT OR MISSED",
+  });
+  const changeOk = r.update_commitment === "0" && r.delete_commitment === "0" && r.update_issue === "0";
+  out.push({
+    name: "assistant adds · no update or delete",
+    granted: "adds only",
+    withheld: `marking the person's commitment kept: ${r.update_commitment} rows | deleting it: ${r.delete_commitment} rows | resolving their issue: ${r.update_issue} rows (want 0 each)`,
+    ok: changeOk,
+    detail: changeOk ? "an assistant changes and deletes nothing, even where the person could" : "AN ASSISTANT CAN CHANGE OR DELETE",
+  });
+  const routeOk = refused("no_route_key");
+  out.push({
+    name: "assistant adds · only through the route",
+    granted: "the same add with the route key (see the marker probe)",
+    withheld: `the add without the route key: ${r.no_route_key} (want refused 42501)`,
+    ok: routeOk,
+    detail: routeOk ? "an add sent straight to the database, around /api/mcp, is refused" : "AN ASSISTANT CAN ADD AROUND THE MCP ROUTE",
+  });
+  const leadOk = refused("non_lead_value") && r.lead_value === "inserted";
+  out.push({
+    name: "assistant adds · values only for the Lead",
+    granted: `a value on the function they lead: ${r.lead_value}`,
+    withheld: `a value on a function they don't lead: ${r.non_lead_value} (want refused 42501)`,
+    ok: leadOk,
+    detail: leadOk ? "an assistant enters values only where the person may: admin or the function's Lead" : "AN ASSISTANT ENTERS A VALUE FOR SOMEONE WHO IS NOT THE LEAD",
+  });
+  const overwriteOk = /^refused /.test(r.overwrite_insert ?? "") && refused("overwrite_upsert") && r.overwrite_update === "0" && r.week_value === "5";
+  out.push({
+    name: "assistant adds · never over a filled week",
+    granted: "an empty week (see the lead probe)",
+    withheld: `a second value for a filled week: ${r.overwrite_insert} | an upsert over it: ${r.overwrite_upsert} | an update: ${r.overwrite_update} rows | the week still reads: ${r.week_value} (want refused, refused 42501, 0, 5)`,
+    ok: overwriteOk,
+    detail: overwriteOk ? "an assistant never overwrites a week's value" : "AN ASSISTANT CAN OVERWRITE A FILLED WEEK",
+  });
+  return out;
+}
+
 // ---- No self-service email change (0271) ---------------------------
 //
 // The Auth API does not run as the token's role, so the allow list
@@ -13491,6 +13719,7 @@ async function main(): Promise<void> {
     ...(await assistantActionLogProbes(run, pendingSql)),
     ...(await assistantRouteOnlyProbes(run, ids, pendingSql)),
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
+    ...(await assistantAddProbes(run, ids, pendingSql)),
   ];
   const contactChange = await selfServiceContactChangeProbes(run, ids, pendingSql);
   const panelEvents = [

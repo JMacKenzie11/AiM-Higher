@@ -96,6 +96,24 @@ Rules:
 - Every fence must close before EOF — an unclosed fence logs a
   warning and renders the whole doc unfiltered (fail-open).
 
+**Feature fences** gate a section to people who can use a feature,
+whatever their role (Jason, 2026-10-14: clients must not see help for
+a feature they can't use):
+
+```md
+::: feature outside_assistants
+Help about connecting an outside assistant.
+:::
+```
+
+- Known features are listed in `HELP_FEATURES` (`src/lib/help/loader.ts`).
+  `outside_assistants` is on when `MCP_ENABLED` is set and the viewer's
+  role is open to it (system admins until `MCP_FOR_EVERYONE`).
+- **Fail-closed**, unlike role fences: an unclosed feature fence drops
+  everything after it. `helpDocProblems()` fails the test suite on an
+  unclosed or unknown fence, so that never ships.
+- Don't nest a feature fence inside a role fence or the other way round.
+
 ## Standard template
 
 Every help doc should follow this shape. It answers the two

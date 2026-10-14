@@ -28,6 +28,7 @@ import { CommitmentRow } from "../commitments/CommitmentRow";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import styles from "./issues.module.css";
 import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
+import { ViaAssistantBadge } from "@/components/ui/ViaAssistantBadge";
 
 // One issue = one row. Five columns match the /commitments visual
 // vocabulary: Issue | What we want | Commitment | Assigned To |
@@ -168,6 +169,9 @@ export function IssueCard({
         <IssueTitleEditor issue={issue} canEdit={canEdit} />
         {/* For whoever can reword it (0250). */}
         {issue.needs_rewording && canEdit ? <NeedsRewordingTag /> : null}
+        {/* Issues show no raiser's name, so the mark sits by the title
+            (0278). */}
+        <ViaAssistantBadge name={issue.added_via_assistant} />
       </div>
 
       <div className={styles.cellWant}>

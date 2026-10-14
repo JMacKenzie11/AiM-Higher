@@ -194,7 +194,7 @@ function seedHappyPath() {
   ]);
 
   seed(
-    "commitments::id, description, week_ending, owner_id, priority_id, completed_at",
+    "commitments::id, description, week_ending, owner_id, priority_id, completed_at, added_via_assistant",
     [
       {
         id: "c_win",
@@ -436,6 +436,7 @@ describe("getDashboardData — recent successes", () => {
       ownerId: "p_ana",
       ownerName: "Ana Ruiz",
       priorityTitle: "Northern expansion",
+      viaAssistant: null,
     });
     // No owner → "Unassigned" (not an em-dash, which is reserved for
     // an owner id that doesn't resolve). No priority → null.

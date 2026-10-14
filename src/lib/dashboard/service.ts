@@ -83,6 +83,8 @@ export type RecentSuccess = {
   ownerName: string;
   ownerId: string | null;
   priorityTitle: string | null;
+  // The outside assistant it was added through, if any (0278).
+  viaAssistant: string | null;
 };
 
 export async function getDashboardData(
@@ -407,7 +409,7 @@ async function loadRecentSuccesses(
   const { data: rows } = await supabase
     .from("commitments")
     .select(
-      "id, description, week_ending, owner_id, priority_id, completed_at"
+      "id, description, week_ending, owner_id, priority_id, completed_at, added_via_assistant"
     )
     .eq("company_id", companyId)
     .in("status", ["kept_on_time", "kept_late"])
@@ -426,6 +428,7 @@ async function loadRecentSuccesses(
       | "owner_id"
       | "priority_id"
       | "completed_at"
+      | "added_via_assistant"
     >
   >;
   if (commitments.length === 0) return [];
@@ -478,5 +481,6 @@ async function loadRecentSuccesses(
     ownerId: c.owner_id,
     ownerName: c.owner_id ? nameById.get(c.owner_id) ?? "—" : "Unassigned",
     priorityTitle: c.priority_id ? priorityTitleById.get(c.priority_id) ?? null : null,
+    viaAssistant: c.added_via_assistant ?? null,
   }));
 }
