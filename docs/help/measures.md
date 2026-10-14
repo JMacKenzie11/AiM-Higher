@@ -12,12 +12,12 @@ For example: "Zero lost time incidents" or "Percentage of reports accepted first
 ## What you can do here
 
 - **Read every function.** Everyone at your company can see every function's numbers.
-- **Log your function's numbers.** If you lead a function, you get an input box on its rows. Type this week's value and click **Save** above the table.
+- **Log your function's numbers.** If you lead a function, or you're set as the person who tracks its numbers, you get an input box on its rows. Type this week's value and click **Save** above the table.
 - **Run your own function's list.** As a function's lead you can also add a critical success factor, change a target, edit its settings and archive rows you've outgrown. On other functions you see the numbers but no boxes or edit controls.
 - **Reorder your function's rows.** Drag a row by its handle.
 - **Connect a measure to a spreadsheet or to HubSpot**, for a function you lead, when your company has External Measures turned on.
 
-If you don't lead a function, the page is read only for you.
+If you don't lead a function or track one, the page is read only for you. Tracking a function gives you the input boxes only: adding or editing its critical success factors stays with the lead and admins.
 :::
 
 ::: role company_admin,aims_guide,system_admin

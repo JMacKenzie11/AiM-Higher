@@ -463,7 +463,7 @@ export function MeasuresGrid({
   const writableRows = useMemo(
     () =>
       data.groups
-        .filter((g) => g.canLog)
+        .filter((g) => g.canEnter)
         .flatMap((g) => g.rows.filter((r) => isDueInWeek(r, chasedWeek))),
     [data.groups, chasedWeek]
   );
@@ -559,7 +559,7 @@ export function MeasuresGrid({
     // slow, would report a meaningless "Saved N values", and would
     // rewrite rows nobody touched.
     const entries: MeasureEntryInput[] = data.groups
-      .filter((g) => g.canLog)
+      .filter((g) => g.canEnter)
       .flatMap((g) =>
         g.rows.flatMap((r) =>
           // DEDUPED ONTO THE STORAGE WEEK. A monthly measure shows a
@@ -1365,7 +1365,7 @@ export function MeasuresGrid({
                               span={col.span}
                               isCurrent={col.key === weekEnding}
                               editable={cellEditable(row, col.key)}
-                              canLog={group.canLog}
+                              canEnter={group.canEnter}
                               storageWeek={storageWeek(row, col.key)}
                               value={
                                 values[
@@ -1548,7 +1548,7 @@ function GridCellView({
   storageWeek,
   isCurrent,
   editable,
-  canLog,
+  canEnter,
   value,
   onChange,
   disabled,
@@ -1568,7 +1568,8 @@ function GridCellView({
   // that is true across its whole month, not only on the week the
   // value lands in.
   editable: boolean;
-  canLog: boolean;
+  // An admin here, the function's Lead, or its Tracker (canEnter).
+  canEnter: boolean;
   value: string;
   onChange: (v: string) => void;
   disabled: boolean;
@@ -1621,7 +1622,7 @@ function GridCellView({
       ? `Target ${cell.target} this week`
       : undefined;
 
-  if (editable && canLog) {
+  if (editable && canEnter) {
     return (
       <td className={className} colSpan={span} title={title}>
         <input
