@@ -77,18 +77,12 @@ export function ChampionForm({
           second trigger ships, while reading — to the person who
           holds it — like the whole job.
 
-          The second sentence stays whatever else changes. Somebody
-          reading "champion" next to a person picker will assume it
-          grants something unless told plainly that it does not. */}
+          One sentence, Jason's own (2026-10-15). What the seat does
+          today and that it grants no access are in the help page for
+          this screen. */}
       <p className={styles.subtitleInline}>
         This is the person who will lead your implementation of AiMS, and
-        who Aimee will coach through the process. Today that starts after
-        each leadership meeting is summarised, with a note on Aimee&rsquo;s
-        icon inviting them to talk it through.
-      </p>
-      <p className={styles.subtitleInline}>
-        It changes nothing else: the seat grants no access, and anyone who
-        could already see this company&rsquo;s work still can.
+        who Aimee will coach through the process.
       </p>
 
       {saved === "" ? (
