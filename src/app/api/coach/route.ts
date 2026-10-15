@@ -58,6 +58,7 @@ import {
   type CoachingMessage,
 } from "@/lib/coach/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { callSettings } from "@/lib/transcripts/model";
 
 // POST /api/coach — streaming chat endpoint for the coaching feature.
 //
@@ -970,7 +971,6 @@ export async function POST(req: NextRequest): Promise<Response> {
           void generateTitleForConversation({
             client,
             model,
-            systemPromptText,
             messages,
             assistantText,
             conversationId,
@@ -1220,10 +1220,17 @@ function streamErrorResponse(message: string): Response {
 // four-word label and write it to the conversation title. Non-blocking
 // on the main response; failures are swallowed silently (the default
 // date title is still perfectly usable).
+//
+// A one-line prompt rather than the agent's whole prompt (2026-10-15):
+// labelling needs only the exchange, and resending the full prompt
+// cost about 14,000 tokens a title. Thinking off, so the 64-token
+// budget always leaves room for the label.
+const TITLE_SYSTEM =
+  "You label coaching conversations in AiMS HQ with a short topic, from the exchange alone.";
+
 async function generateTitleForConversation(args: {
   client: Anthropic;
   model: string;
-  systemPromptText: string;
   messages: Anthropic.MessageParam[];
   assistantText: string;
   conversationId: string;
@@ -1245,14 +1252,9 @@ async function generateTitleForConversation(args: {
       {
         model: args.model,
         max_tokens: 64,
+        ...callSettings(args.model, "off"),
         messages: followup,
-        system: [
-          {
-            type: "text",
-            text: args.systemPromptText,
-            cache_control: { type: "ephemeral" },
-          },
-        ],
+        system: TITLE_SYSTEM,
       },
       { signal: args.signal }
     );

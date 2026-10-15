@@ -5,6 +5,7 @@ import { anthropic, ANTHROPIC_MODEL } from "@/lib/strengths/anthropic";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { VOICE_RULES } from "@/lib/strengths/voice-rules";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { callSettings } from "@/lib/transcripts/model";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
   const response = await client.messages.create({
     model: ANTHROPIC_MODEL,
     max_tokens: 300,
+    ...callSettings(ANTHROPIC_MODEL, "off"),
     system: SYSTEM_PROMPT,
     messages: messages.map((m: { role: string; content: string }) => ({
       role: m.role === "assistant" ? "assistant" : "user",

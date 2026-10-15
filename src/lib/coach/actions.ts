@@ -22,6 +22,7 @@ import { cleanGeneratedTitle, defaultTitleForToday } from "./title";
 import { createGeneralConversation } from "./create-general";
 import { logCoachTokenUsage } from "./usage";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { callSettings } from "@/lib/transcripts/model";
 
 // Coaching-specific server actions. Access checks live here AND in
 // RLS — never trust one alone.
@@ -473,6 +474,7 @@ export async function generateConversationTitleAction(
       // model and the volume is one call per conversation started.
       model: "claude-haiku-5-5",
       max_tokens: 40,
+      ...callSettings("claude-haiku-5-5", "off"),
       system:
         "You produce short, specific titles for coaching conversations. Return 4–8 words of plain text that capture the topic. No quotes, no trailing punctuation, no markdown formatting (no asterisks, underscores, backticks, or hash marks). Prefer concrete nouns and verbs over generic labels.",
       messages: [

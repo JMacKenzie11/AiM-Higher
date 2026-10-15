@@ -11,6 +11,7 @@ import { todayInTimezone } from "@/lib/dates";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import type { Commitment, Priority } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { callSettings } from "@/lib/transcripts/model";
 
 // Once-a-day AI "Week in review" for the dashboard.
 //
@@ -128,6 +129,7 @@ export async function getOrGenerateDashboardBrief(
     const response = await client.messages.create({
       model,
       max_tokens: MAX_TOKENS,
+      ...callSettings(model, "off"),
       system: [
         {
           type: "text",

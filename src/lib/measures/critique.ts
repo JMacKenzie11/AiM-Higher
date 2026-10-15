@@ -3,6 +3,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import type { MetricValueType, TargetDirection } from "@/lib/types";
+import { callSettings } from "@/lib/transcripts/model";
 
 // AI-scored quality check for a metric draft on the chart. Judges
 // description quality, target quality, and how well the proposed
@@ -16,7 +17,10 @@ import type { MetricValueType, TargetDirection } from "@/lib/types";
 // Flag-not-block: every hint is advisory. Best-effort — a missing
 // API key, a thrown error, or unparseable output all return null.
 
-const DEFAULT_MODEL = "claude-sonnet-5";
+// Haiku 5.5 from 2026-10-15 (Jason), after side by side samples on dev
+// matched Sonnet's verdicts. Thinking off: under this budget a model left
+// to think can use it all and return no text.
+const DEFAULT_MODEL = "claude-haiku-5-5";
 const MAX_TOKENS = 400;
 
 export type MeasureCritique = {
@@ -68,6 +72,7 @@ export async function scoreMeasureDraft(input: {
     const res = await client.messages.create({
       model,
       max_tokens: MAX_TOKENS,
+      ...callSettings(model, "off"),
       system: [{ type: "text", text: SYSTEM_PROMPT }],
       messages: [{ role: "user", content: userMessage }],
     });

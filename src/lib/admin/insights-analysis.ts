@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { ANONYMITY_RULE, type AnonymityFault, type Anonymiser } from "@/lib/aimee/anonymise";
+import { callSettings } from "@/lib/transcripts/model";
 
 // ONE CONVERSATION, SUMMARISED ANONYMOUSLY, for the coaching insights
 // card (/api/cron/coaching-insights). Moved out of the route so the
@@ -123,7 +124,7 @@ export async function analyzeConversation(
   onMessage?: (m: Anthropic.Message) => void
 ): Promise<AnonymousAnalysis> {
   const ask: Anthropic.MessageParam[] = [{ role: "user", content: prompt(scrubbedTranscript) }];
-  const first = await client.messages.create({ model, max_tokens: 400, messages: ask });
+  const first = await client.messages.create({ model, max_tokens: 400, ...callSettings(model, "off"), messages: ask });
   onMessage?.(first);
   let payload = parseAnalysis(textOf(first));
   let faults = faultsIn(payload, anon);
@@ -132,6 +133,7 @@ export async function analyzeConversation(
   const second = await client.messages.create({
     model,
     max_tokens: 400,
+    ...callSettings(model, "off"),
     messages: [
       ...ask,
       { role: "assistant", content: textOf(first) },

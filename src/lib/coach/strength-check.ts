@@ -9,6 +9,7 @@
 // slow check must never hold a reply back, and a missed one is counted
 // in the weekly figures like any other.
 import type Anthropic from "@anthropic-ai/sdk";
+import { callSettings } from "@/lib/transcripts/model";
 
 export const STRENGTH_CHECK_MODEL = "claude-haiku-5-5";
 const TIME_LIMIT_MS = 2500;
@@ -54,6 +55,7 @@ export async function skippedStrength(
       {
         model: STRENGTH_CHECK_MODEL,
         max_tokens: 80,
+        ...callSettings(STRENGTH_CHECK_MODEL, "off"),
         system: SYSTEM,
         messages: [{ role: "user", content: `<leader>${userText}</leader>\n<reply>${reply}</reply>` }],
       },
