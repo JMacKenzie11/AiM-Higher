@@ -263,6 +263,8 @@ export async function generateInvitationCard(
     championName: string | null;
     strengths: string[];
     recentInvitations: string[];
+    // Logged under its own purpose by the caller (0285), once per try.
+    onMessage?: (message: Anthropic.Message) => void;
   }
 ): Promise<InvitationCard> {
   // The names the card can mention, so "Jeff was out with the flu" is
@@ -308,6 +310,7 @@ export async function generateInvitationCard(
         system: [{ type: "text", text: `${SYSTEM}\n\n${principles}` }],
         messages,
       });
+      input.onMessage?.(response);
       const raw = response.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)

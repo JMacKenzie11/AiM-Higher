@@ -35,7 +35,7 @@ export const maxDuration = 300;
 
 // Haiku, deliberately: this runs fleet-wide on a schedule and
 // the work is extraction rather than judgement.
-const MODEL = "claude-haiku-4-5";
+const MODEL = "claude-haiku-5-5";
 const BATCH_LIMIT = 40;
 // Cap transcript payload so a runaway thread can't blow the token
 // budget for one row. Ten most-recent messages + 800 chars each is

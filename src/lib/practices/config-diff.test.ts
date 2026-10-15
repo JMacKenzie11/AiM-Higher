@@ -27,12 +27,12 @@ describe("fieldChanges", () => {
   it("names each field that changed, and says what it was", () => {
     const changes = fieldChanges(base, {
       ...base,
-      model: "claude-haiku-4-5",
+      model: "claude-haiku-5-5",
       maxTokens: 8000,
     });
     expect(changes).toEqual([
       { label: "Token ceiling", before: "not set", after: "8000" },
-      { label: "Model", before: "not set", after: "claude-haiku-4-5" },
+      { label: "Model", before: "not set", after: "claude-haiku-5-5" },
     ]);
   });
 

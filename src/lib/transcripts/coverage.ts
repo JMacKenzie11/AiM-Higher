@@ -108,6 +108,8 @@ export async function checkCoverage(
     transcript: string;
     extracted: string[];
     speakerBlock: string;
+    // Logged under its own purpose by the caller (0285).
+    onMessage?: (message: Anthropic.Message) => void;
   }
 ): Promise<CoverageReport | null> {
   try {
@@ -131,6 +133,7 @@ export async function checkCoverage(
         },
       ],
     });
+    input.onMessage?.(response);
     if (data === null) {
       console.error(
         `[coverage] no JSON answer — stop_reason=${response.stop_reason}`

@@ -8,7 +8,7 @@ pull requests, not here.*
 
 **Target customer:** Owner-led companies, $2M–$50M revenue, 10–150 employees. Bought by the CEO/owner or COO. Delivered through the AiMS advisor network.
 
-**Stack signals:** Next.js 15 App Router (server components + server actions), Supabase (Postgres + auth + Storage + RLS), Anthropic Claude for AI (Sonnet 4.6 for reasoning-heavy tasks, Haiku 4.5 for lightweight quality-check passes), Resend for transactional email, Google Drive for transcript ingest. Multi-tenant on shared Postgres with row-level security. SSE streaming for chat + AI briefs.
+**Stack signals:** Next.js 15 App Router (server components + server actions), Supabase (Postgres + auth + Storage + RLS), Anthropic Claude for AI (Sonnet 5 for most surfaces, Opus 5.5 for the meeting pipeline, Haiku 5.5 for small fixed-shape calls; Section 9b), Resend for transactional email, Google Drive for transcript ingest. Multi-tenant on shared Postgres with row-level security. SSE streaming for chat + AI briefs.
 
 **Strengths visibility is the one exception to this paragraph** (2026-10-02, 0253): everyone in a company reads its people's strengths results (`strengths_assessments`, `strengths_results`) and its team strengths (`strengths_teams` and the three tables under it), behind the `strengths` feature; a person's raw answers (`strengths_responses`) and their assessment conversation (`strengths_narrative_messages`) stay their own. Only the person reads them, and a system admin for support (Jason, 2026-10-13). 0267 dropped the read 0191 had given every portfolio admin across every company, and 0269 dropped the company admin's read of their own people's answers; no guide rule ever read them. Harness probes `strengths answers · not a portfolio admin's` and `strengths answers · the person and support only`. `/people/[id]/strengths` and `/strengths/teams` open to the company read-only: the strengths editor and the team builder (`TeamPage readOnly`, which also never generates an evaluation, since generating writes it) stay with those who could change them. Otherwise, **this document intentionally excludes the Strengths module and any strengths-related surfaces** — Strengths ships alongside the platform but is scoped separately for research purposes. Where it intersects the coach (as a tool), that intersection is noted so a competitive analysis can factor it in.
 
@@ -624,7 +624,13 @@ There is no single place this is declared — each surface reads its own env var
 - **Three paths went back to `claude-haiku-4-5`** the same day: **auto-titling**, the **themes cron** and the **coaching-insights cron**. Each is high-frequency, fleet-wide, and extraction rather than judgement — auto-titling asks for four to eight words at `max_tokens: 40` on every conversation's first exchange. Nothing about those rewards a larger model.
 - **Still on Sonnet 5, and previously Haiku:** coach memory (`memory-actions.ts`), measure critique, target check and the role-description suggestions (`clarity.ts`, `critique.ts`, `target-check.ts`, `recommend.ts`). These read a person's words and judge them, which is the line the three above fall the other side of.
 - **`claude-haiku-4-5-20251001`** appeared in three files with a date suffix. Current model ids are complete as-is and take no suffix; the bare form is what the rest of the app used.
-- **`coach/usage.ts` carries a rate table** and it is what turns tokens into dollars. Sonnet 5's rate was added with the move; the Sonnet 4.6 and Haiku rows stay so rows logged before it are still priced at what they actually cost. `ratesFor` matches by PREFIX, so a future `claude-sonnet-5-1` would be caught by the `claude-sonnet-5` entry unless it is listed above it.
+- **`coach/usage.ts` carries a rate table** and it is what turns tokens into dollars, at Anthropic's published prices (as of 2026-10-14). `ratesFor` matches by PREFIX, so a longer id is listed above a shorter one that prefixes it (`claude-opus-5-5` above `claude-opus-5`, `claude-sonnet-5-5` above `claude-sonnet-5`). An unknown model is costed at the dearest rate in use, Opus 5.5, so a new model is over-reported rather than under-reported. Haiku 5.5 has a second rate for a prompt over 100,000 tokens, counting cache reads and writes. Old models' rows stay so rows logged before a move are priced at what they cost.
+- **The cost log, fixed 2026-10-14 (0285; Jason).** Three faults made `coach_token_usage` under-count:
+  1. Opus 5.5 had no rate, so the meeting pipeline was logged at Sonnet's price, about half its cost.
+  2. `cost_usd_cents` was a whole number, so every Haiku call was logged as 0 cents. It is now `numeric(12,4)`.
+  3. Six calls were never logged. Each now logs under its own purpose: `speakers`, `coverage`, `questions`, `invitation` (the Guide's card), `principles_check` (Agent Hub) and `session_brief` (HQ). They log through `usageLogger`, which a caller builds with the company and passes down as `onMessage`.
+- **Haiku 5.5 replaced Haiku 4.5 on 2026-10-14** (Jason), at a tenth of the price ($0.10/$0.50 per MTok against $1/$5), on everything that ran Haiku 4.5: auto-titling, the themes and coaching-insights crons, and the first reply's strength check. The Agent Hub offers Haiku 5.5 in its place; no agent had chosen Haiku 4.5. Probed first: Haiku 5.5 accepts every request shape AiMS sends (system caching, thinking off or adaptive, `output_config` effort and JSON format, a forced tool), and refuses `temperature`, which AiMS never sets.
+- **Dev and production share one Anthropic workspace**, so the invoice in `anthropic_daily_cost` includes development and testing: September was $65 invoiced against about $10 logged by production. A separate key and workspace for dev would make the invoice production's alone.
 
 ---
 
@@ -1478,7 +1484,7 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
     5. Ask Aimee (same as coach, general mode)
     6. Dashboard "Week in review" brief (cached per prompt-hash)
     7. Session Brief (Guide HQ *Prepare for {company}* action; one-shot, best-effort with inline retry on error)
-  - **Haiku 4.5** (`ANTHROPIC_CLARITY_MODEL`, default Haiku 4.5) — lightweight quality-check passes:
+  - **Sonnet 5** (`ANTHROPIC_CLARITY_MODEL`, default Sonnet 5 since 2026-09-22; Section 9b) — lightweight quality-check passes:
     8. Commitment clarity scoring (on every save)
     9. Target validation (advisory)
     10. Measure-draft critique panel (Measure / Target / Fit dimensions)

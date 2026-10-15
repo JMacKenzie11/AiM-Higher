@@ -194,6 +194,8 @@ export async function mapSpeakers(
     // any company glossary, so spellings resolve here rather than
     // three times downstream.
     companyContextBlock: string;
+    // Logged under its own purpose by the caller (0285).
+    onMessage?: (message: Anthropic.Message) => void;
   }
 ): Promise<SpeakerMap | null> {
   try {
@@ -216,6 +218,7 @@ export async function mapSpeakers(
         },
       ],
     });
+    input.onMessage?.(response);
     if (data === null) {
       // Say WHY. A null here sends every later section back to
       // guessing, and "no speaker map" on its own does not tell
