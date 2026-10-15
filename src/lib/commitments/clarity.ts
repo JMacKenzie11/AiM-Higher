@@ -2,6 +2,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { callSettings } from "@/lib/transcripts/model";
 
 // Auto-score a single commitment against the two AiMS clarity
 // criteria and (when either fails) return a short refinement note.
@@ -17,7 +18,10 @@ import { logCoachTokenUsage } from "@/lib/coach/usage";
 // manually. Better to let the save succeed than to fail the flow
 // on an ancillary AI call.
 
-const DEFAULT_MODEL = "claude-sonnet-5";
+// Haiku 5.5 from 2026-10-15 (Jason), after side by side samples on dev
+// matched Sonnet's verdicts. Thinking off: under this budget a model left
+// to think can use it all and return no text.
+const DEFAULT_MODEL = "claude-haiku-5-5";
 const MAX_TOKENS = 400;
 
 export type ClarityScore = {
@@ -55,6 +59,7 @@ export async function scoreCommitmentClarity(
     const res = await client.messages.create({
       model,
       max_tokens: MAX_TOKENS,
+      ...callSettings(model, "off"),
       system: [{ type: "text", text: SYSTEM_PROMPT }],
       messages: [{ role: "user", content: userMessage }],
     });

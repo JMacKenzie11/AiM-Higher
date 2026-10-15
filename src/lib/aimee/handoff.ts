@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GateProfile } from "@/lib/practices/gate";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { offerableSessions, type OfferableSession } from "./session-offers";
+import { callSettings } from "@/lib/transcripts/model";
 
 // WHICH AGENT A HANDED-OVER TOPIC OPENS (0281).
 //
@@ -17,7 +18,10 @@ import { offerableSessions, type OfferableSession } from "./session-offers";
 // the model is asked once which session, if any, fits it. No fit, or
 // any failure, opens plain Aimee with the topic.
 
-const DEFAULT_MODEL = "claude-sonnet-5";
+// Haiku 5.5 from 2026-10-15 (Jason), after side by side samples on dev
+// matched Sonnet on 6 of 8 topics; a miss opens plain Aimee. Thinking off: under this budget a model left
+// to think can use it all and return no text.
+const DEFAULT_MODEL = "claude-haiku-5-5";
 
 export function routingPrompt(sessions: readonly OfferableSession[]): string {
   const list = sessions.map((s) => `- ${s.id}: ${s.title}. Fits when: ${s.offerWhen}`).join("\n");
@@ -50,6 +54,7 @@ export async function chooseAgentForTopic(args: {
     const res = await client.messages.create({
       model,
       max_tokens: 40,
+      ...callSettings(model, "off"),
       system: [{ type: "text", text: routingPrompt(sessions) }],
       messages: [{ role: "user", content: `Topic: ${args.topic.trim()}` }],
     });

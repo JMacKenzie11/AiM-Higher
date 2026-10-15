@@ -5,6 +5,7 @@ import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { formatContextForPrompt, loadFunctionContext } from "./context";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
+import { callSettings } from "@/lib/transcripts/model";
 
 // Direct one-shot recommendation service for the Role Description
 // interview. Mirrors the shape of src/lib/measures/critique.ts —
@@ -81,6 +82,7 @@ export async function recommendForFunction(input: {
     const res = await client.messages.create({
       model,
       max_tokens: MAX_TOKENS,
+      ...callSettings(model, "off"),
       system: [{ type: "text", text: systemPrompt }],
       messages: [{ role: "user", content: userMessage }],
     });

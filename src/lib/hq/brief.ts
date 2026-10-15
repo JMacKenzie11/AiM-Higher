@@ -8,6 +8,7 @@ import { loadCompanyScorecard } from "@/lib/maturity/service";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { callSettings } from "@/lib/transcripts/model";
 
 // Session Brief generator. One Anthropic call per invocation; the
 // result is appended as a new row to session_briefs (never
@@ -247,6 +248,7 @@ export async function generateSessionBrief(
     const response = await client.messages.create({
       model,
       max_tokens: MAX_TOKENS,
+      ...callSettings(model, "off"),
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     });

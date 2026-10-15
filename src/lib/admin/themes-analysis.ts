@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { ANONYMITY_RULE, type AnonymityFault, type Anonymiser } from "@/lib/aimee/anonymise";
+import { callSettings } from "@/lib/transcripts/model";
 
 // FIVE THEMES ACROSS RECENT CONVERSATIONS, ANONYMOUSLY, for the themes
 // card (/api/cron/themes). The titles and first messages arrive
@@ -79,7 +80,7 @@ export async function clusterThemes(
   onMessage?: (m: Anthropic.Message) => void
 ): Promise<AnonymousThemes> {
   const ask: Anthropic.MessageParam[] = [{ role: "user", content: prompt(scrubbedLines) }];
-  const first = await client.messages.create({ model, max_tokens: 900, messages: ask });
+  const first = await client.messages.create({ model, max_tokens: 900, ...callSettings(model, "off"), messages: ask });
   onMessage?.(first);
   let themes = parseThemes(textOf(first));
   const faults = [...new Set(themes.flatMap((t) => faultsOf(t, anon)))];
@@ -88,6 +89,7 @@ export async function clusterThemes(
   const second = await client.messages.create({
     model,
     max_tokens: 900,
+    ...callSettings(model, "off"),
     messages: [
       ...ask,
       { role: "assistant", content: textOf(first) },
