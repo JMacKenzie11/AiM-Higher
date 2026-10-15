@@ -106,12 +106,10 @@ test.describe("the AiMS champion seat", () => {
       timeout: 30_000,
     });
 
-    // The sentence is the control's whole explanation, and the thing
-    // most likely to be quietly cut in a later edit. "Champion" next
-    // to a person picker reads as a grant unless it is denied out
-    // loud.
+    // The card's one sentence (Jason, 2026-10-15). That the seat
+    // grants no access is said in the help page instead.
     await expect(
-      page.getByText(/the seat grants no access/i)
+      page.getByText(/who will lead your implementation of AiMS/i)
     ).toBeVisible({ timeout: 30_000 });
 
     // Cleared first, so the save below is always a real change and
