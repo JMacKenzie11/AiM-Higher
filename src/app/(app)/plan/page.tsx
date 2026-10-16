@@ -25,6 +25,8 @@ import type { Profile } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { thisFriday } from "@/lib/dates";
 
+export const metadata = { title: "Goals & Priorities" };
+
 // Plan workspace — Section 8.3.
 
 type PageProps = {
@@ -43,6 +45,7 @@ type PageProps = {
 // The word "open" is load-bearing. "1 commitment" beside a bar
 // reading 50% looks like one of the two numbers is wrong, and only
 // the label tells you they are answering different questions.
+
 export default async function PlanPage({ searchParams }: PageProps) {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);

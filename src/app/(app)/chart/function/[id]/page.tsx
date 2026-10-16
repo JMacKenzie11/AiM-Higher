@@ -24,6 +24,8 @@ import { RoleDescriptionReadiness } from "./RoleDescriptionReadiness";
 import { SimpleFunctionItemList } from "./SimpleFunctionItemList";
 import styles from "../../chart.module.css";
 
+export const metadata = { title: "Function" };
+
 // Function detail — the whole story for a single function.
 // The org chart is the map (function name, seat). This page is the
 // dashboard: seat holder, roles & responsibilities, decision rights,

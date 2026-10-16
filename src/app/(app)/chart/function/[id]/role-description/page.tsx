@@ -34,6 +34,8 @@ import { VersionsList } from "./VersionsList";
 import styles from "./role-description.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Role description" };
+
 // Full AiMS Role Description for a function. Ten sections per the
 // AiMS spec — some render from chart data, others from generated
 // prose (positionSummary, per-outcome enrichments, per-responsibility

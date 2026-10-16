@@ -12,6 +12,8 @@ import { DraggableTree } from "./DraggableTree";
 import { PanZoomTree } from "./PanZoomTree";
 import styles from "./chart.module.css";
 
+export const metadata = { title: "Functional Chart" };
+
 // Chart — an org-chart tree of the company's functions.
 //
 // Each function box carries the minimum needed to read the shape of

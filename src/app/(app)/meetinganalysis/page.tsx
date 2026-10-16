@@ -9,6 +9,8 @@ import { AutoRefresh } from "./AutoRefresh";
 import styles from "../admin/companies/admin.module.css";
 import lead from "./lead.module.css";
 
+export const metadata = { title: "Meeting Analysis" };
+
 // The free meeting analysis for prospects (0265). System admins only,
 // and on no menu: reached by its address (Jason, 2026-10-13).
 //

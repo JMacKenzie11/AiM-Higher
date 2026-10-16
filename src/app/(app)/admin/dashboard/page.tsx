@@ -27,6 +27,8 @@ import { InfoTip } from "./InfoTip";
 import styles from "./dashboard.module.css";
 import { ScopeIntoCompanyButton } from "../companies/ScopeIntoCompanyButton";
 
+export const metadata = { title: "Platform" };
+
 // System-admin cross-company dashboard. Every module is fetched
 // in parallel; each renders within its own card and does not
 // depend on any other. Cards fade in with staggered animation

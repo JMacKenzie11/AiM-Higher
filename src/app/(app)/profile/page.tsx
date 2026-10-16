@@ -13,6 +13,8 @@ import { HowToConnectButton } from "@/components/ai-apps/ConnectAiAppsDrawer";
 import { listMyAssistantsAction } from "@/lib/mcp/grants";
 import { currentHelpViewer, helpFeaturesFor } from "@/lib/help/loader";
 
+export const metadata = { title: "My profile" };
+
 // /profile — self-serve edit for the signed-in user.
 // Name + position live on public.profiles; password change goes
 // through Supabase auth.updateUser({ password }).

@@ -11,6 +11,8 @@ import { formatParentRef } from "@/lib/plan/parent-ref";
 import styles from "../../plan-detail.module.css";
 import planStyles from "../../plan.module.css";
 
+export const metadata = { title: "Goal" };
+
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function GoalDetailPage({ params }: PageProps) {

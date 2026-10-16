@@ -5,6 +5,8 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getLessonBySlug } from "@/lib/classroom/service";
 import { LessonView } from "./LessonView";
 
+export const metadata = { title: "Lesson" };
+
 // Lesson viewer landing on the first section. A section-scoped
 // permalink lives at /classroom/lessons/[slug]/[sectionSlug] and
 // reuses LessonView with a different active tab.

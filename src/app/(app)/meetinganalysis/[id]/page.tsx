@@ -15,6 +15,8 @@ import { RetryButton } from "./RetryButton";
 import styles from "../../admin/companies/admin.module.css";
 import lead from "../lead.module.css";
 
+export const metadata = { title: "Meeting Analysis" };
+
 // One lead analysis: who it is for, where it stands, the PDF, and the
 // analysis on screen to review before the call. System admins only.
 export const maxDuration = 300;

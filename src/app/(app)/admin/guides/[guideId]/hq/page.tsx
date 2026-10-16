@@ -21,6 +21,8 @@ import { RecentActivitySection } from "../../../../hq/RecentActivitySection";
 import styles from "../../../../hq/hq.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Guide HQ" };
+
 // Sysadmin oversight view of another guide's Guide HQ. Sourced by
 // guideId instead of the caller's own id, and rendered read-only:
 // every mutation control (resolve, reschedule, park, reassign) is

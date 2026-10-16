@@ -13,6 +13,8 @@ import type { MeetingListRow } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Meeting Summaries" };
+
 // Leadership — the home for meeting-transcript analyses.
 //
 // Every ingested meeting shows up here for the current scoped
