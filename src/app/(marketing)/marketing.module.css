@@ -22,6 +22,18 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Keyboard focus on the navy bands (header, hero, For coaches, closing
+   call to action). The global cobalt ring is 1.0 to 1.7:1 on navy and
+   --grad-brand; chartreuse is 9.0:1 on navy and 5.2:1 on the
+   gradient's lightest stop. Colour only: width and offset are the
+   global rule's. */
+.header :focus-visible,
+.hero :focus-visible,
+.forCoaches :focus-visible,
+.closingCta :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+
 .headerInner {
   max-width: 1200px;
   margin: 0 auto;

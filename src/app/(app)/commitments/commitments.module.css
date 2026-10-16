@@ -121,9 +121,13 @@
   background: var(--aims-navy-tint);
 }
 
+/* Keyboard focus on pills and row controls: a solid outline with an
+   offset. The 50% box-shadow ring it replaces was 2.36:1 on white,
+   under the 3:1 a focus indicator needs; solid cobalt is 7.3:1 on
+   white and 6.8:1 on sand (sky on navy in dark, 6.7:1). */
 .filterPill:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Selected, not filled.
@@ -158,8 +162,8 @@
 }
 
 .filterSelect:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* ---- Week groups ---- */
@@ -388,8 +392,8 @@
 }
 
 .descriptionEditable:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .descriptionInput {
@@ -548,8 +552,8 @@
 }
 
 .rowOwnerButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .rowOwnerButton:disabled {
@@ -650,8 +654,8 @@ a.fromMeetingChip:hover {
 }
 
 .rowPriorityGhost:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .rowPriorityMuted {
@@ -696,8 +700,8 @@ a.fromMeetingChip:hover {
 }
 
 .rowDueButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .rowDueButton:disabled {
@@ -768,8 +772,8 @@ a.fromMeetingChip:hover {
 }
 
 .resolveCircle:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .resolveCircle:disabled {
@@ -874,8 +878,8 @@ a.fromMeetingChip:hover {
 }
 
 .stripButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .stripButtonActive {
@@ -943,8 +947,8 @@ a.fromMeetingChip:hover {
   box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 15%, transparent);
 }
 .clarityDotButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 .clarityDotClear {
   color: var(--aims-success);
@@ -1035,8 +1039,8 @@ a.fromMeetingChip:hover {
 }
 
 .inlinePlaceholder:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
@@ -1122,8 +1126,8 @@ a.fromMeetingChip:hover {
 }
 
 .summaryRow:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .summaryLabel {

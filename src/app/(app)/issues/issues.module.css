@@ -346,8 +346,8 @@
 }
 
 .issueTitleEditable:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .issueTitleInput {
@@ -414,8 +414,8 @@
 }
 
 .wantEditable:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .wantMuted {
@@ -930,8 +930,8 @@
 }
 
 .threadDisclosure:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Holds the column on an issue that never carried a commitment, so
