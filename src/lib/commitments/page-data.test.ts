@@ -365,6 +365,34 @@ describe("getCommitmentsPageData — header stats and enrichment", () => {
     expect(filtered.headerStats.needsAttentionCount).toBe(1);
   });
 
+  it("counts the same rows in the pill as the page puts under Needs attention", async () => {
+    // A row due earlier THIS week is not from an earlier week. The
+    // section used to read due_date and took it, the pill read
+    // week_ending and left it, and the two numbers disagreed.
+    seed("commitments:main", [
+      commitment("due_monday_this_week", { due_date: "2026-08-31" }),
+      commitment("last_week_open", {
+        week_ending: LAST_FRIDAY,
+        due_date: LAST_FRIDAY,
+      }),
+      commitment("last_week_kept", {
+        week_ending: LAST_FRIDAY,
+        due_date: LAST_FRIDAY,
+        status: "kept_on_time",
+      }),
+    ]);
+    const { getCommitmentsPageData } = await import("./service");
+    const { isNeedsAttention } = await import("./needs-attention");
+
+    const data = await getCommitmentsPageData("co_1", "u_ann", ALL);
+    const section = data.mainList.filter((c) =>
+      isNeedsAttention(c, data.thisFriday)
+    );
+
+    expect(section.map((c) => c.id)).toEqual(["last_week_open"]);
+    expect(data.headerStats.needsAttentionCount).toBe(section.length);
+  });
+
   it("attaches owner, priority and functional area to every row", async () => {
     seed("commitments:main", [
       commitment("rich", {
