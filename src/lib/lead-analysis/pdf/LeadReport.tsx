@@ -68,12 +68,12 @@ const C = {
   skyTint: "#E8F3F9",
   navyTint: "#E9ECF1",
   chartreuseTint: "#F5F8DC",
-  success: "#4C8A4F",
+  success: "#3E7141",
   successTint: "#EAF2EA",
-  warning: "#B07A2A",
+  warning: "#8D6222",
   warningTint: "#F7EFE0",
   muted: "#5B6472",
-  faint: "#8A93A0",
+  faint: "#606A77",
   border: "#E2E4DE",
 };
 

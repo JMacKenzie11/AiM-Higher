@@ -22,10 +22,15 @@
   --aims-navy-tint: #E9ECF1;       /* hairline fills on sand */
   --aims-chartreuse-tint: #F5F8DC;
 
-  /* ---- Functional colors (brand extension — keep muted) ---- */
-  --aims-success: #4C8A4F;
+  /* ---- Functional colors (brand extension — keep muted) ----
+     Success and warning are text colours as often as fills: the
+     status chips put them on their own tint at 11px. #4C8A4F was
+     3.64:1 on #EAF2EA and #B07A2A was 3.25:1 on #F7EFE0, under
+     WCAG 1.4.3's 4.5:1. Same hues, darker: 5.05:1 and 4.71:1 on
+     the tints, 5.76:1 and 5.38:1 on white. */
+  --aims-success: #3E7141;
   --aims-success-tint: #EAF2EA;
-  --aims-warning: #B07A2A;
+  --aims-warning: #8D6222;
   --aims-warning-tint: #F7EFE0;
   --aims-danger: #A94441;
   --aims-danger-tint: #F6E9E9;
@@ -41,7 +46,11 @@
   --text: var(--aims-midnight);
   --text-heading: var(--aims-navy);
   --text-muted: #5B6472;
-  --text-faint: #8A93A0;
+  /* The quietest text that is still text. #8A93A0 was 3.11:1 on
+     white and 2.89:1 on sand. #606A77 is 5.49:1 on white, 5.11:1 on
+     sand, and at least 4.6:1 on every tint it sits on (navy, success,
+     danger, warning, sky). */
+  --text-faint: #606A77;
   --border: #E2E4DE;
   --border-strong: #C9CCC4;
   /* The boundary of an interactive control, as opposed to the quiet
