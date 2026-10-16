@@ -4,12 +4,12 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useRef,
   useState,
   Fragment,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useMenuButton } from "./useMenuButton";
 import styles from "./RowMenu.module.css";
 
 // One trigger per row, holding the actions that were a row of
@@ -33,10 +33,13 @@ import styles from "./RowMenu.module.css";
 // ---- WHY THIS IS SHARED AND /people IS NOT CHANGED -------------
 //
 // This is the third surface to want the pattern, so it belongs in
-// one place. /people's and /commitments' own menus are not touched:
-// each is load-bearing on a surface with its own tests, and folding
-// them in is a separate change with its own blast radius. This is
-// the version the next surface should reach for.
+// one place. /people's and /commitments' own menus keep their own
+// markup: each is load-bearing on a surface with its own tests, and
+// folding them in is a separate change with its own blast radius.
+// This is the version the next surface should reach for.
+//
+// All of them share the keyboard, through useMenuButton: focus into
+// the menu on open, arrows, Escape back to the trigger, Tab out.
 
 export type RowMenuItem = {
   label: string;
@@ -60,33 +63,12 @@ export function RowMenu({
   disabled?: boolean;
   testId?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menu = useMenuButton();
+  const { open, setOpen, triggerRef, menuRef } = menu;
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
-  // Close on outside click or Escape. The menu is not inside wrapRef
-  // any more, so a click on one of its own items reads as "outside"
-  // unless both refs are consulted.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (wrapRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  // Outside click and Escape close it (useMenuButton). The menu is not
+  // inside the wrapper, so both the trigger and the menu count as inside.
 
   // Below the trigger and right-aligned with it, unless that runs off
   // the bottom, in which case above. Measured rather than estimated:
@@ -102,7 +84,7 @@ export function RowMenu({
       top: fitsBelow ? below : Math.max(8, rect.top - height - 4),
       right: Math.max(8, window.innerWidth - rect.right),
     });
-  }, []);
+  }, [triggerRef, menuRef]);
 
   // Before paint, so it is never seen in the wrong place first.
   useLayoutEffect(() => {
@@ -127,14 +109,12 @@ export function RowMenu({
   }, [open, reposition]);
 
   return (
-    <div ref={wrapRef} className={styles.wrap}>
+    <div className={styles.wrap}>
       <button
-        ref={triggerRef}
+        {...menu.triggerProps}
         type="button"
         className={styles.trigger}
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        aria-haspopup="menu"
+        onClick={menu.toggle}
         aria-label={ariaLabel}
         disabled={disabled}
         data-testid={testId}
@@ -147,9 +127,9 @@ export function RowMenu({
       {open
         ? createPortal(
             <div
-              ref={menuRef}
+              {...menu.menuProps}
               className={styles.menu}
-              role="menu"
+              aria-label={ariaLabel}
               style={{
                 position: "fixed",
                 top: pos?.top ?? 0,

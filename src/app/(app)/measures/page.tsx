@@ -14,6 +14,8 @@ import { PageShell } from "@/components/ui/PageShell";
 import styles from "../admin/companies/admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Critical Success Factors" };
+
 // Critical Success Factors: the spreadsheet, in the app.
 //
 // Functional Area, Owner, Critical Success Factor, Frequency, Target,

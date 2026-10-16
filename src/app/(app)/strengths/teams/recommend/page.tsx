@@ -7,6 +7,8 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import type { ResultsProfile } from "@/lib/strengths/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Recommend a team" };
+
 export default async function RecommendRoute() {
   const session = await requireProfile();
   const me = session.profile;

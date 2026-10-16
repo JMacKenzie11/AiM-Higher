@@ -73,7 +73,7 @@ Each Timeline square is one function in one week, counting the measures that hav
 - **Nothing logged:** the week is empty.
 - **No targets set:** nothing under this function has a target.
 
-Hover a square to see the count behind it. The line at the top sums it up, for example *3 functions off target this week*. Click it to close or open the board, and it stays that way next time.
+Hover a square to see the count behind it. The line at the top sums it up, for example *3 functions off target this week*. It says *Everything on target this week* only when every measure with a target was logged and met. If none of the measures on the board has a target, it says *No targets set yet*: add targets on **Critical Success Factors**. Click it to close or open the board, and it stays that way next time.
 
 ## Common questions
 

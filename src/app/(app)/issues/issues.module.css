@@ -346,8 +346,8 @@
 }
 
 .issueTitleEditable:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .issueTitleInput {
@@ -414,8 +414,8 @@
 }
 
 .wantEditable:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .wantMuted {
@@ -684,11 +684,12 @@
 /* ---- Resolved table (read-only mirror of Open) ---------------
    Same 5 content columns as Open (Issue / What we want /
    Commitment / Assigned to / Due date) with no drag, no clarity,
-   no resolve — read-only history. Dimmed slightly so the eye
-   doesn't confuse it with the active list. */
+   no resolve — read-only history. It sits under its own Resolved
+   toggle, and its commitment rows are muted as resolved rows. It
+   used to be faded to 85% as well, which put the muted column
+   headers at 4.26:1, under 4.5:1. */
 .resolvedTable {
   margin-top: var(--space-3);
-  opacity: 0.85;
 }
 
 /* The resolved list IS the open list, in past tense — same grid,
@@ -930,8 +931,8 @@
 }
 
 .threadDisclosure:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Holds the column on an issue that never carried a commitment, so

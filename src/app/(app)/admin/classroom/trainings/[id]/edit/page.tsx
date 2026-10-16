@@ -14,6 +14,8 @@ import styles from "../../../../companies/admin.module.css";
 import classroomStyles from "../../../../../classroom/classroom.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Edit training" };
+
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function TrainingEditPage({ params }: PageProps) {

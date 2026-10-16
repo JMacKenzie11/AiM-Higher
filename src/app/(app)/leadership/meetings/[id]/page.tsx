@@ -44,6 +44,8 @@ import processingStyles from "./extracted.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 
+export const metadata = { title: "Meeting summary" };
+
 // Full meeting analysis + commitments the meeting spawned. Reached
 // from /leadership. Open to every same-company member; RLS on
 // meetings + meeting_analyses admits authenticated users whose

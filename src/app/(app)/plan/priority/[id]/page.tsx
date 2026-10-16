@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 import { mondayOf } from "@/lib/dates";
 import { requireProfile } from "@/lib/auth/current-user";
-import { canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
+import {
+  canOwnWorkIn,
+  canWriteOwnedRow,
+  isAdminForCompany,
+} from "@/lib/auth/permissions";
 import { getPriorityDetail } from "@/lib/plan/service";
 import {
   getPriorityCommitmentPanelData,
@@ -13,6 +17,8 @@ import commitmentStyles from "@/app/(app)/commitments/commitments.module.css";
 import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import { PriorityHeroPanel } from "./PriorityHeroPanel";
 import styles from "../../plan-detail.module.css";
+
+export const metadata = { title: "Priority" };
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -65,14 +71,16 @@ export default async function PriorityDetailPage({ params }: PageProps) {
           Action Plan
         </h2>
 
-        <InlineAddRow
-          thisFriday={panel.thisFriday}
-          priorityOptions={[]}
-          roster={rosterMinimal}
-          currentUserId={session.profile.id}
-          isAdmin={isAdmin}
-          fixedPriorityId={detail.priority.id}
-        />
+        {canOwnWorkIn(session.profile, detail.priority.company_id) ? (
+          <InlineAddRow
+            thisFriday={panel.thisFriday}
+            priorityOptions={[]}
+            roster={rosterMinimal}
+            currentUserId={session.profile.id}
+            isAdmin={isAdmin}
+            fixedPriorityId={detail.priority.id}
+          />
+        ) : null}
 
         {panel.history.length === 0 ? (
           <p className={styles.emptyLine}>

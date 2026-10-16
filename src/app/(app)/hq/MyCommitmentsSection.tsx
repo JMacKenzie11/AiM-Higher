@@ -1,6 +1,7 @@
 import { CommitmentRow } from "../commitments/CommitmentRow";
 import type { MyCommitmentRow } from "@/lib/hq/service";
 import styles from "./hq.module.css";
+import commitmentStyles from "@/app/(app)/commitments/commitments.module.css";
 
 // Cross-tenant "my commitments" view. Reuses the /commitments row
 // exactly — same resolve mechanics, same undo chip, same reason
@@ -42,7 +43,7 @@ export function MyCommitmentsSection({
           You don&rsquo;t own any open commitments right now.
         </p>
       ) : (
-        <div>
+        <ul className={commitmentStyles.rowList}>
           {rows.map((row) => (
             <CommitmentRow
               key={row.id}
@@ -58,7 +59,7 @@ export function MyCommitmentsSection({
               companyLabel={row.companyName}
             />
           ))}
-        </div>
+        </ul>
       )}
     </section>
   );

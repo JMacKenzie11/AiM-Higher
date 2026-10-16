@@ -6,6 +6,8 @@ import { LessonEditForm } from "./LessonEditForm";
 import { TrainingsInLesson } from "./TrainingsInLesson";
 import styles from "../../../../companies/admin.module.css";
 
+export const metadata = { title: "Edit lesson" };
+
 // Edit page for a single lesson. Two blocks: the lesson metadata
 // form (title/category/description/published) and the list of
 // trainings inside it with add/move/delete/edit affordances.

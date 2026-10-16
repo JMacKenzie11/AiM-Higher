@@ -16,6 +16,8 @@ import { ResolvedIssuesList } from "./ResolvedIssuesList";
 import commitmentStyles from "../commitments/commitments.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Issues/Solutions" };
+
 // Issues/Solutions — the Solution Seeking discipline. Name the
 // issue, decide what you want, and commit to the next step. Ranks
 // live inline (drag-to-reorder); resolved issues collapse to a
@@ -200,7 +202,13 @@ export default async function IssuesPage({ searchParams }: PageProps) {
             currentUserCompanyId={session.profile.company_id}
             isAdmin={isAdmin}
           />
-          <CreateIssueRow />
+          {/* issues_insert_member admits the company's own people and
+              issues_insert_admin its admins (an assigned guide, or a
+              portfolio admin switched on as company admin). Anyone
+              else reads the board and raises nothing. */}
+          {session.profile.company_id === companyId || isAdmin ? (
+            <CreateIssueRow />
+          ) : null}
         </section>
       ) : null}
 

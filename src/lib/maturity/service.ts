@@ -24,7 +24,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // Live scoring is a handful of small reads — cheap enough to run on
 // every page load. If that ever becomes a bottleneck we can memoize
 // via a "current" cache row, but v1 keeps it live so "meeting cadence
-// dropped off yesterday" shows up today, not next Sunday.
+// dropped off yesterday" shows up today, not next Monday.
 //
 // Wrapped in React `cache()` so that within a single request, multiple
 // callers asking for the same company scorecard share one fetch. On

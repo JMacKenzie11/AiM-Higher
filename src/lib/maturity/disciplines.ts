@@ -63,7 +63,7 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
     hrefLabel: "Open the One-Page Plan",
     showsTrend: false,
     scoringNote:
-      "Two points each for: purpose statement, vision, ≥3 core values, ≥3 differentiators, ≥3 key success metrics. Max 10. State-based — either the surfaces are filled in or not, so no trend arrow.",
+      "2.5 points each for a purpose statement, a vision, at least three core values and at least three differentiators. Out of 10. The score is about whether each part is filled in, so it has no trend arrow.",
   },
   {
     key: "chart",

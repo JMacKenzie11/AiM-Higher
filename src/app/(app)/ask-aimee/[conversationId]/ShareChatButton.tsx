@@ -16,6 +16,7 @@ import type {
   ShareCandidate,
   ShareeSummary,
 } from "@/lib/coach/service";
+import { useModalFocus } from "@/lib/hooks/use-modal-focus";
 import styles from "./ShareChatButton.module.css";
 
 // Chat-header slot: owner sees a share icon; sharees see the same
@@ -119,6 +120,8 @@ function ShareModal({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -139,14 +142,18 @@ function ShareModal({
     };
   }, [conversationId, isOwner]);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !pending) onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    closeRef.current?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, pending]);
+  // Focus starts in the search box for the owner (Close for a sharee,
+  // who has nothing to type), Tab stays inside, Escape closes, and
+  // focus goes back to the share button. Waits for `mounted`: before
+  // the portal is in there is nothing to focus.
+  useModalFocus({
+    active: mounted,
+    containerRef: dialogRef,
+    initialFocusRef: isOwner ? searchRef : closeRef,
+    onEscape: () => {
+      if (!pending) onClose();
+    },
+  });
 
   const filteredCandidates = useMemo(() => {
     if (!candidates) return [];
@@ -255,6 +262,8 @@ function ShareModal({
 
   return createPortal(
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       className={styles.overlay}
       role="dialog"
       aria-modal="true"
@@ -295,6 +304,7 @@ function ShareModal({
         {isOwner ? (
           <div className={styles.inviteRow}>
             <input
+              ref={searchRef}
               type="text"
               className={styles.searchInput}
               placeholder="Search by name…"

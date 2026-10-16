@@ -97,6 +97,14 @@ test.describe("portfolio_admin", () => {
       ).toHaveCount(0);
     }
 
+    // The add rows are text boxes whose button reads just "Add", so
+    // the check above cannot see them. An unassigned portfolio admin
+    // owns no work here (canOwnWorkIn), so neither row renders.
+    await page.goto("/commitments");
+    await expect(page.getByRole("textbox", { name: "New commitment" })).toHaveCount(0);
+    await page.goto("/issues");
+    await expect(page.getByRole("textbox", { name: "New issue" })).toHaveCount(0);
+
     // And the read itself works, which is what makes the absences
     // above mean something rather than describing an empty page.
     await page.goto("/dashboard");

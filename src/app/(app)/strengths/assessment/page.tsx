@@ -5,6 +5,8 @@ import type { Item } from "@/lib/strengths/types";
 import styles from "../strengths.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "My assessment" };
+
 export default async function AssessmentPage() {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {

@@ -10,7 +10,7 @@ Every commitment your team has made, week by week: who owns it, when it's due, a
 
 Each commitment has an owner, a due date and a status: *open*, *kept on time*, *kept, but late*, or *missed*. Late still means the work got done, after the due date, and it shows with a small clock.
 
-The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
+The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**, and the *Needs attention* number at the top of the page counts the same commitments. A commitment due earlier this week stays under this week. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
 
 **Strategic** commitments are attached to a quarterly priority. **Operational** ones aren't, even when they're tied to an issue or a function. The *Type* filter shows one or the other.
 
@@ -30,7 +30,6 @@ The list runs soonest due first. Anything from an earlier week that's still open
 Everything a team member can do with their own commitments, for anyone's:
 
 - **Close out, reschedule or reassign any commitment** in one click, without giving a reason.
-- **Mark a commitment missed** when it didn't happen. Owners don't have this; they reschedule or park instead.
 - **Give a commitment to your AiMS Guide.** Guides assigned to your company are in the owner list.
 - **Correct a late one to on time** from the circle's menu, when it really was done on time.
 :::
@@ -38,7 +37,11 @@ Everything a team member can do with their own commitments, for anyone's:
 ::: role portfolio_admin
 ## What you can do here
 
-Read every commitment and filter the list. Changes are made by the company's own people.
+Read every commitment and filter the list.
+
+If you're assigned to this company, you can also add commitments of your own with the add row at the bottom of *This week*, and close out, reschedule or park the ones you own. Where a system admin has made you this company's admin, you can close out, reschedule or reassign anyone's.
+
+Without an assignment the page is read only, and changes are made by the company's own people.
 :::
 
 ## Needs rewording
@@ -52,6 +55,8 @@ Tick **Ongoing (weekly)** when you add a commitment and it comes back every week
 ## Common questions
 
 **Why don't late ones count toward my Follow-Through Rate?** Follow-Through Rate counts commitments kept on time. Everywhere else, a late one still shows the work got done.
+
+**Where's *Mark missed*?** There isn't one. When a commitment didn't happen, reschedule it to a new date or park it. Until you do, an open commitment past its due date counts against Follow-Through Rate the same way a missed one does. *Missed* shows on commitments recorded that way earlier, and the *Status* filter still finds them.
 
 **What's the coloured dot next to the circle?** It shows whether the commitment is clear: a due date someone agreed to, and a clear finish line. Green means both, red means at least one is missing, and hollow means it hasn't been checked yet. Click it to see why and to suggest clearer wording.
 

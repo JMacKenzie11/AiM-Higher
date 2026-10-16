@@ -7,6 +7,8 @@ import { listCategoriesWithLessons } from "@/lib/classroom/service";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "./classroom.module.css";
 
+export const metadata = { title: "Classroom" };
+
 // Classroom landing.
 //
 // ONE SHAPE FOR EVERY PHASE. Each category renders as its own

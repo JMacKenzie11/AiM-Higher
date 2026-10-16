@@ -12,6 +12,7 @@ import {
   computeFollowThroughRate,
   summarizeKeepRate,
 } from "@/lib/utils";
+import { isNeedsAttention } from "./needs-attention";
 import type {
   Commitment,
   Priority,
@@ -518,8 +519,10 @@ export async function getCommitmentsPageData(
   const openThisWeek = allRows.filter(
     (c) => c.week_ending === thisFri && c.status === "open"
   ).length;
-  const needsAttentionRaw = allRows.filter(
-    (c) => c.week_ending < thisFri && c.status === "open"
+  // Same rule the page uses to fill the Needs attention section, so
+  // the pill and the section count the same rows.
+  const needsAttentionRaw = allRows.filter((c) =>
+    isNeedsAttention(c, thisFri)
   );
 
   // ---- Filtered slices for display. ----
@@ -544,8 +547,7 @@ export async function getCommitmentsPageData(
   const mainList = filtered
     .filter(
       (c) =>
-        (c.week_ending < thisFri && c.status === "open") ||
-        c.week_ending === thisFri
+        isNeedsAttention(c, thisFri) || c.week_ending === thisFri
     )
     .map(enrich)
     .sort(byDueThenOwner);

@@ -13,6 +13,8 @@ import { QuartersTable } from "./QuartersTable";
 import { OpenQuarterForm } from "./OpenQuarterForm";
 import styles from "./quarters.module.css";
 
+export const metadata = { title: "Quarters" };
+
 // Section 8.8 — quarter management. Admin-only writes; team members
 // see the same table read-only.
 
@@ -53,7 +55,11 @@ export default async function QuartersPage() {
     <PageShell
       eyebrow="Company"
       title="Quarters"
-      subtitle="Open a new quarter, close one when its 90 days end."
+      subtitle={
+        canWrite
+          ? "Every quarter for your company. Open the next one, and close the open one when it ends."
+          : "Every quarter for your company, open and closed."
+      }
     >
       {canWrite ? (
         <section className={styles.card} aria-labelledby="open-next">

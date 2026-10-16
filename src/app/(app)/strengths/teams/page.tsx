@@ -9,6 +9,8 @@ import type { MissionType } from "@/lib/strengths/team-scoring";
 import styles from "../strengths.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Teams" };
+
 type TeamRow = {
   id: string;
   name: string;
@@ -92,7 +94,9 @@ export default async function TeamsListPage() {
           </div>
           {teamRows.length === 0 ? (
             <p className={styles.muted}>
-              No teams yet. Create one below and start composing.
+              {canManage
+                ? "No teams yet. Create one below and start composing."
+                : "No teams yet. Your company admin builds teams here, and you'll see them once they do."}
             </p>
           ) : (
             <table className={styles.table}>

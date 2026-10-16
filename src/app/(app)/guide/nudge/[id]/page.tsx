@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { openNudge } from "@/lib/guide/open-nudge";
-import { PageShell } from "@/components/ui/PageShell";
+import { PageShell, PageShellNotice } from "@/components/ui/PageShell";
+import uiStyles from "@/components/ui/ui.module.css";
+
+export const metadata = { title: "Nudge" };
 
 // Opening a nudge from a link. Aimee's panel opens invitations in
 // place; this page is for a link followed from anywhere else, and it
@@ -26,9 +29,11 @@ function notAvailable(message: string) {
       title="Couldn't open that"
       subtitle={message}
     >
-      <p style={{ marginTop: "var(--space-4)" }}>
-        <Link href="/ask-aimee">← Back to Ask Aimee</Link>
-      </p>
+      <PageShellNotice>
+        <Link href="/ask-aimee" className={uiStyles.btnPrimary}>
+          ← Back to Ask Aimee
+        </Link>
+      </PageShellNotice>
     </PageShell>
   );
 }

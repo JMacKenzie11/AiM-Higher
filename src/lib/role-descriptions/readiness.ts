@@ -15,6 +15,10 @@ export type ReadinessGate = {
   description: string;
   ready: boolean;
   href: string | null;
+  // What to add when the gate is not ready, worded to sit in a list:
+  // "add responsibilities, decision rights and ...". Used by the
+  // draft banner on the role description itself.
+  missing: string;
 };
 
 export type ReadinessResult = {
@@ -39,6 +43,7 @@ export function computeReadiness(detail: Detail): ReadinessResult {
   const gates: ReadinessGate[] = [
     {
       key: "title",
+      missing: "a title",
       title: "Title",
       description: "Give the function a clear name.",
       ready: !!detail.fn.title.trim(),
@@ -46,6 +51,7 @@ export function computeReadiness(detail: Detail): ReadinessResult {
     },
     {
       key: "responsibilities",
+      missing: "responsibilities",
       title: "Responsibilities",
       description:
         "At least one responsibility beyond Lead / Track / Decide.",
@@ -54,6 +60,7 @@ export function computeReadiness(detail: Detail): ReadinessResult {
     },
     {
       key: "outcomes",
+      missing: "three critical success factors with targets",
       title: "Critical success factors",
       description: "Three critical success factors, each with a target.",
       ready: outcomeCount >= 3 && outcomesAllHaveTargets,
@@ -61,6 +68,7 @@ export function computeReadiness(detail: Detail): ReadinessResult {
     },
     {
       key: "decision_rights",
+      missing: "decision rights",
       title: "Decision Rights",
       description:
         "At least one decision this seat can make without escalation.",
@@ -69,6 +77,7 @@ export function computeReadiness(detail: Detail): ReadinessResult {
     },
     {
       key: "competencies",
+      missing: "three behaviors that show excellence",
       title: "What excellence looks like",
       description:
         "At least three observable behaviors that show excellence.",
@@ -84,4 +93,12 @@ export function computeReadiness(detail: Detail): ReadinessResult {
     total,
     allReady: readyCount === total,
   };
+}
+
+// The gates still to pass, as one phrase: "decision rights and three
+// behaviors that show excellence". Empty when everything is ready.
+export function describeMissing(gates: ReadinessGate[]): string {
+  const missing = gates.filter((g) => !g.ready).map((g) => g.missing);
+  if (missing.length <= 1) return missing.join("");
+  return `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`;
 }

@@ -8,6 +8,8 @@ import type { ResultsProfile } from "@/lib/strengths/types";
 import styles from "../strengths.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "My results" };
+
 export default async function ResultsPage() {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {

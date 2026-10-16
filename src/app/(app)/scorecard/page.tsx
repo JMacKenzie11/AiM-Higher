@@ -19,12 +19,14 @@ import { formatShortDate } from "@/lib/dates";
 import styles from "./scorecard.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "AiMS Implementation" };
+
 // AiMS Scorecard — company-wide discipline maturity view.
 //
 // Visible to every signed-in member of the company (transparency by
 // design — everyone sees the same view leaders do). The score is
 // computed LIVE on every page load so a change in behavior shows up
-// today, not next Sunday when the cron runs; the historical
+// today, not next Monday when the cron runs; the historical
 // timeseries lines come from company_discipline_snapshots.
 //
 // This route previously redirected to /chart (see git history for
@@ -152,7 +154,7 @@ export default async function ScorecardPage() {
         </div>
 
         <p className={styles.footer}>
-          Snapshots taken every Sunday. Live score as of{" "}
+          Snapshots taken every Monday. Live score as of{" "}
           {formatShortDate(scorecard.computedAt.slice(0, 10))}.
         </p>
     </PageShell>
@@ -348,7 +350,6 @@ function evidenceLines(
         bool("vision") ? "Vision set" : "Vision missing",
         `${n("values")} core values`,
         `${n("differentiators")} differentiators`,
-        `${n("successMetrics")} key success metrics`,
       ];
     case "chart":
       return n("totalFunctions") === 0

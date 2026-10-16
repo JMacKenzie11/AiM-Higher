@@ -7,7 +7,9 @@ import styles from "./dashboard.module.css";
 // time the user sees a given generation, then just renders it
 // instantly on subsequent visits until the brief refreshes to a
 // newer generatedAt. Also respects prefers-reduced-motion — motion-
-// sensitive users see the full text instantly regardless.
+// sensitive users see the full text instantly regardless. The "typing"
+// is a colour reveal over text that is already laid out in full, so
+// the card never changes height while it runs.
 //
 // Memory lives in localStorage keyed by generatedAt (unique per
 // brief). If the key hasn't been seen, animate + record; otherwise
@@ -96,7 +98,14 @@ export function AiBrief({ content, generatedAt }: AiBriefProps) {
     };
   }, [content, generatedAt]);
 
+  // The whole text is laid out from the first paint, so the line breaks
+  // and the card's height are final before the reveal starts and nothing
+  // below the card moves (audit P-01: typing grew the card a line at a
+  // time and pushed the board down, CLS 0.88). The reveal is colour
+  // only: the unrevealed tail is transparent. Both parts sit in the one
+  // paragraph, so a screen reader reads the text once, whole.
   const shown = content.slice(0, visible);
+  const rest = content.slice(visible);
 
   return (
     <>
@@ -105,12 +114,17 @@ export function AiBrief({ content, generatedAt }: AiBriefProps) {
         {!done ? (
           <span className={styles.briefCursor} aria-hidden="true" />
         ) : null}
+        {rest ? <span className={styles.briefUnrevealed}>{rest}</span> : null}
       </p>
-      {done ? (
-        <span className={styles.briefTimestamp}>
-          Refreshed {formatRelative(generatedAt)}
-        </span>
-      ) : null}
+      {/* Always rendered so its line is reserved; hidden until the
+          reveal finishes. */}
+      <span
+        className={styles.briefTimestamp}
+        style={done ? undefined : { visibility: "hidden" }}
+        aria-hidden={done ? undefined : true}
+      >
+        Refreshed {formatRelative(generatedAt)}
+      </span>
     </>
   );
 }

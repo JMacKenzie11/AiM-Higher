@@ -6,7 +6,10 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getChartFunctionDetail } from "@/lib/chart/service";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { computeReadiness } from "@/lib/role-descriptions/readiness";
+import {
+  computeReadiness,
+  describeMissing,
+} from "@/lib/role-descriptions/readiness";
 import {
   generateRoleDescription,
   isQualificationOverridden,
@@ -33,6 +36,8 @@ import { RegenerateButton } from "./RegenerateButton";
 import { VersionsList } from "./VersionsList";
 import styles from "./role-description.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+
+export const metadata = { title: "Role description" };
 
 // Full AiMS Role Description for a function. Ten sections per the
 // AiMS spec — some render from chart data, others from generated
@@ -147,9 +152,12 @@ export default async function RoleDescriptionViewPage({ params }: PageProps) {
           filled-in gates against it would report a shortfall that
           does not exist. */}
       {agentDoc === null && !readiness.allReady ? (
+        // Names what is missing rather than counting it. The count was
+        // of readiness gates on the function, and it sat above a page
+        // of written sections, so "1 of 5 filled in" read as wrong.
         <p className={styles.previewBanner}>
-          Preview — {readiness.readyCount} of {readiness.total} sections
-          filled in. Sections with no content are hidden.
+          Draft. To complete it, add {describeMissing(readiness.gates)} on{" "}
+          <Link href={`/chart/function/${detail.fn.id}`}>the function</Link>.
         </p>
       ) : null}
 

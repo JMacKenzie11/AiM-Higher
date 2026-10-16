@@ -7,6 +7,8 @@ import type { ResultsProfile } from "@/lib/strengths/types";
 import type { MissionType } from "@/lib/strengths/team-scoring";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Strengths team" };
+
 export default async function TeamDetailPage({
   params,
 }: {

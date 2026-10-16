@@ -9,17 +9,16 @@ A shared library of lessons and trainings from AiMS, grouped into phases. Open a
 ## What you can do here
 
 - **Work through a phase.** Each phase is a numbered list of trainings in the order you'd do them, with a count of how many it holds.
-- **Open a lesson.** It opens on the first section. Use the list of sections on the left to move through the rest.
-- **Watch a video.** Click the thumbnail and it plays in place.
+- **Open a lesson.** It opens on the first section. Use the list of sections to move through the rest.
+- **Watch a video.** When a section has one, click the thumbnail and it plays in place.
 - **Share a section.** The link in your browser changes as you move between sections, so a copied link takes a colleague straight to that section.
-- **Download supporting files.** Some sections have PDFs, slides or worksheets attached below the text.
 - **Ask Aimee what to watch.** Aimee can search the library for you. Try "what should I watch on facilitating a weekly meeting?"
 
 ## How to find something to watch
 
 1. Look through the phases for a theme that matches what you're working on.
 2. Open a lesson. You'll land on its first section.
-3. Read or watch it, then use the list on the left to move on.
+3. Read or watch it, then use the list of sections to move on.
 
 ## Common questions
 
