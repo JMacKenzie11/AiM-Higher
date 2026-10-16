@@ -792,14 +792,21 @@
   margin: 0;
 }
 
+/* Out of flow, so it takes no width and adds no wrap point: the text
+   wraps exactly as it will once the cursor is gone. With no offsets it
+   sits at its static position, right after the last revealed letter. */
 .briefCursor {
-  display: inline-block;
+  position: absolute;
   width: 8px;
   height: 1.1em;
   background: var(--primary);
-  vertical-align: text-bottom;
+  margin-top: 0.3em;
   margin-left: 3px;
   animation: briefCursorPulse 0.9s ease-in-out infinite;
+}
+
+.briefUnrevealed {
+  color: transparent;
 }
 
 @keyframes briefCursorPulse {
@@ -822,12 +829,17 @@
   margin: 0;
 }
 
+/* Holds about four lines, near a short brief's height, so the swap from
+   this placeholder to the brief moves the board below as little as
+   possible. */
 .briefLoading {
   color: var(--text-muted);
   font: var(--text-body);
+  line-height: 1.7;
   margin: 0;
+  min-height: 6.8em;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
 }
 
@@ -835,6 +847,7 @@
   display: inline-flex;
   gap: 4px;
   align-items: center;
+  height: 1.7em;
 }
 
 .briefLoadingDots span {
