@@ -53,6 +53,23 @@
   outline: none;
 }
 
+/* Any other link rendered in the hero (a parent function named in
+   the subtitle, say) gets the same treatment: the global `a` colour
+   is the hero's own navy and measured 1.5:1 against it. White and
+   underlined, so it reads as a link without colour to carry it.
+   Only links with no class of their own: a styled control placed in
+   heroExtras keeps its styling. */
+.heroInner a:not([class]) {
+  color: var(--aims-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.heroInner a:not([class]):hover {
+  color: var(--aims-white);
+  text-decoration-thickness: 2px;
+}
+
 .eyebrow {
   margin: 0;
   color: var(--aims-white);
@@ -94,4 +111,21 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+}
+
+/* A short message with one way forward, for pages that are only
+   that (an error, a link that can't be opened). The content band
+   overlaps the hero by 32px, so bare text placed straight into it
+   lands on the navy. This puts it on a card like every other page. */
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
 }
