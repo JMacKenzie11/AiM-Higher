@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import type { NotificationItem } from "@/lib/notifications/service";
@@ -10,6 +10,7 @@ import {
   markNotificationReadAction,
 } from "@/lib/notifications/actions";
 import { dismissGuideNudgeAction } from "@/lib/guide/actions";
+import { useMenuButton } from "@/components/ui/useMenuButton";
 import styles from "./NavBand.module.css";
 
 // Bell in the nav band. Click opens a small dropdown of the current
@@ -37,6 +38,15 @@ import styles from "./NavBand.module.css";
 // "Not now" included (2026-09-28, the first Aimee invitation seen on
 // dev). Drawn into document.body and placed from the bell's position,
 // nothing it sits inside can clip it. The same pattern as PartInfo.
+//
+// ---- KEYBOARD ---------------------------------------------------
+//
+// useMenuButton: opening focuses the first notification, the arrows
+// move through the tray, Escape returns to the bell, and Tab leaves
+// from the bell. Without it focus stayed on the bell and the first
+// notification was about 22 Tabs away, past the whole page, because
+// the tray is at the end of <body>. "Mark all as read" and "Not now"
+// are menu items too, so the arrows reach them.
 
 export function NotificationBell({
   items,
@@ -48,11 +58,9 @@ export function NotificationBell({
   // where "below" is off-screen.
   placement?: "down" | "up";
 }) {
-  const [open, setOpen] = useState(false);
+  const menu = useMenuButton();
+  const { open, triggerRef: buttonRef, closeQuietly } = menu;
   const [pos, setPos] = useState<React.CSSProperties | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   // Up: above the bell, starting at its left edge. Down: below it,
@@ -75,31 +83,20 @@ export function NotificationBell({
         top: r.bottom + 8,
       });
     }
-  }, [placement]);
+  }, [placement, buttonRef]);
 
   useLayoutEffect(() => {
     if (open) place();
     else setPos(null);
   }, [open, place]);
 
-  // Close on outside click or Escape. "Outside" is outside both the
-  // bell and the tray, which is no longer inside the bell's wrapper.
+  // Outside click and Escape are useMenuButton's. The tray follows
+  // the bell on scroll and resize.
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!wrapRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
@@ -107,24 +104,31 @@ export function NotificationBell({
 
   // Close automatically when the route changes — a click on a
   // notification link navigates and this makes the tray disappear
-  // instead of lingering over the destination page.
+  // instead of lingering over the destination page. Quietly: focus
+  // belongs to the new page, so it is not pulled back to the bell.
   useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+    closeQuietly();
+  }, [pathname, closeQuietly]);
 
   if (items.length === 0) {
     // Empty state: render a muted bell so the icon slot is
     // present (nav layout stays stable) but no badge, no
     // interaction. Reads as "you're up to date" at a glance.
+    //
+    // The same <button> as the unread bell, disabled, so a screen
+    // reader finds "No notifications" where it finds "Notifications
+    // (2)" on another day. It was a span with an aria-label, which a
+    // span with no role may not carry, so it was skipped entirely.
     return (
-      <div
-        className={styles.bellWrap}
-        data-placement={placement}
-        aria-hidden="false"
-      >
-        <span className={styles.bellButtonMuted} aria-label="No notifications">
+      <div className={styles.bellWrap} data-placement={placement}>
+        <button
+          type="button"
+          className={styles.bellButtonMuted}
+          aria-label="No notifications"
+          disabled
+        >
           <BellIcon />
-        </span>
+        </button>
       </div>
     );
   }
@@ -132,18 +136,12 @@ export function NotificationBell({
   const count = items.length;
 
   return (
-    <div
-      ref={wrapRef}
-      className={styles.bellWrap}
-      data-placement={placement}
-    >
+    <div className={styles.bellWrap} data-placement={placement}>
       <button
-        ref={buttonRef}
+        {...menu.triggerProps}
         type="button"
         className={styles.bellButton}
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        aria-haspopup="menu"
+        onClick={menu.toggle}
         aria-label={`Notifications (${count})`}
       >
         <BellIcon />
@@ -153,7 +151,12 @@ export function NotificationBell({
       </button>
       {open && pos
         ? createPortal(
-        <div ref={menuRef} className={styles.bellMenu} role="menu" style={pos}>
+        <div
+          {...menu.menuProps}
+          className={styles.bellMenu}
+          aria-label="Notifications"
+          style={pos}
+        >
           <div className={styles.bellMenuHeader}>
             <span>Notifications</span>
             <span className={styles.bellMenuHeaderAside}>
@@ -161,13 +164,14 @@ export function NotificationBell({
               <span className={styles.bellMenuHeaderCount}>{count}</span>
             </span>
           </div>
-          <ul className={styles.bellMenuList}>
-            {items.map((item) => (
-              <li key={item.id}>
+          <ul className={styles.bellMenuList} role="none">
+            {items.map((item, index) => (
+              <li key={item.id} role="none">
                 <Link
                   href={item.href}
                   className={styles.bellMenuItem}
                   role="menuitem"
+                  data-menu-initial={index === 0 ? "" : undefined}
                   onClick={() => {
                     // Fire-and-forget: persisted rows get marked
                     // read alongside the navigation. Computed items
@@ -237,6 +241,7 @@ function DismissNudge({ id }: { id: string }) {
       <button
         type="button"
         className={styles.bellDismiss}
+        role="menuitem"
         disabled={pending}
         onClick={() => {
           startTransition(async () => {
@@ -269,6 +274,7 @@ function MarkAllRead() {
     <button
       type="button"
       className={styles.bellMarkAll}
+      role="menuitem"
       disabled={pending}
       onClick={() => {
         startTransition(async () => {
