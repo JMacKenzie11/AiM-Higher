@@ -28,6 +28,22 @@
   width: 68px;
 }
 
+/* Keyboard focus on the rail. The global ring is cobalt, which is
+   1.0 to 1.7:1 on --grad-brand and close to invisible. Chartreuse,
+   the ring the nav rows already use, is 5.2:1 on the lightest stop
+   (#3551A4) and 9.0:1 on navy. Only the colour changes: width and
+   offset still come from the global :focus-visible rule. The white
+   popovers opened from the rail (user menu, notifications) keep the
+   standard ring. */
+.sidebar :focus-visible,
+.mobileBar :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+
+.sidebar [role="menu"] :focus-visible {
+  outline-color: var(--primary);
+}
+
 /* ---- Header (logo + collapse toggle) ---- */
 .header {
   display: flex;

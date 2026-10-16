@@ -19,6 +19,18 @@
   padding: var(--space-6) var(--space-6) var(--space-8);
 }
 
+/* Keyboard focus on the hero. The global cobalt ring is 1.0 to
+   1.7:1 on --grad-brand; chartreuse is 5.2:1 on its lightest stop.
+   Colour only, so width and offset stay the global ones. */
+.hero :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+
+/* A white popover opened from the hero keeps the standard ring. */
+.hero :is([role="menu"], [role="listbox"], [role="dialog"]) :focus-visible {
+  outline-color: var(--primary);
+}
+
 .heroInner {
   max-width: 1160px;
   margin: 0 auto;
@@ -50,7 +62,6 @@
   opacity: 1;
   text-decoration: underline;
   text-underline-offset: 3px;
-  outline: none;
 }
 
 .eyebrow {

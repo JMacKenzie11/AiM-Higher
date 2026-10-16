@@ -23,6 +23,17 @@
   padding: var(--space-6) var(--space-6) var(--space-8);
 }
 
+/* Keyboard focus on the navy hero: chartreuse, as on the sidebar
+   (cobalt is 1.0 to 1.7:1 here, chartreuse 5.2:1 on the lightest
+   stop). White popovers inside keep the standard ring. */
+.hero :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+
+.hero :is([role="menu"], [role="listbox"], [role="dialog"]) :focus-visible {
+  outline-color: var(--primary);
+}
+
 .heroInner {
   max-width: 1160px;
   margin: 0 auto;
@@ -124,9 +135,10 @@
   gap: var(--space-1);
 }
 
+/* On the navy hero, so the light ring (see .hero :focus-visible). */
 .heroStat:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--aims-chartreuse);
+  outline-offset: 2px;
 }
 
 /* Rendered via React portal to document.body so it escapes every
