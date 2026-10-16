@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, useMemo, useEffect, useRef } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import {
   deleteCommitmentAction,
   markKeptAction,
@@ -26,6 +26,7 @@ import { ClarityChip, clarityState } from "./ClarityStrip";
 import { ClarityDrawer } from "./ClarityDrawer";
 import styles from "./commitments.module.css";
 import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
+import { useMenuButton } from "@/components/ui/useMenuButton";
 
 // A single commitment row.
 //
@@ -135,33 +136,12 @@ export function CommitmentRow({
   const isOverdue = isOpen && !isParked && commitment.due_date < todayIso;
   const isOngoing = commitment.is_ongoing;
 
-  const [showActionMenu, setShowActionMenu] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!showActionMenu) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setShowActionMenu(false);
-    }
-    function onClick(e: MouseEvent) {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node)
-      ) {
-        setShowActionMenu(false);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    const t = setTimeout(
-      () => document.addEventListener("mousedown", onClick),
-      0
-    );
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      clearTimeout(t);
-      document.removeEventListener("mousedown", onClick);
-    };
-  }, [showActionMenu]);
+  // The circle's actions menu. useMenuButton owns the keyboard: open
+  // focuses the first action, the arrows move, Escape returns to the
+  // circle, Tab leaves from it. Before, focus stayed on the circle and
+  // "Mark kept" was seven Tabs away, past Delete.
+  const actionMenu = useMenuButton();
+  const { open: showActionMenu, setOpen: setShowActionMenu } = actionMenu;
 
   // ---- Server calls ----
   function markKept(
@@ -396,6 +376,7 @@ export function CommitmentRow({
           isMissed,
           isOverdue
         )}
+        {...actionMenu.triggerProps}
         onClick={onCircleClick}
         disabled={pending || !canResolve}
         data-state={
@@ -409,8 +390,6 @@ export function CommitmentRow({
                   ? "parked"
                   : "open"
         }
-        aria-haspopup="menu"
-        aria-expanded={showActionMenu}
         title={
           isKeptOnTime
             ? "Kept on time — open actions"
@@ -954,9 +933,8 @@ export function CommitmentRow({
           placeholder and remapped the entire mobile layout. */}
       {showActionMenu ? (
         <div
-          ref={menuRef}
+          {...actionMenu.menuProps}
           className={styles.resolveMenu}
-          role="menu"
           aria-label="Commitment actions"
         >
           {isParked ? (
