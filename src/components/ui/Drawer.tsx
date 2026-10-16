@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { isTopModalLayer, pushModalLayer, trapTab } from "@/lib/hooks/use-modal-focus";
 import styles from "./Drawer.module.css";
 
 // The house drawer: scrim, panel in from the right, gradient head.
@@ -46,7 +47,7 @@ export function Drawer({
   labelledBy,
   name,
   side = false,
-  trapFocus = false,
+  trapFocus,
   initialFocusRef,
   fill = false,
   testId = "drawer-panel",
@@ -76,9 +77,10 @@ export function Drawer({
   // panel on desktop (docs/investigations/aimee-panel.md, "A panel
   // that does not block the page"). Every other drawer is modal.
   side?: boolean;
-  // Keep Tab inside the panel: for a drawer that covers the whole
-  // screen, where the page behind cannot be seen (Aimee's panel on a
-  // phone).
+  // Keep Tab inside the panel. On by default for every modal drawer,
+  // since aria-modal tells a screen reader the page behind is out of
+  // reach (UI audit X-03). Off by default for a side panel, whose page
+  // stays in use. Pass false only for a modal that must let Tab out.
   trapFocus?: boolean;
   // Where focus goes on open, instead of the panel itself.
   initialFocusRef?: React.RefObject<HTMLElement | null>;
@@ -111,24 +113,33 @@ export function Drawer({
   // cleanup pulled focus back to the trigger, the effect pushed it
   // into the panel, on every keystroke in a form inside it.
   const onCloseRef = useRef(onClose);
-  const trapFocusRef = useRef(trapFocus);
+  const trap = trapFocus ?? !side;
+  const trapFocusRef = useRef(trap);
   const sideRef = useRef(side);
   const initialFocus = useRef(initialFocusRef);
   useEffect(() => {
     onCloseRef.current = onClose;
-    trapFocusRef.current = trapFocus;
+    trapFocusRef.current = trap;
     sideRef.current = side;
     initialFocus.current = initialFocusRef;
   });
 
   // Escape closes. Focus moves into the panel on open and back to
   // whatever opened it on close — usually a small button somebody
-  // would otherwise have to find again.
+  // would otherwise have to find again. Waits for `mounted`: a drawer
+  // open on first render has no panel to focus until the portal is in.
+  //
+  // A modal drawer joins the modal layer stack (use-modal-focus.ts), so
+  // a ConfirmDialog opened from inside it owns Tab and Escape until it
+  // closes, and one Escape closes the dialog without the drawer.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !mounted) return;
+    const token = {};
+    const popLayer = sideRef.current ? null : pushModalLayer(token);
     returnFocusTo.current = document.activeElement;
     (initialFocus.current?.current ?? panelRef.current)?.focus();
     function onKey(e: KeyboardEvent) {
+      if (popLayer && !isTopModalLayer(token)) return;
       if (e.key === "Escape") {
         // TWO CAN BE OPEN: Aimee's side panel beside a modal drawer
         // (/chart's function editor). Escape closes the one it was
@@ -141,28 +152,21 @@ export function Drawer({
         onCloseRef.current();
       }
       if (e.key === "Tab" && trapFocusRef.current && panelRef.current) {
-        const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
+        // Aimee's side panel beside this one stays usable: Tab inside
+        // it is its own business.
+        const inDrawer = (e.target as Element | null)?.closest?.("[data-drawer]") ?? null;
+        if (inDrawer && inDrawer !== panelRef.current) return;
+        trapTab(panelRef.current, e);
       }
     }
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
+      popLayer?.();
       const back = returnFocusTo.current;
       if (back instanceof HTMLElement) back.focus();
     };
-  }, [open]);
+  }, [open, mounted]);
 
   if (!mounted) return null;
   if (!open && !keepMounted) return null;

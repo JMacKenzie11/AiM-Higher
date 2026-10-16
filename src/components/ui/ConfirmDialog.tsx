@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useModalFocus } from "@/lib/hooks/use-modal-focus";
 import styles from "./ConfirmDialog.module.css";
 
 // Branded confirmation dialog — replacement for native window.confirm().
@@ -42,6 +43,7 @@ export function ConfirmDialog({
   pending?: boolean;
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
 
   // Defer document.body access to after mount — SSR would otherwise
@@ -51,21 +53,23 @@ export function ConfirmDialog({
   }, []);
 
   // Escape to cancel; auto-focus the safe (cancel) button so a
-  // stray Enter keypress doesn't run the destructive action.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !pending) onCancel();
-    }
-    document.addEventListener("keydown", onKey);
-    cancelRef.current?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onCancel, pending]);
+  // stray Enter keypress doesn't run the destructive action. Tab stays
+  // inside, and focus goes back to the button that opened it.
+  useModalFocus({
+    active: open && mounted,
+    containerRef: dialogRef,
+    initialFocusRef: cancelRef,
+    onEscape: () => {
+      if (!pending) onCancel();
+    },
+  });
 
   if (!open || !mounted) return null;
 
   return createPortal(
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       className={styles.overlay}
       role="dialog"
       aria-modal="true"
