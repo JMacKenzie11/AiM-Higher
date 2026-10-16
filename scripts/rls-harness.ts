@@ -12427,6 +12427,76 @@ async function conversationPrivacyProbes(run: Runner, ids: Identities, pending: 
   return out;
 }
 
+// ---- A guide reads its companies' features (0286) ----------------
+//
+// Every companyHasFeature() gate reads company_features with the
+// caller's session, and before 0286 no SELECT policy admitted an
+// aims_guide, so a guide saw every feature as off: no Workspace links,
+// a 404 on role descriptions, Classroom redirecting to /dashboard.
+// UI audit X-01. As the fixture guide:
+//   granted   a feature row on a company it is assigned to is readable
+//   withheld  the same row on a company it is not assigned to is not,
+//             and it still cannot add a feature to its own company
+// Both rows are seeded here, so the zero is measured against a row
+// that is there: read back as postgres in the same transaction.
+// Red before 0286: the assigned company's row reads 0.
+async function guideFeatureReadProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const FEATURE = "harness_0286";
+  const setup = `${pending}
+insert into public.company_features (company_id, feature)
+values ('${ids.guideCompany}', '${FEATURE}'), ('${ids.otherCompany}', '${FEATURE}')
+on conflict do nothing;`;
+
+  const read = async (company: string): Promise<string> => {
+    try {
+      const [r] = await run<{ n: number; there: number }>(
+        asCaller(ids.guide, setup, `select set_config('harness.seen', (
+  select count(*)::text from public.company_features
+   where company_id = '${company}' and feature = '${FEATURE}'), true);
+reset role;
+select current_setting('harness.seen')::int as n,
+       (select count(*)::int from public.company_features
+         where company_id = '${company}' and feature = '${FEATURE}') as there;`)
+      );
+      if (r?.there !== 1) return `NOT PROVEN (seeded row count ${r?.there ?? "none"})`;
+      return String(r?.n ?? "no row");
+    } catch (err) {
+      return `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 80)}`;
+    }
+  };
+
+  const assigned = await read(ids.guideCompany);
+  const unassigned = await read(ids.otherCompany);
+
+  let insert: string;
+  try {
+    const rows = await run<Record<string, unknown>>(
+      asCaller(
+        ids.guide,
+        pending,
+        `insert into public.company_features (company_id, feature)
+         values ('${ids.guideCompany}', 'harness_0286_write') returning company_id;`
+      )
+    );
+    insert = describeOutcome(rows);
+  } catch (err) {
+    insert = describeOutcome(null, err);
+  }
+
+  const ok = assigned === "1" && unassigned === "0" && !insert.includes("row(s) written");
+  return [{
+    name: "company features · assigned guide reads",
+    granted: `feature row on an assigned company: ${assigned} (want 1)`,
+    withheld: `same row on an unassigned company: ${unassigned} (want 0) | add a feature to own company: ${insert}`,
+    ok,
+    detail: ok
+      ? "a guide reads the features of the companies it is assigned to, no others, and still cannot switch one on"
+      : assigned !== "1"
+        ? "THE GUIDE CANNOT READ ITS COMPANY'S FEATURES: every feature gate is off for it (is 0286 applied?)"
+        : "the read is wider than intended, or brought a write with it",
+  }];
+}
+
 // ---- A row stays in its company (0266) ---------------------------
 //
 // The owner rules on these tables checked the owner on the way out and
@@ -14102,6 +14172,7 @@ async function main(): Promise<void> {
   const authorStamps = await authorStampProbes(run, ids, pendingSql);
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const companyStays = await companyStaysProbes(run, ids, pendingSql);
+  const guideFeatures = await guideFeatureReadProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
   const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
@@ -14127,7 +14198,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -14227,6 +14298,7 @@ async function main(): Promise<void> {
     hubspotProbes.some((p) => !p.ok) ||
     rewording.some((p) => !p.ok) ||
     companyStays.some((p) => !p.ok) ||
+    guideFeatures.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||
     strengthsAnswers.some((p) => !p.ok) ||
