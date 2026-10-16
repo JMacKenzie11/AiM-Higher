@@ -8,7 +8,8 @@ import { resolveAgent } from "@/lib/practices/resolve";
 import { practiceGate } from "@/lib/practices/gate";
 import { createPracticeConversation } from "@/lib/practices/create";
 import { createGeneralConversation } from "@/lib/coach/create-general";
-import { PageShell } from "@/components/ui/PageShell";
+import { PageShell, PageShellNotice } from "@/components/ui/PageShell";
+import uiStyles from "@/components/ui/ui.module.css";
 
 // Unified launch route. Two shapes:
 //   - No query params → create a plain general (Ask Aimee)
@@ -124,9 +125,11 @@ function notAvailable(message: string) {
       title="Couldn't start that chat"
       subtitle={message}
     >
-      <p style={{ marginTop: "var(--space-4)" }}>
-        <Link href="/ask-aimee">← Back to Ask Aimee</Link>
-      </p>
+      <PageShellNotice>
+        <Link href="/ask-aimee" className={uiStyles.btnPrimary}>
+          ← Back to Ask Aimee
+        </Link>
+      </PageShellNotice>
     </PageShell>
   );
 }

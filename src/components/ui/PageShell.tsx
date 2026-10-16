@@ -20,6 +20,15 @@ export type PageShellProps = {
   children: ReactNode;
 };
 
+// The card for a page that is only a short message and one way
+// forward (the error pages). Children are page content and sit below
+// the hero, but the content band overlaps the hero's last 32px, so
+// bare text there lands on the navy. Every other page opens with a
+// card of its own; this is that card for pages with nothing else.
+export function PageShellNotice({ children }: { children: ReactNode }) {
+  return <section className={styles.notice}>{children}</section>;
+}
+
 export function PageShell({
   title,
   subtitle,
