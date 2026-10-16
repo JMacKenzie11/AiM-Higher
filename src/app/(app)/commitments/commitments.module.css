@@ -331,16 +331,20 @@
   border-bottom: none;
 }
 
-/* Dims the CELLS, not the row.
-   `opacity` below 1 creates a stacking context, so dimming the row
-   itself trapped the resolve menu's `z-index: 20` inside it: the
-   menu painted UNDER the following row and inherited the row's 60%
-   opacity, which is exactly the "translucent and behind the text"
-   report. Moving the dim down one level leaves the row without a
-   stacking context, so the menu's z-index competes at list level
-   again, and excludes the menu from the fade. */
-.rowResolved > *:not(.resolveMenu) {
-  opacity: 0.6;
+/* A resolved row is quieted by its description, not by fading the
+   whole row. The row used to dim every cell to 60% opacity, which put
+   the due date and "From issue" at 2.56:1 and the Kept chip at 4.39:1,
+   under WCAG 1.4.3's 4.5:1, and no opacity low enough to read as
+   dimmed keeps --text-muted above it. The checked circle and the
+   Kept / Missed chip already say the row is done; the description
+   steps down to muted so the eye still skips past it.
+
+   (Dimming with opacity also needed to sit on the cells rather than
+   the row, because opacity below 1 makes a stacking context that
+   trapped the resolve menu under the next row. Nothing here creates
+   one now.) */
+.rowResolved .rowDescription {
+  color: var(--text-muted);
 }
 
 /* Priority-detail variant: same row, minus the priority column.
