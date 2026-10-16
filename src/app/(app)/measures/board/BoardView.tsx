@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { BoardData } from "@/lib/measures/board";
+import {
+  boardHeadlineText,
+  countOffFunctions,
+  summarizeBoard,
+} from "@/lib/measures/board-headline";
 import { CockpitGrid } from "./CockpitGrid";
 import { StoryTimeline } from "./StoryTimeline";
 import styles from "./board.module.css";
@@ -62,20 +67,11 @@ export function BoardView({ data }: { data: BoardData }) {
   // Company-level headline stat — how many current-week metric
   // readings hit target across every function. Same math both
   // views agree on, so it's the anchor number regardless of tab.
-  const headline = useMemo(() => summarize(data), [data]);
+  const headline = useMemo(() => summarizeBoard(data), [data]);
 
-  // What the collapsed line says. Named functions rather than a count
-  // of metrics, because "3 functions off target" is a sentence a
-  // leader acts on and "7 of 34 readings" is one they have to decode.
-  const offFunctions = useMemo(
-    () =>
-      data.functions.filter((fn) =>
-        fn.metrics.some(
-          (m) => m.cells[m.cells.length - 1]?.status === "off"
-        )
-      ).length,
-    [data]
-  );
+  // What the collapsed line says. The rule, including "No targets set
+  // yet" when nothing has a target, lives in board-headline.ts.
+  const offFunctions = useMemo(() => countOffFunctions(data), [data]);
 
   return (
     // A titled card, like every other block on the dashboard. The
@@ -121,11 +117,7 @@ export function BoardView({ data }: { data: BoardData }) {
                 : styles.boardSummaryCalm
             }
           >
-            {offFunctions > 0
-              ? `${offFunctions} function${offFunctions === 1 ? "" : "s"} off target this week`
-              : headline.currentUnlogged > 0
-                ? `${headline.currentUnlogged} not logged this week`
-                : "Everything on target this week"}
+            {boardHeadlineText(headline, offFunctions)}
           </span>
         </button>
       </div>
@@ -213,24 +205,4 @@ function HeadlineChip({
       </span>
     </span>
   );
-}
-
-function summarize(data: BoardData) {
-  let currentGood = 0;
-  let currentOff = 0;
-  let currentUnlogged = 0;
-  let currentEligible = 0;
-  const currentIdx = data.weeks.length - 1;
-  for (const fn of data.functions) {
-    for (const m of fn.metrics) {
-      const cell = m.cells[currentIdx];
-      if (!cell) continue;
-      if (cell.status === "no_target") continue;
-      currentEligible += 1;
-      if (cell.status === "good") currentGood += 1;
-      else if (cell.status === "off") currentOff += 1;
-      else if (cell.status === "unlogged") currentUnlogged += 1;
-    }
-  }
-  return { currentGood, currentOff, currentUnlogged, currentEligible };
 }

@@ -10,7 +10,7 @@ Every commitment your team has made, week by week: who owns it, when it's due, a
 
 Each commitment has an owner, a due date and a status: *open*, *kept on time*, *kept, but late*, or *missed*. Late still means the work got done, after the due date, and it shows with a small clock.
 
-The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
+The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**, and the *Needs attention* number at the top of the page counts the same commitments. A commitment due earlier this week stays under this week. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
 
 **Strategic** commitments are attached to a quarterly priority. **Operational** ones aren't, even when they're tied to an issue or a function. The *Type* filter shows one or the other.
 
