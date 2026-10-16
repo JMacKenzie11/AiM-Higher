@@ -120,6 +120,26 @@ export function canViewCompany(
   return isAdminForCompany(profile, companyId);
 }
 
+/**
+ * true if the caller may own work in this company: add a commitment of
+ * their own, and keep the rows they own. A member of the company,
+ * anyone isAdminForCompany admits there, or a guide or portfolio admin
+ * assigned to it. An unassigned portfolio admin reads every company and
+ * owns work in none, so the add rows are hidden from them.
+ *
+ * RLS SAYS THE SAME: the owner rules on commitments (0246) admit the
+ * owner when auth_company_id() = company_id or
+ * is_assigned_to_company(); the admin rules cover the rest.
+ */
+export function canOwnWorkIn(
+  profile: SessionProfileLike,
+  companyId: string
+): boolean {
+  if (profile.company_id === companyId) return true;
+  if (isAdminForCompany(profile, companyId)) return true;
+  return (profile.portfolio_company_ids ?? []).includes(companyId);
+}
+
 // May this person work in this company at all: their own company, or one
 // they may view (an admin, an assigned guide, a portfolio admin). For a
 // conversation that names its company instead of the current scope.

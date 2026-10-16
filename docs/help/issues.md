@@ -32,7 +32,7 @@ To change an issue someone else added, ask them or your company admin.
 - **Add, rename and resolve any issue**, and set *What we want* on any of them.
 - **Reorder the list.** Drag the handle on the left. Everyone at the company sees the same order. Team members can move only the issues they added.
 - **Add a commitment for anyone.** Pick the owner when you add it.
-- **Close out, reschedule, reassign or mark missed** any commitment on an issue, without giving a reason.
+- **Close out, reschedule or reassign** any commitment on an issue, without giving a reason.
 - **Delete an open issue.** Use the trash can beside its round check. It can't be undone. The commitments on it stay on their owners' lists; they just lose the link to the issue. A resolved issue can't be deleted.
 - **Turn meeting issues into real ones.** See *Issues from a meeting* below.
 :::
@@ -41,6 +41,8 @@ To change an issue someone else added, ask them or your company admin.
 ## What you can do here
 
 Read every issue and its commitments, and filter the list. Changes are made by the company's own people.
+
+Where a system admin has made you this company's admin, you can add, rename, reorder and resolve issues as a company admin does.
 :::
 
 ## How to add a commitment to an issue

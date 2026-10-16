@@ -94,7 +94,9 @@ export default async function TeamsListPage() {
           </div>
           {teamRows.length === 0 ? (
             <p className={styles.muted}>
-              No teams yet. Create one below and start composing.
+              {canManage
+                ? "No teams yet. Create one below and start composing."
+                : "No teams yet. Your company admin builds teams here, and you'll see them once they do."}
             </p>
           ) : (
             <table className={styles.table}>

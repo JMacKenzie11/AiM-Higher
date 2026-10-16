@@ -202,7 +202,13 @@ export default async function IssuesPage({ searchParams }: PageProps) {
             currentUserCompanyId={session.profile.company_id}
             isAdmin={isAdmin}
           />
-          <CreateIssueRow />
+          {/* issues_insert_member admits the company's own people and
+              issues_insert_admin its admins (an assigned guide, or a
+              portfolio admin switched on as company admin). Anyone
+              else reads the board and raises nothing. */}
+          {session.profile.company_id === companyId || isAdmin ? (
+            <CreateIssueRow />
+          ) : null}
         </section>
       ) : null}
 

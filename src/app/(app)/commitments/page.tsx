@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
-import { canWriteOwnedRow } from "@/lib/auth/permissions";
+import { canOwnWorkIn, canWriteOwnedRow } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import {
   getCommitmentsPageData,
@@ -232,17 +232,21 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   );
                 })()}
               </ul>
-              <InlineAddRow
-                thisFriday={data.thisFriday}
-                priorityOptions={data.priorityOptions}
-                functionalAreaOptions={data.functionalAreaOptions}
-                roster={data.roster.map((p) => ({
-                  id: p.id,
-                  full_name: p.full_name,
-                }))}
-                currentUserId={session.profile.id}
-                isAdmin={isAdmin}
-              />
+              {/* Only for someone who can own work here. An unassigned
+                  portfolio admin reads the list and adds nothing. */}
+              {canOwnWorkIn(session.profile, companyId) ? (
+                <InlineAddRow
+                  thisFriday={data.thisFriday}
+                  priorityOptions={data.priorityOptions}
+                  functionalAreaOptions={data.functionalAreaOptions}
+                  roster={data.roster.map((p) => ({
+                    id: p.id,
+                    full_name: p.full_name,
+                  }))}
+                  currentUserId={session.profile.id}
+                  isAdmin={isAdmin}
+                />
+              ) : null}
             </section>
           </>
         );
