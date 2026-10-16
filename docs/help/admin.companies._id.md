@@ -126,7 +126,7 @@ To end a guide's access, use *Remove from this company* on their row. They keep 
 
 **Timezone.** Every weekly and daily number is counted by the company's own clock: the scorecard, follow-through, the weekly figures. Changing the timezone changes where each day starts and ends, so counts near midnight can read differently afterwards. The last three changes are listed under the control, with who made them. Company admins and guides can't change the timezone.
 
-**Features.** Turn parts of AiMS on or off for this company: *Execution Platform*, *Strengths*, *Success Tracking*, *External Measures*, *Meeting Facilitation Review*, *Automated Commitment Tracking*, *Classroom* and *Role Descriptions*. Each has a one-line description beside it. Turning one off hides it from the company's menu and keeps its data. Turning it back on brings everything back as it was.
+**Features.** Turn parts of AiMS on or off for this company: *Execution Platform*, *Strengths*, *Success Tracking*, *External Measures*, *Meeting Facilitation Review*, *Automated Commitment Tracking* and *Classroom*. Each has a one-line description beside it. Turning one off hides it from the company's menu and keeps its data. Turning it back on brings everything back as it was.
 :::
 
 ::: role system_admin,portfolio_admin

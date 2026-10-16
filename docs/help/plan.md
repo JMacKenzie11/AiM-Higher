@@ -22,9 +22,10 @@ The Goal in the middle is optional. A Priority can sit straight under a Focus Ar
 - **See how the work fits together.** Follow each Priority up to its Goal and Focus Area.
 - **Open a row.** Click any Focus Area, Goal or Priority to see its owner, its progress and, for a Priority, its **Action Plan**: the commitments feeding it.
 - **Update your own.** If you own a Goal or Priority, or sponsor a Focus Area, you can set its status on its page: *Not started*, *On track*, *Behind*, *Complete* or *Ongoing*.
+- **Add a commitment of your own to a Priority.** Open the Priority and use the add row at the top of its *Action Plan*. It also shows on Commitments.
 - **Get back to where you were.** The back link on a row's page brings you back here to the row you came from, and opens its Focus Area if you'd collapsed it.
 
-Adding a Focus Area, Goal, Priority or commitment here is done by your company admin.
+Adding a Focus Area, Goal or Priority is done by your company admin.
 :::
 
 ::: role company_admin,system_admin
@@ -43,12 +44,15 @@ Adding a Focus Area, Goal, Priority or commitment here is done by your company a
 
 - **Read the plan** and open any Focus Area, Goal or Priority to see its owner, progress and Action Plan.
 - **Edit, complete or archive a Priority** from its own page with *Edit priority*, *Mark complete* and *Archive*.
+- **Add a commitment to a Priority** for anyone at the company. Open the Priority, use the add row at the top of its *Action Plan*, and pick the owner.
 :::
 
 ::: role portfolio_admin
 ## What you can do here
 
-Read the plan and open any row to see its owner, progress and Action Plan. Changes are made by the company's own people.
+Read the plan and open any row to see its owner, progress and Action Plan.
+
+If you're assigned to this company, you can also add a commitment of your own to a Priority: open it and use the add row at the top of its *Action Plan*. Other changes are made by the company's own people.
 :::
 
 ::: role company_admin,system_admin

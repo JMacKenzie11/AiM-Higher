@@ -4,6 +4,7 @@ import {
   isAdminForCompany,
   isPortfolioAdmin,
   canWriteOwnedRow,
+  canOwnWorkIn,
 } from "./permissions";
 import { assertCompanyAccess, CrossTenantAccessError } from "@/lib/admin/scope";
 
@@ -172,5 +173,29 @@ describe("assertCompanyAccess", () => {
     expect(() => assertCompanyAccess({ profile: CA }, "co_b")).toThrow(
       CrossTenantAccessError
     );
+  });
+});
+
+describe("canOwnWorkIn", () => {
+  // Who is offered the add rows on Commitments and a Priority's
+  // Action Plan. Mirrors commitments_insert_owner (0246).
+  it("admits an assigned portfolio admin, switched on or not", () => {
+    expect(canOwnWorkIn(PA_ASSIGNED, "co_a")).toBe(true);
+    expect(canOwnWorkIn(PA_ASSIGNED, "co_c")).toBe(true);
+  });
+
+  it("refuses a portfolio admin where it holds no assignment", () => {
+    expect(canOwnWorkIn(PA, "co_a")).toBe(false);
+    expect(canOwnWorkIn(PA_ASSIGNED, "co_b")).toBe(false);
+  });
+
+  it("admits members, admins and assigned guides", () => {
+    const TM = { id: "tm_1", role: "team_member" as const, company_id: "co_a" };
+    expect(canOwnWorkIn(TM, "co_a")).toBe(true);
+    expect(canOwnWorkIn(TM, "co_b")).toBe(false);
+    expect(canOwnWorkIn(CA, "co_a")).toBe(true);
+    expect(canOwnWorkIn(SYS, "co_b")).toBe(true);
+    expect(canOwnWorkIn(GUIDE, "co_a")).toBe(true);
+    expect(canOwnWorkIn(GUIDE, "co_b")).toBe(false);
   });
 });

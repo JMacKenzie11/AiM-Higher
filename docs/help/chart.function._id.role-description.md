@@ -28,7 +28,7 @@ It's made up of Position Summary, Core Success Outcomes, Critical success factor
 ## How to publish a version
 
 1. Read the draft and edit any written sections that need it.
-2. Click *Publish*. Add a note if you like, such as what changed and why.
+2. Click *Publish version*. Add a note if you like, such as what changed and why, then click *Publish*.
 3. The version appears under *Versions* at the bottom, with its own *Download*.
 :::
 
