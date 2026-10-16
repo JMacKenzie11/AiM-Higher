@@ -18,6 +18,8 @@ import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import { PriorityHeroPanel } from "./PriorityHeroPanel";
 import styles from "../../plan-detail.module.css";
 
+export const metadata = { title: "Priority" };
+
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function PriorityDetailPage({ params }: PageProps) {

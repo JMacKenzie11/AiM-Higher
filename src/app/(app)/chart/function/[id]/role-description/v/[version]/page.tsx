@@ -14,6 +14,8 @@ import { RichText } from "../../RichText";
 import styles from "../../role-description.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Role description" };
+
 // Read-only view of a published Role Description snapshot. Frozen
 // content — same 10-section shape as the live view page, but no
 // edit affordances, no regenerate, no publish. Data comes from

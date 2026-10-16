@@ -18,6 +18,33 @@
   padding-left: 68px;
 }
 
+/* Skip link: off screen until focused, then pinned top-left above the
+   rail (z-index 30) and the mobile bar. */
+.skipLink {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-btn);
+  background: var(--primary);
+  color: var(--on-primary);
+  font: var(--text-button);
+  text-decoration: none;
+  box-shadow: var(--shadow-md);
+  transform: translateY(calc(-100% - var(--space-4)));
+}
+
+.skipLink:focus,
+.skipLink:focus-visible {
+  transform: translateY(0);
+}
+
+/* The skip link lands focus here; the wrapper itself needs no ring. */
+.main:focus {
+  outline: none;
+}
+
 .main {
   max-width: 1280px;
   width: 100%;

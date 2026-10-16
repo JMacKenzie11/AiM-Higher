@@ -11,6 +11,8 @@ import { formatParentRef } from "@/lib/plan/parent-ref";
 import styles from "../../plan-detail.module.css";
 import planStyles from "../../plan.module.css";
 
+export const metadata = { title: "Strategic focus area" };
+
 // SFA detail — Section 8.3.
 
 type PageProps = { params: Promise<{ id: string }> };

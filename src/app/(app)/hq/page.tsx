@@ -19,6 +19,8 @@ import { RecentActivitySection } from "./RecentActivitySection";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "./hq.module.css";
 
+export const metadata = { title: "Guide HQ" };
+
 // Guide HQ — the home base for AiMS Guides and system admins. Scoped
 // to the caller's own guide_assignments regardless of role. A sysadmin
 // with three assignments sees exactly those three; zero assignments

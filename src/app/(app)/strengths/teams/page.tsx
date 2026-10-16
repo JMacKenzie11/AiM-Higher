@@ -9,6 +9,8 @@ import type { MissionType } from "@/lib/strengths/team-scoring";
 import styles from "../strengths.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Teams" };
+
 type TeamRow = {
   id: string;
   name: string;

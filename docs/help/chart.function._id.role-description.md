@@ -44,7 +44,7 @@ If the role description was written with the Role Description Creator in Ask Aim
 
 **Why can't I open this page?** Role Descriptions has to be switched on for your company. If it's off, the page isn't there.
 
-**A section isn't showing.** Sections with nothing in them are hidden. While sections are missing, a line at the top shows how many are filled in.
+**A section isn't showing.** Sections with nothing in them are hidden. Until the function has everything a role description needs, a line at the top says *Draft* and names what to add on the function: responsibilities, three critical success factors with targets, decision rights, or three behaviors that show excellence. It links to the function so you can add them.
 
 **Why aren't the sub-areas under Key Responsibilities here?** They stay on the function as a working reference. The role description reads more cleanly without them.
 

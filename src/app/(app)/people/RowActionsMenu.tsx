@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useRef,
   useState,
   useTransition,
 } from "react";
@@ -16,6 +15,7 @@ import {
 } from "@/lib/auth/users";
 import { setProfileStatusAction } from "@/lib/people/actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useMenuButton } from "@/components/ui/useMenuButton";
 import { removePortfolioAssignmentAction } from "@/lib/admin/assigned-access-actions";
 import type { ProfileStatus } from "@/lib/types";
 import styles from "./people.module.css";
@@ -44,6 +44,9 @@ import styles from "./people.module.css";
 // Repositioning rather than closing, because this table scrolls
 // horizontally and a stray trackpad nudge on the way to the menu
 // should not dismiss it.
+//
+// Keyboard (focus into the menu, arrows, Escape back to the button,
+// Tab out) is useMenuButton's.
 
 type Props = {
   profileId: string;
@@ -72,7 +75,8 @@ export function RowActionsMenu({
   assignmentCompanyId,
 }: Props) {
   const viaAssignment = Boolean(assignmentCompanyId);
-  const [open, setOpen] = useState(false);
+  const menu = useMenuButton();
+  const { open, setOpen, triggerRef, menuRef } = menu;
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   // Fallback slot for the copy-link path: when navigator.clipboard
@@ -81,34 +85,12 @@ export function RowActionsMenu({
   const [manualCopyLink, setManualCopyLink] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   // Viewport coordinates for the portalled menu. Null while closed.
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
-  // Close on outside click or Escape. The menu is no longer inside
-  // wrapRef, so a click on one of its own items would read as
-  // "outside" and close the menu before the handler ran; both refs
-  // have to be consulted.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (wrapRef.current?.contains(target)) return;
-      if (menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  // Outside click and Escape close it (useMenuButton), consulting the
+  // trigger and the portalled menu both, since the menu is not inside
+  // this row's wrapper.
 
   // Where the menu goes: below the trigger and right-aligned with it,
   // unless that would run off the bottom of the viewport, in which
@@ -125,7 +107,7 @@ export function RowActionsMenu({
       top: fitsBelow ? below : Math.max(8, rect.top - height - 4),
       right: Math.max(8, window.innerWidth - rect.right),
     });
-  }, []);
+  }, [triggerRef, menuRef]);
 
   // Before paint, so the menu is never seen in the wrong place first.
   useLayoutEffect(() => {
@@ -223,14 +205,12 @@ export function RowActionsMenu({
   if (!hasAnyAction) return null;
 
   return (
-    <div ref={wrapRef} className={styles.moreWrap}>
+    <div className={styles.moreWrap}>
       <button
-        ref={triggerRef}
+        {...menu.triggerProps}
         type="button"
         className={styles.moreButton}
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        aria-haspopup="menu"
+        onClick={menu.toggle}
         aria-label="More actions"
         disabled={pending}
       >
@@ -239,9 +219,9 @@ export function RowActionsMenu({
       {open
         ? createPortal(
             <div
-              ref={menuRef}
+              {...menu.menuProps}
               className={styles.moreMenu}
-              role="menu"
+              aria-label="Actions for this person"
               style={{
                 position: "fixed",
                 top: pos?.top ?? 0,

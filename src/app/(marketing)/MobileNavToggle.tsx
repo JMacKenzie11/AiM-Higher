@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { demoUrl } from "./demo-url";
 import styles from "./marketing.module.css";
 
@@ -17,9 +17,24 @@ export function MobileNavToggle({
   links: NavLink[];
 }) {
   const [open, setOpen] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  // Escape closes the menu and puts focus back on the toggle.
+  useEffect(() => {
+    if (!open) return;
+    function onEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      toggleRef.current?.focus();
+    }
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [open]);
+
   return (
     <>
       <button
+        ref={toggleRef}
         type="button"
         className={styles.mobileToggle}
         aria-controls="marketing-mobile-drawer"

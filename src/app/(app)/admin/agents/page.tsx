@@ -7,6 +7,8 @@ import { isPrimaryInstance } from "@/lib/instances/primary";
 import { AgentHubEditor } from "./AgentHubEditor";
 import styles from "../companies/admin.module.css";
 
+export const metadata = { title: "Agent Hub" };
+
 // The Agent Hub: name, describe, group, order and scope the Ask
 // Aimee agents without a deploy.
 //

@@ -7,6 +7,7 @@ import {
   getCommitmentsPageData,
   type CommitmentFilters,
 } from "@/lib/commitments/service";
+import { isNeedsAttention } from "@/lib/commitments/needs-attention";
 import { PageShell } from "@/components/ui/PageShell";
 import { TermTooltip } from "@/components/ui/TermTooltip";
 import { CommitmentRow } from "./CommitmentRow";
@@ -14,6 +15,8 @@ import { FilterPills } from "./FilterPills";
 import { InlineAddRow } from "./InlineAddRow";
 import { PriorWeekRow } from "./PriorWeekRow";
 import styles from "./commitments.module.css";
+
+export const metadata = { title: "Functional Commitments" };
 
 // /commitments — one page, grouped by week, replacing /weekly-review.
 // Pinned "Needs attention" (past-week + still open), then this week
@@ -103,12 +106,12 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
         // The comment at the top of this file (and the header pill on
         // the same page) has always promised this grouping; the render
         // path had drifted to a single flat list.
-        const needsAttention = data.mainList.filter(
-          (c) => c.status === "open" && c.due_date < data.thisFriday
+        // The rule is isNeedsAttention, shared with the header pill.
+        const needsAttention = data.mainList.filter((c) =>
+          isNeedsAttention(c, data.thisFriday)
         );
         const thisWeekList = data.mainList.filter(
-          (c) =>
-            !(c.status === "open" && c.due_date < data.thisFriday)
+          (c) => !isNeedsAttention(c, data.thisFriday)
         );
         const rosterMinimal = data.roster.map((p) => ({
           id: p.id,

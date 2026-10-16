@@ -398,10 +398,26 @@ export function Sidebar({
   // making it look like top items — Dashboard, Companies — have
   // vanished when in fact they're just above the scroll fold.
   const navRef = useRef<HTMLElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // Escape closes the mobile drawer and hands focus back to the button
+  // that opened it. A menu open inside the drawer (the account menu)
+  // takes the first Escape for itself and marks it handled, so one
+  // press closes one thing.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function onEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      setMobileOpen(false);
+      hamburgerRef.current?.focus();
+    }
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [mobileOpen]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -534,6 +550,7 @@ export function Sidebar({
           steal vertical space; just the mark + hamburger + user. */}
       <div className={styles.mobileBar}>
         <button
+          ref={hamburgerRef}
           type="button"
           className={styles.hamburger}
           aria-controls="sidebar-drawer"
@@ -771,14 +788,18 @@ function SidebarUserMenu({
       if (!ref.current) return;
       if (!ref.current.contains(event.target as Node)) setOpen(false);
     }
+    // Capture phase, and marked handled, so the mobile drawer's own
+    // Escape (which listens in the bubble phase) leaves itself open.
     function onEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onEscape);
+    document.addEventListener("keydown", onEscape, true);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onEscape);
+      document.removeEventListener("keydown", onEscape, true);
     };
   }, [open]);
 

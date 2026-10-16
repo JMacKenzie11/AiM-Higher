@@ -13,6 +13,8 @@ import { CreateCompanyForm } from "../admin/companies/CreateCompanyForm";
 import { PortfolioCompanyCard } from "./PortfolioCompanyCard";
 import styles from "./portfolio.module.css";
 
+export const metadata = { title: "Portfolio" };
+
 // /portfolio — where a portfolio_admin lands, and the only cross-
 // company surface they have.
 //

@@ -4,6 +4,8 @@ import StartAssessmentButton from "./StartAssessmentButton";
 import styles from "../strengths.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "My assessment" };
+
 export default async function WelcomePage() {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const {

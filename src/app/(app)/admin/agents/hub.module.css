@@ -106,8 +106,13 @@
   background: color-mix(in srgb, var(--primary) 4%, var(--surface));
 }
 
+/* A hidden agent says so with its Hidden chip and a flat, dashed
+ * row. It used to be faded to 62%, which put its slug and chips at
+ * 2.54:1 on sand, and these are the rows an admin reads before
+ * bringing one back. */
 .agentRowArchived {
-  opacity: 0.62;
+  border-style: dashed;
+  background: var(--surface);
 }
 
 .agentTop {

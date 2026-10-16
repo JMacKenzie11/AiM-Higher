@@ -8,6 +8,8 @@ import { EditUserForm } from "./EditUserForm";
 import styles from "../../people.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Edit person" };
+
 // Admin edit surface for a single person. Handles first/last name,
 // email, position, role, reports_to. Self-serve name/position edits
 // still live on /profile. Company admins may edit users in their own

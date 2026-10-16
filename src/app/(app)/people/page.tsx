@@ -16,6 +16,8 @@ import type { Profile } from "@/lib/types";
 import styles from "./people.module.css";
 import adminStyles from "../admin/companies/admin.module.css";
 
+export const metadata = { title: "Team" };
+
 // People roster — Section 8.6.
 
 // Supabase's Email OTP Expiration is set at its max — 24h.

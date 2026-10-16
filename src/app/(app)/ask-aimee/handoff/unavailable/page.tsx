@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { PageShell } from "@/components/ui/PageShell";
+import { PageShell, PageShellNotice } from "@/components/ui/PageShell";
+import uiStyles from "@/components/ui/ui.module.css";
+
+export const metadata = { title: "Link unavailable" };
 
 // A "work with Aimee" link that can't be opened (0281). Says why, in
 // general terms, and nothing about the topic.
@@ -18,9 +21,12 @@ export default async function HandoffUnavailablePage({
   const { reason } = await searchParams;
   return (
     <PageShell eyebrow="Aimee" title="This link can't be opened" subtitle={REASONS[reason ?? ""] ?? "This link isn't valid."}>
-      <p>
-        Ask the AI app for a new link, or <Link href="/ask-aimee">start a conversation with Aimee</Link> here.
-      </p>
+      <PageShellNotice>
+        <p>Ask the AI app for a new link, or start a new conversation here.</p>
+        <Link href="/ask-aimee" className={uiStyles.btnPrimary}>
+          Start a conversation with Aimee
+        </Link>
+      </PageShellNotice>
     </PageShell>
   );
 }

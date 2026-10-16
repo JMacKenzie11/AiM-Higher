@@ -3,6 +3,8 @@ import { AuthShell } from "@/components/auth-shell/AuthShell";
 import { SignInForm } from "./SignInForm";
 import { isConsentReturnPath } from "@/lib/mcp/consent-path";
 
+export const metadata = { title: "Sign in" };
+
 // Sign-in page — Section 8.1. Full-viewport --grad-brand, centered column,
 // glass card with the form, ghost link beneath.
 

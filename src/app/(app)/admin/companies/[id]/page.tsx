@@ -30,6 +30,8 @@ import { AssistantsSwitchForm } from "./AssistantsSwitchForm";
 import { mcpOpenTo } from "@/lib/mcp/switch";
 import { mcpEnabledHere } from "@/lib/mcp/switch-here";
 
+export const metadata = { title: "Company settings" };
+
 // One row of company_settings_events, narrowed to the timezone
 // changes this page renders. `actor` is null for a service-role write
 // (provisioning, a migration), which honestly means "not a user

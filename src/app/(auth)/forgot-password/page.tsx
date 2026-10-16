@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell/AuthShell";
 import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
+export const metadata = { title: "Forgot password" };
+
 export default function ForgotPasswordPage() {
   return (
     <AuthShell

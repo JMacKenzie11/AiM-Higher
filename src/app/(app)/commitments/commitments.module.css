@@ -121,9 +121,13 @@
   background: var(--aims-navy-tint);
 }
 
+/* Keyboard focus on pills and row controls: a solid outline with an
+   offset. The 50% box-shadow ring it replaces was 2.36:1 on white,
+   under the 3:1 a focus indicator needs; solid cobalt is 7.3:1 on
+   white and 6.8:1 on sand (sky on navy in dark, 6.7:1). */
 .filterPill:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Selected, not filled.
@@ -158,8 +162,8 @@
 }
 
 .filterSelect:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* ---- Week groups ---- */
@@ -327,16 +331,20 @@
   border-bottom: none;
 }
 
-/* Dims the CELLS, not the row.
-   `opacity` below 1 creates a stacking context, so dimming the row
-   itself trapped the resolve menu's `z-index: 20` inside it: the
-   menu painted UNDER the following row and inherited the row's 60%
-   opacity, which is exactly the "translucent and behind the text"
-   report. Moving the dim down one level leaves the row without a
-   stacking context, so the menu's z-index competes at list level
-   again, and excludes the menu from the fade. */
-.rowResolved > *:not(.resolveMenu) {
-  opacity: 0.6;
+/* A resolved row is quieted by its description, not by fading the
+   whole row. The row used to dim every cell to 60% opacity, which put
+   the due date and "From issue" at 2.56:1 and the Kept chip at 4.39:1,
+   under WCAG 1.4.3's 4.5:1, and no opacity low enough to read as
+   dimmed keeps --text-muted above it. The checked circle and the
+   Kept / Missed chip already say the row is done; the description
+   steps down to muted so the eye still skips past it.
+
+   (Dimming with opacity also needed to sit on the cells rather than
+   the row, because opacity below 1 makes a stacking context that
+   trapped the resolve menu under the next row. Nothing here creates
+   one now.) */
+.rowResolved .rowDescription {
+  color: var(--text-muted);
 }
 
 /* Priority-detail variant: same row, minus the priority column.
@@ -388,8 +396,8 @@
 }
 
 .descriptionEditable:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .descriptionInput {
@@ -548,8 +556,8 @@
 }
 
 .rowOwnerButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .rowOwnerButton:disabled {
@@ -650,8 +658,8 @@ a.fromMeetingChip:hover {
 }
 
 .rowPriorityGhost:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .rowPriorityMuted {
@@ -696,8 +704,8 @@ a.fromMeetingChip:hover {
 }
 
 .rowDueButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .rowDueButton:disabled {
@@ -768,8 +776,8 @@ a.fromMeetingChip:hover {
 }
 
 .resolveCircle:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .resolveCircle:disabled {
@@ -874,8 +882,8 @@ a.fromMeetingChip:hover {
 }
 
 .stripButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .stripButtonActive {
@@ -943,8 +951,8 @@ a.fromMeetingChip:hover {
   box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 15%, transparent);
 }
 .clarityDotButton:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 .clarityDotClear {
   color: var(--aims-success);
@@ -1035,8 +1043,8 @@ a.fromMeetingChip:hover {
 }
 
 .inlinePlaceholder:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
@@ -1122,8 +1130,8 @@ a.fromMeetingChip:hover {
 }
 
 .summaryRow:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .summaryLabel {

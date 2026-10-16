@@ -13,6 +13,8 @@ import { isClientApproved } from "@/lib/mcp/client-approval";
 import { assistantLabel } from "@/lib/mcp/trusted-clients";
 import { recordAction } from "@/lib/mcp/log";
 
+export const metadata = { title: "Allow access" };
+
 // Where an outside assistant's sign-in lands (Supabase's OAuth server
 // sends the person here with an authorization_id: the dev project's
 // Authorization Path is /oauth/consent). The person sees which

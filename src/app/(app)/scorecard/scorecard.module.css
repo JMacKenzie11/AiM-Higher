@@ -22,6 +22,17 @@
   padding: var(--space-6) var(--space-6) var(--space-8);
 }
 
+/* Keyboard focus on the navy hero: chartreuse, as on the sidebar
+   (cobalt is 1.0 to 1.7:1 here, chartreuse 5.2:1 on the lightest
+   stop). White popovers inside keep the standard ring. */
+.hero :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+
+.hero :is([role="menu"], [role="listbox"], [role="dialog"]) :focus-visible {
+  outline-color: var(--primary);
+}
+
 .heroInner {
   max-width: 1160px;
   margin: 0 auto;
@@ -216,7 +227,12 @@
 .infoTip:focus-visible {
   color: var(--primary);
   background: var(--aims-cobalt-tint);
-  outline: none;
+}
+
+/* The standard ring, which the tint alone did not replace. */
+.infoTip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .cardBlurb {
@@ -271,9 +287,10 @@
   font-size: 0.95rem;
 }
 
+/* Quieter than the score by weight and size, in the score's own
+ * colour. At 70% opacity it was 2.2 to 2.9:1 on the pill tints. */
 .pillOutOf {
   font-weight: 500;
-  opacity: 0.7;
   font-size: 0.75rem;
 }
 

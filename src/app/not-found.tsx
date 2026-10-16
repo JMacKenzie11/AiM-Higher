@@ -3,6 +3,8 @@ import styles from "./boundary.module.css";
 
 // Root 404. Friendly copy, single ghost link home.
 
+export const metadata = { title: "Page not found" };
+
 export default function NotFound() {
   return (
     <main className={styles.stage}>

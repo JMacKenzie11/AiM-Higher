@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell/AuthShell";
 import { AcceptInviteForm } from "./AcceptInviteForm";
 
+export const metadata = { title: "Set up your account" };
+
 // Auth flow — the token arrives in the URL search params from the
 // invite email; the form defers verifyOtp until the user submits
 // their password. Search params are dynamic per request, so no

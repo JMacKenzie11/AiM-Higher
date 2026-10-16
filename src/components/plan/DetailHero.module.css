@@ -15,6 +15,17 @@
   padding: var(--space-5) var(--space-6) var(--space-7);
 }
 
+/* Keyboard focus on the navy hero: chartreuse, as on the sidebar
+   (cobalt is 1.0 to 1.7:1 here, chartreuse 5.2:1 on the lightest
+   stop). White popovers inside keep the standard ring. */
+.band :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+
+.band :is([role="menu"], [role="listbox"], [role="dialog"]) :focus-visible {
+  outline-color: var(--primary);
+}
+
 .bandInner {
   margin: 0;
   padding: 0;

@@ -11,6 +11,8 @@ import { HubSpotKeyForm } from "./HubSpotKeyForm";
 import { DisconnectButton } from "./DisconnectButton";
 import styles from "../../admin.module.css";
 
+export const metadata = { title: "Connections" };
+
 // THE CONNECTIONS PAGE (external connections plan, phase 3).
 //
 // One card per outside system a company connects: Google (meeting
