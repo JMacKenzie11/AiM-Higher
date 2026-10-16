@@ -13,6 +13,8 @@ import type { Profile } from "@/lib/types";
 import styles from "../coach.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Coaching" };
+
 type PageProps = {
   params: Promise<{ profileId: string }>;
 };

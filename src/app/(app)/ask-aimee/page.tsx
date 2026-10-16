@@ -12,6 +12,8 @@ import { MemorySweep } from "./MemorySweep";
 import { ArchiveConversationButton } from "../coach/[profileId]/ArchiveConversationButton";
 import styles from "../coach/coach.module.css";
 
+export const metadata = { title: "Ask Aimee" };
+
 // Ask Aimee — the general coaching surface. No subject on file; the
 // user brings the situation. Available to every active member of a
 // company. Conversations are creator-private (RLS scopes SELECT to

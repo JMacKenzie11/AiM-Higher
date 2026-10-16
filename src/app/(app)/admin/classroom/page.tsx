@@ -4,6 +4,8 @@ import { listCategoriesWithLessons } from "@/lib/classroom/service";
 import { AdminClassroomActions } from "./AdminClassroomActions";
 import styles from "../companies/admin.module.css";
 
+export const metadata = { title: "Classroom admin" };
+
 // System-admin authoring surface for the classroom. Lists every
 // category with its lessons, gives quick "New lesson" and "New
 // category" affordances, and links each lesson through to its edit

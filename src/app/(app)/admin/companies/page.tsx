@@ -18,6 +18,8 @@ import styles from "./admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { ScopeIntoCompanyButton } from "./ScopeIntoCompanyButton";
 
+export const metadata = { title: "Companies" };
+
 // Companies overview — the fleet view.
 //   system_admin sees every company + management affordances (Create,
 //   Archive, Guides admin, unrouted queue).

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { PageShell } from "@/components/ui/PageShell";
 
+export const metadata = { title: "Link unavailable" };
+
 // A "work with Aimee" link that can't be opened (0281). Says why, in
 // general terms, and nothing about the topic.
 const REASONS: Record<string, string> = {

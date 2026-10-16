@@ -10,6 +10,8 @@ import type { Profile } from "@/lib/types";
 import styles from "@/app/(app)/strengths/strengths.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Strengths" };
+
 // Manual strengths for a specific team member. Editable by self,
 // system_admin, or company_admin of the same company.
 

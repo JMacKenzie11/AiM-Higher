@@ -19,6 +19,8 @@ import { formatShortDate } from "@/lib/dates";
 import styles from "./scorecard.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "AiMS Implementation" };
+
 // AiMS Scorecard — company-wide discipline maturity view.
 //
 // Visible to every signed-in member of the company (transparency by

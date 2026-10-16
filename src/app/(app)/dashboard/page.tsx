@@ -22,6 +22,8 @@ import { PageShell } from "@/components/ui/PageShell";
 import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 
+export const metadata = { title: "Week in Review" };
+
 // Company Dashboard — Section 8.2.
 
 export default async function DashboardPage() {

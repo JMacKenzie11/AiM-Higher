@@ -13,6 +13,8 @@ import { QuartersTable } from "./QuartersTable";
 import { OpenQuarterForm } from "./OpenQuarterForm";
 import styles from "./quarters.module.css";
 
+export const metadata = { title: "Quarters" };
+
 // Section 8.8 — quarter management. Admin-only writes; team members
 // see the same table read-only.
 

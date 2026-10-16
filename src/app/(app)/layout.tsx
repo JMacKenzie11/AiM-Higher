@@ -158,6 +158,11 @@ export default async function AppLayout({
           className={styles.frame}
           data-nav-collapsed={initialCollapsed ? "true" : undefined}
         >
+          {/* First Tab stop on every page: jumps past the sidebar's
+              18 or so links. Hidden until it has keyboard focus. */}
+          <a href="#content" className={styles.skipLink}>
+            Skip to content
+          </a>
           <Sidebar
             userName={session.profile.full_name}
             userAvatarUrl={session.profile.avatar_url}
@@ -175,7 +180,7 @@ export default async function AppLayout({
           {/* What a drawer has open, shared with Aimee's panel (Step 4):
               the page underneath and the panel both sit inside it. */}
           <OpenRecordProvider>
-            <div className={styles.main}>{children}</div>
+            <main id="content" tabIndex={-1} className={styles.main}>{children}</main>
             {/* Aimee's icon and panel, in place of the old "?" help
                 button: a conversation with Aimee, who answers from the
                 help. docs/investigations/aimee-panel.md. */}

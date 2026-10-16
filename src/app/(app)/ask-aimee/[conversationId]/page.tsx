@@ -22,6 +22,8 @@ import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
 import { MemorySweep } from "../MemorySweep";
 
+export const metadata = { title: "Ask Aimee" };
+
 type PageProps = {
   params: Promise<{ conversationId: string }>;
   searchParams: Promise<{ from?: string }>;

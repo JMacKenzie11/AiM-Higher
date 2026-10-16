@@ -2,6 +2,8 @@ import Link from "next/link";
 import { AuthShell } from "@/components/auth-shell/AuthShell";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
+export const metadata = { title: "Reset password" };
+
 // Reset link lands here with the OTP token in the query
 // (?token_hash=…&type=recovery). ResetPasswordForm renders the
 // password fields immediately; verifyOtp only fires when the user

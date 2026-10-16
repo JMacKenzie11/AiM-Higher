@@ -10,6 +10,8 @@ import { createPracticeConversation } from "@/lib/practices/create";
 import { createGeneralConversation } from "@/lib/coach/create-general";
 import { PageShell } from "@/components/ui/PageShell";
 
+export const metadata = { title: "Ask Aimee" };
+
 // Unified launch route. Two shapes:
 //   - No query params → create a plain general (Ask Aimee)
 //     conversation with practice_id=null. The AgentPicker in

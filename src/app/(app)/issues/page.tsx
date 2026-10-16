@@ -16,6 +16,8 @@ import { ResolvedIssuesList } from "./ResolvedIssuesList";
 import commitmentStyles from "../commitments/commitments.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Issues/Solutions" };
+
 // Issues/Solutions — the Solution Seeking discipline. Name the
 // issue, decide what you want, and commit to the next step. Ranks
 // live inline (drag-to-reorder); resolved issues collapse to a

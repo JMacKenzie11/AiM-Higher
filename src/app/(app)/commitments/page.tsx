@@ -15,6 +15,8 @@ import { InlineAddRow } from "./InlineAddRow";
 import { PriorWeekRow } from "./PriorWeekRow";
 import styles from "./commitments.module.css";
 
+export const metadata = { title: "Functional Commitments" };
+
 // /commitments — one page, grouped by week, replacing /weekly-review.
 // Pinned "Needs attention" (past-week + still open), then this week
 // with the inline add row, then collapsed prior-week summaries.

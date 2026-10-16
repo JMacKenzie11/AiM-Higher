@@ -17,6 +17,8 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { openablePatternsFor } from "@/lib/pages/registry";
 
+export const metadata = { title: "Coaching" };
+
 type PageProps = {
   params: Promise<{ profileId: string; conversationId: string }>;
 };

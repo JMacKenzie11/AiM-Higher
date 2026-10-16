@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { openNudge } from "@/lib/guide/open-nudge";
 import { PageShell } from "@/components/ui/PageShell";
 
+export const metadata = { title: "Nudge" };
+
 // Opening a nudge from a link. Aimee's panel opens invitations in
 // place; this page is for a link followed from anywhere else, and it
 // opens exactly as the panel does (lib/guide/open-nudge.ts: recipient

@@ -16,6 +16,8 @@ import type { Profile } from "@/lib/types";
 import styles from "../people.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "Scorecard" };
+
 // Person Scorecard — Section 8.6.
 
 type PageProps = { params: Promise<{ id: string }> };

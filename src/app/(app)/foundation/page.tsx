@@ -25,6 +25,8 @@ import type { StrategicFocusArea } from "@/lib/types";
 import styles from "./foundation.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
+export const metadata = { title: "One-Page Plan" };
+
 // One-Page Plan — the single-page AiMS one-pager. Full-width single
 // column: sections stack in the AiMS narrative order (identity →
 // direction → measurement), and lists within each section spread

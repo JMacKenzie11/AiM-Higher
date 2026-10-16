@@ -5,6 +5,8 @@ import { companyHasFeature } from "@/lib/subscriptions/service";
 import { getLessonBySlug } from "@/lib/classroom/service";
 import { LessonView } from "../LessonView";
 
+export const metadata = { title: "Lesson" };
+
 // Section-scoped Lesson permalink. Reuses LessonView so a shared
 // link like /classroom/lessons/foo/what-is-this renders the same
 // left-rail treatment as the landing page, just with a specific

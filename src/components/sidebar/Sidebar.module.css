@@ -596,11 +596,14 @@
     /* Off-canvas by default; slide in when data-mobile-open="true". */
     transform: translateX(-100%);
     transition: transform var(--duration-normal) var(--ease-out);
-    box-shadow: var(--shadow-lg);
+    /* No shadow while closed: parked at translateX(-100%), its shadow
+       still painted a grey strip down the left edge of every page. */
+    box-shadow: none;
     width: 280px;
   }
   .sidebar[data-mobile-open="true"] {
     transform: translateX(0);
+    box-shadow: var(--shadow-lg);
   }
   /* Collapse toggle makes no sense on mobile (drawer is either open
      or closed). Hide it in the mobile drawer. */

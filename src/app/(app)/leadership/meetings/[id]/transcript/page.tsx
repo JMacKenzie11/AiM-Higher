@@ -9,6 +9,8 @@ import styles from "../../../../admin/companies/admin.module.css";
 import transcriptStyles from "./transcript.module.css";
 import { turnsOf } from "@/lib/transcripts/turns";
 
+export const metadata = { title: "Meeting transcript" };
+
 // A MEETING'S TRANSCRIPT, for everyone in the company (Jason,
 // 2026-10-01; phase D of docs/investigations/open-data.md). Company
 // content is open to the company, and the transcript is the meeting
