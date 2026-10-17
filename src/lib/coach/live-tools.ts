@@ -1,4 +1,5 @@
 import "server-only";
+import { notesForReader } from "@/lib/notes/clean";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -123,7 +124,7 @@ function makeOpenIssuesTool(args: { companyId: string }): CoachTool {
     definition: {
       name: "open_issues",
       description:
-        `The company's open issues, in their ranked order, as the Issues page shows them: the problem, what is wanted, when it was raised, and the commitments taken against it so far (up to ${MAX_COMMITMENTS_PER_ISSUE} each, newest first) with owner and status. Up to ${MAX_ISSUES} issues. ` +
+        `The company's open issues, in their ranked order, as the Issues page shows them: the problem, what is wanted, its notes, when it was raised, and the commitments taken against it so far (up to ${MAX_COMMITMENTS_PER_ISSUE} each, newest first) with owner, status and notes. Up to ${MAX_ISSUES} issues. ` +
         "Use it for 'what are we stuck on', 'what issues are open'. For how past issues were solved, use issue_casefiles. Returns status='empty' when none are open.",
       input_schema: { type: "object", properties: {}, required: [] },
     },
@@ -131,20 +132,20 @@ function makeOpenIssuesTool(args: { companyId: string }): CoachTool {
       const db = await createSupabaseServerClient(getCurrentInstanceConfig());
       const { data } = await db
         .from("issues")
-        .select("id, title, desired_outcome, rank, created_at")
+        .select("id, title, desired_outcome, notes, rank, created_at")
         .eq("company_id", args.companyId)
         .eq("status", "open")
         .order("rank", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true })
         .limit(MAX_ISSUES + 1);
-      const all = (data ?? []) as Array<{ id: string; title: string; desired_outcome: string | null; rank: number | null; created_at: string }>;
+      const all = (data ?? []) as Array<{ id: string; title: string; desired_outcome: string | null; notes?: unknown; rank: number | null; created_at: string }>;
       if (all.length === 0) return { status: "empty" as const, reason: "no open issues" };
       const issues = all.slice(0, MAX_ISSUES);
 
       const [{ data: commitments }, { data: people }] = await Promise.all([
         db
           .from("commitments")
-          .select("issue_id, description, status, due_date, owner_id, created_at")
+          .select("issue_id, description, status, due_date, owner_id, notes, created_at")
           .in(
             "issue_id",
             issues.map((i) => i.id)
@@ -154,8 +155,8 @@ function makeOpenIssuesTool(args: { companyId: string }): CoachTool {
         db.from("profiles").select("id, full_name").eq("company_id", args.companyId),
       ]);
       const nameOf = new Map(((people ?? []) as Array<{ id: string; full_name: string }>).map((p) => [p.id, p.full_name]));
-      const byIssue = new Map<string, Array<{ description: string; status: string; due_date: string | null; owner_id: string | null }>>();
-      for (const c of (commitments ?? []) as Array<{ issue_id: string; description: string; status: string; due_date: string | null; owner_id: string | null }>) {
+      const byIssue = new Map<string, Array<{ description: string; status: string; due_date: string | null; owner_id: string | null; notes?: unknown }>>();
+      for (const c of (commitments ?? []) as Array<{ issue_id: string; description: string; status: string; due_date: string | null; owner_id: string | null; notes?: unknown }>) {
         const list = byIssue.get(c.issue_id) ?? [];
         list.push(c);
         byIssue.set(c.issue_id, list);
@@ -169,6 +170,8 @@ function makeOpenIssuesTool(args: { companyId: string }): CoachTool {
           return {
             title: i.title,
             wanted: i.desired_outcome,
+            // Company data like the rest of the issue (0287).
+            notes: notesForReader(i.notes),
             raised: i.created_at.slice(0, 10),
             commitments_taken: taken.length,
             commitments: taken.slice(0, MAX_COMMITMENTS_PER_ISSUE).map((c) => ({
@@ -176,6 +179,7 @@ function makeOpenIssuesTool(args: { companyId: string }): CoachTool {
               owner: c.owner_id ? nameOf.get(c.owner_id) ?? null : null,
               status: c.status,
               due: c.due_date,
+              notes: notesForReader(c.notes, 400),
             })),
           };
         }),

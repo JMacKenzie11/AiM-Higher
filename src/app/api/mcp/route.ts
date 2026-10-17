@@ -231,7 +231,7 @@ const handler = createMcpHandler(
       {
         title: "My commitments",
         description:
-          "Your own commitments in a company: everything open (parked ones marked), and what you resolved in the last four weeks. A weekly repeating commitment shows its recent weeks. Read only.",
+          "Your own commitments in a company: everything open (parked ones marked), and what you resolved in the last four weeks, with any notes. A weekly repeating commitment shows its recent weeks. Read only.",
         inputSchema: z.object({ company }),
         annotations: READ_ONLY,
       },
@@ -243,7 +243,7 @@ const handler = createMcpHandler(
       {
         title: "My team's commitments",
         description:
-          "Everyone else's open commitments in a company, and unassigned ones, with owner and due date. Parked ones are left out. Read only.",
+          "Everyone else's open commitments in a company, and unassigned ones, with owner, due date and any notes. Parked ones are left out. Read only.",
         inputSchema: z.object({ company }),
         annotations: READ_ONLY,
       },
@@ -270,7 +270,7 @@ const handler = createMcpHandler(
       "open_issues",
       {
         title: "Open issues",
-        description: "A company's open issues in rank order, with the outcome wanted and who raised each. Read only.",
+        description: "A company's open issues in rank order, with the outcome wanted, any notes, and who raised each. Read only.",
         inputSchema: z.object({ company }),
         annotations: READ_ONLY,
       },

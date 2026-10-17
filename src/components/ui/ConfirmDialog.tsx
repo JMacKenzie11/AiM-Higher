@@ -30,6 +30,7 @@ export function ConfirmDialog({
   tone = "danger",
   onConfirm,
   onCancel,
+  onDismiss,
   pending = false,
 }: {
   open: boolean;
@@ -40,6 +41,10 @@ export function ConfirmDialog({
   tone?: ConfirmTone;
   onConfirm: () => void;
   onCancel: () => void;
+  // Escape and a click outside, when they should mean something other
+  // than the Cancel button: the drawer's "Save changes?" uses Cancel
+  // for Discard, and Escape for "keep editing". Defaults to onCancel.
+  onDismiss?: () => void;
   pending?: boolean;
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -60,7 +65,7 @@ export function ConfirmDialog({
     containerRef: dialogRef,
     initialFocusRef: cancelRef,
     onEscape: () => {
-      if (!pending) onCancel();
+      if (!pending) (onDismiss ?? onCancel)();
     },
   });
 
@@ -75,7 +80,7 @@ export function ConfirmDialog({
       aria-modal="true"
       aria-labelledby="confirm-title"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !pending) onCancel();
+        if (e.target === e.currentTarget && !pending) (onDismiss ?? onCancel)();
       }}
     >
       <div className={styles.dialog}>

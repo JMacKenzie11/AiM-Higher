@@ -1,4 +1,5 @@
 import "server-only";
+import { notesForReader } from "@/lib/notes/clean";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { thisFriday, mondayOf } from "@/lib/dates";
@@ -59,10 +60,13 @@ async function roster(db: Db, companyId: string): Promise<Map<string, string>> {
 // ---- commitments -------------------------------------------------------
 
 const COMMITMENT_COLS =
-  "id, owner_id, description, due_date, due_date_defaulted, status, is_ongoing, parked_at, completed_at, priority_id, issue_id, functional_area_id";
+  "id, owner_id, description, due_date, due_date_defaulted, status, is_ongoing, parked_at, completed_at, priority_id, issue_id, functional_area_id, notes";
 
 type CommitmentRow = {
   id: string;
+  // Company data like the rest of the row, and on the menu with it
+  // (Jason, 2026-10-16). Read as plain text (notesForReader).
+  notes?: unknown;
   owner_id: string | null;
   description: string;
   due_date: string;
@@ -126,6 +130,7 @@ export async function myCommitments({ db, userId, company }: Ctx) {
     resolved_at: r.completed_at,
     linked_to: linkOf(r),
     issue_title: r.issue_id ? issueTitle.get(r.issue_id) ?? null : null,
+    notes: notesForReader(r.notes),
     recent_weeks: r.is_ongoing
       ? weeks
           .filter((w) => w.commitment_id === r.id)
@@ -160,6 +165,7 @@ export async function teamCommitments({ db, userId, company }: Ctx) {
     due_date: r.due_date,
     repeats_weekly: r.is_ongoing,
     linked_to: linkOf(r),
+    notes: notesForReader(r.notes),
   }));
   return { company: company.name, commitments };
 }
@@ -233,18 +239,19 @@ export async function openIssues({ db, company }: Ctx) {
   const [rows, names] = await Promise.all([
     db
       .from("issues")
-      .select("id, title, desired_outcome, rank, created_at, created_by")
+      .select("id, title, desired_outcome, notes, rank, created_at, created_by")
       .eq("company_id", company.id)
       .eq("status", "open")
       .order("rank")
       .limit(200)
-      .then((res) => must(res) as Array<{ id: string; title: string; desired_outcome: string | null; rank: number; created_at: string; created_by: string | null }>),
+      .then((res) => must(res) as Array<{ id: string; title: string; desired_outcome: string | null; notes?: unknown; rank: number; created_at: string; created_by: string | null }>),
     roster(db, company.id),
   ]);
   const issues = rows.map((r) => ({
     id: r.id,
     title: r.title,
     desired_outcome: r.desired_outcome,
+    notes: notesForReader(r.notes),
     rank: r.rank,
     raised_on: r.created_at.slice(0, 10),
     raised_by: r.created_by ? names.get(r.created_by) ?? null : null,

@@ -240,25 +240,37 @@
    naturally-single-line cells lines them up with body text that
    sits inside a control (input, select, date). */
 .issueRow > .cellOwner,
-.issueRow > /* No row-level hover tint — matches /commitments where the row
+.issueRow > .cellDue {
+  padding-top: 2px;
+}
+
+/* No row-level hover tint — matches /commitments where the row
    stays quiet at rest and each editable cell carries its own
    dashed-border-at-rest affordance. */
 
+/* The same handle as the measures grid's (.rowDragHandle): the ⠿
+   glyph, muted, cobalt on hover. */
 .dragHandle {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  cursor: grab;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
 }
 
 .dragHandle:hover {
-  color: var(--text);
-  background: var(--aims-navy-tint);
+  background: color-mix(in srgb, var(--aims-cobalt) 12%, transparent);
+  color: var(--aims-cobalt);
 }
 
 .dragHandle:active {
@@ -267,7 +279,8 @@
 
 .dragHandlePlaceholder {
   display: inline-block;
-  width: 20px;
+  flex-shrink: 0;
+  width: 22px;
   height: 1px;
 }
 
@@ -310,15 +323,12 @@
   align-items: flex-start;
 }
 
-/* SEMIBOLD, so an issue outranks the commitments listed under it.
-   Both were plain --text-body, which made a parent and its children
-   the same weight and left the card with no hierarchy to read. The
-   recessed band separates them; the weight says which one is the
-   heading. */
+/* Regular weight, as on the open list and every commitment list
+   (Jason, 2026-10-17). The recessed band separates an issue from the
+   commitments under it. */
 .issueTitle,
 .issueTitleEditable {
   font: var(--text-body);
-  font-weight: 600;
   color: var(--text);
   white-space: normal;
   word-break: break-word;
@@ -944,3 +954,73 @@
   height: 1px;
 }
 
+
+/* ---- One issue = one line (2026-10-16) --------------------------
+   Drag, Resolve, the description, the open-commitments count, Delete.
+   Everything else lives in the drawer the description opens. A flex
+   line, not the old six-column grid: there is one text cell now. */
+.issueLine {
+  scroll-margin-top: 96px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.lineMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Regular weight, as a commitment's text is on every list. */
+.lineTitle {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: var(--text-body);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.lineTitle:hover {
+  color: var(--aims-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.openBadge {
+  flex-shrink: 0;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addIssueButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+  align-self: flex-start;
+}
+
+@media (max-width: 640px) {
+  /* Touch scrolls the list; the handle would fight it. Reordering is
+     a desktop job, as it was. */
+  .issueLine .dragHandle,
+  .issueLine .dragHandlePlaceholder {
+    display: none;
+  }
+}

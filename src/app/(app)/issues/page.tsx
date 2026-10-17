@@ -10,7 +10,7 @@ import { todayInTimezone } from "@/lib/dates";
 import type { Priority, Profile } from "@/lib/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { IssuesBoard } from "./IssuesBoard";
-import { CreateIssueRow } from "./CreateIssueRow";
+import { AddIssueButton } from "./AddIssueButton";
 import { FilterPills } from "./FilterPills";
 import { ResolvedIssuesList } from "./ResolvedIssuesList";
 import commitmentStyles from "../commitments/commitments.module.css";
@@ -63,7 +63,7 @@ export default async function IssuesPage({ searchParams }: PageProps) {
   // Priority + functional area options feed the LinkChip menu on
   // each issue-linked commitment so a user can re-target the link
   // (switch off the issue to a priority or functional area).
-  const [roster, { data: priorityRows }, { data: fnRows }] =
+  const [roster, { data: priorityRows }] =
     await Promise.all([
       // Company members plus the people assigned to work with this
       // company. This page never had the union /commitments had, so
@@ -79,20 +79,10 @@ export default async function IssuesPage({ searchParams }: PageProps) {
             .eq("archived", false)
             .order("title")
         : Promise.resolve({ data: [] as Array<Pick<Priority, "id" | "title">> }),
-      supabase
-        .from("functions")
-        .select("id, title")
-        .eq("company_id", companyId)
-        .eq("archived", false)
-        .order("title"),
     ]);
   const priorityOptions = (priorityRows ?? []) as Array<
     Pick<Priority, "id" | "title">
   >;
-  const functionalAreaOptions = (fnRows ?? []) as Array<{
-    id: string;
-    title: string;
-  }>;
 
   const isAdmin = isAdminForCompany(session.profile, companyId);
 
@@ -196,18 +186,27 @@ export default async function IssuesPage({ searchParams }: PageProps) {
             issues={filteredOpen}
             roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
             priorityOptions={priorityOptions}
-            functionalAreaOptions={functionalAreaOptions}
             todayIso={todayIso}
             currentUserId={session.profile.id}
-            currentUserCompanyId={session.profile.company_id}
             isAdmin={isAdmin}
+            openIssueId={pickString(sp.issue, "") || null}
           />
           {/* issues_insert_member admits the company's own people and
               issues_insert_admin its admins (an assigned guide, or a
               portfolio admin switched on as company admin). Anyone
               else reads the board and raises nothing. */}
           {session.profile.company_id === companyId || isAdmin ? (
-            <CreateIssueRow />
+            <div className={commitmentStyles.inlineAddRow}>
+              <AddIssueButton
+                ctx={{
+                  roster: roster.map((p) => ({ id: p.id, full_name: p.full_name })),
+                  priorityOptions,
+                  todayIso,
+                  currentUserId: session.profile.id,
+                  isAdmin,
+                }}
+              />
+            </div>
           ) : null}
         </section>
       ) : null}

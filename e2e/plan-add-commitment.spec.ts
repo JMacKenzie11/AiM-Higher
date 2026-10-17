@@ -46,15 +46,9 @@ async function sweep(page: Page) {
   }
 }
 
-// Clicks the bin and confirms.
-//
-// Deleting a commitment goes through the app's own ConfirmDialog —
-// role="dialog", aria-modal — and NOT window.confirm, so a
-// page.on("dialog") handler is useless against it: the first version
-// of this cleanup used one, clicked the bin, and waited thirty
-// seconds for a row that was never going anywhere. The same mistake
-// is written up in e2e/reorder.spec.ts, which is where the pattern
-// below comes from.
+// Clicks the bin. No confirmation box since 2026-10-16: the delete
+// happens at once and an undo chip offers it back for 30 seconds,
+// which this leaves alone.
 //
 // It deliberately does NOT assert the row went away. The caller knows
 // whether its locator names one row or many, and that difference
@@ -64,9 +58,7 @@ async function sweep(page: Page) {
 // against a backlog of four left by earlier runs.
 async function confirmDelete(page: Page, row: Locator) {
   await row.getByRole("button", { name: /Delete this commitment/i }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible({ timeout: 10_000 });
-  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Undo" })).toBeVisible({ timeout: 30_000 });
 }
 
 // Commitments are swept separately from the cascade: they live on

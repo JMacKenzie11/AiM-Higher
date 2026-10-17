@@ -1416,3 +1416,83 @@ a.fromMeetingChip:hover {
   border-color: var(--aims-cobalt);
   color: var(--aims-cobalt);
 }
+
+/* Inside the work drawer: the description on the first line, then
+   who, when and the status side by side under it, each starting where
+   its box starts. The drawer is 560px wide at most, so the desktop
+   columns do not fit. The child order is the row's: description,
+   owner, priority (hidden here), due, status. */
+.rowCompact {
+  grid-template-columns: 40px 40px 40px auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "circle delete clarity description description description"
+    ".      .      .       owner       due         status";
+  row-gap: var(--space-2);
+  column-gap: var(--space-3);
+}
+
+.rowCompact > :nth-child(1) {
+  grid-area: circle;
+  align-self: start;
+}
+.rowCompact > :nth-child(2) {
+  grid-area: delete;
+  align-self: start;
+}
+.rowCompact > :nth-child(3) {
+  grid-area: clarity;
+  align-self: start;
+  justify-self: center;
+}
+.rowCompact > :nth-child(4) {
+  grid-area: description;
+  min-width: 0;
+}
+.rowCompact > :nth-child(5) {
+  grid-area: owner;
+  min-width: 0;
+  align-self: center;
+  justify-self: start;
+}
+.rowCompact > :nth-child(6) {
+  display: none;
+}
+.rowCompact > :nth-child(7) {
+  grid-area: due;
+  min-width: 0;
+  align-self: center;
+  justify-self: start;
+  /* The date button pulls itself out by its padding to line its text
+     up in a desktop column. Here its box lines up with the owner's. */
+  margin: 0;
+}
+.rowCompact > :nth-child(8) {
+  grid-area: status;
+  align-self: center;
+  justify-self: start;
+}
+
+button.fromIssuePill {
+  cursor: pointer;
+}
+
+/* The commitment's text, as the button that opens it in the drawer.
+   Reads as text, not as a field: editing happens in the drawer. */
+.descriptionOpen {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.descriptionOpen:hover {
+  color: var(--aims-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

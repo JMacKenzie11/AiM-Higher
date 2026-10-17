@@ -1,3 +1,4 @@
+import type { NotesDoc } from "@/lib/notes/clean";
 // Shared TypeScript types for domain rows the app reads/writes.
 // These stay in one place so route handlers, server actions, and views
 // agree on shape.
@@ -275,6 +276,10 @@ export type Commitment = {
   // reworded automatically: shown as "Needs rewording" to whoever can
   // edit it, and cleared by the database when the text changes (0250).
   needs_rewording: boolean;
+  // Notes, a cleaned document (src/lib/notes/clean.ts), null when
+  // empty (0287). Optional because loaders that name their columns
+  // may not ask for it.
+  notes?: NotesDoc | null;
   // Soft-delete: filtered from every UI + metric. Retention only for
   // future coaching-signal work — see migration 0139 rationale.
   deleted_at: string | null;
@@ -333,6 +338,10 @@ export type Issue = {
   resolved_in_meeting?: boolean;
   // As on Commitment, for the title (0250).
   needs_rewording: boolean;
+  // Notes, a cleaned document (src/lib/notes/clean.ts), null when
+  // empty (0287). Optional because loaders that name their columns
+  // may not ask for it.
+  notes?: NotesDoc | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

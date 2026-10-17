@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition, useMemo, useEffect } from "react";
 import {
   deleteCommitmentAction,
+  undeleteCommitmentAction,
   markKeptAction,
   markMissedAction,
   parkCommitmentAction,
@@ -16,7 +17,6 @@ import {
   updateCommitmentDescriptionAction,
 } from "@/lib/commitments/actions";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { dueLabel, BY_NEXT_MEETING_TITLE } from "@/lib/commitments/due-label";
 import type { Priority, Profile } from "@/lib/types";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
@@ -27,6 +27,7 @@ import { ClarityDrawer } from "./ClarityDrawer";
 import styles from "./commitments.module.css";
 import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 import { useMenuButton } from "@/components/ui/useMenuButton";
+import { useRegisterCommitment, useWorkDrawer } from "@/components/work-drawer/context";
 
 // A single commitment row.
 //
@@ -80,6 +81,10 @@ export type CommitmentRowProps = {
   // is pure noise. A hidden placeholder still renders so the
   // nth-child grid area mapping (used on mobile) stays intact.
   hidePriority?: boolean;
+  // Inside the work drawer (an issue's commitments): the stacked
+  // layout, since the drawer is narrow, and no clarity editor, since
+  // that is a drawer of its own and drawers never stack.
+  inDrawer?: boolean;
 };
 
 export function CommitmentRow({
@@ -95,7 +100,22 @@ export function CommitmentRow({
   isAdmin,
   companyLabel,
   hidePriority,
+  inDrawer = false,
 }: CommitmentRowProps) {
+  // The work drawer reads this row's data from here, so a drawer open
+  // on it shows the same commitment the row does, refreshed with it.
+  const workDrawer = useWorkDrawer();
+  useRegisterCommitment(commitment, {
+    roster,
+    priorityOptions,
+    functionalAreaOptions,
+    todayIso,
+    canResolve,
+    canLink,
+    canReassign,
+    currentUserId,
+    isAdmin,
+  });
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
   // "late" reason strip is a distinct flow — the owner might still
@@ -112,7 +132,6 @@ export function CommitmentRow({
   const [showClarity, setShowClarity] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(
     commitment.description
@@ -262,12 +281,21 @@ export function CommitmentRow({
   const canEditDescription =
     isAdmin || commitment.owner_id === currentUserId;
 
+  // No confirmation box: the delete happens, and the undo chip brings
+  // it back for 30 seconds. Delete is soft (deleted_at), so undo is a
+  // real undo. The chip is the drawer's, not this row's, because the
+  // row leaves the list on the refresh that follows.
   function runDelete() {
-    setConfirmDelete(false);
     setError(null);
     startTransition(async () => {
       const result = await deleteCommitmentAction(commitment.id);
-      if (!result.ok) setError(result.message);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      workDrawer?.showUndo("Commitment deleted", () => {
+        void undeleteCommitmentAction(commitment.id);
+      });
     });
   }
 
@@ -361,13 +389,17 @@ export function CommitmentRow({
   }
 
   const isActive = isOpen;
-
   const rowClasses = [styles.row];
+  if (inDrawer) rowClasses.push(styles.rowCompact);
   if (isParked || !isActive) rowClasses.push(styles.rowResolved);
   if (hidePriority) rowClasses.push(styles.rowNoPriority);
 
   return (
-    <li className={rowClasses.join(" ")} data-testid="commitment-row">
+    <li
+      className={rowClasses.join(" ")}
+      data-testid="commitment-row"
+      data-commitment-id={commitment.id}
+    >
       <button
         type="button"
         className={buildCircleClass(
@@ -441,7 +473,7 @@ export function CommitmentRow({
         <button
           type="button"
           className={styles.deleteRowButton}
-          onClick={() => setConfirmDelete(true)}
+          onClick={runDelete}
           disabled={pending}
           aria-label="Delete this commitment"
           title="Delete this commitment"
@@ -465,7 +497,9 @@ export function CommitmentRow({
         <ClarityChip
           state={clarityState(commitment)}
           onClick={
-            canResolve ? () => setShowClarity((prev) => !prev) : undefined
+            canResolve && !inDrawer
+              ? () => setShowClarity((prev) => !prev)
+              : undefined
           }
         />
       </div>
@@ -489,7 +523,18 @@ export function CommitmentRow({
           />
         ) : (
           <p className={styles.rowDescription}>
-            {canEditDescription ? (
+            {workDrawer ? (
+              // Opens the drawer, where it is edited. Previous and next
+              // there step through the rows around this one.
+              <button
+                type="button"
+                className={styles.descriptionOpen}
+                onClick={(e) => workDrawer.openCommitment(commitment.id, e.currentTarget)}
+                title="Open"
+              >
+                {commitment.description}
+              </button>
+            ) : canEditDescription ? (
               <button
                 type="button"
                 className={styles.descriptionEditable}
@@ -629,13 +674,24 @@ export function CommitmentRow({
            No picker for these rows. Moving a commitment off its
            issue is an action that belongs in the issue's own
            context, not in a column claiming to be about priorities. */
-        <Link
-          href={`/issues#issue-${commitment.issue.id}`}
-          className={styles.fromIssuePill}
-          title={`From the issue "${commitment.issue.title}" — click to open it`}
-        >
-          From issue
-        </Link>
+        workDrawer?.hasIssue(commitment.issue.id) ? (
+          <button
+            type="button"
+            className={styles.fromIssuePill}
+            onClick={() => workDrawer.openIssue(commitment.issue!.id)}
+            title={`From the issue "${commitment.issue.title}". Click to open it.`}
+          >
+            From issue
+          </button>
+        ) : (
+          <Link
+            href={`/issues?issue=${commitment.issue.id}`}
+            className={styles.fromIssuePill}
+            title={`From the issue "${commitment.issue.title}". Click to open it.`}
+          >
+            From issue
+          </Link>
+        )
       ) : (
         <CommitmentLinkChip
           commitment={commitment}
@@ -909,18 +965,6 @@ export function CommitmentRow({
         />
       ) : null}
 
-      {canDelete ? (
-        <ConfirmDialog
-          open={confirmDelete}
-          title="Delete this commitment?"
-          message="This can't be undone. Any linkage to a priority will be lost too."
-          confirmLabel="Delete"
-          tone="danger"
-          onConfirm={runDelete}
-          onCancel={() => setConfirmDelete(false)}
-          pending={pending}
-        />
-      ) : null}
       {/* LAST, and that placement is load-bearing. This is
           `position: absolute`, anchored to `.row`, so where it sits
           in the DOM changes nothing visually — but it IS a direct

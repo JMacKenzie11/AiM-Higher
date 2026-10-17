@@ -6,6 +6,7 @@ import {
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { AimeeLauncher } from "@/components/aimee/AimeeLauncher";
 import { OpenRecordProvider } from "@/components/aimee/OpenRecord";
+import { WorkDrawerProvider } from "@/components/work-drawer/WorkDrawerProvider";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
@@ -180,7 +181,12 @@ export default async function AppLayout({
           {/* What a drawer has open, shared with Aimee's panel (Step 4):
               the page underneath and the panel both sit inside it. */}
           <OpenRecordProvider>
-            <main id="content" tabIndex={-1} className={styles.main}>{children}</main>
+            {/* One drawer for an issue or a commitment, on every page
+                that lists them. Mounted here so it outlives a page
+                change (an issue's delete waits out its undo chip). */}
+            <WorkDrawerProvider>
+              <main id="content" tabIndex={-1} className={styles.main}>{children}</main>
+            </WorkDrawerProvider>
             {/* Aimee's icon and panel, in place of the old "?" help
                 button: a conversation with Aimee, who answers from the
                 help. docs/investigations/aimee-panel.md. */}
