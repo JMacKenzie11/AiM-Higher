@@ -142,21 +142,33 @@ export function WorkDrawerProvider({ children }: { children: ReactNode }) {
   const openNewIssue = useCallback((ctx: IssueContext) => go({ kind: "newIssue", ctx }), [go]);
 
   // ---- Undo chips ----
+  //
+  // One chip at a time. An issue's delete is a real delete (its
+  // commitments lose their link, 0143), so it WAITS for its chip:
+  // hidden now, deleted when the chip goes, cancelled by Undo. Closing
+  // the tab inside the 30 seconds leaves the issue where it was.
+  //
+  // A NEW CHIP SENDS ANY DELETE STILL WAITING, at once. Its own chip
+  // has just been replaced, so its Undo is gone; leaving the delete to
+  // fire later would be a delete with no way back that nobody can see
+  // coming (Vercel review on #470).
   const [undo, setUndo] = useState<{ key: number; label: string; run: () => void } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDeletes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; send: () => void }>());
+  const [hiddenIssues, setHiddenIssues] = useState<Set<string>>(new Set());
+
   const showUndo = useCallback((label: string, run: () => void) => {
+    for (const [, pending] of pendingDeletes.current) {
+      clearTimeout(pending.timer);
+      pending.send();
+    }
+    pendingDeletes.current.clear();
     if (undoTimer.current) clearTimeout(undoTimer.current);
     const key = Date.now();
     setUndo({ key, label, run });
     undoTimer.current = setTimeout(() => setUndo((u) => (u?.key === key ? null : u)), UNDO_MS);
   }, []);
 
-  // An issue's delete is a real delete (its commitments lose their
-  // link, 0143), so it WAITS for the chip: hidden now, deleted when
-  // the chip goes. Undo cancels it. Closing the tab inside the 30
-  // seconds leaves the issue where it was.
-  const [hiddenIssues, setHiddenIssues] = useState<Set<string>>(new Set());
-  const pendingDeletes = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const deleteIssueWithUndo = useCallback(
     (id: string) => {
       setHiddenIssues((s) => new Set(s).add(id));
@@ -166,8 +178,7 @@ export function WorkDrawerProvider({ children }: { children: ReactNode }) {
           next.delete(id);
           return next;
         });
-      const timer = setTimeout(async () => {
-        pendingDeletes.current.delete(id);
+      const send = async () => {
         const result = await deleteIssueAction(id);
         if (!result.ok) {
           unhide();
@@ -175,13 +186,20 @@ export function WorkDrawerProvider({ children }: { children: ReactNode }) {
         } else {
           router.refresh();
         }
-      }, UNDO_MS);
-      pendingDeletes.current.set(id, timer);
+      };
+      // The chip first, so it sends whatever was waiting before this
+      // delete starts waiting itself.
       showUndo("Issue deleted", () => {
-        clearTimeout(timer);
+        const pending = pendingDeletes.current.get(id);
+        if (pending) clearTimeout(pending.timer);
         pendingDeletes.current.delete(id);
         unhide();
       });
+      const timer = setTimeout(() => {
+        pendingDeletes.current.delete(id);
+        void send();
+      }, UNDO_MS);
+      pendingDeletes.current.set(id, { timer, send: () => void send() });
     },
     [router, showUndo]
   );
