@@ -699,6 +699,11 @@ function AddCommitment({ issueId, ctx }: { issueId: string; ctx: IssueContext })
   const [description, setDescription] = useState("");
   const [ownerId, setOwnerId] = useState(ctx.currentUserId);
   const [due, setDue] = useState(ctx.todayIso);
+  // Notes can go on with it (Jason, 2026-10-17). Saved straight after
+  // the commitment is made, by the same action the commitment panel
+  // uses. The key empties the editor after each add.
+  const [notes, setNotes] = useState<NotesDoc | null>(null);
+  const [notesKey, setNotesKey] = useState(0);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -717,7 +722,16 @@ function AddCommitment({ issueId, ctx }: { issueId: string; ctx: IssueContext })
         setError(result.message);
         return;
       }
+      if (notes && result.ok) {
+        const saved = await saveCommitmentNotesAction(result.commitment.id, notes);
+        if (!saved.ok) {
+          setError(`The commitment was added, but its notes did not save: ${saved.message}`);
+          return;
+        }
+      }
       setDescription("");
+      setNotes(null);
+      setNotesKey((k) => k + 1);
       setDue(ctx.todayIso);
       setOwnerId(ctx.currentUserId);
       inputRef.current?.focus();
@@ -745,6 +759,10 @@ function AddCommitment({ issueId, ctx }: { issueId: string; ctx: IssueContext })
         placeholder="What will we do this week?"
         disabled={pending}
       />
+      <span className={styles.label} aria-hidden>
+        Notes
+      </span>
+      <NotesEditor key={notesKey} initial={null} onChange={setNotes} label="New commitment notes" />
       <div className={styles.addRow}>
         {ctx.isAdmin ? (
           <select

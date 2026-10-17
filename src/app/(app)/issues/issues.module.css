@@ -323,15 +323,12 @@
   align-items: flex-start;
 }
 
-/* SEMIBOLD, so an issue outranks the commitments listed under it.
-   Both were plain --text-body, which made a parent and its children
-   the same weight and left the card with no hierarchy to read. The
-   recessed band separates them; the weight says which one is the
-   heading. */
+/* Regular weight, as on the open list and every commitment list
+   (Jason, 2026-10-17). The recessed band separates an issue from the
+   commitments under it. */
 .issueTitle,
 .issueTitleEditable {
   font: var(--text-body);
-  font-weight: 600;
   color: var(--text);
   white-space: normal;
   word-break: break-word;
