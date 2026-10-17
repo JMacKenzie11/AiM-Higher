@@ -1417,17 +1417,17 @@ a.fromMeetingChip:hover {
   color: var(--aims-cobalt);
 }
 
-/* Inside the work drawer: the stacked layout the row takes under
-   1024px, at every width, since the drawer is 560px wide at most.
-   The same areas and the same child order as the media query above. */
+/* Inside the work drawer: the description on the first line, then
+   who, when and the status side by side under it, each starting where
+   its box starts. The drawer is 560px wide at most, so the desktop
+   columns do not fit. The child order is the row's: description,
+   owner, priority (hidden here), due, status. */
 .rowCompact {
-  grid-template-columns: 40px 40px 40px minmax(0, 1fr);
+  grid-template-columns: 40px 40px 40px auto auto minmax(0, 1fr);
   grid-template-areas:
-    "circle delete clarity description"
-    ".      .      .       status"
-    ".      .      .       owner"
-    ".      .      .       due";
-  row-gap: var(--space-1);
+    "circle delete clarity description description description"
+    ".      .      .       owner       due         status";
+  row-gap: var(--space-2);
   column-gap: var(--space-3);
 }
 
@@ -1451,6 +1451,8 @@ a.fromMeetingChip:hover {
 .rowCompact > :nth-child(5) {
   grid-area: owner;
   min-width: 0;
+  align-self: center;
+  justify-self: start;
 }
 .rowCompact > :nth-child(6) {
   display: none;
@@ -1458,50 +1460,16 @@ a.fromMeetingChip:hover {
 .rowCompact > :nth-child(7) {
   grid-area: due;
   min-width: 0;
+  align-self: center;
+  justify-self: start;
+  /* The date button pulls itself out by its padding to line its text
+     up in a desktop column. Here its box lines up with the owner's. */
+  margin: 0;
 }
 .rowCompact > :nth-child(8) {
   grid-area: status;
-  align-self: start;
+  align-self: center;
   justify-self: start;
-}
-
-/* The notes icon beside a commitment that has notes. Its title shows
-   the first line on hover. */
-.notesIcon {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  margin-left: var(--space-2);
-  vertical-align: -1px;
-  color: var(--text-muted);
-  cursor: help;
-  border-radius: var(--radius-sm);
-}
-
-/* The first line of the notes, on hover or keyboard focus, at once
-   (a title attribute waits a second and cannot be styled). */
-.notesIcon:hover::after,
-.notesIcon:focus-visible::after {
-  content: attr(data-preview);
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 6px);
-  transform: translateX(-50%);
-  z-index: 20;
-  width: max-content;
-  max-width: 280px;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--aims-navy);
-  color: var(--aims-white);
-  font: var(--text-caption);
-  font-size: 13px;
-  line-height: 1.4;
-  white-space: normal;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  box-shadow: var(--shadow-md);
-  pointer-events: none;
 }
 
 button.fromIssuePill {

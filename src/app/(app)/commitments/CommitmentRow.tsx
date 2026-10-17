@@ -28,7 +28,6 @@ import styles from "./commitments.module.css";
 import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 import { useMenuButton } from "@/components/ui/useMenuButton";
 import { useRegisterCommitment, useWorkDrawer } from "@/components/work-drawer/context";
-import { notesFirstLine } from "@/lib/notes/clean";
 
 // A single commitment row.
 //
@@ -390,10 +389,6 @@ export function CommitmentRow({
   }
 
   const isActive = isOpen;
-  // The notes icon shows only when there are notes; hovering it shows
-  // their first line.
-  const notesPreview = notesFirstLine(commitment.notes);
-
   const rowClasses = [styles.row];
   if (inDrawer) rowClasses.push(styles.rowCompact);
   if (isParked || !isActive) rowClasses.push(styles.rowResolved);
@@ -551,26 +546,6 @@ export function CommitmentRow({
             ) : (
               commitment.description
             )}
-            {notesPreview ? (
-              <span
-                className={styles.notesIcon}
-                data-preview={notesPreview}
-                aria-label={`Has notes: ${notesPreview}`}
-                role="img"
-                tabIndex={0}
-              >
-                <svg viewBox="0 0 16 16" width={13} height={13} aria-hidden>
-                  <path
-                    d="M4 2.5 h5.5 l2.5 2.5 v8.5 h-8 z M9.5 2.5 v2.5 h2.5 M6 8 h4 M6 10.5 h4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.3}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </span>
-            ) : null}
             {/* For whoever can reword it (0250). */}
             {commitment.needs_rewording && canEditDescription ? <NeedsRewordingTag /> : null}
             {companyLabel ? (

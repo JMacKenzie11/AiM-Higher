@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanNotes, notesFirstLine, notesText, safeHref } from "./clean";
+import { cleanNotes, notesText, safeHref } from "./clean";
 
 const p = (...content: unknown[]) => ({ type: "paragraph", content });
 const t = (text: string, marks?: unknown[]) => ({ type: "text", text, ...(marks ? { marks } : {}) });
@@ -59,7 +59,6 @@ describe("notesText", () => {
       { type: "orderedList", content: [{ type: "listItem", content: [p(t("first"))] }] }
     );
     expect(notesText(d)).toBe("Context\n- a\n- b\n1. first");
-    expect(notesFirstLine(d)).toBe("Context");
   });
 });
 

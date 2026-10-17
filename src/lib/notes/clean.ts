@@ -136,8 +136,7 @@ export function cleanNotes(raw: unknown): NotesDoc | null {
 }
 
 // Plain text, one line per paragraph or list item, lists marked with
-// "- " or "1. ". What Aimee and AI apps read, and what the row's notes
-// icon shows on hover (its first line).
+// "- " or "1. ". What Aimee and AI apps read.
 export function notesText(doc: unknown): string {
   if (!doc || typeof doc !== "object") return "";
   const lines: string[] = [];
@@ -163,10 +162,6 @@ export function notesText(doc: unknown): string {
   };
   walk((doc as NotesNode).content, "");
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-}
-
-export function notesFirstLine(doc: unknown): string {
-  return notesText(doc).split("\n").find((l) => l.trim())?.trim() ?? "";
 }
 
 // Notes as Aimee and AI apps read them: plain text, capped so one long

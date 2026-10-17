@@ -18,7 +18,7 @@ Click a commitment's text to open it in a panel on the right (the whole screen o
 
 Use the arrows at the top of the panel, or the left and right arrow keys, to step to the previous or next commitment in the list without closing it. That's handy for going through the list in the weekly meeting. If you've changed something and not saved it, AiMS asks before moving on. Press Escape to keep editing.
 
-A small page icon after a commitment's text means it has notes. Point at it to see the first line.
+To read or add a commitment's notes, click its text, here or inside an issue.
 
 ## Notes
 

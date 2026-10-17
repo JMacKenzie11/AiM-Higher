@@ -166,8 +166,7 @@ test.describe("issue commitment thread", () => {
     await expect(drawer.getByText("Saved")).toBeVisible({ timeout: 30_000 });
     await drawer.getByRole("button", { name: /back to the issue/i }).click();
 
-    // After a reload, both notes are still there, and the commitment
-    // carries its notes icon.
+    // After a reload, both notes are still there.
     await page.reload();
     const row = page.getByRole("article").filter({ hasText: title });
     await row.getByRole("button", { name: title }).click();
@@ -176,7 +175,14 @@ test.describe("issue commitment thread", () => {
       "Bold part",
       { timeout: 30_000 },
     );
-    await expect(again.getByRole("img", { name: /Has notes: Both quotes due Wednesday\./ })).toBeVisible();
+    await again
+      .getByTestId("commitment-row")
+      .filter({ hasText: "Ask for two quotes" })
+      .getByRole("button", { name: "Ask for two quotes" })
+      .click();
+    await expect(again.getByRole("textbox", { name: "Commitment notes" })).toContainText(
+      "Both quotes due Wednesday.",
+    );
   });
 
   test("deleting an issue can be undone", async ({ page }) => {
