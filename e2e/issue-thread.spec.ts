@@ -45,7 +45,7 @@ async function createIssue(page: Page, title: string): Promise<Locator> {
 }
 
 async function addCommitment(drawer: Locator, description: string) {
-  await drawer.getByLabel("New commitment").fill(description);
+  await drawer.getByLabel("New commitment", { exact: true }).fill(description);
   await drawer.getByRole("button", { name: "Add", exact: true }).click();
   await expect(
     drawer.getByTestId("commitment-row").filter({ hasText: description }),
