@@ -15,6 +15,7 @@ import {
   type CommitmentResult,
 } from "./create";
 import { scoreCommitmentClarity } from "./clarity";
+import { cleanNotes, notesText, NOTES_MAX_CHARS } from "@/lib/notes/clean";
 import type {
   Commitment,
   CommitmentOccurrence,
@@ -1001,6 +1002,62 @@ export async function deleteCommitmentAction(
   // (and the clarity chip disappears with it).
   if (commitment.issue_id) revalidatePath("/issues");
   return { ok: true };
+}
+
+// ---- Undo a delete ------------------------------------------
+// The row's undo chip. Delete is soft (deleted_at), so undo clears it;
+// the same people who may delete may bring it back.
+export async function undeleteCommitmentAction(
+  commitmentId: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  const isAdmin = isAdminForCompany(session.profile, commitment.company_id);
+  if (!isAdmin && commitment.owner_id !== session.profile.id) {
+    return { ok: false, message: "Not yours to bring back." };
+  }
+  const { error } = await supabase
+    .from("commitments")
+    .update({ deleted_at: null })
+    .eq("id", commitmentId);
+  if (error) return { ok: false, message: "Couldn't bring that commitment back." };
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
+  if (commitment.issue_id) revalidatePath("/issues");
+  return { ok: true };
+}
+
+// ---- Notes ---------------------------------------------------
+// The commitment drawer's Save button sends the notes here, beside
+// the description, owner and date actions above. Cleaned first
+// (notes/clean.ts); whoever may edit the description may edit them.
+export async function saveCommitmentNotesAction(
+  commitmentId: string,
+  rawNotes: unknown
+): Promise<CommitmentResult> {
+  const session = await requireProfile();
+  const notes = cleanNotes(rawNotes);
+  if (notes && notesText(notes).length > NOTES_MAX_CHARS) {
+    return { ok: false, message: "Those notes are too long to save. Shorten them a little." };
+  }
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const commitment = await loadCommitment(supabase, commitmentId);
+  if (!commitment) return { ok: false, message: "Commitment not found." };
+  if (!canWriteOwnedRow(session.profile, commitment)) {
+    return { ok: false, message: "Not yours to edit." };
+  }
+  const { data, error } = await supabase
+    .from("commitments")
+    .update({ notes })
+    .eq("id", commitmentId)
+    .select("*")
+    .single<Commitment>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't save those notes." };
+  }
+  revalidateCommitmentSurfaces(commitment.priority_id, commitment.issue_id);
+  return { ok: true, commitment: data };
 }
 
 // ---- Ongoing helpers ----------------------------------------

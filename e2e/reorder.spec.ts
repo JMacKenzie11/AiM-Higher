@@ -159,11 +159,17 @@ test.describe("drag to reorder", () => {
     // one to move past.
     const stamp = Date.now();
     const titles = [`E2E reorder A ${stamp}`, `E2E reorder B ${stamp}`];
+    // "Add an issue" opens the work drawer on a new issue; "Add issue"
+    // saves it and leaves the drawer on it, so close it each time.
+    const drawer = page.getByTestId("drawer-panel");
     for (const title of titles) {
-      await page.getByLabel("New issue").fill(title);
-      // Enter submits the form. The submit button reads "Add", not
-      // "Add issue", and there is one per commitment add-line too.
-      await page.getByLabel("New issue").press("Enter");
+      await page.getByRole("button", { name: "Add an issue" }).click();
+      await drawer.getByLabel("Description").fill(title);
+      await drawer.getByRole("button", { name: "Add issue" }).click();
+      await expect(drawer.getByRole("heading", { name: "Commitments" })).toBeVisible({
+        timeout: 30_000,
+      });
+      await drawer.getByRole("button", { name: "Close" }).click();
       await expect(
         page.getByRole("article").filter({ hasText: title }),
       ).toBeVisible({ timeout: 30_000 });
@@ -215,18 +221,24 @@ test.describe("drag to reorder", () => {
 
     // Clean up what this test created.
     //
-    // Deleting an issue goes through the app's own ConfirmDialog —
-    // role="dialog", aria-modal — not window.confirm. A
-    // page.on("dialog") handler is therefore useless here and the
-    // first version of this cleanup used one, clicked the bin, and
-    // waited thirty seconds for a row that was never going anywhere.
+    // Delete has no confirmation box: the row goes at once and the
+    // delete itself is sent when the 30-second undo chip goes
+    // (2026-10-16). So wait the chip out on this page, then reload to
+    // see the server agree, or the issues would survive the run.
     for (const title of titles) {
       const row = page.getByRole("article").filter({ hasText: title });
       await row.getByRole("button", { name: /delete this issue/i }).click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog).toBeVisible({ timeout: 10_000 });
-      await dialog.getByRole("button", { name: "Delete", exact: true }).click();
-      await expect(row).toHaveCount(0, { timeout: 30_000 });
+      await expect(row).toHaveCount(0, { timeout: 10_000 });
+    }
+    await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0, {
+      timeout: 45_000,
+    });
+    await settle(page);
+    await page.reload();
+    for (const title of titles) {
+      await expect(page.getByRole("article").filter({ hasText: title })).toHaveCount(0, {
+        timeout: 30_000,
+      });
     }
   });
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useWorkDrawer } from "@/components/work-drawer/context";
 import {
   DndContext,
   KeyboardSensor,
@@ -34,22 +35,32 @@ export function IssuesBoard({
   issues,
   roster,
   priorityOptions,
-  functionalAreaOptions,
   todayIso,
   currentUserId,
-  currentUserCompanyId,
   isAdmin,
+  openIssueId = null,
 }: {
   issues: IssueWithCommitments[];
   roster: Array<Pick<Profile, "id" | "full_name">>;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
-  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
-  currentUserCompanyId: string | null;
   isAdmin: boolean;
+  openIssueId?: string | null;
 }) {
   const [order, setOrder] = useState(issues);
+  const drawer = useWorkDrawer();
+
+  // /issues?issue=<id> opens that issue's drawer: where a commitment's
+  // "From issue" pill on another page leads. The rows register in their
+  // own effects, which run before this one, so the issue is known here.
+  const opened = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openIssueId || opened.current === openIssueId) return;
+    if (!drawer?.hasIssue(openIssueId)) return;
+    opened.current = openIssueId;
+    drawer.openIssue(openIssueId);
+  }, [openIssueId, drawer]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -105,15 +116,6 @@ export function IssuesBoard({
           {error}
         </p>
       ) : null}
-      {/* Labels only the two columns the ISSUE occupies, positioned
-          by class rather than by source order so they sit over the
-          same columns the cells do. Commitment / assigned to / due
-          date are labelled per issue by CommitmentSubHeader, because
-          that block is a list of its own. */}
-      <div className={styles.columnHeader} role="row" aria-hidden="true">
-        <span className={styles.headIssue}>Issue</span>
-        <span className={styles.headWant}>What we want</span>
-      </div>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -130,10 +132,8 @@ export function IssuesBoard({
                 issue={issue}
                 roster={roster}
                 priorityOptions={priorityOptions}
-                functionalAreaOptions={functionalAreaOptions}
                 todayIso={todayIso}
                 currentUserId={currentUserId}
-                currentUserCompanyId={currentUserCompanyId}
                 isAdmin={isAdmin}
                 disabled={pending}
               />
@@ -149,20 +149,16 @@ function SortableIssue({
   issue,
   roster,
   priorityOptions,
-  functionalAreaOptions,
   todayIso,
   currentUserId,
-  currentUserCompanyId,
   isAdmin,
   disabled,
 }: {
   issue: IssueWithCommitments;
   roster: Array<Pick<Profile, "id" | "full_name">>;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
-  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
-  currentUserCompanyId: string | null;
   isAdmin: boolean;
   disabled: boolean;
 }) {
@@ -188,10 +184,8 @@ function SortableIssue({
         issue={issue}
         roster={roster}
         priorityOptions={priorityOptions}
-        functionalAreaOptions={functionalAreaOptions}
         todayIso={todayIso}
         currentUserId={currentUserId}
-        currentUserCompanyId={currentUserCompanyId}
         isAdmin={isAdmin}
         dragHandleProps={{ ...attributes, ...listeners }}
       />

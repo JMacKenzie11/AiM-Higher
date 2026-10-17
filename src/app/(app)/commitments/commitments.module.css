@@ -1416,3 +1416,115 @@ a.fromMeetingChip:hover {
   border-color: var(--aims-cobalt);
   color: var(--aims-cobalt);
 }
+
+/* Inside the work drawer: the stacked layout the row takes under
+   1024px, at every width, since the drawer is 560px wide at most.
+   The same areas and the same child order as the media query above. */
+.rowCompact {
+  grid-template-columns: 40px 40px 40px minmax(0, 1fr);
+  grid-template-areas:
+    "circle delete clarity description"
+    ".      .      .       status"
+    ".      .      .       owner"
+    ".      .      .       due";
+  row-gap: var(--space-1);
+  column-gap: var(--space-3);
+}
+
+.rowCompact > :nth-child(1) {
+  grid-area: circle;
+  align-self: start;
+}
+.rowCompact > :nth-child(2) {
+  grid-area: delete;
+  align-self: start;
+}
+.rowCompact > :nth-child(3) {
+  grid-area: clarity;
+  align-self: start;
+  justify-self: center;
+}
+.rowCompact > :nth-child(4) {
+  grid-area: description;
+  min-width: 0;
+}
+.rowCompact > :nth-child(5) {
+  grid-area: owner;
+  min-width: 0;
+}
+.rowCompact > :nth-child(6) {
+  display: none;
+}
+.rowCompact > :nth-child(7) {
+  grid-area: due;
+  min-width: 0;
+}
+.rowCompact > :nth-child(8) {
+  grid-area: status;
+  align-self: start;
+  justify-self: start;
+}
+
+/* The notes icon beside a commitment that has notes. Its title shows
+   the first line on hover. */
+.notesIcon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-2);
+  vertical-align: -1px;
+  color: var(--text-muted);
+  cursor: help;
+  border-radius: var(--radius-sm);
+}
+
+/* The first line of the notes, on hover or keyboard focus, at once
+   (a title attribute waits a second and cannot be styled). */
+.notesIcon:hover::after,
+.notesIcon:focus-visible::after {
+  content: attr(data-preview);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 20;
+  width: max-content;
+  max-width: 280px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--aims-navy);
+  color: var(--aims-white);
+  font: var(--text-caption);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+button.fromIssuePill {
+  cursor: pointer;
+}
+
+/* The commitment's text, as the button that opens it in the drawer.
+   Reads as text, not as a field: editing happens in the drawer. */
+.descriptionOpen {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.descriptionOpen:hover {
+  color: var(--aims-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

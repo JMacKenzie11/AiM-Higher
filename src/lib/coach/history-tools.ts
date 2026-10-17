@@ -1,4 +1,5 @@
 import "server-only";
+import { notesForReader } from "@/lib/notes/clean";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -447,7 +448,7 @@ function makeIssueCasefilesTool(args: { companyId: string }): CoachTool {
 
       const { data: issueRows } = await db
         .from("issues")
-        .select("id, title, desired_outcome, created_at, resolved_at, resolved_in_meeting")
+        .select("id, title, desired_outcome, notes, created_at, resolved_at, resolved_in_meeting")
         .eq("company_id", args.companyId)
         .eq("status", "resolved")
         .gte("resolved_at", since)
@@ -457,6 +458,7 @@ function makeIssueCasefilesTool(args: { companyId: string }): CoachTool {
         id: string;
         title: string;
         desired_outcome: string | null;
+        notes?: unknown;
         created_at: string;
         resolved_at: string | null;
         resolved_in_meeting: boolean | null;
@@ -467,7 +469,7 @@ function makeIssueCasefilesTool(args: { companyId: string }): CoachTool {
 
       const { data: cmtRows } = await db
         .from("commitments")
-        .select("id, issue_id, description, status, due_date, week_ending, completed_at, missed_reason, created_at, owner_id, parked_at, deleted_at")
+        .select("id, issue_id, description, status, due_date, week_ending, completed_at, missed_reason, notes, created_at, owner_id, parked_at, deleted_at")
         .in(
           "issue_id",
           issues.map((i) => i.id)
@@ -502,6 +504,7 @@ function makeIssueCasefilesTool(args: { companyId: string }): CoachTool {
         return {
           issue: issue.title,
           what_we_wanted: issue.desired_outcome,
+          notes: notesForReader(issue.notes),
           resolved_in_meeting: issue.resolved_in_meeting === true,
           days_to_resolution: days,
           attempts: ordered.map((c, i) => ({
@@ -509,6 +512,7 @@ function makeIssueCasefilesTool(args: { companyId: string }): CoachTool {
             commitment: c.description,
             outcome: c.status,
             missed_reason: c.missed_reason ?? null,
+            notes: notesForReader((c as { notes?: unknown }).notes, 400),
           })),
           attempt_count: ordered.length,
         };

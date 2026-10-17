@@ -11,6 +11,7 @@ import type { Commitment, Issue } from "@/lib/types";
 import { todayInTimezone } from "@/lib/dates";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { insertIssue, type IssueResult } from "./create";
+import { cleanNotes, notesText, NOTES_MAX_CHARS, type NotesDoc } from "@/lib/notes/clean";
 
 // Server actions for the Issues/Solutions page. Edit rights follow
 // the same pattern as commitments: creator OR company_admin
@@ -126,6 +127,99 @@ export async function updateIssueDesiredOutcomeAction(
   }
   revalidatePath("/issues");
   return { ok: true, issue: data };
+}
+
+// ---- Save from the drawer ----------------------------------------
+// The issue drawer's Save button: description (the title), what we
+// want, and notes in one write. Notes are cleaned first (notes/clean.ts),
+// so only the five kinds of formatting reach the database.
+export type IssueDetails = {
+  title: string;
+  desiredOutcome: string;
+  notes: unknown;
+};
+
+function readNotes(raw: unknown): { ok: true; notes: NotesDoc | null } | { ok: false; message: string } {
+  const notes = cleanNotes(raw);
+  if (notes && notesText(notes).length > NOTES_MAX_CHARS) {
+    return { ok: false, message: "Those notes are too long to save. Shorten them a little." };
+  }
+  return { ok: true, notes };
+}
+
+export async function saveIssueAction(
+  id: string,
+  details: IssueDetails
+): Promise<IssueResult> {
+  const session = await requireProfile();
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const issue = await loadIssue(supabase, id);
+  if (!issue) return { ok: false, message: "Issue not found." };
+  if (!canEditIssue(session.profile, issue)) {
+    return { ok: false, message: "You can't edit that issue." };
+  }
+  const title = details.title.trim();
+  if (!title) return { ok: false, message: "Describe the issue first." };
+  if (title.length > 200) {
+    return { ok: false, message: "Keep the description under 200 characters." };
+  }
+  const desired = details.desiredOutcome.trim() || null;
+  const notes = readNotes(details.notes);
+  if (!notes.ok) return notes;
+
+  // Only what changed, so an untouched title keeps its needs_rewording
+  // mark (0250 clears it when the title changes).
+  const patch: Partial<Pick<Issue, "title" | "desired_outcome" | "notes">> = { notes: notes.notes };
+  if (title !== issue.title) patch.title = title;
+  if (desired !== issue.desired_outcome) patch.desired_outcome = desired;
+
+  const { data, error } = await supabase
+    .from("issues")
+    .update(patch)
+    .eq("id", id)
+    .select("*")
+    .single<Issue>();
+  if (error || !data) {
+    return { ok: false, message: "Couldn't save that change." };
+  }
+  revalidatePath("/issues");
+  return { ok: true, issue: data };
+}
+
+// A new issue from the drawer: the same rules as the add row
+// (insertIssue), then its notes on the row it made.
+export async function createIssueFromDrawerAction(
+  details: IssueDetails
+): Promise<IssueResult> {
+  const session = await requireProfile();
+  const companyId = await getEffectiveCompanyId(session);
+  const notes = readNotes(details.notes);
+  if (!notes.ok) return notes;
+  const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const result = await insertIssue({ db, profile: session.profile }, companyId, {
+    title: details.title,
+    desiredOutcome: details.desiredOutcome,
+  });
+  if (!result.ok) return result;
+
+  let issue = result.issue;
+  if (notes.notes) {
+    const { data } = await db
+      .from("issues")
+      .update({ notes: notes.notes })
+      .eq("id", issue.id)
+      .select("*")
+      .single<Issue>();
+    if (data) issue = data;
+  }
+  revalidatePath("/issues");
+  trackAfter(
+    session.profile.id,
+    "issue.created",
+    { from_meeting: false },
+    { company: issue.company_id }
+  );
+  return { ok: true, issue };
 }
 
 // ---- Resolve --------------------------------------------------

@@ -7,6 +7,7 @@ import {
 import { reportError } from "@/lib/observability/report";
 import { compareToOwnBaseline, themesFrom } from "./history-shape";
 import "server-only";
+import { notesForReader } from "@/lib/notes/clean";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentQuarter } from "@/lib/quarters/service";
@@ -715,7 +716,7 @@ async function loadSubjectCommitments(
     Pick<Commitment, "description" | "week_ending" | "due_date">
   >;
   openCommitments: Array<
-    Pick<Commitment, "description" | "due_date" | "week_ending">
+    Pick<Commitment, "description" | "due_date" | "week_ending" | "notes">
   >;
 }> {
   const missed: Array<
@@ -783,14 +784,14 @@ async function loadSubjectCommitments(
 
   const { data: openRows } = await supabase
     .from("commitments")
-    .select("description, due_date, week_ending")
+    .select("description, due_date, week_ending, notes")
     .eq("owner_id", subjectId)
     .eq("status", "open")
     .is("deleted_at", null)
     .is("parked_at", null)
     .order("due_date", { ascending: true });
   const openCommitments = (openRows ?? []) as Array<
-    Pick<Commitment, "description" | "due_date" | "week_ending">
+    Pick<Commitment, "description" | "due_date" | "week_ending" | "notes">
   >;
 
   // Parked count — surfaced in the coaching context when nonzero so
@@ -923,7 +924,7 @@ export function formatPersonContext({
     }
   >;
   keptLate: Array<Pick<Commitment, "description" | "week_ending" | "due_date">>;
-  openCommitments: Array<Pick<Commitment, "description" | "due_date" | "week_ending">>;
+  openCommitments: Array<Pick<Commitment, "description" | "due_date" | "week_ending" | "notes">>;
   baseline: {
     current_pct: number;
     baseline_pct: number;
@@ -1017,6 +1018,9 @@ export function formatPersonContext({
   } else {
     for (const c of openCommitments) {
       lines.push(`- ${c.due_date} · ${c.description.trim()}`);
+      // Notes are company data like the rest of the row (0287).
+      const notes = notesForReader(c.notes, 400);
+      if (notes) lines.push(`  Notes: ${notes.replace(/\n/g, " / ")}`);
     }
   }
 

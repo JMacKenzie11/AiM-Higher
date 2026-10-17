@@ -12497,6 +12497,91 @@ select current_setting('harness.seen')::int as n,
   }];
 }
 
+// ---- Notes follow the row (0287) ---------------------------------
+//
+// Notes are a column on issues and commitments, so they carry each
+// row's rules and nothing else. As a team member, with a second member
+// of the same company seeded here:
+//   granted   notes on its own commitment and on an issue it raised
+//             save; an outside AI app signed in as it reads them
+//   withheld  notes on the other member's commitment and issue do not
+//             save, and the AI app cannot write notes on its own row
+// Red before 0287: there is no notes column, so nothing saves.
+async function notesFollowTheRowProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "notes · follow the row";
+  const M = ids.member, CO = ids.memberCompany;
+  const OTHER = randomUUID();
+  const MINE = randomUUID(), THEIRS = randomUUID(), MY_ISSUE = randomUUID(), THEIR_ISSUE = randomUUID();
+  const doc = `'{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"harness 0287"}]}]}'::jsonb`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${OTHER}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${OTHER}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values ('${OTHER}', '${CO}', 'Harness 0287 other', 'team_member', 'active');
+insert into public.commitments (id, company_id, owner_id, description, due_date, week_ending, status)
+values ('${MINE}', '${CO}', '${M}', 'harness 0287 mine', current_date, current_date, 'open'),
+       ('${THEIRS}', '${CO}', '${OTHER}', 'harness 0287 theirs', current_date, current_date, 'open');
+insert into public.issues (id, company_id, title, created_by)
+values ('${MY_ISSUE}', '${CO}', 'harness 0287 mine', '${M}'),
+       ('${THEIR_ISSUE}', '${CO}', 'harness 0287 theirs', '${OTHER}');
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  begin
+    update public.commitments set notes = ${doc} where id = '${MINE}';
+    get diagnostics n = row_count; insert into _p values ('own_commitment', n::text);
+  exception when others then insert into _p values ('own_commitment', 'error ' || sqlstate); end;
+  begin
+    update public.issues set notes = ${doc} where id = '${MY_ISSUE}';
+    get diagnostics n = row_count; insert into _p values ('own_issue', n::text);
+  exception when others then insert into _p values ('own_issue', 'error ' || sqlstate); end;
+  begin
+    update public.commitments set notes = ${doc} where id = '${THEIRS}';
+    get diagnostics n = row_count; insert into _p values ('their_commitment', n::text);
+  exception when others then insert into _p values ('their_commitment', 'error ' || sqlstate); end;
+  begin
+    update public.issues set notes = ${doc} where id = '${THEIR_ISSUE}';
+    get diagnostics n = row_count; insert into _p values ('their_issue', n::text);
+  exception when others then insert into _p values ('their_issue', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated","client_id":"harness-0287"}', true);
+  begin
+    execute 'select count(*) from public.commitments where id = $1 and notes is not null' into n using '${MINE}'::uuid;
+    insert into _p values ('assistant_reads', n::text);
+  exception when others then insert into _p values ('assistant_reads', 'error ' || sqlstate); end;
+  begin
+    update public.commitments set notes = null where id = '${MINE}';
+    get diagnostics n = row_count; insert into _p values ('assistant_writes', n::text);
+  exception when others then insert into _p values ('assistant_writes', 'error ' || sqlstate); end;
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0287 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const ok =
+    r.own_commitment === "1" && r.own_issue === "1" && r.assistant_reads === "1" &&
+    r.their_commitment === "0" && r.their_issue === "0" && r.assistant_writes === "0";
+  return [{
+    name,
+    granted: `own commitment ${r.own_commitment}, own issue ${r.own_issue}, AI app reads ${r.assistant_reads} (want 1 each)`,
+    withheld: `other member's commitment ${r.their_commitment}, issue ${r.their_issue}, AI app writes ${r.assistant_writes} (want 0 each)`,
+    ok,
+    detail: ok
+      ? "a member writes notes on its own commitment and issue and not on another member's; an AI app signed in as it reads notes and cannot write them"
+      : r.own_commitment !== "1"
+        ? "NOTES DO NOT SAVE for the row's owner (is 0287 applied?)"
+        : "notes reach further than their row, or an AI app can write them",
+  }];
+}
+
 // ---- A row stays in its company (0266) ---------------------------
 //
 // The owner rules on these tables checked the owner on the way out and
@@ -14173,6 +14258,7 @@ async function main(): Promise<void> {
   const rewording = await needsRewordingProbes(run, ids, pendingSql);
   const companyStays = await companyStaysProbes(run, ids, pendingSql);
   const guideFeatures = await guideFeatureReadProbes(run, ids, pendingSql);
+  const notes = await notesFollowTheRowProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
   const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
@@ -14198,7 +14284,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -14299,6 +14385,7 @@ async function main(): Promise<void> {
     rewording.some((p) => !p.ok) ||
     companyStays.some((p) => !p.ok) ||
     guideFeatures.some((p) => !p.ok) ||
+    notes.some((p) => !p.ok) ||
     conversations.some((p) => !p.ok) ||
     companyContent.some((p) => !p.ok) ||
     strengthsAnswers.some((p) => !p.ok) ||

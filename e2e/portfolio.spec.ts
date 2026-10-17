@@ -103,7 +103,7 @@ test.describe("portfolio_admin", () => {
     await page.goto("/commitments");
     await expect(page.getByRole("textbox", { name: "New commitment" })).toHaveCount(0);
     await page.goto("/issues");
-    await expect(page.getByRole("textbox", { name: "New issue" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add an issue" })).toHaveCount(0);
 
     // And the read itself works, which is what makes the absences
     // above mean something rather than describing an empty page.

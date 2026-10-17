@@ -8,7 +8,16 @@ Your company's list of open issues. Name the issue, decide what you want, and co
 
 ## Reading the list
 
-Each issue sits on its own line: what the issue is, and *What we want*. Its commitments are listed underneath, finished ones first, then the ones still open, each with who owns it and when it's due. An empty line at the bottom is ready for the next commitment.
+Each issue sits on one line: the issue itself and, when it has any, a small number showing how many of its commitments are still open.
+
+Click the issue to open it in a panel on the right (the whole screen on a phone). The panel shows:
+
+- **Description**: what the issue is.
+- **What do we want**: the outcome you're after.
+- **Notes**: anything else worth keeping, with bold, italics, bullet or numbered lists, and links.
+- **Commitments**: every commitment taken on the issue, finished ones first, then the ones still open, with a line underneath to add the next one.
+
+Changes in the panel are kept when you press *Save*. If you close the panel, or open something else, with changes not yet saved, AiMS asks whether to save them. Press Escape to keep editing.
 
 A commitment made here also shows on Commitments, tagged *From issue*, and counts toward the owner's follow-through and the scorecard like any other.
 
@@ -17,11 +26,11 @@ The counts at the top (*Open*, *No commitment yet*, *Resolved this quarter*) alw
 ::: role team_member
 ## What you can do here
 
-- **Add an issue.** Type it into the add row and press *Add*.
-- **Work on issues you added.** Click the title to rename it, click *What we want* to set the outcome, drag the handle on the left to move it up or down the list, and add commitments to it.
+- **Add an issue.** Press *Add an issue*. The panel opens with the description ready to type; fill in what you can and press *Add issue*. The panel stays open so you can add its commitments.
+- **Work on issues you added.** Open one to change its description, *What do we want* or notes, then press *Save*. Drag the handle on the left to move it up or down the list.
 - **Resolve an issue you added.** Tick the round check at the left of its line.
-- **Look after your own commitments.** They work exactly as they do on Commitments: the circle opens *Mark kept*, *Reschedule* and *Park*, you can click the text to edit it or the owner's name to hand it on, and *Undo* stays on screen for 30 seconds. Rescheduling asks you for a short reason.
-- **Delete your own open commitment** with the trash can beside it.
+- **Look after your own commitments.** In the issue's panel they work exactly as they do on Commitments: the circle opens *Mark kept*, *Reschedule* and *Park*, and *Undo* stays on screen for 30 seconds. Click the text to open the commitment itself, with its notes; *Back to the issue* takes you back. Rescheduling asks you for a short reason.
+- **Delete your own open commitment** with the trash can beside it. *Undo* brings it back for 30 seconds.
 
 To change an issue someone else added, ask them or your company admin.
 :::
@@ -29,29 +38,30 @@ To change an issue someone else added, ask them or your company admin.
 ::: role company_admin,aims_guide,system_admin
 ## What you can do here
 
-- **Add, rename and resolve any issue**, and set *What we want* on any of them.
+- **Add, change and resolve any issue**, including its *What do we want* and notes.
 - **Reorder the list.** Drag the handle on the left. Everyone at the company sees the same order. Team members can move only the issues they added.
 - **Add a commitment for anyone.** Pick the owner when you add it.
 - **Close out, reschedule or reassign** any commitment on an issue, without giving a reason.
-- **Delete an open issue.** Use the trash can beside its round check. It can't be undone. The commitments on it stay on their owners' lists; they just lose the link to the issue. A resolved issue can't be deleted.
+- **Delete an open issue.** Use the trash can at the right of its line. It disappears at once, and *Undo* at the foot of the page brings it back for 30 seconds; after that it's gone for good. The commitments on it stay on their owners' lists; they just lose the link to the issue. A resolved issue can't be deleted.
 - **Turn meeting issues into real ones.** See *Issues from a meeting* below.
 :::
 
 ::: role portfolio_admin
 ## What you can do here
 
-Read every issue and its commitments, and filter the list. Changes are made by the company's own people.
+Read every issue, its notes and its commitments, and filter the list. Changes are made by the company's own people.
 
 Where a system admin has made you this company's admin, you can add, rename, reorder and resolve issues as a company admin does.
 :::
 
 ## How to add a commitment to an issue
 
-1. Type the next step into the empty line under the issue.
-2. Change the due date if you need to. The owner is you unless an admin picks someone else.
-3. Press *Add*, or press Cmd/Ctrl+Enter. Clicking away from the line also saves it.
+1. Open the issue.
+2. Type the next step into *New commitment*, under its commitments.
+3. Change the due date if you need to. The owner is you unless an admin picks someone else.
+4. Press *Add*, or press Cmd/Ctrl+Enter.
 
-Once it's there, click any part of it to change it. It saves when you click away.
+To change it afterwards, click its text to open it, make the change and press *Save*.
 
 ## Resolving an issue
 
@@ -88,7 +98,7 @@ An issue tagged *Needs rewording* mentions something personal about someone, and
 
 ## Common questions
 
-**What's the coloured dot next to a commitment?** It shows whether the commitment is clear: a due date someone agreed to, and a clear finish line. It works the same as on Commitments. Click it to see why.
+**What's the coloured dot next to a commitment?** It shows whether the commitment is clear: a due date someone agreed to, and a clear finish line. To see why, or fix it, click the dot on the Commitments page.
 
 **Can I reopen a resolved issue?** No. If the problem comes back, add a new issue.
 

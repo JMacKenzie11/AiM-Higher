@@ -12,6 +12,20 @@ Each commitment has an owner, a due date and a status: *open*, *kept on time*, *
 
 The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**, and the *Needs attention* number at the top of the page counts the same commitments. A commitment due earlier this week stays under this week. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
 
+## Opening a commitment
+
+Click a commitment's text to open it in a panel on the right (the whole screen on a phone). It shows everything about it: what it is, who owns it, when it's due, its status, what it's linked to, and its notes. Make changes there and press *Save*.
+
+Use the arrows at the top of the panel, or the left and right arrow keys, to step to the previous or next commitment in the list without closing it. That's handy for going through the list in the weekly meeting. If you've changed something and not saved it, AiMS asks before moving on. Press Escape to keep editing.
+
+A small page icon after a commitment's text means it has notes. Point at it to see the first line.
+
+## Notes
+
+Notes are for anything that doesn't fit in the commitment itself: background, links, what was agreed. You can use bold, italics, bullet or numbered lists, and links. To add a link, select the words, press *Link* and paste the address.
+
+Anyone who can see the commitment can read its notes. Whoever can change the commitment can change them.
+
 **Strategic** commitments are attached to a quarterly priority. **Operational** ones aren't, even when they're tied to an issue or a function. The *Type* filter shows one or the other.
 
 ::: role team_member
@@ -21,7 +35,8 @@ The list runs soonest due first. Anything from an earlier week that's still open
 - **Close one out.** Click the circle on the left of your commitment and choose *Mark kept*. Once it's past its due date, the choice is *Mark kept (late)*.
 - **Move it.** *Reschedule* picks a new date. *Park* sets it aside so it doesn't count either way, and *Bring back* returns it with a new date.
 - **Hand it to someone else.** Click the owner's name on your commitment and pick the new owner.
-- **Change your mind.** After you close one out, *Undo* stays on screen for 30 seconds.
+- **Change the wording, the date or the notes.** Open it and press *Save*. Moving the date asks you for a short reason.
+- **Change your mind.** After you close one out or delete one, *Undo* stays on screen for 30 seconds.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -68,4 +83,10 @@ Tick **Ongoing (weekly)** when you add a commitment and it comes back every week
 
 **Can I change the priority on a finished commitment?** No. Once it's closed out, its priority stays as it was, so the priority's progress doesn't change after the fact.
 
-**Can I get back a commitment I deleted?** No. Treat deleting as final.
+**Can I get back a commitment I deleted?** Only straight away: press *Undo* within 30 seconds. After that, treat it as gone.
+
+::: feature outside_assistants
+## Notes in AI apps
+
+An AI app you've connected reads notes along with the rest of a commitment or issue. It can't change them.
+:::

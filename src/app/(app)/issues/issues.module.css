@@ -944,3 +944,74 @@
   height: 1px;
 }
 
+
+/* ---- One issue = one line (2026-10-16) --------------------------
+   Drag, Resolve, the description, the open-commitments count, Delete.
+   Everything else lives in the drawer the description opens. A flex
+   line, not the old six-column grid: there is one text cell now. */
+.issueLine {
+  scroll-margin-top: 96px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.lineMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* SEMIBOLD, as the issue title always was: an issue is a heading. */
+.lineTitle {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: var(--text-body);
+  font-weight: 600;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.lineTitle:hover {
+  color: var(--aims-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.openBadge {
+  flex-shrink: 0;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addIssueButton {
+  composes: btnPrimary from "../../../components/ui/ui.module.css";
+  align-self: flex-start;
+}
+
+@media (max-width: 640px) {
+  /* Touch scrolls the list; the handle would fight it. Reordering is
+     a desktop job, as it was. */
+  .issueLine .dragHandle,
+  .issueLine .dragHandlePlaceholder {
+    display: none;
+  }
+}
