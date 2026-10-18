@@ -63,7 +63,7 @@ export default async function IssuesPage({ searchParams }: PageProps) {
   // Priority + functional area options feed the LinkChip menu on
   // each issue-linked commitment so a user can re-target the link
   // (switch off the issue to a priority or functional area).
-  const [roster, { data: priorityRows }] =
+  const [roster, { data: priorityRows }, { data: fnRows }] =
     await Promise.all([
       // Company members plus the people assigned to work with this
       // company. This page never had the union /commitments had, so
@@ -79,10 +79,17 @@ export default async function IssuesPage({ searchParams }: PageProps) {
             .eq("archived", false)
             .order("title")
         : Promise.resolve({ data: [] as Array<Pick<Priority, "id" | "title">> }),
+      supabase
+        .from("functions")
+        .select("id, title")
+        .eq("company_id", companyId)
+        .eq("archived", false)
+        .order("title"),
     ]);
   const priorityOptions = (priorityRows ?? []) as Array<
     Pick<Priority, "id" | "title">
   >;
+  const functionalAreaOptions = (fnRows ?? []) as Array<{ id: string; title: string }>;
 
   const isAdmin = isAdminForCompany(session.profile, companyId);
 
@@ -186,6 +193,7 @@ export default async function IssuesPage({ searchParams }: PageProps) {
             issues={filteredOpen}
             roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
             priorityOptions={priorityOptions}
+            functionalAreaOptions={functionalAreaOptions}
             todayIso={todayIso}
             currentUserId={session.profile.id}
             isAdmin={isAdmin}
@@ -201,6 +209,7 @@ export default async function IssuesPage({ searchParams }: PageProps) {
                 ctx={{
                   roster: roster.map((p) => ({ id: p.id, full_name: p.full_name })),
                   priorityOptions,
+                  functionalAreaOptions,
                   todayIso,
                   currentUserId: session.profile.id,
                   isAdmin,

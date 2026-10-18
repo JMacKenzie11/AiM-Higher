@@ -35,6 +35,7 @@ export function IssuesBoard({
   issues,
   roster,
   priorityOptions,
+  functionalAreaOptions,
   todayIso,
   currentUserId,
   isAdmin,
@@ -43,6 +44,7 @@ export function IssuesBoard({
   issues: IssueWithCommitments[];
   roster: Array<Pick<Profile, "id" | "full_name">>;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
   isAdmin: boolean;
@@ -132,6 +134,7 @@ export function IssuesBoard({
                 issue={issue}
                 roster={roster}
                 priorityOptions={priorityOptions}
+                functionalAreaOptions={functionalAreaOptions}
                 todayIso={todayIso}
                 currentUserId={currentUserId}
                 isAdmin={isAdmin}
@@ -149,6 +152,7 @@ function SortableIssue({
   issue,
   roster,
   priorityOptions,
+  functionalAreaOptions,
   todayIso,
   currentUserId,
   isAdmin,
@@ -157,6 +161,7 @@ function SortableIssue({
   issue: IssueWithCommitments;
   roster: Array<Pick<Profile, "id" | "full_name">>;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
   isAdmin: boolean;
@@ -184,6 +189,7 @@ function SortableIssue({
         issue={issue}
         roster={roster}
         priorityOptions={priorityOptions}
+                functionalAreaOptions={functionalAreaOptions}
         todayIso={todayIso}
         currentUserId={currentUserId}
         isAdmin={isAdmin}

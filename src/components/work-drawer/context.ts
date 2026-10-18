@@ -34,6 +34,8 @@ export type CommitmentContext = {
 export type IssueContext = {
   roster: Roster;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  // For the commitment drawer's Linked to picker.
+  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
   isAdmin: boolean;

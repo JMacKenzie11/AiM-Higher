@@ -18,6 +18,8 @@ import { NotesView } from "@/components/notes/NotesView";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { CommitmentRow } from "@/app/(app)/commitments/CommitmentRow";
 import {
+  changeCommitmentLinkAction,
+  type LinkTarget,
   createCommitmentAction,
   reassignCommitmentAction,
   rescheduleCommitmentAction,
@@ -392,10 +394,11 @@ function commitmentCtxFromIssue(c: CommitmentWithMeta, ctx: IssueContext): Commi
   return {
     roster: ctx.roster,
     priorityOptions: ctx.priorityOptions,
-    functionalAreaOptions: [],
+    functionalAreaOptions: ctx.functionalAreaOptions,
     todayIso: ctx.todayIso,
     canResolve: mine,
-    canLink: false,
+    // The owner or an admin, as on /commitments (canWriteOwnedRow).
+    canLink: mine,
     canReassign: mine,
     currentUserId: ctx.currentUserId,
     isAdmin: ctx.isAdmin,
@@ -604,11 +607,14 @@ function IssuePanel({
                   key={c.id}
                   commitment={c}
                   priorityOptions={ctx.priorityOptions}
+                  functionalAreaOptions={ctx.functionalAreaOptions}
                   roster={ctx.roster}
                   todayIso={ctx.todayIso}
                   canResolve={cctx.canResolve}
                   canReassign={cctx.canReassign}
-                  canLink={false}
+                  // The row hides its link chip here (hidePriority);
+                  // this is what the commitment drawer reads.
+                  canLink={cctx.canLink}
                   hidePriority
                   inDrawer
                   currentUserId={ctx.currentUserId}
@@ -828,13 +834,25 @@ function CommitmentPanel({
   const isParked = c.parked_at !== null;
   const canMove = ctx.canResolve && isOpen && !isParked;
 
-  const initial = { description: c.description, ownerId: c.owner_id ?? "", due: c.due_date, notes: c.notes ?? null };
+  // Linked to, as one select value: the issue it came from (kept, never
+  // chosen), a priority, a functional area, or nothing. The same
+  // choices and rule as the row's link chip: the owner or an admin,
+  // while it is open (changeCommitmentLinkAction).
+  const canLink = ctx.canLink && isOpen;
+  const initial = {
+    description: c.description,
+    ownerId: c.owner_id ?? "",
+    due: c.due_date,
+    notes: c.notes ?? null,
+    link: linkValue(c),
+  };
   const [base, setBase] = useState(initial);
   const [description, setDescription] = useState(initial.description);
   const [ownerId, setOwnerId] = useState(initial.ownerId);
   const [due, setDue] = useState(initial.due);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState<NotesDoc | null>(initial.notes);
+  const [link, setLink] = useState(initial.link);
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -846,7 +864,8 @@ function CommitmentPanel({
       if (description === b.description) setDescription(c.description);
       if (ownerId === b.ownerId) setOwnerId(c.owner_id ?? "");
       if (due === b.due) setDue(c.due_date);
-      return { description: c.description, ownerId: c.owner_id ?? "", due: c.due_date, notes: c.notes ?? null };
+      if (link === b.link) setLink(linkValue(c));
+      return { description: c.description, ownerId: c.owner_id ?? "", due: c.due_date, notes: c.notes ?? null, link: linkValue(c) };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [c]);
@@ -855,7 +874,8 @@ function CommitmentPanel({
   const ownerChanged = ctx.canReassign && ownerId !== base.ownerId && ownerId !== "";
   const dueChanged = canMove && due !== base.due && due !== "";
   const notesChanged = canEdit && !sameNotes(notes, base.notes);
-  const dirty = descChanged || ownerChanged || dueChanged || notesChanged;
+  const linkChanged = canLink && link !== base.link;
+  const dirty = descChanged || ownerChanged || dueChanged || notesChanged || linkChanged;
   const needsReason = dueChanged && !ctx.isAdmin;
 
   async function save(): Promise<boolean> {
@@ -874,6 +894,7 @@ function CommitmentPanel({
     if (ownerChanged) steps.push(() => reassignCommitmentAction(c.id, ownerId));
     if (dueChanged) steps.push(() => rescheduleCommitmentAction(c.id, due, reason.trim() || null));
     if (notesChanged) steps.push(() => saveCommitmentNotesAction(c.id, notes));
+    if (linkChanged) steps.push(() => changeCommitmentLinkAction(c.id, linkTarget(link)));
     for (const step of steps) {
       const result = await step();
       if (!result.ok) {
@@ -884,7 +905,7 @@ function CommitmentPanel({
       }
     }
     setPending(false);
-    setBase({ description: description.trim(), ownerId, due, notes: cleanNotes(notes) });
+    setBase({ description: description.trim(), ownerId, due, notes: cleanNotes(notes), link });
     setReason("");
     setSaved(true);
     router.refresh();
@@ -900,7 +921,7 @@ function CommitmentPanel({
   }, [guard]);
 
   const ownerName = c.owner?.full_name ?? "Unassigned";
-  const anyEdit = canEdit || ctx.canReassign || canMove;
+  const anyEdit = canEdit || ctx.canReassign || canMove || canLink;
 
   return (
     <>
@@ -975,8 +996,62 @@ function CommitmentPanel({
               <CommitmentResolutionChip commitment={c} />
             </span>
           </Field>
-          <Field label="Linked to">
-            {c.issue ? (
+          <Field label="Linked to" htmlFor={canLink ? "work-commitment-link" : undefined}>
+            {canLink ? (
+              <>
+                <select
+                  id="work-commitment-link"
+                  className={styles.select}
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                >
+                  {c.issue ? <option value="issue">Issue: {c.issue.title}</option> : null}
+                  <option value="none">Nothing (operational)</option>
+                  {ctx.priorityOptions.length > 0 ? (
+                    <optgroup label="Priorities (open quarter)">
+                      {ctx.priorityOptions.map((p) => (
+                        <option key={p.id} value={`priority:${p.id}`}>
+                          {p.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                  {/* A priority from an earlier quarter stays listed
+                      while it is the one linked, so the select can
+                      show it. */}
+                  {c.priority && !ctx.priorityOptions.some((p) => p.id === c.priority!.id) ? (
+                    <option value={`priority:${c.priority.id}`}>{c.priority.title}</option>
+                  ) : null}
+                  {ctx.functionalAreaOptions.length > 0 ? (
+                    <optgroup label="Functional areas">
+                      {ctx.functionalAreaOptions.map((f) => (
+                        <option key={f.id} value={`functional_area:${f.id}`}>
+                          {f.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                  {c.functionalArea && !ctx.functionalAreaOptions.some((f) => f.id === c.functionalArea!.id) ? (
+                    <option value={`functional_area:${c.functionalArea.id}`}>{c.functionalArea.title}</option>
+                  ) : null}
+                </select>
+                {c.issue && link === "issue" ? (
+                  canOpenIssue(c.issue.id) ? (
+                    <button type="button" className={styles.linkButton} onClick={() => onOpenIssue(c.issue!.id)}>
+                      Open the issue
+                    </button>
+                  ) : (
+                    <Link href={`/issues?issue=${c.issue.id}`} className={styles.linkButton}>
+                      Open the issue
+                    </Link>
+                  )
+                ) : c.priority && link === `priority:${c.priority.id}` ? (
+                  <Link href={`/plan/priority/${c.priority.id}`} className={styles.linkButton}>
+                    Open the priority
+                  </Link>
+                ) : null}
+              </>
+            ) : c.issue ? (
               canOpenIssue(c.issue.id) ? (
                 <button type="button" className={styles.linkButton} onClick={() => onOpenIssue(c.issue!.id)}>
                   Issue: {c.issue.title}
@@ -1009,6 +1084,22 @@ function CommitmentPanel({
       {anyEdit ? <SaveBar dirty={dirty} pending={pending} saved={saved} error={error} onSave={() => void save()} /> : null}
     </>
   );
+}
+
+function linkValue(c: CommitmentWithMeta): string {
+  if (c.issue) return "issue";
+  if (c.priority) return `priority:${c.priority.id}`;
+  if (c.functionalArea) return `functional_area:${c.functionalArea.id}`;
+  return "none";
+}
+
+// Only called once the value has changed, so never "issue": an issue
+// is kept, never chosen.
+function linkTarget(v: string): LinkTarget {
+  const [type, id] = v.split(":");
+  if (type === "priority" && id) return { type: "priority", id };
+  if (type === "functional_area" && id) return { type: "functional_area", id };
+  return { type: "none" };
 }
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
