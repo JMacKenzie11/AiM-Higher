@@ -14,7 +14,7 @@ The list runs soonest due first. Anything from an earlier week that's still open
 
 ## Opening a commitment
 
-Click a commitment's text to open it in a panel on the right (the whole screen on a phone). It shows everything about it: what it is, who owns it, when it's due, its status, what it's linked to, and its notes. Make changes there and press *Save*.
+Click a commitment's text to open it in a panel on the right (the whole screen on a phone). It shows everything about it: what it is, who owns it, when it's due, its status, what it's linked to, and its notes. Make changes there and press *Save*. You can change what an open commitment is linked to if it's yours or you're an admin: a priority, a functional area, or nothing. A commitment from an issue can be moved off it, but not onto one.
 
 Use the arrows at the top of the panel, or the left and right arrow keys, to step to the previous or next commitment in the list without closing it. That's handy for going through the list in the weekly meeting. If you've changed something and not saved it, AiMS asks before moving on. Press Escape to keep editing.
 

@@ -22,6 +22,7 @@ export function IssueCard({
   issue,
   roster,
   priorityOptions,
+  functionalAreaOptions,
   todayIso,
   currentUserId,
   isAdmin,
@@ -30,6 +31,7 @@ export function IssueCard({
   issue: IssueWithCommitments;
   roster: Array<Pick<Profile, "id" | "full_name">>;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
   todayIso: string;
   currentUserId: string;
   isAdmin: boolean;
@@ -39,7 +41,7 @@ export function IssueCard({
   const drawer = useWorkDrawer();
   // Adding a commitment on it follows editing it, as the add line under
   // each issue always did.
-  useRegisterIssue(issue, { roster, priorityOptions, todayIso, currentUserId, isAdmin, canEdit, canAdd: canEdit });
+  useRegisterIssue(issue, { roster, priorityOptions, functionalAreaOptions, todayIso, currentUserId, isAdmin, canEdit, canAdd: canEdit });
 
   // Open means still to do: not finished and not parked. The same set
   // Resolve offers to close, since parked and ongoing rows are left
