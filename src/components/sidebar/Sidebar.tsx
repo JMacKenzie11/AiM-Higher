@@ -16,6 +16,8 @@ import type { NotificationItem } from "@/lib/notifications/service";
 import styles from "./Sidebar.module.css";
 import type { Role } from "@/lib/types";
 import { navBandsFor, type NavBand } from "./nav-bands";
+import { sectionForPath, visibleSections, visibleTabs } from "./sections";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 // Left-rail primary navigation. Replaces the top NavBand: one click
 // to any surface, groups become section headers instead of dropdowns
@@ -482,7 +484,25 @@ export function Sidebar({
     return true;
   }
 
-  const subscribedApp = APP_ITEMS.flatMap<NavItem>((item) => {
+  // Under the "nav-sections" switch (simplification review, change 4)
+  // the company's pages are a handful of sections (sections.ts), each
+  // a link to its first page, with the rest as tabs on the page.
+  const navSections = simplifyOn("nav-sections");
+  const sectionLinks: NavItem[] = visibleSections(userRole, features).map((sec) => ({
+    kind: "link",
+    label: sec.label,
+    href: visibleTabs(sec, userRole, features)[0].href,
+    icon: sec.icon,
+    feature: null,
+  }));
+  const activeSectionHref = (() => {
+    const sec = sectionForPath(pathname);
+    if (!sec) return null;
+    const tabs = visibleTabs(sec, userRole, features);
+    return tabs.length > 0 ? tabs[0].href : null;
+  })();
+
+  const subscribedApp = navSections ? sectionLinks : APP_ITEMS.flatMap<NavItem>((item) => {
     if (item.feature !== null && !features.includes(item.feature)) return [];
     if (item.kind === "link") return linkVisible(item) ? [item] : [];
     const filteredChildren = item.items.filter(linkVisible);
@@ -539,7 +559,8 @@ export function Sidebar({
     portfolio: portfolioItems,
     app: subscribedApp,
     systemAdminBottom: SYSTEM_ADMIN_BOTTOM_ITEMS,
-    companyAdminBottom: COMPANY_ADMIN_BOTTOM_ITEMS,
+    // Settings is a section of its own under "nav-sections".
+    companyAdminBottom: navSections ? [] : COMPANY_ADMIN_BOTTOM_ITEMS,
     portfolioBottom: portfolioBottomItems(scopedCompanyId),
   };
   const items: NavItem[] = bands.flatMap((band) => [...byBand[band]]);
@@ -624,7 +645,11 @@ export function Sidebar({
                   href={item.href}
                   icon={item.icon}
                   label={item.label}
-                  active={isLinkActive(pathname, item.href)}
+                  active={
+                    navSections && sectionLinks.includes(item)
+                      ? activeSectionHref === item.href
+                      : isLinkActive(pathname, item.href)
+                  }
                   collapsed={collapsed}
                 />
               );
@@ -717,6 +742,17 @@ export function Sidebar({
             showExitScope={isSystemAdmin && showExitScope}
             scopedCompanyName={scopedCompanyName}
             collapsed={collapsed}
+            // Things about yourself rather than the company's work, out
+            // of the sidebar under "nav-sections" (change 4).
+            personalLinks={
+              navSections
+                ? [
+                    { label: "Ask Aimee", href: "/ask-aimee" },
+                    ...(features.includes("strengths") ? [{ label: "My strengths", href: "/strengths/welcome" }] : []),
+                    ...(features.includes("classroom") ? [{ label: "Classroom", href: "/classroom" }] : []),
+                  ]
+                : []
+            }
           />
         </div>
       </aside>
@@ -772,12 +808,14 @@ function SidebarUserMenu({
   showExitScope,
   scopedCompanyName,
   collapsed,
+  personalLinks = [],
 }: {
   userName: string;
   userAvatarUrl: string | null;
   showExitScope: boolean;
   scopedCompanyName?: string;
   collapsed: boolean;
+  personalLinks?: ReadonlyArray<{ label: string; href: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -836,6 +874,11 @@ function SidebarUserMenu({
           <Link href="/profile" className={styles.userMenuItem} role="menuitem">
             My profile
           </Link>
+          {personalLinks.map((l) => (
+            <Link key={l.href} href={l.href} className={styles.userMenuItem} role="menuitem" onClick={() => setOpen(false)}>
+              {l.label}
+            </Link>
+          ))}
           {showExitScope ? (
             <form action={exitCompanyScopeAction}>
               <button

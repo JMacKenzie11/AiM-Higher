@@ -37,6 +37,11 @@ export const SIMPLIFY_CHANGES = [
   //    Commitments and Issues lose their stat counters, which this and
   //    Week in Review now carry.
   "my-week",
+  // 4. Sidebar sections: Home, Meeting, Work, Plan, Team (and Settings
+  //    for a company admin), each page showing its section's pages as
+  //    tabs; Ask Aimee, Classroom and the Strengths assessment move to
+  //    the account menu.
+  "nav-sections",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

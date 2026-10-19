@@ -24,6 +24,7 @@ import type { Company } from "@/lib/types";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
 import styles from "./layout.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { NavInfoProvider } from "@/components/sidebar/NavInfo";
 
 // Layout for authenticated routes. Guards on session + profile and
 // renders the gradient nav band. When a system_admin or aims_guide
@@ -185,7 +186,9 @@ export default async function AppLayout({
                 that lists them. Mounted here so it outlives a page
                 change (an issue's delete waits out its undo chip). */}
             <WorkDrawerProvider>
-              <main id="content" tabIndex={-1} className={styles.main}>{children}</main>
+              <NavInfoProvider role={session.profile.role} features={features}>
+                <main id="content" tabIndex={-1} className={styles.main}>{children}</main>
+              </NavInfoProvider>
             </WorkDrawerProvider>
             {/* Aimee's icon and panel, in place of the old "?" help
                 button: a conversation with Aimee, who answers from the

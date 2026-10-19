@@ -25,7 +25,7 @@ Every brief is kept, so you can scroll back to earlier ones for the same company
 
 ## How to work inside a company
 
-Click the company's name in *Your companies* or on a *Needs your attention* row. The sidebar then shows that company's pages: Week in Review, Functional Chart, Goals & Priorities and so on.
+Click the company's name in *Your companies* or on a *Needs your attention* row. The sidebar then shows that company's pages.
 
 Only clicking a company moves you into it. Opening a page or a conversation from another company doesn't. If you guide just one company, you're taken into it automatically.
 

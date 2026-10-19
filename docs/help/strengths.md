@@ -8,7 +8,12 @@ The AiMS strengths assessment: a short set of questions that gives you a persona
 
 ## What you can do here
 
+::: feature ui_nav_sections_off
 - **Take the assessment.** Start from *My assessment* under Strengths in the sidebar. It takes about ten to twelve minutes.
+:::
+::: feature ui_nav_sections
+- **Take the assessment.** Start from *My strengths* in the menu under your name, at the foot of the sidebar. It takes about ten to twelve minutes.
+:::
 - **Read your results.** The summary explains the shape of your profile in AiMS language.
 - **Talk your results through with your coach.** The results page has *Start a conversation*, which opens a coaching conversation about your profile.
 - **See a colleague's strengths** from their scorecard on People.
