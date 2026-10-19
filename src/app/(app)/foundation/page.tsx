@@ -55,7 +55,10 @@ export default async function OnePagePlanPage() {
       .select("id, title, description, sort_order, archived")
       .eq("company_id", companyId)
       .eq("archived", false)
-      .order("sort_order"),
+      // The same order as the Plan page (plan/service.ts): ties on
+      // sort_order fall back to creation, oldest first.
+      .order("sort_order")
+      .order("created_at"),
   ]);
 
   const companyName = companyRow?.name ?? "this company";
