@@ -27,3 +27,23 @@ export function stepBefore(step: MeetingStep): MeetingStep | null {
   const i = MEETING_STEPS.findIndex((s) => s.key === step);
   return i > 0 ? MEETING_STEPS[i - 1].key : null;
 }
+
+// THE CHECK-IN QUESTION. A positive check-in is about the people, not
+// the work (Jason, 2026-10-19), so it is a plain, open question, one
+// of a few that turn over week by week so the room is not answering
+// the same one every Monday. Picked by the week the meeting falls in,
+// so a reload or a step back shows the same one.
+export const CHECK_IN_QUESTIONS = [
+  "What's one good thing from your week, at work or outside it?",
+  "What went well for you this week?",
+  "Who made your week better, and how?",
+  "What are you looking forward to this week?",
+] as const;
+
+export function checkInQuestion(todayIso: string): string {
+  const day = Math.floor(Date.parse(`${todayIso}T00:00:00Z`) / 86_400_000);
+  // Days since 1970-01-01, a Thursday; +3 moves the week to start on
+  // Monday, so the whole of one Monday-to-Sunday week shares a question.
+  const week = Math.floor((day + 3) / 7);
+  return CHECK_IN_QUESTIONS[((week % CHECK_IN_QUESTIONS.length) + CHECK_IN_QUESTIONS.length) % CHECK_IN_QUESTIONS.length];
+}

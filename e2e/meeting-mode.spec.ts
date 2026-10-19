@@ -12,7 +12,7 @@ test.describe("meeting mode", () => {
     await signIn(page, users.companyAdmin());
     await page.goto("/meeting");
     await expect(page).toHaveURL(/step=checkin&started=/, { timeout: 30_000 });
-    await expect(page.getByRole("heading", { name: "Open with this" })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "Check-in", exact: true })).toBeVisible({ timeout: 30_000 });
     for (const next of ["Headlines", "Numbers", "Strategy", "Commitments", "Solve", "Close"]) {
       await page.getByRole("link", { name: `Next: ${next}` }).click();
       await expect(page.getByRole("navigation", { name: "Meeting agenda" }).getByRole("link", { name: next })).toHaveAttribute(

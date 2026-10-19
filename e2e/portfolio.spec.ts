@@ -102,6 +102,7 @@ test.describe("portfolio_admin", () => {
     // owns no work here (canOwnWorkIn), so neither row renders.
     await page.goto("/commitments");
     await expect(page.getByRole("textbox", { name: "New commitment" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add a commitment" })).toHaveCount(0);
     await page.goto("/issues");
     await expect(page.getByRole("button", { name: "Add an issue" })).toHaveCount(0);
 

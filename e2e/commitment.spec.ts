@@ -1,4 +1,14 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, simplifyOn } from "./fixtures";
+import type { Page } from "@playwright/test";
+
+// Under the "add-panel" switch the composer is in the work drawer,
+// behind "Add a commitment"; without it, it is the always-open row.
+// Same label and submit either way.
+async function openComposer(page: Page) {
+  if (simplifyOn("add-panel")) {
+    await page.getByRole("button", { name: "Add a commitment" }).first().click({ timeout: 30_000 });
+  }
+}
 
 // The most load-bearing thing a user does, and the reason this suite
 // is worth its maintenance cost.
@@ -24,7 +34,8 @@ test.describe("a company user creates a commitment", () => {
 
     const rowsBefore = await page.getByTestId("commitment-row").count();
 
-    const field = page.getByLabel("New commitment");
+    await openComposer(page);
+    const field = page.getByLabel("New commitment", { exact: true });
     await expect(
       field,
       "the composer should render — the fixture company needs an open " +
@@ -56,7 +67,8 @@ test.describe("a company user creates a commitment", () => {
   test("an empty commitment cannot be submitted", async ({ page }) => {
     await signIn(page, users.member());
     await page.goto("/commitments");
-    await expect(page.getByLabel("New commitment")).toBeVisible({
+    await openComposer(page);
+    await expect(page.getByLabel("New commitment", { exact: true })).toBeVisible({
       timeout: 30_000,
     });
 

@@ -54,6 +54,12 @@ export const SIMPLIFY_CHANGES = [
   // 8. Autosave on the Critical Success Factors grid: leaving a cell
   //    saves it; the Save button goes.
   "autosave",
+  // 11. Adding a commitment works like adding an issue: an "Add a
+  //     commitment" button top right of the first card opens the work
+  //     drawer on a new commitment, in place of the always-open add
+  //     row (Jason, 2026-10-19). Commitments, My week, the weekly
+  //     meeting and a priority's page.
+  "add-panel",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

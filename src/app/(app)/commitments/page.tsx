@@ -13,6 +13,8 @@ import { TermTooltip } from "@/components/ui/TermTooltip";
 import { CommitmentRow } from "./CommitmentRow";
 import { FilterPills } from "./FilterPills";
 import { InlineAddRow } from "./InlineAddRow";
+import { AddCommitmentButton } from "./AddCommitmentButton";
+import issueStyles from "../issues/issues.module.css";
 import { PriorWeekRow } from "./PriorWeekRow";
 import styles from "./commitments.module.css";
 import { simplifyOn } from "@/lib/ui/simplify";
@@ -168,10 +170,31 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
         // change 6) the add row leads the page, above every list,
         // instead of sitting under the overdue ones.
         const addOnTop = simplifyOn("adds-on-top");
+        // Under the "add-panel" switch (Jason, 2026-10-19) there is no
+        // add row: "Add a commitment" sits top right of the first card
+        // and opens the work drawer, as "Add an issue" does.
+        const addPanel = simplifyOn("add-panel");
+        const addButton =
+          addPanel && canOwnWorkIn(session.profile, companyId) ? (
+            <span className={issueStyles.headerAdd}>
+              <AddCommitmentButton
+                ctx={{
+                  roster: data.roster.map((p) => ({ id: p.id, full_name: p.full_name })),
+                  priorityOptions: data.priorityOptions,
+                  functionalAreaOptions: data.functionalAreaOptions,
+                  thisFriday: data.thisFriday,
+                  currentUserId: session.profile.id,
+                  isAdmin,
+                }}
+              />
+            </span>
+          ) : null;
+        const firstCard =
+          needsAttention.length > 0 ? "attention" : !isAdmin && yoursThisWeek.length > 0 ? "yours" : "week";
 
         return (
           <>
-            {addOnTop && addRow ? (
+            {addOnTop && !addPanel && addRow ? (
               <section className={`${styles.group} ${styles.addFirst}`} aria-label="Add a commitment">
                 {addRow}
               </section>
@@ -191,6 +214,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   <span className={styles.groupMeta}>
                     {needsAttention.length} overdue
                   </span>
+                  {firstCard === "attention" ? addButton : null}
                 </div>
                 <CommitmentColumnHeader />
                 <ul className={styles.rowList}>
@@ -212,6 +236,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                     {yoursThisWeek.length}{" "}
                     {yoursThisWeek.length === 1 ? "commitment" : "commitments"}
                   </span>
+                  {firstCard === "yours" ? addButton : null}
                 </div>
                 <CommitmentColumnHeader />
                 <ul className={styles.rowList}>
@@ -235,6 +260,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   {restThisWeek.length}{" "}
                   {restThisWeek.length === 1 ? "commitment" : "commitments"}
                 </span>
+                {firstCard === "week" ? addButton : null}
               </div>
               <CommitmentColumnHeader />
               <ul className={styles.rowList}>
@@ -258,7 +284,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   );
                 })()}
               </ul>
-              {addOnTop ? null : addRow}
+              {addOnTop || addPanel ? null : addRow}
             </section>
           </>
         );

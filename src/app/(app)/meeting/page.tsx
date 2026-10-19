@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { canOwnWorkIn, canWriteOwnedRow, isAdminForCompany } from "@/lib/auth/permissions";
@@ -19,12 +20,13 @@ import type { Priority } from "@/lib/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { CommitmentRow } from "../commitments/CommitmentRow";
 import { InlineAddRow } from "../commitments/InlineAddRow";
+import { AddCommitmentButton } from "../commitments/AddCommitmentButton";
 import { IssuesBoard } from "../issues/IssuesBoard";
 import { AddIssueButton } from "../issues/AddIssueButton";
 import { HeadlineField } from "./HeadlineField";
 import commitmentStyles from "../commitments/commitments.module.css";
 import issueStyles from "../issues/issues.module.css";
-import { MEETING_STEPS, stepAfter, stepBefore, type MeetingStep } from "./steps";
+import { MEETING_STEPS, checkInQuestion, stepAfter, stepBefore, type MeetingStep } from "./steps";
 import { MeetingTimer } from "./MeetingTimer";
 import styles from "./meeting.module.css";
 
@@ -38,6 +40,12 @@ import styles from "./meeting.module.css";
 // and a close. Running it used to mean five pages (Week in Review,
 // Critical Success Factors, Goals & Priorities, Issues, Commitments),
 // each with its own header, counters and filters.
+//
+// EACH STEP IS ONE CARD, the same card the Commitments and Issues
+// pages use (a tinted header with the title, the step's main action
+// top right of it), with Back and Next inside it at the foot (Jason,
+// 2026-10-19: same type and style as every other card, and no
+// buttons left floating off a card). Ordinary type sizes.
 //
 // Each step shows only what the room should talk about, and acts with
 // the same rows and drawer the rest of the app uses, so no right is
@@ -87,6 +95,28 @@ export default async function MeetingPage({ searchParams }: PageProps) {
   const prev = stepBefore(step);
   const next = stepAfter(step);
 
+  // Back and Next, the foot of every step's card.
+  const footer = (
+    <>
+      {prev ? (
+        <Link href={href(prev)} className={styles.navButton}>
+          Back
+        </Link>
+      ) : (
+        <span />
+      )}
+      {next ? (
+        <Link href={href(next)} className={styles.navButton}>
+          Next: {MEETING_STEPS.find((s) => s.key === next)!.label}
+        </Link>
+      ) : (
+        <Link href="/dashboard" className={styles.navButton}>
+          End the meeting
+        </Link>
+      )}
+    </>
+  );
+
   return (
     <PageShell
       eyebrow="Weekly meeting"
@@ -111,107 +141,100 @@ export default async function MeetingPage({ searchParams }: PageProps) {
         </div>
       }
     >
-      <div className={styles.stage}>
-        {step === "checkin" ? <CheckIn companyId={companyId} /> : null}
-        {step === "headlines" ? <Headlines companyId={companyId} timezone={timezone} /> : null}
-        {step === "numbers" ? <Numbers companyId={companyId} timezone={timezone} /> : null}
-        {step === "strategy" ? <Strategy companyId={companyId} /> : null}
-        {step === "commitments" ? (
-          <Commitments companyId={companyId} profile={session.profile} isAdmin={isAdmin} canAdd={canOwnWorkIn(session.profile, companyId)} />
-        ) : null}
-        {step === "solve" ? (
-          <Solve companyId={companyId} todayIso={todayIso} isAdmin={isAdmin} profileId={session.profile.id} canRaise={session.profile.company_id === companyId || isAdmin} />
-        ) : null}
-        {step === "close" ? <Close companyId={companyId} started={started} /> : null}
-      </div>
-
-      <div className={styles.footer}>
-        {prev ? (
-          <Link href={href(prev)} className={styles.back}>
-            Back
-          </Link>
-        ) : (
-          <span />
-        )}
-        {next ? (
-          <Link href={href(next)} className={styles.next}>
-            Next: {MEETING_STEPS.find((s) => s.key === next)!.label}
-          </Link>
-        ) : (
-          <Link href="/dashboard" className={styles.next}>
-            End the meeting
-          </Link>
-        )}
-      </div>
+      {step === "checkin" ? <CheckIn companyId={companyId} todayIso={todayIso} footer={footer} /> : null}
+      {step === "headlines" ? <Headlines companyId={companyId} timezone={timezone} footer={footer} /> : null}
+      {step === "numbers" ? <Numbers companyId={companyId} timezone={timezone} footer={footer} /> : null}
+      {step === "strategy" ? <Strategy companyId={companyId} footer={footer} /> : null}
+      {step === "commitments" ? (
+        <Commitments
+          companyId={companyId}
+          profile={session.profile}
+          isAdmin={isAdmin}
+          canAdd={canOwnWorkIn(session.profile, companyId)}
+          footer={footer}
+        />
+      ) : null}
+      {step === "solve" ? (
+        <Solve
+          companyId={companyId}
+          todayIso={todayIso}
+          isAdmin={isAdmin}
+          profileId={session.profile.id}
+          canRaise={session.profile.company_id === companyId || isAdmin}
+          footer={footer}
+        />
+      ) : null}
+      {step === "close" ? <Close companyId={companyId} started={started} footer={footer} /> : null}
     </PageShell>
+  );
+}
+
+// ---- The card every step sits in ---------------------------------
+//
+// The Commitments and Issues pages' card: a tinted header with the
+// title, a count beside it, and the main action top right; then the
+// step's content; then Back and Next.
+function StepCard({
+  id,
+  title,
+  meta,
+  action,
+  footer,
+  children,
+}: {
+  id: string;
+  title: ReactNode;
+  meta?: ReactNode;
+  action?: ReactNode;
+  footer: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={commitmentStyles.group} aria-labelledby={id}>
+      <div className={commitmentStyles.groupHeader}>
+        <h2 id={id} className={commitmentStyles.groupTitle}>
+          {title}
+        </h2>
+        {meta !== undefined && meta !== null ? <span className={commitmentStyles.groupMeta}>{meta}</span> : null}
+        {action ? <span className={issueStyles.headerAdd}>{action}</span> : null}
+      </div>
+      {children}
+      <div className={styles.cardFooter}>{footer}</div>
+    </section>
   );
 }
 
 // ---- 1. Check-in -------------------------------------------------
 //
-// Open on what went well. The question is the first of the "questions
-// worth asking next week" the last analysed meeting produced, which
-// are generated and checked to be generative (lib/leadership/
-// questions.ts); with none, a standing one in the same shape. Then the
-// wins of the past week, to have something real to start from.
-async function CheckIn({ companyId }: { companyId: string }) {
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const [dash, meetings] = await Promise.all([
-    getDashboardData(companyId),
-    supabase
-      .from("meetings")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("status", "complete")
-      .order("created_at", { ascending: false })
-      .limit(5),
-  ]);
-  // The newest of the last few analysed meetings that produced
-  // questions: a meeting analysed without the facilitation review has
-  // none, and should not hide the one before it that did.
-  let question: { question: string; moment: string } | null = null;
-  const ids = (meetings.data ?? []).map((m) => m.id);
-  if (ids.length > 0) {
-    const { data: analyses } = await supabase
-      .from("meeting_analyses")
-      .select("meeting_id, facilitation_review_json")
-      .in("meeting_id", ids);
-    const byMeeting = new Map(
-      ((analyses ?? []) as Array<{ meeting_id: string; facilitation_review_json: { next_week_questions?: { question: string; moment: string }[] } | null }>).map((a) => [
-        a.meeting_id,
-        a.facilitation_review_json?.next_week_questions?.[0] ?? null,
-      ])
-    );
-    question = ids.map((id) => byMeeting.get(id) ?? null).find(Boolean) ?? null;
-  }
+// A positive check-in, as Jeff runs it: one open, generic question to
+// go round the room (steps.ts, a short list that changes week to
+// week), then what was kept in the past week, for something real to
+// start from. Not a question drawn from last meeting's analysis: those
+// are about the work, and this is about the people.
+async function CheckIn({ companyId, todayIso, footer }: { companyId: string; todayIso: string; footer: ReactNode }) {
+  const dash = await getDashboardData(companyId);
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const wins = (dash?.recentSuccesses ?? []).filter((w) => (w.completedAt ?? "") >= weekAgo);
 
   return (
-    <>
-      <section className={styles.card}>
-        <h2 className={styles.cardTitle}>Open with this</h2>
-        <p className={styles.question}>
-          {question?.question ?? "What went well for you this week, and what made it work?"}
-        </p>
-        {question?.moment ? <p className={styles.muted}>From last meeting: {question.moment}</p> : null}
-      </section>
-      <section className={styles.card}>
-        <h2 className={styles.cardTitle}>Kept this week</h2>
-        {wins.length > 0 ? (
-          <ul className={styles.plainList}>
-            {wins.map((w) => (
-              <li key={w.id}>
-                <span>{w.description}</span>
-                <span className={styles.muted}>{w.ownerName}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className={styles.muted}>Nothing kept in the last seven days yet.</p>
-        )}
-      </section>
-    </>
+    <StepCard id="meeting-checkin" title="Check-in" footer={footer}>
+      <div className={styles.cardBody}>
+        <p className={styles.question}>{checkInQuestion(todayIso)}</p>
+      </div>
+      <h3 className={styles.subhead}>Kept this week</h3>
+      {wins.length > 0 ? (
+        <ul className={styles.plainList}>
+          {wins.map((w) => (
+            <li key={w.id}>
+              <span>{w.description}</span>
+              <span className={styles.muted}>{w.ownerName}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={styles.mutedPad}>Nothing kept in the last seven days yet.</p>
+      )}
+    </StepCard>
   );
 }
 
@@ -220,10 +243,10 @@ async function CheckIn({ companyId }: { companyId: string }) {
 // Each functional area's update, as Jeff runs it: what happened last
 // week, what worked, what is coming, what the area needs support on.
 // Not its commitments or its numbers, which have their own steps.
-// One block per function, last week's headline read beside this
-// week's, which is written in the room and saves as the field is
-// left. The week is the one now running, by the Friday it ends on.
-async function Headlines({ companyId, timezone }: { companyId: string; timezone: string }) {
+// One row per function, last week's headline read beside this week's,
+// which is written in the room and saves as the field is left. The
+// week is the one now running, by the Friday it ends on.
+async function Headlines({ companyId, timezone, footer }: { companyId: string; timezone: string; footer: ReactNode }) {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const week = thisFriday(timezone);
   const lastWeek = addDays(week, -7);
@@ -253,42 +276,38 @@ async function Headlines({ companyId, timezone }: { companyId: string; timezone:
   const names = new Map(people.map((p) => [p.id, p.full_name]));
   const leadName = (f: Fn) => (f.lead_id ? names.get(f.lead_id) ?? null : null);
 
-  if (rows.length === 0) {
-    return (
-      <section className={styles.card}>
-        <p className={styles.muted}>
+  return (
+    <StepCard id="meeting-headlines" title="Headlines" meta={rows.length > 0 ? `${rows.length} functional areas` : null} footer={footer}>
+      {rows.length === 0 ? (
+        <p className={styles.mutedPad}>
           No functional areas yet. <Link href="/chart">Add them on the Functional Chart</Link>.
         </p>
-      </section>
-    );
-  }
-
-  return (
-    <>
-      {rows.map((f) => {
-        const last = byKey.get(`${f.id}:${lastWeek}`)?.trim() ?? "";
-        const now = byKey.get(`${f.id}:${week}`) ?? "";
-        const lead = leadName(f);
-        return (
-          <section key={f.id} className={styles.card} aria-label={`${f.title} headlines`}>
-            <h2 className={styles.cardTitle}>
-              {f.title}
-              {lead ? <span className={styles.muted}> · {lead}</span> : null}
-            </h2>
-            <div className={styles.headlineGrid}>
-              <div className={styles.headlineCol}>
-                <h3>Last week, {formatWeekBeginning(lastWeek)}</h3>
-                {last ? <p className={styles.headlineLast}>{last}</p> : <p className={styles.muted}>Nothing written.</p>}
+      ) : (
+        rows.map((f) => {
+          const last = byKey.get(`${f.id}:${lastWeek}`)?.trim() ?? "";
+          const now = byKey.get(`${f.id}:${week}`) ?? "";
+          const lead = leadName(f);
+          return (
+            <section key={f.id} className={styles.headlineRow} aria-label={`${f.title} headlines`}>
+              <h3 className={styles.rowTitle}>
+                {f.title}
+                {lead ? <span className={styles.muted}> · {lead}</span> : null}
+              </h3>
+              <div className={styles.headlineGrid}>
+                <div className={styles.headlineCol}>
+                  <h4>Last week, {formatWeekBeginning(lastWeek)}</h4>
+                  {last ? <p className={styles.headlineLast}>{last}</p> : <p className={styles.muted}>Nothing written.</p>}
+                </div>
+                <div className={styles.headlineCol}>
+                  <h4>This week, {formatWeekBeginning(week)}</h4>
+                  <HeadlineField functionId={f.id} functionTitle={f.title} weekEnding={week} initial={now} />
+                </div>
               </div>
-              <div className={styles.headlineCol}>
-                <h3>This week, {formatWeekBeginning(week)}</h3>
-                <HeadlineField functionId={f.id} functionTitle={f.title} weekEnding={week} initial={now} />
-              </div>
-            </div>
-          </section>
-        );
-      })}
-    </>
+            </section>
+          );
+        })
+      )}
+    </StepCard>
   );
 }
 
@@ -296,7 +315,7 @@ async function Headlines({ companyId, timezone }: { companyId: string; timezone:
 //
 // Only the numbers worth a conversation: off target, or not logged,
 // for the week just ended. The rest are counted, not listed.
-async function Numbers({ companyId, timezone }: { companyId: string; timezone: string }) {
+async function Numbers({ companyId, timezone, footer }: { companyId: string; timezone: string; footer: ReactNode }) {
   const board = await getBoardData(companyId, timezone);
   const week = board.weeks.at(-2) ?? board.weeks.at(-1) ?? null;
   const rows = board.functions.flatMap((f) =>
@@ -312,16 +331,17 @@ async function Numbers({ companyId, timezone }: { companyId: string; timezone: s
   const noTarget = rows.filter((r) => r.cell?.status === "no_target" && logged(r)).length;
 
   return (
-    <section className={styles.card}>
-      <h2 className={styles.cardTitle}>
-        {week ? `Week ending ${formatShortDate(week)}` : "This week's numbers"}
-      </h2>
+    <StepCard
+      id="meeting-numbers"
+      title={week ? `Week ending ${formatShortDate(week)}` : "This week's numbers"}
+      footer={footer}
+    >
       {rows.length === 0 ? (
-        <p className={styles.muted}>
+        <p className={styles.mutedPad}>
           No critical success factors yet. <Link href="/measures">Add them on Critical Success Factors</Link>.
         </p>
       ) : talk.length === 0 && noTarget === 0 ? (
-        <p className={styles.good}>All {rows.length} logged and on target.</p>
+        <p className={`${styles.mutedPad} ${styles.good}`}>All {rows.length} logged and on target.</p>
       ) : (
         <>
           <ul className={styles.plainList}>
@@ -338,7 +358,7 @@ async function Numbers({ companyId, timezone }: { companyId: string; timezone: s
             ))}
           </ul>
           {onTarget > 0 || noTarget > 0 ? (
-            <p className={styles.muted}>
+            <p className={styles.mutedPad}>
               {[onTarget > 0 ? `${onTarget} on target` : null, noTarget > 0 ? `${noTarget} logged with no target set` : null]
                 .filter(Boolean)
                 .join(", ")}
@@ -347,10 +367,10 @@ async function Numbers({ companyId, timezone }: { companyId: string; timezone: s
           ) : null}
         </>
       )}
-      <p className={styles.muted}>
+      <p className={styles.mutedPad}>
         <Link href="/measures">Log or change numbers on Critical Success Factors</Link>
       </p>
-    </section>
+    </StepCard>
   );
 }
 
@@ -358,7 +378,7 @@ async function Numbers({ companyId, timezone }: { companyId: string; timezone: s
 //
 // The quarter's priorities that are not done, behind ones first, with
 // who owns each and how much is still open on it.
-async function Strategy({ companyId }: { companyId: string }) {
+async function Strategy({ companyId, footer }: { companyId: string; footer: ReactNode }) {
   const quarter = await getCurrentQuarter(companyId);
   const cascade = await getCascade(companyId, quarter?.id ?? null);
   const all: CascadePriority[] = [
@@ -372,113 +392,49 @@ async function Strategy({ companyId }: { companyId: string }) {
   const label: Record<Priority["status"], string> = { behind: "Behind", not_started: "Not started", on_track: "On track", ongoing: "Ongoing", complete: "Complete" };
 
   return (
-    <section className={styles.card}>
-      <h2 className={styles.cardTitle}>{quarter ? quarter.label : "This quarter"}</h2>
+    <StepCard id="meeting-strategy" title={quarter ? quarter.label : "This quarter"} meta={done > 0 ? `${done} complete` : null} footer={footer}>
       {all.length === 0 ? (
-        <p className={styles.muted}>
+        <p className={styles.mutedPad}>
           No priorities this quarter. <Link href="/plan">Add them on Goals &amp; Priorities</Link>.
         </p>
       ) : (
-        <>
-          <ul className={styles.plainList}>
-            {live.map((p) => (
-              <li key={p.id}>
-                <span>
-                  <Link href={`/plan/priority/${p.id}`}>{p.title}</Link>
-                  <span className={styles.muted}>
-                    {" "}
-                    · {p.owner?.full_name ?? "Unassigned"} · {p.open_count} open
-                  </span>
+        <ul className={styles.plainList}>
+          {live.map((p) => (
+            <li key={p.id}>
+              <span>
+                <Link href={`/plan/priority/${p.id}`}>{p.title}</Link>
+                <span className={styles.muted}>
+                  {" "}
+                  · {p.owner?.full_name ?? "Unassigned"} · {p.open_count} open
                 </span>
-                <span className={p.status === "behind" ? styles.bad : styles.muted}>{label[p.status]}</span>
-              </li>
-            ))}
-          </ul>
-          {done > 0 ? <p className={styles.muted}>{done} complete.</p> : null}
-        </>
+              </span>
+              <span className={p.status === "behind" ? styles.bad : styles.muted}>{label[p.status]}</span>
+            </li>
+          ))}
+        </ul>
       )}
-    </section>
-  );
-}
-
-// ---- 6. Solve together -------------------------------------------
-//
-// Jeff opens this step with one question to each functional area
-// (the step's lead line), and the room adds what comes up. The list
-// under it is the Issues page's own board, drag handles included, so
-// the order the room puts them in is the order /issues shows after,
-// and each opens in the drawer where the next commitment is agreed.
-async function Solve({
-  companyId,
-  todayIso,
-  isAdmin,
-  profileId,
-  canRaise,
-}: {
-  companyId: string;
-  todayIso: string;
-  isAdmin: boolean;
-  profileId: string;
-  canRaise: boolean;
-}) {
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const quarter = await getCurrentQuarter(companyId);
-  const [data, roster, priorities, functions] = await Promise.all([
-    getIssuesPageData(companyId),
-    getAssignablePeople(supabase, companyId),
-    quarter
-      ? supabase.from("priorities").select("id, title").eq("company_id", companyId).eq("quarter_id", quarter.id).eq("archived", false).order("title")
-      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
-    supabase.from("functions").select("id, title").eq("company_id", companyId).eq("archived", false).order("title"),
-  ]);
-  const rosterMin = roster.map((p) => ({ id: p.id, full_name: p.full_name }));
-  const priorityOptions = (priorities.data ?? []) as Array<Pick<Priority, "id" | "title">>;
-  const functionalAreaOptions = (functions.data ?? []) as Array<{ id: string; title: string }>;
-
-  return (
-    <section className={commitmentStyles.group} aria-labelledby="meeting-issues">
-      <div className={commitmentStyles.groupHeader}>
-        <h2 id="meeting-issues" className={commitmentStyles.groupTitle}>
-          Open issues
-        </h2>
-        <span className={commitmentStyles.groupMeta}>{data.open.length}</span>
-        {canRaise ? (
-          <span className={issueStyles.headerAdd}>
-            <AddIssueButton ctx={{ roster: rosterMin, priorityOptions, functionalAreaOptions, todayIso, currentUserId: profileId, isAdmin }} />
-          </span>
-        ) : null}
-      </div>
-      {data.open.length > 0 ? (
-        <IssuesBoard
-          issues={data.open}
-          roster={rosterMin}
-          priorityOptions={priorityOptions}
-          functionalAreaOptions={functionalAreaOptions}
-          todayIso={todayIso}
-          currentUserId={profileId}
-          isAdmin={isAdmin}
-        />
-      ) : (
-        <p className={styles.mutedPad}>No open issues. Add one if something is in the way.</p>
-      )}
-    </section>
+    </StepCard>
   );
 }
 
 // ---- 5. Commitments ----------------------------------------------
 //
 // What is due this week and what is late, grouped by person, so each
-// person can say kept or not in turn. New ones are added at the top.
+// person can say kept or not in turn. Under the add-panel switch,
+// "Add a commitment" top right of the card opens the drawer; without
+// it, the add row leads the card.
 async function Commitments({
   companyId,
   profile,
   isAdmin,
   canAdd,
+  footer,
 }: {
   companyId: string;
   profile: Awaited<ReturnType<typeof requireProfile>>["profile"];
   isAdmin: boolean;
   canAdd: boolean;
+  footer: ReactNode;
 }) {
   const data = await getCommitmentsPageData(companyId, profile.id, { owner: "all", status: "open", type: "all" });
   const open = data.mainList.filter((c) => c.status === "open");
@@ -489,36 +445,52 @@ async function Commitments({
     byOwner.set(key, [...(byOwner.get(key) ?? []), c]);
   }
   const people = [...byOwner.entries()].sort(([a], [b]) => (a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b)));
+  const addPanel = simplifyOn("add-panel");
 
   return (
-    <>
-      {canAdd ? (
-        <section className={`${commitmentStyles.group} ${commitmentStyles.addFirst}`} aria-label="Add a commitment">
-          <InlineAddRow
-            thisFriday={data.thisFriday}
-            priorityOptions={data.priorityOptions}
-            functionalAreaOptions={data.functionalAreaOptions}
-            roster={roster}
-            currentUserId={profile.id}
-            isAdmin={isAdmin}
+    <StepCard
+      id="meeting-commitments"
+      title="Open commitments"
+      meta={open.length}
+      action={
+        canAdd && addPanel ? (
+          <AddCommitmentButton
+            ctx={{
+              roster,
+              priorityOptions: data.priorityOptions,
+              functionalAreaOptions: data.functionalAreaOptions,
+              thisFriday: data.thisFriday,
+              currentUserId: profile.id,
+              isAdmin,
+            }}
           />
-        </section>
+        ) : null
+      }
+      footer={footer}
+    >
+      {canAdd && !addPanel ? (
+        <InlineAddRow
+          thisFriday={data.thisFriday}
+          priorityOptions={data.priorityOptions}
+          functionalAreaOptions={data.functionalAreaOptions}
+          roster={roster}
+          currentUserId={profile.id}
+          isAdmin={isAdmin}
+        />
       ) : null}
       {people.length === 0 ? (
-        <section className={styles.card}>
-          <p className={styles.muted}>Nothing open this week.</p>
-        </section>
+        <p className={styles.mutedPad}>Nothing open this week.</p>
       ) : (
         people.map(([name, rows]) => {
           const late = rows.filter((c) => isNeedsAttention(c, data.thisFriday)).length;
           return (
-            <section key={name} className={commitmentStyles.group} aria-label={name}>
-              <div className={commitmentStyles.groupHeader}>
-                <h2 className={commitmentStyles.groupTitle}>{name}</h2>
-                <span className={commitmentStyles.groupMeta}>
+            <section key={name} aria-label={name}>
+              <h3 className={styles.subhead}>
+                {name}
+                <span className={styles.subheadMeta}>
                   {rows.length} open{late > 0 ? `, ${late} past due` : ""}
                 </span>
-              </div>
+              </h3>
               <ul className={`${commitmentStyles.rowList} ${styles.ownedList}`}>
                 {rows.map((c) => (
                   <CommitmentRow
@@ -540,14 +512,80 @@ async function Commitments({
           );
         })
       )}
-    </>
+    </StepCard>
   );
 }
 
-// ---- Close -------------------------------------------------------
+// ---- 6. Solve together -------------------------------------------
 //
-// What changed while the meeting ran, counted from `started`.
-async function Close({ companyId, started }: { companyId: string; started: string }) {
+// Jeff opens this step with one question to each functional area
+// (the step's lead line), and the room adds what comes up. The list
+// is the Issues page's own board, drag handles included, so the order
+// the room puts them in is the order /issues shows after, and each
+// opens in the drawer where the next commitment is agreed.
+async function Solve({
+  companyId,
+  todayIso,
+  isAdmin,
+  profileId,
+  canRaise,
+  footer,
+}: {
+  companyId: string;
+  todayIso: string;
+  isAdmin: boolean;
+  profileId: string;
+  canRaise: boolean;
+  footer: ReactNode;
+}) {
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const quarter = await getCurrentQuarter(companyId);
+  const [data, roster, priorities, functions] = await Promise.all([
+    getIssuesPageData(companyId),
+    getAssignablePeople(supabase, companyId),
+    quarter
+      ? supabase.from("priorities").select("id, title").eq("company_id", companyId).eq("quarter_id", quarter.id).eq("archived", false).order("title")
+      : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+    supabase.from("functions").select("id, title").eq("company_id", companyId).eq("archived", false).order("title"),
+  ]);
+  const rosterMin = roster.map((p) => ({ id: p.id, full_name: p.full_name }));
+  const priorityOptions = (priorities.data ?? []) as Array<Pick<Priority, "id" | "title">>;
+  const functionalAreaOptions = (functions.data ?? []) as Array<{ id: string; title: string }>;
+
+  return (
+    <StepCard
+      id="meeting-issues"
+      title="Open issues"
+      meta={data.open.length}
+      action={
+        canRaise ? (
+          <AddIssueButton ctx={{ roster: rosterMin, priorityOptions, functionalAreaOptions, todayIso, currentUserId: profileId, isAdmin }} />
+        ) : null
+      }
+      footer={footer}
+    >
+      {data.open.length > 0 ? (
+        <IssuesBoard
+          issues={data.open}
+          roster={rosterMin}
+          priorityOptions={priorityOptions}
+          functionalAreaOptions={functionalAreaOptions}
+          todayIso={todayIso}
+          currentUserId={profileId}
+          isAdmin={isAdmin}
+        />
+      ) : (
+        <p className={styles.mutedPad}>No open issues. Add one if something is in the way.</p>
+      )}
+    </StepCard>
+  );
+}
+
+// ---- 7. Close ----------------------------------------------------
+//
+// Jeff's reminder, then what changed while the meeting ran, counted
+// from `started`.
+async function Close({ companyId, started, footer }: { companyId: string; started: string; footer: ReactNode }) {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const count = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0;
   const [kept, added, resolved, raised] = await Promise.all([
@@ -566,20 +604,21 @@ async function Close({ companyId, started }: { companyId: string; started: strin
   ]);
   const line = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
-    <section className={styles.card}>
-      <p className={styles.closeLine}>
-        Your commitments are in the system. Mark each one complete as you go, before next week.
-      </p>
-      <h2 className={styles.cardTitle}>In this meeting</h2>
-      <ul className={styles.tally}>
+    <StepCard id="meeting-close" title="In this meeting" footer={footer}>
+      <div className={styles.cardBody}>
+        <p className={styles.closeLine}>
+          Your commitments are in the system. Mark each one complete as you go, before next week.
+        </p>
+      </div>
+      <ul className={styles.plainList}>
         <li>{line(kept, "commitment kept", "commitments kept")}</li>
         <li>{line(added, "new commitment", "new commitments")}</li>
         <li>{line(resolved, "issue resolved", "issues resolved")}</li>
         <li>{line(raised, "issue raised", "issues raised")}</li>
       </ul>
-      <p className={styles.muted}>
+      <p className={styles.mutedPad}>
         A transcript of the meeting, once it&rsquo;s analysed, shows on <Link href="/leadership">Meeting Summaries</Link>.
       </p>
-    </section>
+    </StepCard>
   );
 }
