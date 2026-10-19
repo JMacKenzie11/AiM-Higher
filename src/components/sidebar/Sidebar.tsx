@@ -16,7 +16,7 @@ import type { NotificationItem } from "@/lib/notifications/service";
 import styles from "./Sidebar.module.css";
 import type { Role } from "@/lib/types";
 import { navBandsFor, type NavBand } from "./nav-bands";
-import { sectionForPath, visibleSections, visibleTabs } from "./sections";
+import { visibleSections, visibleTabs } from "./sections";
 import { simplifyOn } from "@/lib/ui/simplify";
 
 // Left-rail primary navigation. Replaces the top NavBand: one click
@@ -485,24 +485,23 @@ export function Sidebar({
   }
 
   // Under the "nav-sections" switch (simplification review, change 4)
-  // the company's pages are a handful of sections (sections.ts), each
-  // a link to its first page, with the rest as tabs on the page.
+  // the company's pages are a handful of sections (sections.ts): each a
+  // heading with its pages listed under it. A section with one page
+  // for this person is that page's link alone, since a group of one is
+  // a disclosure triangle in front of a single destination.
   const navSections = simplifyOn("nav-sections");
-  const sectionLinks: NavItem[] = visibleSections(userRole, features).map((sec) => ({
-    kind: "link",
-    label: sec.label,
-    href: visibleTabs(sec, userRole, features)[0].href,
-    icon: sec.icon,
-    feature: null,
-  }));
-  const activeSectionHref = (() => {
-    const sec = sectionForPath(pathname);
-    if (!sec) return null;
-    const tabs = visibleTabs(sec, userRole, features);
-    return tabs.length > 0 ? tabs[0].href : null;
-  })();
+  const sectionItems: NavItem[] = visibleSections(userRole, features).map((sec): NavItem => {
+    const pages = visibleTabs(sec, userRole, features).map(
+      (t): NavLink => ({ kind: "link", label: t.label, href: t.href, icon: t.icon })
+    );
+    // Home keeps its own name when it is one page ("This week" is a
+    // tab's name, read beside the others).
+    return pages.length === 1
+      ? { ...pages[0], label: sec.key === "home" ? sec.label : pages[0].label, feature: null }
+      : { kind: "group", label: sec.label, feature: null, items: pages };
+  });
 
-  const subscribedApp = navSections ? sectionLinks : APP_ITEMS.flatMap<NavItem>((item) => {
+  const subscribedApp = navSections ? sectionItems : APP_ITEMS.flatMap<NavItem>((item) => {
     if (item.feature !== null && !features.includes(item.feature)) return [];
     if (item.kind === "link") return linkVisible(item) ? [item] : [];
     const filteredChildren = item.items.filter(linkVisible);
@@ -645,11 +644,7 @@ export function Sidebar({
                   href={item.href}
                   icon={item.icon}
                   label={item.label}
-                  active={
-                    navSections && sectionLinks.includes(item)
-                      ? activeSectionHref === item.href
-                      : isLinkActive(pathname, item.href)
-                  }
+                  active={isLinkActive(pathname, item.href)}
                   collapsed={collapsed}
                 />
               );

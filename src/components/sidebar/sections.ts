@@ -4,10 +4,13 @@ import type { Role } from "@/lib/types";
 // "nav-sections" switch).
 //
 // Ten Workspace links, plus Resources and Strengths, became a handful
-// of sections, each a group of pages that belong together. The pages
-// are all still there: a section's link goes to its first page, and
-// every page in a section shows the section's pages as tabs at the
-// foot of its header (SectionTabs). Pure data and pure functions, so
+// of sections, each a group of pages that belong together. The sidebar
+// shows each section as a heading with its pages listed under it, so
+// every page is one click from anywhere (Jason, 2026-10-19: a section
+// that linked only to its first page hid Issues and the Functional
+// Chart from anyone who did not already know where they lived). Every
+// page in a section also shows the section's pages as tabs at the foot
+// of its header (SectionTabs). Pure data and pure functions, so
 // who sees which section and tab is tested by calling these, the same
 // way nav-bands.ts is.
 //
@@ -17,9 +20,16 @@ import type { Role } from "@/lib/types";
 
 export type SectionFeature = "execution" | "strengths" | "classroom";
 
+// The sidebar's icon for each page, one per destination, as the
+// sidebar has always had (Sidebar.tsx IconName).
+export type SectionIcon =
+  | "dashboard" | "gauge" | "meeting" | "check" | "lightbulb" | "measure"
+  | "calendar" | "doc" | "chart" | "people" | "group" | "gear";
+
 export type SectionTab = {
   label: string;
   href: string;
+  icon: SectionIcon;
   // Absent: every role that sees the section.
   roles?: readonly Role[];
   // Absent: no module needed beyond the section's own.
@@ -46,9 +56,9 @@ export const SECTIONS: readonly Section[] = [
     tabs: [
       // A team member's Home is My week under its own switch; the tab
       // keeps one name for both so the row does not change under them.
-      { label: "This week", href: "/dashboard" },
+      { label: "This week", href: "/dashboard", icon: "dashboard" },
       // How the practice is landing: an admin's and a guide's question.
-      { label: "AiMS Implementation", href: "/scorecard", roles: ADMINISH },
+      { label: "AiMS Implementation", href: "/scorecard", icon: "gauge", roles: ADMINISH },
     ],
   },
   {
@@ -56,7 +66,7 @@ export const SECTIONS: readonly Section[] = [
     label: "Meeting",
     icon: "meeting",
     feature: "execution",
-    tabs: [{ label: "Meeting Summaries", href: "/leadership" }],
+    tabs: [{ label: "Meeting Summaries", href: "/leadership", icon: "meeting" }],
   },
   {
     key: "work",
@@ -64,9 +74,9 @@ export const SECTIONS: readonly Section[] = [
     icon: "check",
     feature: "execution",
     tabs: [
-      { label: "Commitments", href: "/commitments" },
-      { label: "Issues", href: "/issues" },
-      { label: "Critical Success Factors", href: "/measures" },
+      { label: "Commitments", href: "/commitments", icon: "check" },
+      { label: "Issues", href: "/issues", icon: "lightbulb" },
+      { label: "Critical Success Factors", href: "/measures", icon: "measure" },
     ],
   },
   {
@@ -75,9 +85,9 @@ export const SECTIONS: readonly Section[] = [
     icon: "calendar",
     feature: "execution",
     tabs: [
-      { label: "Goals & Priorities", href: "/plan" },
-      { label: "One-Page Plan", href: "/foundation" },
-      { label: "Functional Chart", href: "/chart" },
+      { label: "Goals & Priorities", href: "/plan", icon: "calendar" },
+      { label: "One-Page Plan", href: "/foundation", icon: "doc" },
+      { label: "Functional Chart", href: "/chart", icon: "chart" },
     ],
   },
   {
@@ -86,8 +96,8 @@ export const SECTIONS: readonly Section[] = [
     icon: "people",
     feature: "execution",
     tabs: [
-      { label: "People", href: "/people" },
-      { label: "Strengths", href: "/strengths/teams", feature: "strengths" },
+      { label: "People", href: "/people", icon: "people" },
+      { label: "Strengths", href: "/strengths/teams", icon: "group", feature: "strengths" },
     ],
   },
   {
@@ -99,7 +109,7 @@ export const SECTIONS: readonly Section[] = [
     // company's settings from Companies, as they do now; a portfolio
     // admin keeps its own band (nav-bands.ts).
     roles: ["company_admin"],
-    tabs: [{ label: "Company settings", href: "/admin/companies" }],
+    tabs: [{ label: "Company settings", href: "/admin/companies", icon: "gear" }],
   },
 ];
 
