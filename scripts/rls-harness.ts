@@ -12674,6 +12674,87 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Attendance is one company's own (0290) ----------------------
+//
+// meeting_attendance marks a person present at a company's weekly
+// meeting. As a team member, and as an assigned guide:
+//   granted   the member marks itself and takes the mark off again; the
+//             guide marks someone in an assigned company
+//   withheld  the member marking someone in another company is refused
+//             by the policies (42501); marking, in its own company,
+//             someone who is not on that company's roster is refused
+//             by the stamp trigger (23514); deleting another company's
+//             mark reaches no row
+// Red before 0290: there is no table, so nothing runs.
+async function meetingAttendanceProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "attendance · one company's own";
+  const M = ids.member, CO = ids.memberCompany, OTHER = ids.otherCompany;
+  const G = ids.guide, GCO = ids.guideCompany;
+  const OUTSIDER = randomUUID(), THEIRS = randomUUID();
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${OUTSIDER}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${OUTSIDER}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values ('${OUTSIDER}', '${OTHER}', 'Harness 0290 outsider', 'team_member', 'active');
+insert into public.meeting_attendance (id, company_id, week_ending, profile_id)
+values ('${THEIRS}', '${OTHER}', current_date, '${OUTSIDER}');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  begin
+    insert into public.meeting_attendance (company_id, week_ending, profile_id) values ('${CO}', current_date, '${M}');
+    get diagnostics n = row_count; insert into _p values ('own_mark', n::text);
+  exception when others then insert into _p values ('own_mark', 'error ' || sqlstate); end;
+  begin
+    delete from public.meeting_attendance where company_id = '${CO}' and week_ending = current_date and profile_id = '${M}';
+    get diagnostics n = row_count; insert into _p values ('own_unmark', n::text);
+  exception when others then insert into _p values ('own_unmark', 'error ' || sqlstate); end;
+  begin
+    insert into public.meeting_attendance (company_id, week_ending, profile_id) values ('${OTHER}', current_date - 7, '${OUTSIDER}');
+    get diagnostics n = row_count; insert into _p values ('their_mark', n::text);
+  exception when others then insert into _p values ('their_mark', 'error ' || sqlstate); end;
+  begin
+    insert into public.meeting_attendance (company_id, week_ending, profile_id) values ('${CO}', current_date - 7, '${OUTSIDER}');
+    get diagnostics n = row_count; insert into _p values ('off_roster', n::text);
+  exception when others then insert into _p values ('off_roster', 'error ' || sqlstate); end;
+  begin
+    delete from public.meeting_attendance where id = '${THEIRS}';
+    get diagnostics n = row_count; insert into _p values ('their_unmark', n::text);
+  exception when others then insert into _p values ('their_unmark', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', '{"sub":"${G}","role":"authenticated"}', true);
+  begin
+    insert into public.meeting_attendance (company_id, week_ending, profile_id) values ('${GCO}', current_date, '${G}');
+    get diagnostics n = row_count; insert into _p values ('guide_mark', n::text);
+  exception when others then insert into _p values ('guide_mark', 'error ' || sqlstate); end;
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0290 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const ok =
+    r.own_mark === "1" && r.own_unmark === "1" && r.guide_mark === "1" &&
+    r.their_mark === "error 42501" && r.off_roster === "error 23514" && r.their_unmark === "0";
+  return [{
+    name,
+    granted: `member marks itself ${r.own_mark}, takes it off ${r.own_unmark}, guide marks in its company ${r.guide_mark} (want 1 each)`,
+    withheld: `member marks in another company ${r.their_mark} (want error 42501), off the roster ${r.off_roster} (want error 23514), removes theirs ${r.their_unmark} (want 0)`,
+    ok,
+    detail: ok
+      ? "a member and an assigned guide mark attendance in their company; another company's are refused, and only people on the roster can be marked"
+      : r.own_mark !== "1"
+        ? "ATTENDANCE DOES NOT SAVE for a member of the company (is 0290 applied?)"
+        : "attendance reaches another company, or marks someone off the roster",
+  }];
+}
+
 // ---- A row stays in its company (0266) ---------------------------
 //
 // The owner rules on these tables checked the owner on the way out and
@@ -14352,6 +14433,7 @@ async function main(): Promise<void> {
   const guideFeatures = await guideFeatureReadProbes(run, ids, pendingSql);
   const notes = await notesFollowTheRowProbes(run, ids, pendingSql);
   const headlines = await meetingHeadlinesProbes(run, ids, pendingSql);
+  const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
   const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
@@ -14377,7 +14459,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...attendance, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

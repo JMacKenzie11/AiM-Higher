@@ -234,3 +234,75 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* Attendance on the check-in: one pill per person, a tick that fills
+   when they are marked present. */
+.attendance {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.attendee {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-body);
+  cursor: pointer;
+}
+
+.attendee:hover:not(:disabled) {
+  border-color: var(--border-interactive);
+}
+
+.attendee:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.attendee:disabled {
+  cursor: default;
+}
+
+.attendee[data-present="true"] {
+  border-color: var(--primary);
+  background: var(--aims-cobalt-tint);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
+.attendeeTick {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  color: var(--aims-white);
+  flex: none;
+}
+
+.attendee[data-present="true"] .attendeeTick {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.attendanceCount {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+/* The card's first subheading sits right under its header. */
+.subheadFirst {
+  border-top: 0;
+}

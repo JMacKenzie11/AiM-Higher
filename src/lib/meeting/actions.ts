@@ -70,3 +70,45 @@ export async function saveMeetingHeadlineAction(
   revalidatePath("/meeting");
   return { ok: true };
 }
+
+// Mark someone present at this week's meeting, or take the mark off
+// (meeting_attendance, 0290). The same people who may write a headline
+// may do it, and RLS says the same. The week is always the one now
+// running: attendance is taken in the room.
+export async function setMeetingAttendanceAction(
+  profileId: string,
+  present: boolean
+): Promise<HeadlineResult> {
+  const session = await requireProfile();
+  const companyId = await getEffectiveCompanyId(session);
+  if (!companyId) return { ok: false, message: "No company in scope." };
+  const profile = session.profile;
+  if (profile.company_id !== companyId && !isAdminForCompany(profile, companyId)) {
+    return { ok: false, message: "Not your company to write in." };
+  }
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data: company } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", companyId)
+    .maybeSingle<{ timezone: string }>();
+  const week = thisFriday(company?.timezone ?? "America/Anchorage");
+
+  const { error } = present
+    ? await supabase
+        .from("meeting_attendance")
+        .upsert(
+          { company_id: companyId, week_ending: week, profile_id: profileId },
+          { onConflict: "company_id,week_ending,profile_id", ignoreDuplicates: true }
+        )
+    : await supabase
+        .from("meeting_attendance")
+        .delete()
+        .eq("company_id", companyId)
+        .eq("week_ending", week)
+        .eq("profile_id", profileId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/meeting");
+  return { ok: true };
+}

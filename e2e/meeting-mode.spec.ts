@@ -14,6 +14,8 @@ test.describe("meeting mode", () => {
     await expect(page).toHaveURL(/step=checkin&started=/, { timeout: 30_000 });
     await expect(page.getByRole("heading", { name: "Check-in", exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { name: "Commitments kept this week" })).toBeVisible();
+    // Attendance is listed first; looked at, not clicked, so nothing is written.
+    await expect(page.getByRole("list", { name: "Who's here" }).getByRole("button").first()).toBeVisible();
     for (const next of ["Headlines", "Numbers", "Strategy", "Commitments", "Solve", "Close"]) {
       await page.getByRole("link", { name: `Next: ${next}` }).click();
       await expect(page.getByRole("navigation", { name: "Meeting agenda" }).getByRole("link", { name: next })).toHaveAttribute(

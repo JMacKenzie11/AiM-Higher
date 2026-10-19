@@ -24,6 +24,7 @@ import { AddCommitmentButton } from "../commitments/AddCommitmentButton";
 import { IssuesBoard } from "../issues/IssuesBoard";
 import { AddIssueButton } from "../issues/AddIssueButton";
 import { HeadlineField } from "./HeadlineField";
+import { Attendance } from "./Attendance";
 import commitmentStyles from "../commitments/commitments.module.css";
 import issueStyles from "../issues/issues.module.css";
 import { MEETING_STEPS, checkInQuestion, stepAfter, stepBefore, type MeetingStep } from "./steps";
@@ -141,7 +142,15 @@ export default async function MeetingPage({ searchParams }: PageProps) {
         </div>
       }
     >
-      {step === "checkin" ? <CheckIn companyId={companyId} todayIso={todayIso} timezone={timezone} footer={footer} /> : null}
+      {step === "checkin" ? (
+        <CheckIn
+          companyId={companyId}
+          todayIso={todayIso}
+          timezone={timezone}
+          canMark={session.profile.company_id === companyId || isAdmin}
+          footer={footer}
+        />
+      ) : null}
       {step === "headlines" ? <Headlines companyId={companyId} timezone={timezone} footer={footer} /> : null}
       {step === "numbers" ? <Numbers companyId={companyId} timezone={timezone} footer={footer} /> : null}
       {step === "strategy" ? <Strategy companyId={companyId} footer={footer} /> : null}
@@ -164,7 +173,7 @@ export default async function MeetingPage({ searchParams }: PageProps) {
           footer={footer}
         />
       ) : null}
-      {step === "close" ? <Close companyId={companyId} started={started} footer={footer} /> : null}
+      {step === "close" ? <Close companyId={companyId} started={started} timezone={timezone} footer={footer} /> : null}
     </PageShell>
   );
 }
@@ -206,7 +215,9 @@ function StepCard({
 
 // ---- 1. Check-in -------------------------------------------------
 //
-// A positive check-in, as Jeff runs it: one open, generic question to
+// First, who is in the room: a tick beside each person on the roster
+// (Jason, 2026-10-19; meeting_attendance, 0290). Then a positive
+// check-in, as Jeff runs it: one open, generic question to
 // go round the room (steps.ts, a short list that changes week to
 // week), then the good news to start from: the commitments kept in
 // the past week, and the critical success factors on or above target
@@ -219,14 +230,27 @@ async function CheckIn({
   companyId,
   todayIso,
   timezone,
+  canMark,
   footer,
 }: {
   companyId: string;
   todayIso: string;
   timezone: string;
+  canMark: boolean;
   footer: ReactNode;
 }) {
-  const [dash, board] = await Promise.all([getDashboardData(companyId), getBoardData(companyId, timezone)]);
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const [dash, board, roster, marked] = await Promise.all([
+    getDashboardData(companyId),
+    getBoardData(companyId, timezone),
+    getAssignablePeople(supabase, companyId),
+    supabase
+      .from("meeting_attendance")
+      .select("profile_id")
+      .eq("company_id", companyId)
+      .eq("week_ending", thisFriday(timezone)),
+  ]);
+  const present = ((marked.data ?? []) as Array<{ profile_id: string }>).map((r) => r.profile_id);
   const week = board.weeks.at(-2) ?? board.weeks.at(-1) ?? null;
   const onTarget = week
     ? board.functions.flatMap((f) =>
@@ -241,6 +265,15 @@ async function CheckIn({
 
   return (
     <StepCard id="meeting-checkin" title="Check-in" footer={footer}>
+      <h3 className={`${styles.subhead} ${styles.subheadFirst}`}>Who&rsquo;s here</h3>
+      <div className={styles.cardBody}>
+        <Attendance
+          people={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
+          initialPresent={present}
+          canMark={canMark}
+        />
+      </div>
+      <h3 className={styles.subhead}>Open with this</h3>
       <div className={styles.cardBody}>
         <p className={styles.question}>{checkInQuestion(todayIso)}</p>
       </div>
@@ -630,10 +663,27 @@ async function Solve({
 //
 // Jeff's reminder, then what changed while the meeting ran, counted
 // from `started`.
-async function Close({ companyId, started, footer }: { companyId: string; started: string; footer: ReactNode }) {
+async function Close({
+  companyId,
+  started,
+  timezone,
+  footer,
+}: {
+  companyId: string;
+  started: string;
+  timezone: string;
+  footer: ReactNode;
+}) {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const count = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0;
-  const [kept, added, resolved, raised] = await Promise.all([
+  const [here, kept, added, resolved, raised] = await Promise.all([
+    count(
+      supabase
+        .from("meeting_attendance")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("week_ending", thisFriday(timezone))
+    ),
     count(
       supabase
         .from("commitments")
@@ -656,6 +706,7 @@ async function Close({ companyId, started, footer }: { companyId: string; starte
         </p>
       </div>
       <ul className={styles.plainList}>
+        <li>{line(here, "person here", "people here")}</li>
         <li>{line(kept, "commitment kept", "commitments kept")}</li>
         <li>{line(added, "new commitment", "new commitments")}</li>
         <li>{line(resolved, "issue resolved", "issues resolved")}</li>
