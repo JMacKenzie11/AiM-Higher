@@ -55,6 +55,7 @@ import { reorderMeasuresAction } from "@/lib/measures/reorder-actions";
 import { reorderFunctionsAction } from "@/lib/chart/actions";
 import { Drawer } from "@/components/ui/Drawer";
 import styles from "./measures.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 // The /measures grid.
 //
@@ -546,7 +547,24 @@ export function MeasuresGrid({
     });
   }
 
-  function save() {
+  // AUTOSAVE under the "autosave" switch (simplification review,
+  // change 8): leaving a cell saves, a moment later, whatever changed;
+  // the Save button goes. It is the same save, which already sends
+  // only the cells that differ from what the server holds, so a blur
+  // with nothing new sends nothing and says nothing.
+  const autosave = simplifyOn("autosave");
+  const saveRef = useRef<(opts?: { quiet?: boolean }) => void>(() => {});
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function scheduleSave() {
+    if (!autosave) return;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => saveRef.current({ quiet: true }), 300);
+  }
+  useEffect(() => () => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+  }, []);
+
+  function save(opts?: { quiet?: boolean }) {
     setMessage(null);
     // ONLY WHAT CHANGED, compared against what the server currently
     // holds rather than against a remembered baseline — `data` is
@@ -579,9 +597,12 @@ export function MeasuresGrid({
             }))
         )
       );
+    if (opts?.quiet && entries.length === 0) return;
     startTransition(async () => {
       const result = await logMeasureEntriesAction(entries, weekEnding);
-      if (result.ok) {
+      if (result.ok && opts?.quiet) {
+        setMessage({ ok: true, text: "Saved." });
+      } else if (result.ok) {
         setMessage({
           ok: true,
           text:
@@ -594,6 +615,8 @@ export function MeasuresGrid({
       }
     });
   }
+
+  saveRef.current = save;
 
   // Every column the body has to emit, in order, so a row and the
   // header cannot disagree about how many cells there are.
@@ -977,11 +1000,15 @@ export function MeasuresGrid({
             <span />
           )}
           <div className={styles.gridToolbarActions}>
-            {writableRows.length > 0 ? (
+            {writableRows.length > 0 && autosave ? (
+              <span className={styles.autosaveStatus} role="status" aria-live="polite">
+                {pending ? "Saving…" : "Changes save as you go"}
+              </span>
+            ) : writableRows.length > 0 ? (
               <button
                 type="button"
                 className={uiStyles.btnPrimary}
-                onClick={save}
+                onClick={() => save()}
                 disabled={pending}
               >
                 {pending ? "Saving…" : "Save"}
@@ -1378,7 +1405,10 @@ export function MeasuresGrid({
                                   [cellKey(row.id, storageWeek(row, col.key))]: v,
                                 }))
                               }
-                              disabled={pending}
+                              onCommit={scheduleSave}
+                              // Not while autosaving: the next cell has
+                              // to stay typeable while the last saves.
+                              disabled={pending && !autosave}
                             />
                           )
                         )}
@@ -1551,6 +1581,7 @@ function GridCellView({
   canLog,
   value,
   onChange,
+  onCommit,
   disabled,
 }: {
   row: GridRow;
@@ -1571,6 +1602,8 @@ function GridCellView({
   canLog: boolean;
   value: string;
   onChange: (v: string) => void;
+  // Leaving the cell, for autosave.
+  onCommit?: () => void;
   disabled: boolean;
 }) {
   const cell = row.cells.find((c) => c.weekEnding === storageWeek);
@@ -1634,7 +1667,10 @@ function GridCellView({
           inputMode={row.valueType === "text" ? undefined : "decimal"}
           value={focused ? value : entryDisplay(row, value)}
           onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onBlur={() => {
+            setFocused(false);
+            onCommit?.();
+          }}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           aria-label={

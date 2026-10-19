@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { setCompanyIndustryAction } from "@/lib/companies/actions";
 import styles from "../admin.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export function IndustryForm({
   companyId,
@@ -18,6 +19,9 @@ export function IndustryForm({
   );
 
   const dirty = (value.trim() || null) !== (initial ?? null);
+  // Saves on leaving the field under the "autosave" switch
+  // (simplification review, change 8); the button goes.
+  const autosave = simplifyOn("autosave");
 
   function save() {
     setMessage(null);
@@ -50,6 +54,9 @@ export function IndustryForm({
           }}
           placeholder="e.g. Construction, SaaS, Healthcare"
           disabled={pending}
+          onBlur={() => {
+            if (autosave && dirty) save();
+          }}
         />
       </div>
 
@@ -62,16 +69,18 @@ export function IndustryForm({
         </p>
       ) : null}
 
-      <div className={styles.submitRow}>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          onClick={save}
-          disabled={pending || !dirty}
-        >
-          {pending ? "Saving…" : "Save industry"}
-        </button>
-      </div>
+      {autosave ? null : (
+        <div className={styles.submitRow}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={save}
+            disabled={pending || !dirty}
+          >
+            {pending ? "Saving…" : "Save industry"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

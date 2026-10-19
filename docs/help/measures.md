@@ -12,7 +12,7 @@ For example: "Zero lost time incidents" or "Percentage of reports accepted first
 ## What you can do here
 
 - **Read every function.** Everyone at your company can see every function's numbers.
-- **Log your function's numbers.** If you lead a function, you get an input box on its rows: as its lead you hold Lead, Track and Decide, so keeping its numbers is yours. Type this week's value and click **Save** above the table.
+- **Log your function's numbers.** If you lead a function, you get an input box on its rows: as its lead you hold Lead, Track and Decide, so keeping its numbers is yours. Type this week's value. Click **Save** above the table, or, where it says *Changes save as you go*, just move to the next box.
 - **Run your own function's list.** As a function's lead you can also add a critical success factor, change a target, edit its settings and archive rows you've outgrown. On other functions you see the numbers but no boxes or edit controls.
 - **Reorder your function's rows.** Drag a row by its handle.
 - **Connect a measure to a spreadsheet or to HubSpot**, for a function you lead, when your company has External Measures turned on.
@@ -47,7 +47,7 @@ It's laid out like a spreadsheet: Functional Area, Owner, Critical Success Facto
 
 **Two weeks take a value: this one and the one that just closed.** Both are tinted. A week stays open until the end of the following week, so a number asked for on Tuesday can go in any time up to the next Friday. After that it locks and is there to read.
 
-**The count beside Save** only counts your own rows, for the week that just closed, since that's the one with a deadline. For example: *"2 of 6 still to log for Week 5 of August."* If you have nothing to log, it says nothing.
+**The count at the top of the table** only counts your own rows, for the week that just closed, since that's the one with a deadline. For example: *"2 of 6 still to log for Week 5 of August."* If you have nothing to log, it says nothing.
 
 **The scrollbar sits above the table** and moves only the week columns. Drag it, click the track to jump, or use the arrows at either end to move about a month at a time.
 
@@ -142,7 +142,7 @@ Nobody is chased for a number that was logged or came in from a connected spread
 
 **Where do I log a number?** Here, in the row itself. This is the only place values are entered.
 
-**How do I know what I still have to log?** The count beside Save, and the notification bell.
+**How do I know what I still have to log?** The count at the top of the table, and the notification bell.
 
 **Why can I see functions I have nothing to do with?** The numbers a company holds itself to are shared with everyone. You can read every function and type only into the ones you can change.
 

@@ -51,6 +51,9 @@ export const SIMPLIFY_CHANGES = [
   // 10. Shorter page intros: one line where a page explained itself in
   //     a paragraph, and Guide HQ leading with what needs attention.
   "short-intros",
+  // 8. Autosave on the Critical Success Factors grid: leaving a cell
+  //    saves it; the Save button goes.
+  "autosave",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

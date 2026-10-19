@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { setAimsChampionAction } from "@/lib/companies/actions";
 import styles from "../admin.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export type ChampionCandidate = { id: string; full_name: string };
 
@@ -23,11 +24,15 @@ export function ChampionForm({
   );
 
   const dirty = value !== saved;
+  // Saves on choosing under the "autosave" switch (simplification
+  // review, change 8); the button goes. The message still says who is
+  // in the seat, so a wrong pick is seen and put right at once.
+  const autosave = simplifyOn("autosave");
 
-  function save() {
+  function save(next: string = value) {
     setMessage(null);
     startTransition(async () => {
-      const result = await setAimsChampionAction(companyId, value || null);
+      const result = await setAimsChampionAction(companyId, next || null);
       if (result.ok) {
         const next = result.company.aims_champion_profile_id ?? "";
         setSaved(next);
@@ -55,6 +60,7 @@ export function ChampionForm({
           onChange={(e) => {
             setMessage(null);
             setValue(e.target.value);
+            if (autosave && e.target.value !== saved) save(e.target.value);
           }}
           disabled={pending || candidates.length === 0}
         >
@@ -101,16 +107,18 @@ export function ChampionForm({
         </p>
       ) : null}
 
-      <div className={styles.submitRow}>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          onClick={save}
-          disabled={pending || !dirty}
-        >
-          {pending ? "Saving…" : "Save champion"}
-        </button>
-      </div>
+      {autosave ? null : (
+        <div className={styles.submitRow}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={() => save()}
+            disabled={pending || !dirty}
+          >
+            {pending ? "Saving…" : "Save champion"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

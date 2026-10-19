@@ -1656,3 +1656,11 @@
 .gridMonthBlock {
   background: color-mix(in srgb, var(--aims-cobalt) 4%, transparent);
 }
+
+/* In place of Save under the "autosave" switch (simplification
+   review, change 8). */
+.autosaveStatus {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  align-self: center;
+}

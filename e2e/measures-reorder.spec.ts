@@ -1,4 +1,4 @@
-import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
+import { test, expect, signIn, users, FIXTURE_COMPANY_NAME, simplifyOn } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Reordering on /measures, at both levels.
@@ -142,6 +142,7 @@ test("a functional area keeps its new place among its siblings", async ({
 });
 
 test("the save button is just Save", async ({ page }) => {
+  test.skip(simplifyOn("autosave"), "no Save button under the autosave switch");
   test.setTimeout(240_000);
   await scopeIn(page);
   await openMeasures(page);
@@ -154,4 +155,15 @@ test("the save button is just Save", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: /save this week/i })
   ).toHaveCount(0);
+});
+
+// Under the "autosave" switch (simplification review, change 8) the
+// grid saves as you leave a cell, and has no Save button.
+test("the grid saves as you go, with no Save button", async ({ page }) => {
+  test.skip(!simplifyOn("autosave"), "the autosave switch is off");
+  test.setTimeout(240_000);
+  await scopeIn(page);
+  await openMeasures(page);
+  await expect(page.getByText("Changes save as you go")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /^Save$/ })).toHaveCount(0);
 });
