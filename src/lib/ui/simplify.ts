@@ -48,6 +48,9 @@ export const SIMPLIFY_CHANGES = [
   // 9. A shorter Week in Review: the brief, the numbers board and where
   //    to lend support, without recent wins, Focus Areas or the trend.
   "short-review",
+  // 10. Shorter page intros: one line where a page explained itself in
+  //     a paragraph, and Guide HQ leading with what needs attention.
+  "short-intros",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

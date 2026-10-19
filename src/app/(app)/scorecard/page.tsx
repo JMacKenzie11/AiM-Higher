@@ -18,6 +18,7 @@ import { Sparkline } from "./Sparkline";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./scorecard.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export const metadata = { title: "AiMS Implementation" };
 
@@ -69,7 +70,12 @@ export default async function ScorecardPage() {
     <PageShell
       eyebrow="Workspace"
       title="AiMS Implementation"
-      subtitle={`An overview of how consistently the AiMS disciplines are being practiced across ${companyName}.`}
+      subtitle={
+        // Shorter under the "short-intros" switch (change 10).
+        simplifyOn("short-intros")
+          ? `How consistently ${companyName} practices the AiMS disciplines.`
+          : `An overview of how consistently the AiMS disciplines are being practiced across ${companyName}.`
+      }
       ariaLabel="Scorecard summary"
       heroExtras={
         <div className={styles.overallRow}>

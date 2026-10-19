@@ -11,6 +11,7 @@ import { AskAimeeNewButton } from "./AskAimeeNewButton";
 import { MemorySweep } from "./MemorySweep";
 import { ArchiveConversationButton } from "../coach/[profileId]/ArchiveConversationButton";
 import styles from "../coach/coach.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export const metadata = { title: "Ask Aimee" };
 
@@ -52,7 +53,14 @@ export default async function AskAimeePage() {
     <PageShell
       eyebrow="Coaching"
       title="Ask Aimee"
-      subtitle="A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. You can invite people from your company into a conversation, and pick a guided agent from inside any chat."
+      subtitle={
+        // Shorter under the "short-intros" switch (simplification
+        // review, change 10). Who can see a conversation, and what AiMS
+        // reviews, stay: they are the privacy line, not explanation.
+        simplifyOn("short-intros")
+          ? "A thinking partner for whatever you're working through. Only you can see your conversations; AiMS reviews anonymised summaries of their themes to improve Aimee."
+          : "A thinking partner for the situation you're working through: a decision, a conversation to prep for, an employee not on the platform, or your own leadership. Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. You can invite people from your company into a conversation, and pick a guided agent from inside any chat."
+      }
     >
       {/* Entering the surface with nothing open: every finished
           conversation is a candidate. */}
