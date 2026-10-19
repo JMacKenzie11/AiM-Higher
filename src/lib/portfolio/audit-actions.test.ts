@@ -34,7 +34,9 @@ function constraintActions(): string[] {
   let latest: string | null = null;
   for (const f of files) {
     const sql = readFileSync(path.join(MIGRATIONS, f), "utf8");
-    if (sql.includes("check (action in (")) latest = sql;
+    // Only the portfolio events table's own constraint: other tables
+    // have an `action` column too (0291's value-change log).
+    if (sql.includes("check (action in (") && sql.includes("portfolio_admin_events")) latest = sql;
   }
   expect(latest).not.toBeNull();
   const block = latest!.slice(latest!.lastIndexOf("check (action in ("));

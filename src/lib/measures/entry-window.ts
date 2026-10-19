@@ -2,6 +2,7 @@ import type { UpdateFrequency } from "@/lib/types";
 import { addDays, fridayOf } from "@/lib/dates";
 import { isDueForWeek, storageWeekFor } from "./frequency";
 import { monthKeyOf } from "./months";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 // WHICH WEEKS A MEASURE VALUE MAY BE ENTERED FOR. One rule, read by the
 // /measures grid to decide which boxes are open and by the server
@@ -22,7 +23,10 @@ import { monthKeyOf } from "./months";
 //     while its own week is still in that window.
 //   - An admin of the company may enter any week the grid draws
 //     (decided 2026-09-19: correcting an old number is a keystroke, not
-//     a conversation with an engineer).
+//     a conversation with an engineer). Under the "past-numbers"
+//     switch so may everyone else who can log the measure (Jeff and
+//     Jason, 2026-10-19): rather than stopping a correction, every
+//     change is recorded with who and when (0291).
 //   - The measure must be due that week (isDueForWeek): nothing before
 //     it existed, a fortnightly one every other week, a monthly one in
 //     its month's own week.
@@ -72,8 +76,14 @@ function isFriday(week: string): boolean {
 
 // Is this week open for entry? The grid's question for a box, before
 // whether the measure is due there.
+// Whether this person gets the admin's window: any week the grid draws.
+export function anyWeekOpen(isAdmin: boolean): boolean {
+  return isAdmin || simplifyOn("past-numbers");
+}
+
 export function isEntryWeekOpen(args: EntryWeekArgs): boolean {
-  const { frequency, week, currentWeek, isAdmin } = args;
+  const { frequency, week, currentWeek } = args;
+  const isAdmin = anyWeekOpen(args.isAdmin);
   if (!isFriday(week)) return false;
   const storage = storageWeekFor(frequency, week);
   const earliest = earliestEntryWeek(currentWeek);
@@ -98,7 +108,7 @@ export function checkEntryWeek(args: EntryWeekArgs & { createdAt: string }): Ent
   if (!isEntryWeekOpen(args)) {
     return {
       ok: false,
-      message: args.isAdmin
+      message: anyWeekOpen(args.isAdmin)
         ? "That week is outside the year the measures page shows."
         : "Only this week and last week are open. An admin can change an older week.",
     };

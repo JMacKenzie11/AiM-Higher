@@ -78,3 +78,19 @@ describe("checkEntryWeek", () => {
     expect(check({ frequency: "biweekly", week: "2026-10-16", createdAt: "2026-09-30T00:00:00Z" }).ok).toBe(true);
   });
 });
+
+describe("the past-numbers switch", () => {
+  it("gives everyone who can log the admin's window, and keeps its edges", async () => {
+    const { vi } = await import("vitest");
+    vi.resetModules();
+    vi.doMock("@/lib/ui/simplify", () => ({ simplifyOn: (c: string) => c === "past-numbers" }));
+    const mod = await import("./entry-window");
+    const check = (week: string) => mod.isEntryWeekOpen({ frequency: "weekly", week, currentWeek: NOW, isAdmin: false });
+    expect(check("2026-10-02")).toBe(true);
+    expect(check("2025-10-24")).toBe(true);
+    expect(check("2025-10-17")).toBe(false);
+    expect(check("2026-10-23")).toBe(false);
+    vi.doUnmock("@/lib/ui/simplify");
+    vi.resetModules();
+  });
+});

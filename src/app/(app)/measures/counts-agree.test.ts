@@ -104,7 +104,7 @@ describe("only your own functions get an input", () => {
     expect(code).toContain("if (editable && canLog) {");
   });
 
-  it("opens two weeks to everyone, and the whole page to an admin", () => {
+  it("opens two weeks to everyone, and the whole page to an admin (or to everyone under past-numbers)", () => {
     // The window is what makes a closed week a record rather than a
     // running draft: a Lead quietly revising April is the thing it
     // prevents, and it still does.
@@ -112,7 +112,11 @@ describe("only your own functions get an input", () => {
     // An admin is exempt, decided 2026-09-19. Correcting an old
     // number was "a conversation rather than a keystroke", which is
     // not a rule anybody chose — it is the absence of a control.
-    expect(block("editableWeeks")).toContain("isAdmin ? data.weeks : openWeeks");
+    // Under the "past-numbers" switch everyone who can log gets the
+    // same window (Jeff and Jason, 2026-10-19), through one rule:
+    // anyWeekOpen in entry-window.ts, which the server checks too.
+    expect(code).toContain("const wideWindow = anyWeekOpen(isAdmin);");
+    expect(block("editableWeeks")).toContain("wideWindow ? data.weeks : openWeeks");
   });
 
   it("tints and captions the OPEN weeks, not the editable ones", () => {

@@ -17,10 +17,11 @@ import {
   type MeasureEntryInput,
 } from "@/lib/measures/actions";
 import { storageWeekFor } from "@/lib/measures/frequency";
-import { isEntryWeekOpen } from "@/lib/measures/entry-window";
+import { anyWeekOpen, isEntryWeekOpen } from "@/lib/measures/entry-window";
 import { monthKeyOf, monthLabel, weekLabel, weekOfMonth } from "@/lib/measures/months";
 import type { GridData, GridRow,
   GridGroup,
+  GridCell,
 } from "@/lib/measures/grid";
 import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
 import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
@@ -446,12 +447,15 @@ export function MeasuresGrid({
   // action has no week check at all, so the window was a disabled
   // input and nothing more.
   //
-  // The window still exists for everyone else. It is what makes a
-  // closed week a record rather than a running draft, and a Lead
-  // quietly revising an old number is the thing it prevents.
+  // The window still exists for everyone else, unless the
+  // "past-numbers" switch is on (Jeff and Jason, 2026-10-19): then a
+  // Lead may correct an older week too, and what keeps a closed week a
+  // record is the change log (0291), shown on the cell, rather than a
+  // locked box.
+  const wideWindow = anyWeekOpen(isAdmin);
   const editableWeeks = useMemo(
-    () => (isAdmin ? data.weeks : openWeeks),
-    [isAdmin, data.weeks, openWeeks]
+    () => (wideWindow ? data.weeks : openWeeks),
+    [wideWindow, data.weeks, openWeeks]
   );
 
   // WHAT THE COUNT CHASES IS THE WEEK THAT JUST CLOSED, not the
@@ -1648,11 +1652,14 @@ function GridCellView({
     .filter(Boolean)
     .join(" ");
 
-  const title = change
+  const targetTitle = change
     ? `Target changed from ${change.from ?? "none"} to ${change.to ?? "none"}`
     : cell.target
       ? `Target ${cell.target} this week`
       : undefined;
+  // Who last changed this week's value, and what it was (0291).
+  const changeTitle = cell.lastChange ? describeChange(cell.lastChange) : undefined;
+  const title = [targetTitle, changeTitle].filter(Boolean).join(". ") || undefined;
 
   if (editable && canLog) {
     return (
@@ -1688,6 +1695,24 @@ function GridCellView({
       {cell.displayValue || <span className={styles.gridEmpty} aria-hidden />}
     </td>
   );
+}
+
+// The outside systems a value can be pulled from (0259), as people
+// know them.
+const SOURCE_NAMES: Record<string, string> = { hubspot: "HubSpot", google_sheet: "Google Sheets" };
+const sourceName = (origin: string) => SOURCE_NAMES[origin] ?? origin;
+
+// "Changed by Sam on Oct 19, 2:14 PM. Was 12 (pulled from HubSpot)."
+function describeChange(c: NonNullable<GridCell["lastChange"]>): string {
+  const when = new Date(c.at).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const who = c.by ? `Changed by ${c.by}` : c.nowPulledFrom ? `Updated from ${sourceName(c.nowPulledFrom)}` : "Changed";
+  const was = c.wasPulledFrom ? `${c.was} (pulled from ${sourceName(c.wasPulledFrom)})` : c.was;
+  return `${who} on ${when}. Was ${was}`;
 }
 
 function cellKey(measureId: string, week: string): string {

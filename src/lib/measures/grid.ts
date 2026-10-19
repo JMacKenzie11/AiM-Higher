@@ -20,6 +20,8 @@ import {
   orderFunctionsByHierarchy,
   type MeasuresSpine,
 } from "@/lib/measures/spine";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import type {
   MetricValueType,
   TargetDirection,
@@ -73,6 +75,36 @@ export type GridCell = {
   // The target this week was judged against, which is not necessarily
   // the one on the row today.
   target: string | null;
+  // The latest change to this week's value after it was first added
+  // (0291), for the cell's hover text: who, when, and what it was.
+  // Absent when the value has only ever been entered once.
+  lastChange?: CellChange;
+};
+
+export type CellChange = {
+  // Who changed it, or null for a scheduled pull with nobody signed in.
+  by: string | null;
+  at: string;
+  // The value before, drawn the way the cell draws values.
+  was: string;
+  // Where the value before came from: a connector's name when it had
+  // been pulled, so typing over a pulled value reads as that.
+  wasPulledFrom: string | null;
+  // Where the new value came from (null: typed by a person).
+  nowPulledFrom: string | null;
+};
+
+// One row of success_measure_entry_changes, as the grid reads it.
+export type EntryChangeRow = {
+  measure_id: string;
+  week_ending: string;
+  action: "added" | "changed" | "removed";
+  old_number: number | null;
+  old_text: string | null;
+  old_origin: string | null;
+  new_origin: string | null;
+  changed_by: string | null;
+  changed_at: string;
 };
 
 // Short enough to sit in a pinned column. FREQUENCY_LABELS reads
@@ -220,7 +252,9 @@ export function cellStatus(
 export function buildGridData(
   spine: MeasuresSpine,
   userId: string,
-  includeAll: boolean
+  includeAll: boolean,
+  // Newest first. Only changes after a value was first added matter.
+  changeRows: EntryChangeRow[] = []
 ): GridData {
   const { weeks, weekEnding: currentWeekEnding } = spine;
   const months = groupWeeksByMonth(weeks, currentWeekEnding);
@@ -244,6 +278,12 @@ export function buildGridData(
     });
   }
   const targetsByMeasure = groupTargetHistory(spine.targetRows);
+  const latestChange = new Map<string, EntryChangeRow>();
+  for (const c of changeRows) {
+    if (c.action === "added") continue;
+    const key = `${c.measure_id}|${c.week_ending}`;
+    if (!latestChange.has(key)) latestChange.set(key, c);
+  }
 
   const rowsByFunction = new Map<string, GridRow[]>();
   for (const csf of spine.csfRows) {
@@ -294,6 +334,22 @@ export function buildGridData(
           value
         ),
         target,
+        ...(() => {
+          const c = latestChange.get(`${csf.id}|${week}`);
+          if (!c) return {};
+          const lastChange: CellChange = {
+            by: c.changed_by ? rosterById.get(c.changed_by) ?? "Someone outside the company" : null,
+            at: c.changed_at,
+            was:
+              formatMeasureValue(csf.value_type, parseScale(csf.value_scale), {
+                number: c.old_number,
+                text: c.old_text,
+              }) || "empty",
+            wasPulledFrom: c.old_origin,
+            nowPulledFrom: c.new_origin,
+          };
+          return { lastChange };
+        })(),
       };
     });
 
@@ -368,5 +424,20 @@ export async function getGridData(
   includeAll: boolean
 ): Promise<GridData> {
   const spine = await loadMeasuresSpine(companyId, timezone);
-  return buildGridData(spine, userId, includeAll);
+  // Who changed which week, for the cells' hover text (0291). Only the
+  // weeks on the page, and only changes, never the first entry.
+  const measureIds = spine.csfRows.map((c) => c.id);
+  let changeRows: EntryChangeRow[] = [];
+  if (measureIds.length > 0 && spine.weeks.length > 0) {
+    const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+    const { data } = await supabase
+      .from("success_measure_entry_changes")
+      .select("measure_id, week_ending, action, old_number, old_text, old_origin, new_origin, changed_by, changed_at")
+      .in("measure_id", measureIds)
+      .in("action", ["changed", "removed"])
+      .gte("week_ending", spine.weeks[0])
+      .order("changed_at", { ascending: false });
+    changeRows = (data ?? []) as EntryChangeRow[];
+  }
+  return buildGridData(spine, userId, includeAll, changeRows);
 }

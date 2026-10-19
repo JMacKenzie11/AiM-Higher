@@ -45,7 +45,15 @@ It's laid out like a spreadsheet: Functional Area, Owner, Critical Success Facto
 
 **It opens on this week.** You can reach a rolling twelve months. The current month is open, and earlier months are folded to one column each. Click a month to open it, and click again to fold it. A folded month shows only its name.
 
-**Two weeks take a value: this one and the one that just closed.** Both are tinted. A week stays open until the end of the following week, so a number asked for on Tuesday can go in any time up to the next Friday. After that it locks and is there to read.
+**Two weeks are due: this one and the one that just closed.** Both are tinted. A week stays open until the end of the following week, so a number asked for on Tuesday can go in any time up to the next Friday.
+
+::: feature ui_past_numbers
+**You can correct an older week too.** Any week the table shows can be changed by whoever logs that measure. Every change is recorded: hover over a number that has been changed to see who changed it, when, and what it was before. That includes typing over a number pulled in from HubSpot or Google Sheets.
+:::
+
+::: feature ui_past_numbers_off
+After that it locks and is there to read. An admin can still change an older week. Hover over a number that has been changed to see who changed it, when, and what it was before.
+:::
 
 **The count at the top of the table** only counts your own rows, for the week that just closed, since that's the one with a deadline. For example: *"2 of 6 still to log for Week 5 of August."* If you have nothing to log, it says nothing.
 
