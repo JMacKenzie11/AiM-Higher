@@ -394,7 +394,7 @@ export default async function OnePagePlanPage() {
                   <p className={styles.contextLine}>
                     Manage focus areas on the{" "}
                     <Link href="/plan" className={styles.inlineLink}>
-                      Strategic Plan
+                      Goals &amp; Priorities
                     </Link>{" "}
                     page.
                   </p>

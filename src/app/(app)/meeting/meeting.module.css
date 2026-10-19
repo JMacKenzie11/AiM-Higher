@@ -156,3 +156,95 @@
 .ownedList > li > :nth-child(5) {
   visibility: hidden;
 }
+
+/* Headlines: one block per functional area, last week beside this
+   week. The field is the only control, and it saves on blur. */
+.headlineGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4) var(--space-5);
+}
+
+.headlineCol > h3 {
+  margin: 0 0 var(--space-2);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.headlineLast {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.headlineEdit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.headlineInput {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.45;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.headlineInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.headlineStatus {
+  margin: 0;
+  min-height: 1.2em;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.headlineStatus[role="alert"] {
+  color: var(--aims-danger);
+}
+
+.headlineLead {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Solve opens with the question the room answers before the list. */
+.solveQuestion {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-sans);
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--text-heading);
+  text-wrap: balance;
+}
+
+/* The reminder above the close tally. */
+.closeLine {
+  margin: 0;
+  font-size: 19px;
+  color: var(--text-heading);
+}

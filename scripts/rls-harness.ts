@@ -12582,6 +12582,98 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Headlines are one company's own (0288) ----------------------
+//
+// meeting_headlines holds a functional area's headline for a week,
+// written in the weekly meeting by whoever is at the keyboard. As a
+// team member, and as an assigned guide, with a function seeded in
+// each company here:
+//   granted   the member writes and rewrites a headline on its own
+//             company's function; the guide writes one on an assigned
+//             company's function
+//   withheld  the member's headline on another company's function is
+//             refused, as is a row naming its own company but another
+//             company's function (the stamp trigger), and its rewrite
+//             of the other company's headline reaches no row
+// Red before 0288: there is no table, so nothing runs.
+async function meetingHeadlinesProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "headlines · one company's own";
+  const M = ids.member, CO = ids.memberCompany, OTHER = ids.otherCompany;
+  const G = ids.guide, GCO = ids.guideCompany;
+  const MINE_FN = randomUUID(), THEIR_FN = randomUUID(), GUIDE_FN = randomUUID(), THEIRS = randomUUID();
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into public.functions (id, company_id, title) values
+  ('${MINE_FN}', '${CO}', 'harness 0288 mine'),
+  ('${THEIR_FN}', '${OTHER}', 'harness 0288 theirs'),
+  ('${GUIDE_FN}', '${GCO}', 'harness 0288 guided');
+insert into public.meeting_headlines (id, company_id, function_id, week_ending, body)
+values ('${THEIRS}', '${OTHER}', '${THEIR_FN}', current_date, 'harness 0288 theirs');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  begin
+    insert into public.meeting_headlines (company_id, function_id, week_ending, body)
+    values ('${CO}', '${MINE_FN}', current_date, 'harness 0288 mine');
+    get diagnostics n = row_count; insert into _p values ('own_insert', n::text);
+  exception when others then insert into _p values ('own_insert', 'error ' || sqlstate); end;
+  begin
+    update public.meeting_headlines set body = 'harness 0288 mine again'
+    where function_id = '${MINE_FN}' and week_ending = current_date;
+    get diagnostics n = row_count; insert into _p values ('own_update', n::text);
+  exception when others then insert into _p values ('own_update', 'error ' || sqlstate); end;
+  begin
+    insert into public.meeting_headlines (company_id, function_id, week_ending, body)
+    values ('${OTHER}', '${THEIR_FN}', current_date - 7, 'harness 0288 trespass');
+    get diagnostics n = row_count; insert into _p values ('their_insert', n::text);
+  exception when others then insert into _p values ('their_insert', 'error ' || sqlstate); end;
+  begin
+    insert into public.meeting_headlines (company_id, function_id, week_ending, body)
+    values ('${CO}', '${THEIR_FN}', current_date - 7, 'harness 0288 mislabelled');
+    get diagnostics n = row_count; insert into _p values ('mismatch_insert', n::text);
+  exception when others then insert into _p values ('mismatch_insert', 'error ' || sqlstate); end;
+  begin
+    update public.meeting_headlines set body = 'harness 0288 rewritten' where id = '${THEIRS}';
+    get diagnostics n = row_count; insert into _p values ('their_update', n::text);
+  exception when others then insert into _p values ('their_update', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', '{"sub":"${G}","role":"authenticated"}', true);
+  begin
+    insert into public.meeting_headlines (company_id, function_id, week_ending, body)
+    values ('${GCO}', '${GUIDE_FN}', current_date, 'harness 0288 guided');
+    get diagnostics n = row_count; insert into _p values ('guide_insert', n::text);
+  exception when others then insert into _p values ('guide_insert', 'error ' || sqlstate); end;
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0288 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  // Another company's row must be refused by the policies (42501), not
+  // by the stamp trigger (23514), or the policies are never tested; a
+  // function outside the row's company is the trigger's to refuse.
+  const ok =
+    r.own_insert === "1" && r.own_update === "1" && r.guide_insert === "1" &&
+    r.their_insert === "error 42501" && r.mismatch_insert === "error 23514" && r.their_update === "0";
+  return [{
+    name,
+    granted: `member's own insert ${r.own_insert}, rewrite ${r.own_update}, guide's insert ${r.guide_insert} (want 1 each)`,
+    withheld: `member into another company ${r.their_insert} (want error 42501), own company with their function ${r.mismatch_insert} (want error 23514), rewrite of theirs ${r.their_update} (want 0)`,
+    ok,
+    detail: ok
+      ? "a member and an assigned guide write headlines in their company; another company's are refused, and a row cannot name a function outside its company"
+      : r.own_insert !== "1"
+        ? "HEADLINES DO NOT SAVE for a member of the company (is 0288 applied?)"
+        : "a headline reaches another company, or names a function outside its own",
+  }];
+}
+
 // ---- A row stays in its company (0266) ---------------------------
 //
 // The owner rules on these tables checked the owner on the way out and
@@ -14259,6 +14351,7 @@ async function main(): Promise<void> {
   const companyStays = await companyStaysProbes(run, ids, pendingSql);
   const guideFeatures = await guideFeatureReadProbes(run, ids, pendingSql);
   const notes = await notesFollowTheRowProbes(run, ids, pendingSql);
+  const headlines = await meetingHeadlinesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
   const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
@@ -14284,7 +14377,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

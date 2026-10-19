@@ -10,11 +10,12 @@ The weekly leadership meeting in one view, for the screen everyone is looking at
 ## The steps
 
 - **Check-in.** Start with what went well. The question at the top comes from your last analysed meeting when there is one. Under it are the commitments kept in the last seven days.
+- **Headlines.** Each functional area gives its update: what happened last week, what worked, what's coming, and what the area needs support on. Keep commitments and numbers for their own steps. Every area has a block showing last week's headline beside this week's. Type this week's in the box; it saves when you click away.
 - **Numbers.** Only the critical success factors worth talking about: off target, or not logged for the week just ended. The rest are counted underneath.
 - **Strategy.** The quarter's priorities that aren't finished, the ones behind first, with who owns each and how much is still open on it. Click one to open it.
-- **Solve.** Your open issues in their ranked order. Click one to open it in the panel, talk it through, and add the next commitment there. *Add an issue* raises a new one.
 - **Commitments.** Everything open this week and past due, grouped by person, so each person can go in turn. Close one out with its circle, or add new ones in the box at the top.
-- **Close.** What changed while the meeting ran: commitments kept and added, issues resolved and raised.
+- **Solve.** Open with the question at the top: what do you need support on, and what haven't you been able to solve on your own? *Add an issue* puts each one on the list. Drag the list into the order you want to talk them through; the Issues page keeps that order. Click one to open it in the panel, talk it through, and add the next commitment there.
+- **Close.** A reminder that commitments live here and get marked complete as you go, then what changed while the meeting ran: commitments kept and added, issues resolved and raised.
 
 Press *Next* to move on, or click any step in the row at the top to jump to it. Whatever you change here is the same as changing it on its own page.
 
@@ -22,5 +23,7 @@ Press *Next* to move on, or click any step in the row at the top to jump to it. 
 
 **Does this record the meeting?** No. It shows your company's work and lets you act on it. To get a summary, upload the meeting's transcript; it shows on *Meeting Summaries*.
 
-**Who can open it?** Everyone in the company. What each person can change is the same as everywhere else.
+**Can I change last week's headline?** No. Last week's is there to read against this week's. Only this week's box is open.
+
+**Who can open it?** Everyone in the company. What each person can change is the same as everywhere else, and anyone in the company can write a headline.
 :::

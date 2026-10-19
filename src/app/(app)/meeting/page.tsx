@@ -13,14 +13,15 @@ import { getBoardData } from "@/lib/measures/board";
 import { getCascade, type CascadePriority } from "@/lib/plan/service";
 import { getCurrentQuarter } from "@/lib/quarters/service";
 import { getDashboardData } from "@/lib/dashboard/service";
-import { todayInTimezone, formatShortDate } from "@/lib/dates";
+import { todayInTimezone, formatShortDate, formatWeekBeginning, thisFriday, addDays } from "@/lib/dates";
 import { simplifyOn } from "@/lib/ui/simplify";
 import type { Priority } from "@/lib/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { CommitmentRow } from "../commitments/CommitmentRow";
 import { InlineAddRow } from "../commitments/InlineAddRow";
-import { IssueCard } from "../issues/IssueCard";
+import { IssuesBoard } from "../issues/IssuesBoard";
 import { AddIssueButton } from "../issues/AddIssueButton";
+import { HeadlineField } from "./HeadlineField";
 import commitmentStyles from "../commitments/commitments.module.css";
 import issueStyles from "../issues/issues.module.css";
 import { MEETING_STEPS, stepAfter, stepBefore, type MeetingStep } from "./steps";
@@ -30,17 +31,20 @@ import styles from "./meeting.module.css";
 // MEETING MODE (simplification review, change 5, the "meeting-mode"
 // switch).
 //
-// The weekly leadership meeting in one view, walked in the order the
-// facilitation review scores it against (AIMS_WEEKLY_SECTIONS): a
-// positive check-in, functional updates, forward momentum on strategy,
-// solve together, review commitments. Running it used to mean five
-// pages (Week in Review, Critical Success Factors, Goals & Priorities,
-// Issues, Commitments), each with its own header, counters and filters.
+// The weekly leadership meeting in one view, walked in the order Jeff
+// runs it (all-hands, 2026-10-19; steps.ts): a positive check-in,
+// each functional area's headlines, the numbers, the quarter's
+// strategy, everyone's commitments, then solving the issues together,
+// and a close. Running it used to mean five pages (Week in Review,
+// Critical Success Factors, Goals & Priorities, Issues, Commitments),
+// each with its own header, counters and filters.
 //
 // Each step shows only what the room should talk about, and acts with
 // the same rows and drawer the rest of the app uses, so no right is
 // new: marking a commitment kept, opening an issue or adding a
-// commitment is exactly what it is on its own page.
+// commitment is exactly what it is on its own page. The one thing
+// written here and nowhere else is a functional area's headline for
+// the week (meeting_headlines, 0288).
 //
 // `started` (in the URL, set when the meeting opens) is what the close
 // counts from: what was kept, added and resolved since. No table is
@@ -109,13 +113,14 @@ export default async function MeetingPage({ searchParams }: PageProps) {
     >
       <div className={styles.stage}>
         {step === "checkin" ? <CheckIn companyId={companyId} /> : null}
+        {step === "headlines" ? <Headlines companyId={companyId} timezone={timezone} /> : null}
         {step === "numbers" ? <Numbers companyId={companyId} timezone={timezone} /> : null}
         {step === "strategy" ? <Strategy companyId={companyId} /> : null}
-        {step === "solve" ? (
-          <Solve companyId={companyId} todayIso={todayIso} isAdmin={isAdmin} profileId={session.profile.id} canRaise={session.profile.company_id === companyId || isAdmin} />
-        ) : null}
         {step === "commitments" ? (
           <Commitments companyId={companyId} profile={session.profile} isAdmin={isAdmin} canAdd={canOwnWorkIn(session.profile, companyId)} />
+        ) : null}
+        {step === "solve" ? (
+          <Solve companyId={companyId} todayIso={todayIso} isAdmin={isAdmin} profileId={session.profile.id} canRaise={session.profile.company_id === companyId || isAdmin} />
         ) : null}
         {step === "close" ? <Close companyId={companyId} started={started} /> : null}
       </div>
@@ -210,7 +215,84 @@ async function CheckIn({ companyId }: { companyId: string }) {
   );
 }
 
-// ---- 2. Numbers --------------------------------------------------
+// ---- 2. Headlines ------------------------------------------------
+//
+// Each functional area's update, as Jeff runs it: what happened last
+// week, what worked, what is coming, what the area needs support on.
+// Not its commitments or its numbers, which have their own steps.
+// One block per function, last week's headline read beside this
+// week's, which is written in the room and saves as the field is
+// left. The week is the one now running, by the Friday it ends on.
+async function Headlines({ companyId, timezone }: { companyId: string; timezone: string }) {
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const week = thisFriday(timezone);
+  const lastWeek = addDays(week, -7);
+  const [functions, headlines, people] = await Promise.all([
+    supabase
+      .from("functions")
+      .select("id, title, lead_id")
+      .eq("company_id", companyId)
+      .eq("archived", false)
+      .order("sort_order")
+      .order("title"),
+    supabase
+      .from("meeting_headlines")
+      .select("function_id, week_ending, body")
+      .eq("company_id", companyId)
+      .in("week_ending", [week, lastWeek]),
+    getAssignablePeople(supabase, companyId),
+  ]);
+  type Fn = { id: string; title: string; lead_id: string | null };
+  const rows = (functions.data ?? []) as Fn[];
+  const byKey = new Map(
+    ((headlines.data ?? []) as Array<{ function_id: string; week_ending: string; body: string }>).map((h) => [
+      `${h.function_id}:${h.week_ending}`,
+      h.body,
+    ])
+  );
+  const names = new Map(people.map((p) => [p.id, p.full_name]));
+  const leadName = (f: Fn) => (f.lead_id ? names.get(f.lead_id) ?? null : null);
+
+  if (rows.length === 0) {
+    return (
+      <section className={styles.card}>
+        <p className={styles.muted}>
+          No functional areas yet. <Link href="/chart">Add them on the Functional Chart</Link>.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <>
+      {rows.map((f) => {
+        const last = byKey.get(`${f.id}:${lastWeek}`)?.trim() ?? "";
+        const now = byKey.get(`${f.id}:${week}`) ?? "";
+        const lead = leadName(f);
+        return (
+          <section key={f.id} className={styles.card} aria-label={`${f.title} headlines`}>
+            <h2 className={styles.cardTitle}>
+              {f.title}
+              {lead ? <span className={styles.muted}> · {lead}</span> : null}
+            </h2>
+            <div className={styles.headlineGrid}>
+              <div className={styles.headlineCol}>
+                <h3>Last week, {formatWeekBeginning(lastWeek)}</h3>
+                {last ? <p className={styles.headlineLast}>{last}</p> : <p className={styles.muted}>Nothing written.</p>}
+              </div>
+              <div className={styles.headlineCol}>
+                <h3>This week, {formatWeekBeginning(week)}</h3>
+                <HeadlineField functionId={f.id} functionTitle={f.title} weekEnding={week} initial={now} />
+              </div>
+            </div>
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
+// ---- 3. Numbers --------------------------------------------------
 //
 // Only the numbers worth a conversation: off target, or not logged,
 // for the week just ended. The rest are counted, not listed.
@@ -272,7 +354,7 @@ async function Numbers({ companyId, timezone }: { companyId: string; timezone: s
   );
 }
 
-// ---- 3. Strategy -------------------------------------------------
+// ---- 4. Strategy -------------------------------------------------
 //
 // The quarter's priorities that are not done, behind ones first, with
 // who owns each and how much is still open on it.
@@ -319,10 +401,13 @@ async function Strategy({ companyId }: { companyId: string }) {
   );
 }
 
-// ---- 4. Solve together -------------------------------------------
+// ---- 6. Solve together -------------------------------------------
 //
-// Open issues in their ranked order. Each opens in the drawer, where
-// the room can agree the next commitment on it.
+// Jeff opens this step with one question to each functional area
+// (the step's lead line), and the room adds what comes up. The list
+// under it is the Issues page's own board, drag handles included, so
+// the order the room puts them in is the order /issues shows after,
+// and each opens in the drawer where the next commitment is agreed.
 async function Solve({
   companyId,
   todayIso,
@@ -364,24 +449,17 @@ async function Solve({
         ) : null}
       </div>
       {data.open.length > 0 ? (
-        <ul className={issueStyles.issueList}>
-          {data.open.map((issue) => (
-            <li key={issue.id} className={issueStyles.issueListItem}>
-              <IssueCard
-                issue={issue}
-                roster={rosterMin}
-                priorityOptions={priorityOptions}
-                functionalAreaOptions={functionalAreaOptions}
-                todayIso={todayIso}
-                currentUserId={profileId}
-                isAdmin={isAdmin}
-                reorderable={false}
-              />
-            </li>
-          ))}
-        </ul>
+        <IssuesBoard
+          issues={data.open}
+          roster={rosterMin}
+          priorityOptions={priorityOptions}
+          functionalAreaOptions={functionalAreaOptions}
+          todayIso={todayIso}
+          currentUserId={profileId}
+          isAdmin={isAdmin}
+        />
       ) : (
-        <p className={styles.mutedPad}>No open issues. Raise one if something is in the way.</p>
+        <p className={styles.mutedPad}>No open issues. Add one if something is in the way.</p>
       )}
     </section>
   );
@@ -489,6 +567,9 @@ async function Close({ companyId, started }: { companyId: string; started: strin
   const line = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
     <section className={styles.card}>
+      <p className={styles.closeLine}>
+        Your commitments are in the system. Mark each one complete as you go, before next week.
+      </p>
       <h2 className={styles.cardTitle}>In this meeting</h2>
       <ul className={styles.tally}>
         <li>{line(kept, "commitment kept", "commitments kept")}</li>
