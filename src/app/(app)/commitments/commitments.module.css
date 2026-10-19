@@ -1568,3 +1568,10 @@ button.fromIssuePill {
   border-top: 0;
   border-radius: var(--radius-md);
 }
+
+/* The counters above Commitments and Issues move to Home (My week for
+   a team member, Week in Review for an admin) under the "my-week"
+   switch (simplification review, change 3). */
+:root[data-simplify~="my-week"] .statBar {
+  display: none;
+}

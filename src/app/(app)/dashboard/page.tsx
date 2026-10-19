@@ -23,12 +23,17 @@ import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import styles from "./dashboard.module.css";
 import uiStyles from "@/components/ui/ui.module.css";
 import { simplifyOn } from "@/lib/ui/simplify";
+import { MyWeek } from "./MyWeek";
 
 export const metadata = { title: "Week in Review" };
 
 // Company Dashboard — Section 8.2.
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await requireProfile();
   const companyId = await getEffectiveCompanyId(session);
   // Cross-tenant roles land on Guide HQ as their default home base
@@ -45,6 +50,14 @@ export default async function DashboardPage() {
 
   const data = await getDashboardData(companyId);
   if (!data) redirect(crossTenantHome);
+
+  // A team member's Home is their own week under the "my-week" switch
+  // (simplification review, change 3). Admins and guides keep Week in
+  // Review, and anyone can reach it with ?view=company.
+  const { view } = await searchParams;
+  if (simplifyOn("my-week") && !isAdminForCompany(session.profile, companyId) && view !== "company") {
+    return <MyWeek profile={session.profile} companyId={companyId} timezone={data.company.timezone} />;
+  }
 
   const isAdmin =
     session.profile.role === "system_admin" ||
