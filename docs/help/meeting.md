@@ -9,7 +9,7 @@ The weekly leadership meeting in one view, for the screen everyone is looking at
 
 ## The steps
 
-- **Check-in.** Start with what went well. The question at the top is a simple one to go round the room, and it changes from week to week. Under it are the commitments kept in the last seven days.
+- **Check-in.** Start with what went well. The question at the top is a simple one to go round the room, and it changes from week to week. Under it are the commitments kept in the last seven days and, when there are any, the critical success factors that met or beat their target for the week just ended.
 - **Headlines.** Each functional area gives its update: what happened last week, what worked, what's coming, and what the area needs support on. Keep commitments and numbers for their own steps. Every area has a block showing last week's headline beside this week's. Type this week's in the box; it saves when you click away.
 - **Numbers.** Only the critical success factors worth talking about: off target, or not logged for the week just ended. The rest are counted underneath.
 - **Strategy.** The quarter's priorities that aren't finished, the ones behind first, with who owns each and how much is still open on it. Click one to open it.

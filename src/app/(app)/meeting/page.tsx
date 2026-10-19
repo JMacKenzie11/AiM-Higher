@@ -141,7 +141,7 @@ export default async function MeetingPage({ searchParams }: PageProps) {
         </div>
       }
     >
-      {step === "checkin" ? <CheckIn companyId={companyId} todayIso={todayIso} footer={footer} /> : null}
+      {step === "checkin" ? <CheckIn companyId={companyId} todayIso={todayIso} timezone={timezone} footer={footer} /> : null}
       {step === "headlines" ? <Headlines companyId={companyId} timezone={timezone} footer={footer} /> : null}
       {step === "numbers" ? <Numbers companyId={companyId} timezone={timezone} footer={footer} /> : null}
       {step === "strategy" ? <Strategy companyId={companyId} footer={footer} /> : null}
@@ -208,11 +208,34 @@ function StepCard({
 //
 // A positive check-in, as Jeff runs it: one open, generic question to
 // go round the room (steps.ts, a short list that changes week to
-// week), then what was kept in the past week, for something real to
-// start from. Not a question drawn from last meeting's analysis: those
-// are about the work, and this is about the people.
-async function CheckIn({ companyId, todayIso, footer }: { companyId: string; todayIso: string; footer: ReactNode }) {
-  const dash = await getDashboardData(companyId);
+// week), then the good news to start from: the commitments kept in
+// the past week, and the critical success factors on or above target
+// for the week just ended (the same week, and the same "on target",
+// as the Numbers step; Jason, 2026-10-19). The factors section is left
+// out when there are none on target. Not a question drawn from last
+// meeting's analysis: those are about the work, and this is about the
+// people.
+async function CheckIn({
+  companyId,
+  todayIso,
+  timezone,
+  footer,
+}: {
+  companyId: string;
+  todayIso: string;
+  timezone: string;
+  footer: ReactNode;
+}) {
+  const [dash, board] = await Promise.all([getDashboardData(companyId), getBoardData(companyId, timezone)]);
+  const week = board.weeks.at(-2) ?? board.weeks.at(-1) ?? null;
+  const onTarget = week
+    ? board.functions.flatMap((f) =>
+        f.metrics.flatMap((m) => {
+          const cell = m.cells.find((c) => c.weekEnding === week);
+          return cell?.status === "good" ? [{ fn: f, m, cell }] : [];
+        })
+      )
+    : [];
   const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const wins = (dash?.recentSuccesses ?? []).filter((w) => (w.completedAt ?? "") >= weekAgo);
 
@@ -221,7 +244,7 @@ async function CheckIn({ companyId, todayIso, footer }: { companyId: string; tod
       <div className={styles.cardBody}>
         <p className={styles.question}>{checkInQuestion(todayIso)}</p>
       </div>
-      <h3 className={styles.subhead}>Kept this week</h3>
+      <h3 className={styles.subhead}>Commitments kept this week</h3>
       {wins.length > 0 ? (
         <ul className={styles.plainList}>
           {wins.map((w) => (
@@ -234,6 +257,28 @@ async function CheckIn({ companyId, todayIso, footer }: { companyId: string; tod
       ) : (
         <p className={styles.mutedPad}>Nothing kept in the last seven days yet.</p>
       )}
+      {onTarget.length > 0 && week ? (
+        <>
+          <h3 className={styles.subhead}>
+            Critical success factors on target
+            <span className={styles.subheadMeta}>Week ending {formatShortDate(week)}</span>
+          </h3>
+          <ul className={styles.plainList}>
+            {onTarget.map(({ fn, m, cell }) => (
+              <li key={m.id}>
+                <span>
+                  {m.description}
+                  <span className={styles.muted}> · {fn.title}{fn.seatHolder ? `, ${fn.seatHolder}` : ""}</span>
+                </span>
+                <span className={styles.good}>
+                  {cell.displayValue}
+                  {m.target ? <span className={styles.muted}> (target {m.target})</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </StepCard>
   );
 }
