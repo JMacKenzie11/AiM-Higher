@@ -70,6 +70,10 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/issues", roles: "all", feature: "execution", link: true },
   { pattern: "/commitments", roles: "all", feature: "execution", link: true },
   { pattern: "/leadership", roles: "all", feature: "execution", link: true },
+  // Meeting mode, which exists only under its simplification switch
+  // (src/lib/ui/simplify.ts): not linked, so Aimee never offers a page
+  // that is switched off.
+  { pattern: "/meeting", roles: "all", feature: "execution", link: false },
   { pattern: "/leadership/meetings/[id]", roles: "all", feature: "execution", link: false },
   { pattern: "/leadership/meetings/[id]/transcript", roles: "all", feature: "execution", link: false },
 

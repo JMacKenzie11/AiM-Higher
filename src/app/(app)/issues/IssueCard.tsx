@@ -27,6 +27,7 @@ export function IssueCard({
   currentUserId,
   isAdmin,
   dragHandleProps,
+  reorderable = true,
 }: {
   issue: IssueWithCommitments;
   roster: Array<Pick<Profile, "id" | "full_name">>;
@@ -36,6 +37,9 @@ export function IssueCard({
   currentUserId: string;
   isAdmin: boolean;
   dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
+  // False where the list is not the ranked board (meeting mode): no
+  // drag handle, since nothing there can be dragged.
+  reorderable?: boolean;
 }) {
   const canEdit = isAdmin || issue.created_by === currentUserId;
   const drawer = useWorkDrawer();
@@ -55,7 +59,7 @@ export function IssueCard({
     // Anchored so an old /issues#issue-<id> link still lands on the
     // row; the page opens the drawer for ?issue=<id>.
     <article className={styles.issueLine} id={`issue-${issue.id}`}>
-      {canEdit ? (
+      {canEdit && reorderable ? (
         <button
           type="button"
           className={styles.dragHandle}
