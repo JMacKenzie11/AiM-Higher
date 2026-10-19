@@ -40,7 +40,7 @@ export function StoryTimeline({ data }: { data: BoardData }) {
           <div key={w} className={styles.timelineHeaderCell}>
             <span className={styles.timelineHeaderWeek}>{formatShort(w)}</span>
             {idx === data.weeks.length - 1 ? (
-              <span className={styles.timelineHeaderNow}>now</span>
+              <span className={styles.timelineHeaderNow}>Now</span>
             ) : null}
           </div>
         ))}

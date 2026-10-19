@@ -28,6 +28,10 @@ export const SIMPLIFY_CHANGES = [
   // 6. Adds lead the page: the commitment add row above the lists, and
   //    the Team page's always-open form behind an Add a person button.
   "adds-on-top",
+  // 7. Calmer visuals: uppercase only for column heads, no decorative
+  //    card circles, rows not boxes inside cards, and status pills
+  //    only for the exception.
+  "calm-visuals",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

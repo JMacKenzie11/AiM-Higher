@@ -1062,3 +1062,18 @@
     min-width: 0;
   }
 }
+
+/* Calm visuals (change 7): recent wins are a list with hairlines, not
+   five green boxes; the green tick of a kept commitment is the only
+   green they need. */
+:root[data-simplify~="calm-visuals"] .successItem {
+  background: transparent;
+  border-left: 0;
+  border-radius: 0;
+  padding-inline: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+:root[data-simplify~="calm-visuals"] .successItem:last-child {
+  border-bottom: 0;
+}

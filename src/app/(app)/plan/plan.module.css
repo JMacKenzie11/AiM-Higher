@@ -967,3 +967,11 @@
   composes: btnPrimary from "../../../components/ui/ui.module.css";
 }
 
+
+/* Calm visuals (change 7): the level ("Focus area", "Quarterly
+   priority") reads as a quiet label, not a tinted chip. */
+:root[data-simplify~="calm-visuals"] .levelLabel {
+  background: transparent;
+  padding: 0;
+  color: var(--text-muted);
+}

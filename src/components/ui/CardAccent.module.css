@@ -63,3 +63,15 @@
     );
   background-repeat: no-repeat;
 }
+
+/* Calm visuals (simplification review, change 7): no decorative
+   circles in card corners while the "calm-visuals" switch is on. The
+   brand allows its circle-i as decoration but does not ask for it. */
+:root[data-simplify~="calm-visuals"] .large,
+:root[data-simplify~="calm-visuals"] .small {
+  display: none;
+}
+
+:root[data-simplify~="calm-visuals"] .accentSurface {
+  background-image: none;
+}

@@ -940,3 +940,18 @@
 .inlineEditButton:hover {
   color: var(--aims-navy);
 }
+
+/* Calm visuals (change 7): a status pill only for the exception. An
+   active company or an accepted (complete) row is the normal case. */
+:root[data-simplify~="calm-visuals"] .chipActive,
+:root[data-simplify~="calm-visuals"] .chipAccepted {
+  visibility: hidden;
+}
+
+/* The calm-visuals case rule (globals.css) resets text-transform;
+   these are capitalised on purpose, so they get their capitals back.
+   The id and the doubled class outrank that rule. */
+:root[data-simplify~="calm-visuals"] :global(#content) .capCell.capCell,
+:root[data-simplify~="calm-visuals"] :global(#content) .itemMeta.itemMeta {
+  text-transform: capitalize;
+}

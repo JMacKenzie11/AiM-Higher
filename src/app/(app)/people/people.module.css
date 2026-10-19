@@ -565,3 +565,16 @@
   justify-content: flex-end;
   margin-bottom: var(--space-3);
 }
+
+/* Calm visuals (change 7): a status pill only for the exception. An
+   active person is the normal case, so only Invited and Inactive show. */
+:root[data-simplify~="calm-visuals"] .chipActive {
+  visibility: hidden;
+}
+
+/* The calm-visuals case rule (globals.css) resets text-transform; a
+   role shown as "Company Admin" is capitalised on purpose, so it gets
+   its capitals back. The id and the doubled class outrank that rule. */
+:root[data-simplify~="calm-visuals"] :global(#content) .capCell.capCell {
+  text-transform: capitalize;
+}

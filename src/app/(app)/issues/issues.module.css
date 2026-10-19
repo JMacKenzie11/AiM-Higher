@@ -1032,3 +1032,16 @@
   margin-left: auto;
   align-self: center;
 }
+
+/* Calm visuals (change 7): issues are rows inside the card, separated
+   by a hairline, not boxes inside a box. */
+:root[data-simplify~="calm-visuals"] .issueListItem {
+  margin-inline: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+:root[data-simplify~="calm-visuals"] .issueListItem:last-child {
+  border-bottom: 0;
+}

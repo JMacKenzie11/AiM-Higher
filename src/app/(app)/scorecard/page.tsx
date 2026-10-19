@@ -322,7 +322,7 @@ function ChartIssuesList({ issues }: { issues: ChartFunctionIssue[] }) {
           <li key={fn.id}>
             <span className={styles.issuesName}>{fn.name}</span>
             <span className={styles.issuesMissing}>
-              missing {fn.missing.map(missingLabel).join(", ")}
+              Missing {fn.missing.map(missingLabel).join(", ")}
             </span>
           </li>
         ))}

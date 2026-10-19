@@ -178,3 +178,18 @@ select {
     font-size: 16px !important;
   }
 }
+
+/* ---- Calm visuals (simplification review, change 7) -------------
+   Only while the "calm-visuals" switch is on (src/lib/ui/simplify.ts).
+   UPPERCASE IS FOR TABLE COLUMN HEADS ONLY. Eyebrows, tags, chips,
+   counts and field labels were all spaced capitals, so the style no
+   longer marked anything; inside the page and its drawers they go to
+   sentence case. Column heads keep it: a real <th>, or a header row
+   drawn with divs (role="row", as the commitment and issue lists do).
+   One rule here rather than 182 edits, so turning the switch off puts
+   every one of them back. The id in the selector is what lets it win
+   over each page's own class rules. */
+:root[data-simplify~="calm-visuals"] :is(#content, [data-testid="drawer-panel"]) *:not(th, th *, [role="row"] *) {
+  text-transform: none;
+  letter-spacing: normal;
+}
