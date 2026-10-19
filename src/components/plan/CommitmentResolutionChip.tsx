@@ -38,5 +38,11 @@ export function CommitmentResolutionChip({
   commitment: Commitment;
 }) {
   const variant = variantForCommitment(commitment);
-  return <span className={CLASSES[variant]}>{LABELS[variant]}</span>;
+  // data-status lets a list hide the chip where its section already
+  // says it (the "quiet-rows" switch, commitments.module.css).
+  return (
+    <span className={CLASSES[variant]} data-status={variant}>
+      {LABELS[variant]}
+    </span>
+  );
 }

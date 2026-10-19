@@ -21,6 +21,10 @@ export const SIMPLIFY_CHANGES = [
   // 1. One main action per page, placed top right of the first card;
   //    repeated and secondary actions become quiet text buttons.
   "main-action",
+  // 2. Quieter list rows: one red per late commitment, controls that
+  //    show on hover or focus, no Open chip in an open section, and no
+  //    Missed filter or column (nothing marks a commitment missed).
+  "quiet-rows",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

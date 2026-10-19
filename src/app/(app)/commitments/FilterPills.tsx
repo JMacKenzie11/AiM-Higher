@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { Profile } from "@/lib/types";
 import styles from "./commitments.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 // Filter pills row. Owner (all / me / specific), Status
 // (all default / open / kept / closed), Type (all default / strategic /
@@ -103,7 +104,9 @@ export function FilterPills({
 
       <div className={styles.filterGroup}>
         <span className={styles.filterLabel}>Status</span>
-        {STATUS_OPTIONS.map((opt) => (
+        {/* No Missed under the "quiet-rows" switch: nothing marks a
+            commitment missed (Jason, 2026-10-16), so it never matched. */}
+        {STATUS_OPTIONS.filter((opt) => !(opt.value === "missed" && simplifyOn("quiet-rows"))).map((opt) => (
           <PillLink
             key={opt.value}
             active={status === opt.value}
