@@ -24,6 +24,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { thisFriday } from "@/lib/dates";
+import uiStyles from "@/components/ui/ui.module.css";
 
 export const metadata = { title: "Goals & Priorities" };
 
@@ -287,7 +288,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                                   className={styles.addDetails}
                                   data-testid="goal-add-priority-panel"
                                 >
-                                  <summary className={styles.addSummaryNested}>
+                                  <summary className={`${styles.addSummaryNested} ${uiStyles.quiet}`}>
                                     <PlusIcon />Add quarterly priority
                                   </summary>
                                   <AddPriorityForm
@@ -327,7 +328,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                         name={`sfa-add-${sfa.id}`}
                         data-testid="sfa-add-goal-panel"
                       >
-                        <summary className={styles.addSummary}>
+                        <summary className={`${styles.addSummary} ${uiStyles.quiet}`}>
                           <PlusIcon />Add goal
                         </summary>
                         <AddGoalForm
@@ -343,7 +344,7 @@ export default async function PlanPage({ searchParams }: PageProps) {
                           name={`sfa-add-${sfa.id}`}
                           data-testid="sfa-add-priority-panel"
                         >
-                          <summary className={styles.addSummary}>
+                          <summary className={`${styles.addSummary} ${uiStyles.quiet}`}>
                             <PlusIcon />Add quarterly priority
                           </summary>
                           <AddPriorityForm

@@ -21,6 +21,7 @@ import { BoardView } from "../measures/board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
 import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import styles from "./dashboard.module.css";
+import uiStyles from "@/components/ui/ui.module.css";
 
 export const metadata = { title: "Week in Review" };
 
@@ -413,7 +414,7 @@ export default async function DashboardPage() {
                         {canCoachPerson(person.id) ? (
                           <Link
                             href={`/coach/${person.id}`}
-                            className={styles.coachButton}
+                            className={`${styles.coachButton} ${uiStyles.quiet}`}
                           >
                             Coach
                           </Link>

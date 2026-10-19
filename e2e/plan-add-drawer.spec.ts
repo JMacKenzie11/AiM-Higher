@@ -1,4 +1,4 @@
-import { test, expect, signIn, users, openPlanAdd } from "./fixtures";
+import { test, expect, signIn, users, openPlanAdd, simplifyOn } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // The /plan toolbar's add controls, which are one drawer now.
@@ -85,7 +85,9 @@ test("the plan adds open one drawer, outside the page's layout", async ({
   // find again with the keyboard.
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden({ timeout: 10_000 });
-  await expect(page.getByTestId("add-goal-button")).toBeFocused();
+  await expect(
+    page.getByTestId(simplifyOn("main-action") ? "plan-add-menu" : "add-goal-button")
+  ).toBeFocused();
 
   // ---- The scrim closes it too --------------------------------
   await openPlanAdd(page, "sfa");

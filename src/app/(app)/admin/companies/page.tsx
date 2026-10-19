@@ -17,6 +17,7 @@ import { PlatformTranscriptsPanel } from "./PlatformTranscriptsPanel";
 import styles from "./admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { ScopeIntoCompanyButton } from "./ScopeIntoCompanyButton";
+import uiStyles from "@/components/ui/ui.module.css";
 
 export const metadata = { title: "Companies" };
 
@@ -188,7 +189,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                         <ScopeIntoCompanyButton
                           companyId={company.id}
                           destination={`/admin/companies/${company.id}`}
-                          className={styles.ghostButton}
+                          className={`${styles.ghostButton} ${uiStyles.quiet}`}
                         >
                           Settings
                         </ScopeIntoCompanyButton>

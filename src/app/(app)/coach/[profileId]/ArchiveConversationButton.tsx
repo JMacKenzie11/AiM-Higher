@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { archiveConversationAction } from "@/lib/coach/actions";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import styles from "../coach.module.css";
+import uiStyles from "@/components/ui/ui.module.css";
 
 export function ArchiveConversationButton({
   conversationId,
@@ -27,7 +28,7 @@ export function ArchiveConversationButton({
     <>
       <button
         type="button"
-        className={styles.ghostButton}
+        className={`${styles.ghostButton} ${uiStyles.quiet}`}
         onClick={() => setConfirmOpen(true)}
         disabled={pending}
       >

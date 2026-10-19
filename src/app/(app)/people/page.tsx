@@ -15,6 +15,7 @@ import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import type { Profile } from "@/lib/types";
 import styles from "./people.module.css";
 import adminStyles from "../admin/companies/admin.module.css";
+import uiStyles from "@/components/ui/ui.module.css";
 
 export const metadata = { title: "Team" };
 
@@ -209,7 +210,7 @@ export default async function PeoplePage() {
                         {canCoachPerson(person.id) ? (
                           <Link
                             href={`/coach/${person.id}`}
-                            className={styles.coachButton}
+                            className={`${styles.coachButton} ${uiStyles.quiet}`}
                           >
                             Coach
                           </Link>

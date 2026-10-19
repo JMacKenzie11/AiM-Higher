@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { ROLES, type Role } from "@/lib/types";
 import { mcpEnabled, mcpOpenTo } from "@/lib/mcp/switch";
+import { SIMPLIFY_CHANGES, simplifyOn, type SimplifyChange } from "@/lib/ui/simplify";
 
 // Resolves an in-app help doc for a given URL pathname and caller
 // role. Docs live in `docs/help/*.md` and use a naming convention:
@@ -116,7 +117,7 @@ export function parseRoles(value: string | string[] | undefined, slug = "?"): Ro
 // so she can never quote help the "?" would not show this person.
 export async function loadAllHelpFor(role: Role, viewer?: HelpViewer): Promise<HelpDoc[]> {
   const v = viewer ?? (await currentHelpViewer());
-  const features = helpFeaturesFor(role, v);
+  const features = new Set<string>([...helpFeaturesFor(role, v), ...uiHelpFeatures()]);
   const files = (await fs.readdir(HELP_DIR)).filter((f) => f.endsWith(".md") && f !== "README.md");
   const docs: HelpDoc[] = [];
   for (const file of files.sort()) {
@@ -246,6 +247,22 @@ export function filterRoleSections(markdown: string, role: Role): string {
 // for wherever the person is.
 
 export const HELP_FEATURES = ["outside_assistants", "ai_apps_off"] as const;
+
+// The simplification switches (src/lib/ui/simplify.ts), so a help doc
+// can describe whichever UI is on: `::: feature ui_main_action` shows
+// while the "main-action" change is on, `::: feature ui_main_action_off`
+// while it is off. Underscores, as feature names take no hyphens.
+// When a change is decided, its blocks go with its switch.
+function uiFeatureName(change: SimplifyChange): string {
+  return `ui_${change.replace(/-/g, "_")}`;
+}
+export const UI_HELP_FEATURES: readonly string[] = SIMPLIFY_CHANGES.flatMap((c) => [
+  uiFeatureName(c),
+  `${uiFeatureName(c)}_off`,
+]);
+export function uiHelpFeatures(): Set<string> {
+  return new Set(SIMPLIFY_CHANGES.map((c) => (simplifyOn(c) ? uiFeatureName(c) : `${uiFeatureName(c)}_off`)));
+}
 export type HelpFeature = (typeof HELP_FEATURES)[number];
 
 export type HelpViewer = {
@@ -338,7 +355,7 @@ export async function loadHelpForRoute(
   viewer?: HelpViewer
 ): Promise<HelpDoc | null> {
   const v = viewer ?? (await currentHelpViewer());
-  const features = helpFeaturesFor(role, v);
+  const features = new Set<string>([...helpFeaturesFor(role, v), ...uiHelpFeatures()]);
   for (const slug of candidateSlugs(pathname)) {
     const doc = await readDoc(slug);
     if (!doc) continue;
@@ -379,7 +396,7 @@ export async function helpDocProblems(): Promise<string[]> {
       if (feature) {
         if (open) problems.push(`help doc ${slug}: block opened inside another (line ${i + 1})`);
         open = true;
-        if (!(HELP_FEATURES as readonly string[]).includes(feature[1])) {
+        if (!(HELP_FEATURES as readonly string[]).includes(feature[1]) && !UI_HELP_FEATURES.includes(feature[1])) {
           problems.push(`help doc ${slug}: unknown feature "${feature[1]}" in a feature block (line ${i + 1})`);
         }
         continue;

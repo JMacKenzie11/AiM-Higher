@@ -12,6 +12,7 @@ import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type { MeetingListRow } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import uiStyles from "@/components/ui/ui.module.css";
 
 export const metadata = { title: "Meeting Summaries" };
 
@@ -163,7 +164,7 @@ export default async function LeadershipPage() {
                         {m.status === "complete" ? (
                           <Link
                             href={`/leadership/meetings/${m.id}`}
-                            className={styles.ghostButton}
+                            className={`${styles.ghostButton} ${uiStyles.quiet}`}
                           >
                             View
                           </Link>

@@ -56,12 +56,17 @@ export function RowMenu({
   items,
   disabled,
   testId,
+  triggerClassName,
 }: {
   label?: ReactNode;
   ariaLabel: string;
   items: RowMenuItem[];
   disabled?: boolean;
   testId?: string;
+  // In place of the small row trigger, for a menu that is a page's
+  // main action (Goals & Priorities' Add) and so takes the standard
+  // button.
+  triggerClassName?: string;
 }) {
   const menu = useMenuButton();
   const { open, setOpen, triggerRef, menuRef } = menu;
@@ -113,7 +118,7 @@ export function RowMenu({
       <button
         {...menu.triggerProps}
         type="button"
-        className={styles.trigger}
+        className={triggerClassName ?? styles.trigger}
         onClick={menu.toggle}
         aria-label={ariaLabel}
         disabled={disabled}

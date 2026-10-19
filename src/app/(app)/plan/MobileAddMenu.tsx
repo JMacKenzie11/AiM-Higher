@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { PlusIcon } from "@/components/ui/PlusIcon";
 import { AddPanels } from "./AddPanels";
 import styles from "./plan.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 // The four add buttons in the plan toolbar, behind one Add on a phone.
 //
@@ -23,6 +24,13 @@ import styles from "./plan.module.css";
 // menu that only shows and hides its children cannot do that.
 export function MobileAddMenu({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+
+  // With the "main-action" switch on, the toolbar holds one Add menu
+  // at every width (PlanAddDrawers), so there is no row of four to
+  // fold away on a phone, and no second Add to show.
+  if (simplifyOn("main-action")) {
+    return <AddPanels mobileOpen>{children}</AddPanels>;
+  }
 
   return (
     <>

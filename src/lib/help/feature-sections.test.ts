@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { filterFeatureSections, helpDocProblems, helpFeaturesFor, loadAllHelpFor } from "./loader";
+import { filterFeatureSections, helpDocProblems, helpFeaturesFor, loadAllHelpFor, uiHelpFeatures } from "./loader";
 
 const doc = ["Before.", "", "::: feature outside_assistants", "Secret help.", ":::", "", "After."].join("\n");
 
@@ -80,5 +80,17 @@ describe("feature-scoped help sections", () => {
 
   it("finds no broken blocks in the real docs", async () => {
     expect(await helpDocProblems()).toEqual([]);
+  });
+});
+
+describe("simplification switches in help", () => {
+  it("shows the _off wording while a change is off, as in production", () => {
+    // NEXT_PUBLIC_UI_SIMPLIFY is unset under vitest.
+    expect(uiHelpFeatures().has("ui_main_action_off")).toBe(true);
+    expect(uiHelpFeatures().has("ui_main_action")).toBe(false);
+    const d = ["::: feature ui_main_action", "New.", ":::", "::: feature ui_main_action_off", "Old.", ":::"].join("\n");
+    const out = filterFeatureSections(d, uiHelpFeatures());
+    expect(out).toContain("Old.");
+    expect(out).not.toContain("New.");
   });
 });

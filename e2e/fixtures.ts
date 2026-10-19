@@ -1,4 +1,5 @@
 import { test as base, expect, type Locator, type Page } from "@playwright/test";
+import { simplifyOn } from "../src/lib/ui/simplify";
 
 // Shared helpers. Everything here uses roles, labels or data-testid.
 // Never copy text: the wording of this product changes weekly and a
@@ -247,7 +248,15 @@ export async function openPlanAdd(
   page: Page,
   which: "sfa" | "goal" | "priority" | "commitment"
 ): Promise<Locator> {
-  await page.getByTestId(`add-${which}-button`).click();
+  if (simplifyOn("main-action")) {
+    // One Add menu instead of four buttons (simplification review,
+    // change 1): the item names drop the "Add".
+    const item = { sfa: "Focus area", goal: "Goal", priority: "Quarterly priority", commitment: "Commitment" }[which];
+    await page.getByTestId("plan-add-menu").click();
+    await page.getByRole("menuitem", { name: item, exact: true }).click();
+  } else {
+    await page.getByTestId(`add-${which}-button`).click();
+  }
   await expect(page.getByTestId("drawer-panel")).toBeVisible({
     timeout: 30_000,
   });
@@ -255,3 +264,8 @@ export async function openPlanAdd(
   await expect(form).toBeVisible({ timeout: 30_000 });
   return form;
 }
+
+// The simplification switches, as the app under test reads them
+// (src/lib/ui/simplify.ts). The value comes from .env.local, loaded by
+// playwright.config.ts, so a spec tests whichever UI the server shows.
+export { simplifyOn };

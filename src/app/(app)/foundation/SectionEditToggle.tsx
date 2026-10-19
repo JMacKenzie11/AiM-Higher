@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { CardAccent } from "@/components/ui/CardAccent";
 import styles from "./foundation.module.css";
+import uiStyles from "@/components/ui/ui.module.css";
 
 // A card that swaps between read and edit modes in place. Used for
 // the singleton foundation sections (Purpose, Vision, Marketing
@@ -59,7 +60,7 @@ export function SectionEditToggle({
             <div className={styles.cardFooter}>
               <button
                 type="button"
-                className={styles.editButton}
+                className={`${styles.editButton} ${uiStyles.quiet}`}
                 onClick={() => setEditing(true)}
               >
                 Edit

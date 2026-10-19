@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, simplifyOn } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // The add controls on the plan surfaces: the button must not move when
@@ -72,6 +72,7 @@ test("an open add panel leaves its button where it was", async ({ page }) => {
 test("the four toolbar adds hide behind one Add on a phone", async ({
   page,
 }) => {
+  test.skip(simplifyOn("main-action"), "one Add menu at every width under the main-action switch");
   test.setTimeout(240_000);
   await scopeIn(page);
 
@@ -108,6 +109,7 @@ test("the four toolbar adds hide behind one Add on a phone", async ({
 test("the mobile Add trigger is not on the desktop toolbar", async ({
   page,
 }) => {
+  test.skip(simplifyOn("main-action"), "one Add menu at every width under the main-action switch");
   test.setTimeout(240_000);
   await scopeIn(page);
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -116,4 +118,25 @@ test("the mobile Add trigger is not on the desktop toolbar", async ({
     timeout: 30_000,
   });
   await expect(page.getByRole("button", { name: "Add", exact: true })).toBeHidden();
+});
+
+// Under the "main-action" switch (simplification review, change 1) the
+// toolbar has one Add menu at every width, and only one Add.
+test("one Add menu on the toolbar, on a phone and on a desktop", async ({ page }) => {
+  test.skip(!simplifyOn("main-action"), "the main-action switch is off");
+  test.setTimeout(240_000);
+  await scopeIn(page);
+  for (const width of [430, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/plan");
+    const menu = page.getByTestId("plan-add-menu");
+    await expect(menu).toBeVisible({ timeout: 30_000 });
+    // The old phone toggle (named "Add") is gone; the menu is named
+    // for what it adds to.
+    await expect(page.getByRole("button", { name: "Add", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add to the plan" })).toHaveCount(1);
+    await menu.click();
+    await expect(page.getByRole("menuitem", { name: "Focus area", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
 });

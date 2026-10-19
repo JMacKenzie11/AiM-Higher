@@ -411,3 +411,23 @@
   background: var(--aims-danger-tint);
   border-color: color-mix(in srgb, var(--aims-danger) 30%, transparent);
 }
+
+/* ---- Quiet: a secondary action drawn as text ----
+ *
+ * The simplification review, change 1 (Jason, 2026-10-19): one button
+ * appearance stays (#216), and hierarchy comes from placement. The
+ * page's main action keeps the button; repeated and secondary actions
+ * beside it lose their box and read as text. Added at each call site
+ * next to the button class it softens, and only takes effect while
+ * the "main-action" switch is on (src/lib/ui/simplify.ts), so turning
+ * the switch off brings every box back. */
+:root[data-simplify~="main-action"] .quiet {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: var(--space-2);
+}
+
+:root[data-simplify~="main-action"] .quiet:hover:not(:disabled) {
+  background: var(--aims-cobalt-tint);
+  border-color: transparent;
+}

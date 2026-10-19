@@ -15,6 +15,8 @@ import { FilterPills } from "./FilterPills";
 import { ResolvedIssuesList } from "./ResolvedIssuesList";
 import commitmentStyles from "../commitments/commitments.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { simplifyOn } from "@/lib/ui/simplify";
+import issueStyles from "./issues.module.css";
 
 export const metadata = { title: "Issues/Solutions" };
 
@@ -130,6 +132,25 @@ export default async function IssuesPage({ searchParams }: PageProps) {
   const showResolvedSection =
     filters.status !== "open" && filteredResolved.length > 0;
 
+  // issues_insert_member admits the company's own people and
+  // issues_insert_admin its admins (an assigned guide, or a portfolio
+  // admin switched on as company admin). Anyone else reads the board
+  // and raises nothing.
+  const canRaise = session.profile.company_id === companyId || isAdmin;
+  const addOnTop = simplifyOn("main-action");
+  const addIssue = (
+    <AddIssueButton
+      ctx={{
+        roster: roster.map((p) => ({ id: p.id, full_name: p.full_name })),
+        priorityOptions,
+        functionalAreaOptions,
+        todayIso,
+        currentUserId: session.profile.id,
+        isAdmin,
+      }}
+    />
+  );
+
   return (
     <PageShell
       eyebrow="Company"
@@ -188,6 +209,7 @@ export default async function IssuesPage({ searchParams }: PageProps) {
               {filteredOpen.length}{" "}
               {filteredOpen.length === 1 ? "issue" : "issues"}
             </span>
+            {canRaise && addOnTop ? <span className={issueStyles.headerAdd}>{addIssue}</span> : null}
           </div>
           <IssuesBoard
             issues={filteredOpen}
@@ -199,23 +221,10 @@ export default async function IssuesPage({ searchParams }: PageProps) {
             isAdmin={isAdmin}
             openIssueId={pickString(sp.issue, "") || null}
           />
-          {/* issues_insert_member admits the company's own people and
-              issues_insert_admin its admins (an assigned guide, or a
-              portfolio admin switched on as company admin). Anyone
-              else reads the board and raises nothing. */}
-          {session.profile.company_id === companyId || isAdmin ? (
-            <div className={commitmentStyles.inlineAddRow}>
-              <AddIssueButton
-                ctx={{
-                  roster: roster.map((p) => ({ id: p.id, full_name: p.full_name })),
-                  priorityOptions,
-                  functionalAreaOptions,
-                  todayIso,
-                  currentUserId: session.profile.id,
-                  isAdmin,
-                }}
-              />
-            </div>
+          {/* At the foot, unless the "main-action" switch puts it in the
+              header above (simplification review, change 1). */}
+          {canRaise && !addOnTop ? (
+            <div className={commitmentStyles.inlineAddRow}>{addIssue}</div>
           ) : null}
         </section>
       ) : null}

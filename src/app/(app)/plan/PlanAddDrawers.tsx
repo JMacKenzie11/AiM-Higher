@@ -9,6 +9,8 @@ import { AddPriorityForm } from "./AddPriorityForm";
 import { AddCommitmentForm } from "./AddCommitmentForm";
 import type { Profile } from "@/lib/types";
 import styles from "./plan.module.css";
+import { RowMenu } from "@/components/ui/RowMenu";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 // The plan toolbar's four add buttons, and the drawer they open.
 //
@@ -87,10 +89,29 @@ export function PlanAddDrawers({
     },
   ];
 
+  const shown = buttons.filter((b) => b.shown);
+
   return (
     <>
-      {buttons
-        .filter((b) => b.shown)
+      {simplifyOn("main-action") ? (
+        // One Add for the page instead of four equal buttons (the
+        // simplification review, change 1). The same drawers open.
+        <RowMenu
+          label={
+            <>
+              <PlusIcon />
+              Add
+            </>
+          }
+          ariaLabel="Add to the plan"
+          testId="plan-add-menu"
+          triggerClassName={styles.toolbarAddButton}
+          items={shown.map((b) => ({
+            label: b.label.replace(/^Add /, "").replace(/^./, (c) => c.toUpperCase()),
+            onSelect: () => setWhich(b.key),
+          }))}
+        />
+      ) : shown
         .map((b) => (
           <button
             key={b.key}

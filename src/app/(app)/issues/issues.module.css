@@ -1024,3 +1024,11 @@
     display: none;
   }
 }
+
+/* "Add an issue" in the Open issues header (simplification review,
+   change 1). The auto margin takes the header's spare room, so the
+   title and count stay together on the left. */
+.headerAdd {
+  margin-left: auto;
+  align-self: center;
+}
