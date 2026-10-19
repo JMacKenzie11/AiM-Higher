@@ -109,6 +109,11 @@ export default async function DashboardPage({
   // Nothing marks a commitment missed (Jason, 2026-10-16), so the
   // column is always 0; the "quiet-rows" switch takes it out.
   const showMissed = !simplifyOn("quiet-rows");
+  // A shorter Week in Review (simplification review, change 9): the
+  // brief, the numbers board and who needs support. Recent wins open
+  // the meeting's check-in, Focus Areas live on Goals & Priorities, and
+  // the follow-through rate is the number at the top.
+  const shortReview = simplifyOn("short-review");
 
   // A LAPSED quarter has to say so. It used to read "Current quarter
   // · Q3 2026" with no link, because the link only appeared when
@@ -261,7 +266,7 @@ export default async function DashboardPage({
         ) : null}
 
         {/* --- Recent successes, for everyone in the company (0253) --- */}
-        {data.recentSuccesses.length > 0 ? (
+        {!shortReview && data.recentSuccesses.length > 0 ? (
           <section
             className={styles.cardAccent}
             aria-labelledby="successes-card"
@@ -301,7 +306,8 @@ export default async function DashboardPage({
           </section>
         ) : null}
 
-        {/* --- Focus Areas --- */}
+        {/* --- Focus Areas (on Goals & Priorities under short-review) --- */}
+        {shortReview ? null : (
         <section className={styles.cardAccent} aria-labelledby="sfa-card">
           <CardAccent />
           <h2 id="sfa-card" className={styles.h2}>
@@ -352,8 +358,10 @@ export default async function DashboardPage({
             </p>
           ) : null}
         </section>
+        )}
 
-        {/* --- Keep-rate trend --- */}
+        {/* --- Keep-rate trend (the hero carries the rate under short-review) --- */}
+        {shortReview ? null : (
         <section className={styles.cardAccent} aria-labelledby="trend-card">
           <CardAccent />
           <h2 id="trend-card" className={styles.h2}>
@@ -362,6 +370,7 @@ export default async function DashboardPage({
           <p className={styles.cardMeta}>Last 12 weeks.</p>
           <KeepRateBarChart bars={data.keepRateTrend} />
         </section>
+        )}
 
         {/* --- People --- */}
         <section className={styles.cardAccent} aria-labelledby="people-card">

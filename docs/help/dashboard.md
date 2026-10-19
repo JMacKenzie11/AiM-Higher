@@ -26,11 +26,18 @@ Hover or tab to a label with a dotted underline for a one-line definition.
 
 - **Critical Success Factors:** the last 13 weeks of every measure against its target, across every function. It shows once at least one value has been logged.
 - **Wins this week, Streaks in flight, Where a conversation could help:** measures that hit target in the week just ended, measures at or above target for three weeks or more in a row, and measures that have dipped over the last three weeks. Each appears only when there's something to show.
+::: feature ui_short_review_off
 - **Focus Areas:** each one with its sponsor, status and progress. Click one to open it.
 - **Follow-Through Rate Trend:** the last 12 weeks.
+:::
 - **Where to lend support:** everyone, sorted by Follow-Through Rate, lowest first. Click a name to open their scorecard.
 - **Week in review:** *What's worth knowing today*, a short written summary of the week so far.
+::: feature ui_short_review_off
 - **Recent wins:** the last commitments closed on time this quarter, with the priority each was linked to.
+:::
+::: feature ui_short_review
+Focus Areas are on *Goals & Priorities*, and the week's wins open the weekly meeting's check-in.
+:::
 
 ::: role team_member
 ## What you can do here
