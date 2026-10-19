@@ -15,6 +15,7 @@ import { FilterPills } from "./FilterPills";
 import { InlineAddRow } from "./InlineAddRow";
 import { PriorWeekRow } from "./PriorWeekRow";
 import styles from "./commitments.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export const metadata = { title: "Functional Commitments" };
 
@@ -148,8 +149,33 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
           ? thisWeekList.filter((c) => c.owner_id !== currentUserId)
           : thisWeekList;
 
+        // Only for someone who can own work here. An unassigned
+        // portfolio admin reads the list and adds nothing.
+        const addRow = canOwnWorkIn(session.profile, companyId) ? (
+          <InlineAddRow
+            thisFriday={data.thisFriday}
+            priorityOptions={data.priorityOptions}
+            functionalAreaOptions={data.functionalAreaOptions}
+            roster={data.roster.map((p) => ({
+              id: p.id,
+              full_name: p.full_name,
+            }))}
+            currentUserId={session.profile.id}
+            isAdmin={isAdmin}
+          />
+        ) : null;
+        // Under the "adds-on-top" switch (simplification review,
+        // change 6) the add row leads the page, above every list,
+        // instead of sitting under the overdue ones.
+        const addOnTop = simplifyOn("adds-on-top");
+
         return (
           <>
+            {addOnTop && addRow ? (
+              <section className={`${styles.group} ${styles.addFirst}`} aria-label="Add a commitment">
+                {addRow}
+              </section>
+            ) : null}
             {needsAttention.length > 0 ? (
               <section
                 className={styles.group}
@@ -232,21 +258,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
                   );
                 })()}
               </ul>
-              {/* Only for someone who can own work here. An unassigned
-                  portfolio admin reads the list and adds nothing. */}
-              {canOwnWorkIn(session.profile, companyId) ? (
-                <InlineAddRow
-                  thisFriday={data.thisFriday}
-                  priorityOptions={data.priorityOptions}
-                  functionalAreaOptions={data.functionalAreaOptions}
-                  roster={data.roster.map((p) => ({
-                    id: p.id,
-                    full_name: p.full_name,
-                  }))}
-                  currentUserId={session.profile.id}
-                  isAdmin={isAdmin}
-                />
-              ) : null}
+              {addOnTop ? null : addRow}
             </section>
           </>
         );

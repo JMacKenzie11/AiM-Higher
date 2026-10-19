@@ -25,6 +25,9 @@ export const SIMPLIFY_CHANGES = [
   //    show on hover or focus, no Open chip in an open section, and no
   //    Missed filter or column (nothing marks a commitment missed).
   "quiet-rows",
+  // 6. Adds lead the page: the commitment add row above the lists, and
+  //    the Team page's always-open form behind an Add a person button.
+  "adds-on-top",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

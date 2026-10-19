@@ -1560,3 +1560,11 @@ button.fromIssuePill {
     border-color: var(--border-strong);
   }
 }
+
+/* The add row in its own card at the top of the page (simplification
+   review, change 6, "adds-on-top" switch). No dashed rule above it:
+   nothing sits above it to be separated from. */
+.addFirst .inlineAddRow {
+  border-top: 0;
+  border-radius: var(--radius-md);
+}

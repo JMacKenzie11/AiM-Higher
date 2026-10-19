@@ -16,6 +16,8 @@ import type { Profile } from "@/lib/types";
 import styles from "./people.module.css";
 import adminStyles from "../admin/companies/admin.module.css";
 import uiStyles from "@/components/ui/ui.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
+import { AddPersonDrawer } from "./AddPersonDrawer";
 
 export const metadata = { title: "Team" };
 
@@ -131,6 +133,9 @@ export default async function PeoplePage() {
   // admin for it (canCoachAbout; 0261). Self is excluded there.
   const canCoachPerson = (personId: string) =>
     canCoachAbout(session.profile, { id: personId, company_id: companyId });
+  // Under the "adds-on-top" switch (simplification review, change 6)
+  // the form opens from Add a person on the roster card.
+  const addOnTop = simplifyOn("adds-on-top");
   const showActionsColumn = isAdmin || people.some((p) => canCoachPerson(p.id));
 
   return (
@@ -141,10 +146,11 @@ export default async function PeoplePage() {
     >
       <TrackOnMount event="people.opened" />
       <section className={styles.card} aria-label="Roster">
+        {canInvite && addOnTop ? <AddPersonDrawer companyId={companyId} /> : null}
           {people.length === 0 ? (
             <p className={styles.emptyLine}>
               No one on the roster yet.{" "}
-              {isAdmin ? "Add the first person below." : ""}
+              {isAdmin ? (addOnTop ? "Add the first person with Add a person." : "Add the first person below.") : ""}
             </p>
           ) : (
             <table className={styles.table}>
@@ -239,7 +245,7 @@ export default async function PeoplePage() {
           )}
         </section>
 
-      {canInvite ? (
+      {canInvite && !addOnTop ? (
         <section className={styles.card} aria-labelledby="add-person">
           <h2 id="add-person" className={styles.h2}>
             Add a person
