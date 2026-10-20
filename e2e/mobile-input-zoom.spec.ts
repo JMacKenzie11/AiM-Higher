@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, simplifyOn } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Scoped into a company that actually HAS measures, because the
@@ -99,6 +99,13 @@ test("no form control on a phone is small enough to zoom Safari", async ({
   for (const path of ["/measures", "/plan", "/commitments", "/people"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
+    // The Team page's form opens from Add a person under the
+    // "adds-on-top" switch (change 6): open it, so its fields are
+    // measured.
+    if (path === "/people" && simplifyOn("adds-on-top")) {
+      await page.getByRole("button", { name: "Add a person", exact: true }).click();
+      await expect(page.getByTestId("drawer-panel")).toBeVisible({ timeout: 30_000 });
+    }
     await expectNoZoomTriggers(page, path);
   }
 });

@@ -35,7 +35,7 @@ test.describe("a company user creates a commitment", () => {
     const rowsBefore = await page.getByTestId("commitment-row").count();
 
     await openComposer(page);
-    const field = page.getByLabel("New commitment", { exact: true });
+    const field = page.getByRole("textbox", { name: "New commitment", exact: true });
     await expect(
       field,
       "the composer should render — the fixture company needs an open " +
@@ -68,7 +68,7 @@ test.describe("a company user creates a commitment", () => {
     await signIn(page, users.member());
     await page.goto("/commitments");
     await openComposer(page);
-    await expect(page.getByLabel("New commitment", { exact: true })).toBeVisible({
+    await expect(page.getByRole("textbox", { name: "New commitment", exact: true })).toBeVisible({
       timeout: 30_000,
     });
 
