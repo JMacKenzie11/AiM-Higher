@@ -34,6 +34,11 @@ export const SIMPLIFY_CHANGES = [
   //    card circles, rows not boxes inside cards, and status pills
   //    only for the exception.
   "calm-visuals",
+  // 3. A "My week" Home for team members: their open commitments, late
+  //    first, with the add row above them and their numbers to log.
+  //    Commitments and Issues lose their stat counters, which this and
+  //    Week in Review now carry.
+  "my-week",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

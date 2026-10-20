@@ -1077,3 +1077,34 @@
 :root[data-simplify~="calm-visuals"] .successItem:last-child {
   border-bottom: 0;
 }
+
+/* ---- My week (simplification review, change 3) ------------------ */
+.myWeekEmpty,
+.myWeekMore,
+.myWeekLine {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.myWeekLine {
+  color: var(--text);
+  font: var(--text-body);
+}
+
+.myWeekMore {
+  border-top: 1px solid var(--border);
+}
+
+.myWeekFoot {
+  margin: 0;
+  font: var(--text-body-sm);
+}
+
+/* Every row on My week is the reader's own, so the owner cell (the
+   row's fifth child, see .row in commitments.module.css) says nothing.
+   Hidden, not removed, so the columns stay where the list's are. */
+.myWeekList > li > :nth-child(5) {
+  visibility: hidden;
+}

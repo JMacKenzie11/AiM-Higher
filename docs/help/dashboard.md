@@ -4,6 +4,12 @@ title: Week in Review
 
 # Week in Review
 
+::: feature ui_my_week
+## Your week
+
+If you're a team member, Home opens on **Your week**: your open commitments, the ones past their date first, with the box to add a new one at the top. If you lead a function, it also says how many of last week's numbers you still have to log, with a link to log them. Press *How the company's week is going* at the foot of the page for Week in Review, described below.
+:::
+
 Your company's daily read: how this quarter and this week are going. Follow-Through Rate sits at the top, with four more numbers under it and the operating panels below.
 
 ## The numbers at the top
