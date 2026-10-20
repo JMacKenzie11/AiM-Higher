@@ -21,6 +21,7 @@ import { BoardView } from "../measures/board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
 import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import styles from "./dashboard.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export const metadata = { title: "Week in Review" };
 
@@ -91,6 +92,9 @@ export default async function DashboardPage() {
   const canCoachPerson = (personId: string) =>
     canCoachAbout(session.profile, { id: personId, company_id: companyId });
   const showCoachColumn = data.people.some((p) => canCoachPerson(p.id));
+  // Nothing marks a commitment missed (Jason, 2026-10-16), so the
+  // column is always 0; the "quiet-rows" switch takes it out.
+  const showMissed = !simplifyOn("quiet-rows");
 
   // A LAPSED quarter has to say so. It used to read "Current quarter
   // · Q3 2026" with no link, because the link only appeared when
@@ -372,7 +376,7 @@ export default async function DashboardPage() {
                   >
                     Late
                   </th>
-                  <th className={styles.numHead}>Missed</th>
+                  {showMissed ? <th className={styles.numHead}>Missed</th> : null}
                   <th>Follow-Through Rate</th>
                   {showCoachColumn ? <th aria-label="Coach" /> : null}
                 </tr>
@@ -399,9 +403,11 @@ export default async function DashboardPage() {
                     <td className={`${styles.numCell} aims-tabular`}>
                       {person.keptLateCount}
                     </td>
-                    <td className={`${styles.numCell} aims-tabular`}>
-                      {person.missedCount}
-                    </td>
+                    {showMissed ? (
+                      <td className={`${styles.numCell} aims-tabular`}>
+                        {person.missedCount}
+                      </td>
+                    ) : null}
                     <td className={styles.keepRateCell}>
                       <ProgressBar
                         percent={person.keepRate}

@@ -252,3 +252,16 @@
     white-space: normal;
   }
 }
+
+/* Quiet rows (simplification review, change 2): the link reads as
+   text at rest and shows its box on the row's hover or focus. Only
+   while the "quiet-rows" switch is on. */
+:root[data-simplify~="quiet-rows"] .chip {
+  border-color: transparent;
+  background: transparent;
+}
+
+:root[data-simplify~="quiet-rows"] .chipButton:hover,
+:root[data-simplify~="quiet-rows"] .chipButton:focus-visible {
+  border-color: var(--border-strong);
+}

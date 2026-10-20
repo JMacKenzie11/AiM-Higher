@@ -30,7 +30,7 @@ The counts at the top (*Open*, *No commitment yet*, *Resolved this quarter*) alw
 - **Work on issues you added.** Open one to change its description, *What do we want* or notes, then press *Save*. Drag the handle on the left to move it up or down the list.
 - **Resolve an issue you added.** Tick the round check at the left of its line.
 - **Look after your own commitments.** In the issue's panel they work exactly as they do on Commitments: the circle opens *Mark kept*, *Reschedule* and *Park*, and *Undo* stays on screen for 30 seconds. Click the text to open the commitment itself, with its notes; *Back to the issue* takes you back. Rescheduling asks you for a short reason.
-- **Delete your own open commitment** with the trash can beside it. *Undo* brings it back for 30 seconds.
+- **Delete your own open commitment** with the trash can beside it (on a computer it shows when you point at the row). *Undo* brings it back for 30 seconds.
 
 To change an issue someone else added, ask them or your company admin.
 :::

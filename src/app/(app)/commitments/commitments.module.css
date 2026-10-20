@@ -1496,3 +1496,67 @@ button.fromIssuePill {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* ---- Quiet rows (simplification review, change 2) ---------------
+   Only while the "quiet-rows" switch is on (src/lib/ui/simplify.ts).
+   One signal per fact: a late commitment says so once, in its red
+   date. Controls that are there to be used, not read, step back until
+   the row is pointed at or focused, and stay visible on a touch
+   screen, which has no hover to reveal them. */
+:root[data-simplify~="quiet-rows"] .resolveCircleOverdue {
+  border-color: var(--border);
+}
+
+:root[data-simplify~="quiet-rows"] .rowDueDot {
+  display: none;
+}
+
+/* Open is what every row in an open section is, so the chip only
+   shows when it says something else (kept, parked rows keep theirs). */
+:root[data-simplify~="quiet-rows"] .row [data-status="open"] {
+  visibility: hidden;
+}
+
+/* The section's title is a heading, not a second alarm. */
+:root[data-simplify~="quiet-rows"] .groupTitleNeedsAttention {
+  color: var(--text-heading);
+}
+
+/* Fields read as text at rest; their box comes back on the row's
+   hover or focus, which is when they are about to be used. */
+:root[data-simplify~="quiet-rows"] .rowOwnerButton,
+:root[data-simplify~="quiet-rows"] .rowDueButton,
+:root[data-simplify~="quiet-rows"] .fromIssuePill {
+  border-color: transparent;
+}
+
+:root[data-simplify~="quiet-rows"] .fromIssuePill {
+  text-transform: none;
+  letter-spacing: normal;
+  font: var(--text-body-sm);
+}
+
+@media (hover: hover) {
+  :root[data-simplify~="quiet-rows"] .row .deleteRowButton,
+  :root[data-simplify~="quiet-rows"] .row .clarityDotClear {
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+
+  :root[data-simplify~="quiet-rows"] .row:hover .deleteRowButton,
+  :root[data-simplify~="quiet-rows"] .row:focus-within .deleteRowButton,
+  :root[data-simplify~="quiet-rows"] .row:hover .clarityDotClear,
+  :root[data-simplify~="quiet-rows"] .row:focus-within .clarityDotClear,
+  :root[data-simplify~="quiet-rows"] .deleteRowButton:focus-visible,
+  :root[data-simplify~="quiet-rows"] .clarityDotClear:focus-visible {
+    opacity: 1;
+  }
+
+  :root[data-simplify~="quiet-rows"] .row:hover .rowOwnerButton,
+  :root[data-simplify~="quiet-rows"] .row:hover .rowDueButton,
+  :root[data-simplify~="quiet-rows"] .row:hover .fromIssuePill,
+  :root[data-simplify~="quiet-rows"] .rowOwnerButton:focus-visible,
+  :root[data-simplify~="quiet-rows"] .rowDueButton:focus-visible {
+    border-color: var(--border-strong);
+  }
+}
