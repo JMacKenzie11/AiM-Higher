@@ -18,6 +18,7 @@ import { YourCompaniesSection } from "./YourCompaniesSection";
 import { RecentActivitySection } from "./RecentActivitySection";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "./hq.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export const metadata = { title: "Guide HQ" };
 
@@ -67,13 +68,20 @@ export default async function GuideHqPage() {
   // (falls back to UTC when unset).
   const todayIso = todayInTimezone("UTC").iso;
 
+  const shortHq = simplifyOn("short-intros");
+
   return (
     <PageShell
       eyebrow={
         session.profile.role === "system_admin" ? "System admin" : "AiMS Guide"
       }
       title="Guide HQ"
-      subtitle="Your commitments across every company, the attention queue for this week, and a quick read on the shape of your caseload."
+      subtitle={
+        // One line under the "short-intros" switch (change 10).
+        simplifyOn("short-intros")
+          ? "The companies that need you this week, and your caseload."
+          : "Your commitments across every company, the attention queue for this week, and a quick read on the shape of your caseload."
+      }
       ariaLabel="Guide HQ header"
     >
       {zeroCaseload ? (
@@ -94,16 +102,30 @@ export default async function GuideHqPage() {
           </section>
         ) : null}
 
-        <MyCommitmentsSection
-          rows={myCommitments}
-          currentUserId={profileId}
-          todayIso={todayIso}
-          isAdmin={isAdmin}
-        />
+        {/* Under the "short-intros" switch (simplification review,
+            change 10) a guide's own commitments come after the queue,
+            and only when there are some: an empty "My commitments" was
+            the first thing a guide read most days. */}
+        {!shortHq ? (
+          <MyCommitmentsSection
+            rows={myCommitments}
+            currentUserId={profileId}
+            todayIso={todayIso}
+            isAdmin={isAdmin}
+          />
+        ) : null}
 
       {!zeroCaseload ? (
         <>
           <NeedsAttentionSection rows={attention} />
+          {shortHq && myCommitments.length > 0 ? (
+            <MyCommitmentsSection
+              rows={myCommitments}
+              currentUserId={profileId}
+              todayIso={todayIso}
+              isAdmin={isAdmin}
+            />
+          ) : null}
           <YourCompaniesSection
             rows={rollups}
             recentBriefsByCompany={briefsByCompany}

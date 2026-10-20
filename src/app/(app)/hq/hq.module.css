@@ -671,3 +671,10 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+/* Section captions on Guide HQ say what the heading already says, so
+   they go under the "short-intros" switch (simplification review,
+   change 10). */
+:root[data-simplify~="short-intros"] .sectionCaption {
+  display: none;
+}

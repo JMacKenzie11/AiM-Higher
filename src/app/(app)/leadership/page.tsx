@@ -12,6 +12,7 @@ import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type { MeetingListRow } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export const metadata = { title: "Meeting Summaries" };
 
@@ -99,7 +100,12 @@ export default async function LeadershipPage() {
     <PageShell
       eyebrow="Company"
       title="Meeting Summaries"
-      subtitle="Every meeting transcript this company has run through the analyzer, most recent first. Click a complete analysis to see the full write-up and the commitments it created."
+      subtitle={
+        // One line under the "short-intros" switch (change 10).
+        simplifyOn("short-intros")
+          ? "Every analysed meeting, newest first."
+          : "Every meeting transcript this company has run through the analyzer, most recent first. Click a complete analysis to see the full write-up and the commitments it created."
+      }
     >
       <section className={styles.card} aria-labelledby="meetings-list">
           <h2 id="meetings-list" className={styles.h2}>

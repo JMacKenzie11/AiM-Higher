@@ -11,6 +11,7 @@ import { ChartAddFunction } from "./ChartAddFunction";
 import { DraggableTree } from "./DraggableTree";
 import { PanZoomTree } from "./PanZoomTree";
 import styles from "./chart.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 
 export const metadata = { title: "Functional Chart" };
 
@@ -52,12 +53,17 @@ export default async function ChartPage() {
       eyebrow="Company"
       title="Functional Chart"
       subtitle={
-        <>
-          The functions that run the business. Each box shows who&rsquo;s in
-          the seat and what they&rsquo;re obsessed with delivering. Click a
-          function to see its outcomes.
-          {isAdmin ? " Drag a card to reorder siblings." : null}
-        </>
+        // One line under the "short-intros" switch (change 10).
+        simplifyOn("short-intros") ? (
+          "The functions that run the business, and who is in each seat."
+        ) : (
+          <>
+            The functions that run the business. Each box shows who&rsquo;s in
+            the seat and what they&rsquo;re obsessed with delivering. Click a
+            function to see its outcomes.
+            {isAdmin ? " Drag a card to reorder siblings." : null}
+          </>
+        )
       }
     >
       <div className={styles.chartCard}>
