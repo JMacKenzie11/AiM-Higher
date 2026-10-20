@@ -990,7 +990,7 @@ export function MeasuresGrid({
             {addableGroups.length > 0 ? (
               <button
                 type="button"
-                className={`${uiStyles.btnSecondary} ${uiStyles.quiet}`}
+                className={`${uiStyles.btnSecondary}`}
                 onClick={() => setAdding(addableGroups[0].functionId)}
               >
                 <PlusIcon />Add a critical success factor
