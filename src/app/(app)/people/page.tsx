@@ -15,7 +15,6 @@ import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import type { Profile } from "@/lib/types";
 import styles from "./people.module.css";
 import adminStyles from "../admin/companies/admin.module.css";
-import uiStyles from "@/components/ui/ui.module.css";
 import { simplifyOn } from "@/lib/ui/simplify";
 import { AddPersonDrawer } from "./AddPersonDrawer";
 
@@ -216,7 +215,7 @@ export default async function PeoplePage() {
                         {canCoachPerson(person.id) ? (
                           <Link
                             href={`/coach/${person.id}`}
-                            className={`${styles.coachButton} ${uiStyles.quiet}`}
+                            className={`${styles.coachButton}`}
                           >
                             Coach
                           </Link>
