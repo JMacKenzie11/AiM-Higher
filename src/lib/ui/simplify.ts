@@ -47,6 +47,9 @@ export const SIMPLIFY_CHANGES = [
   // 5. Meeting mode: the weekly meeting in one view at /meeting,
   //    walking the five agenda sections, then a close.
   "meeting-mode",
+  // 9. A shorter Week in Review: the brief, the numbers board and where
+  //    to lend support, without recent wins, Focus Areas or the trend.
+  "short-review",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];
