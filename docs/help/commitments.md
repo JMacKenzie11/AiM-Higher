@@ -69,7 +69,7 @@ Press **Add a commitment** at the top right of the first list. A panel opens on 
 Type it into the add row, at the top of the page or at the foot of *This week*, pick what it's linked to, the owner and the date, and press *Add*.
 :::
 
-Only an admin or guide can pick someone else as the owner. Everyone else adds their own.
+The owner starts as you. Pick anyone else on the team to add it for them, for example when a colleague takes something on in a meeting. Once it's added it's theirs: they, or an admin, close it out or change it.
 
 ## Needs rewording
 

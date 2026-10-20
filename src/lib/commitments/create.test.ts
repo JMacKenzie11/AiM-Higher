@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => {
     priority,
     client: { from: fromBuilder },
     getEffectiveCompanyId: vi.fn(),
+    roster: vi.fn(),
     isAdminForCompany: vi.fn(),
     revalidatePath: vi.fn(),
   };
@@ -41,6 +42,7 @@ vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({})
 vi.mock("@/lib/admin/scope", () => ({ getEffectiveCompanyId: mocks.getEffectiveCompanyId }));
 vi.mock("@/lib/auth/permissions", () => ({ isAdminForCompany: mocks.isAdminForCompany }));
 vi.mock("./clarity", () => ({ scoreCommitmentClarity: async () => null }));
+vi.mock("@/lib/people/assignable", () => ({ getAssignablePeople: mocks.roster }));
 vi.mock("@/lib/analytics/track", () => ({ trackAfter: () => {} }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("@/lib/dates", () => ({
@@ -63,6 +65,7 @@ beforeEach(() => {
   mocks.companyTz.mockResolvedValue({ data: { timezone: "America/Anchorage" } });
   mocks.getEffectiveCompanyId.mockResolvedValue("co_scope");
   mocks.isAdminForCompany.mockReturnValue(false);
+  mocks.roster.mockResolvedValue([{ id: "u_me" }, { id: "u_other" }]);
 });
 
 describe("createCommitment", () => {
@@ -126,8 +129,23 @@ describe("insertCommitment", () => {
     expect(mocks.inserted).toEqual([]);
   });
 
-  it("keeps the caller as owner when a non-admin names someone else", async () => {
-    await insertCommitment(writer, { description: "Ship it", dueDate: "2026-10-05", companyId: "co_acme", ownerId: "u_other" });
+  // Anyone in the company may add one for a colleague (0293).
+  it("gives it to a colleague a member of the company names", async () => {
+    const r = await insertCommitment(writer, { description: "Ship it", dueDate: "2026-10-05", companyId: "co_acme", ownerId: "u_other" });
+    expect(r.ok).toBe(true);
+    expect(mocks.inserted[0]).toMatchObject({ owner_id: "u_other" });
+  });
+
+  it("refuses an owner who is not on the company's roster", async () => {
+    const r = await insertCommitment(writer, { description: "Ship it", dueDate: "2026-10-05", companyId: "co_acme", ownerId: "u_stranger" });
+    expect(r).toEqual({ ok: false, message: "That person isn't on this company's team." });
+    expect(mocks.inserted).toEqual([]);
+  });
+
+  it("keeps the caller as owner when someone outside the company names another", async () => {
+    const outsider = { db: mocks.client, profile: { id: "u_me", role: "portfolio_admin", company_id: null } } as never;
+    await insertCommitment(outsider, { description: "Ship it", dueDate: "2026-10-05", companyId: "co_acme", ownerId: "u_other" });
     expect(mocks.inserted[0]).toMatchObject({ owner_id: "u_me" });
+    expect(mocks.roster).not.toHaveBeenCalled();
   });
 });

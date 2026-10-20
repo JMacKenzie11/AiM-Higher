@@ -22,7 +22,7 @@ The Goal in the middle is optional. A Priority can sit straight under a Focus Ar
 - **See how the work fits together.** Follow each Priority up to its Goal and Focus Area.
 - **Open a row.** Click any Focus Area, Goal or Priority to see its owner, its progress and, for a Priority, its **Action Plan**: the commitments feeding it.
 - **Update your own.** If you own a Goal or Priority, or sponsor a Focus Area, you can set its status on its page: *Not started*, *On track*, *Behind*, *Complete* or *Ongoing*.
-- **Add a commitment of your own to a Priority.** Open the Priority and add it at the top of its *Action Plan*. It also shows on Commitments.
+- **Add a commitment to a Priority**, for yourself or for someone else on the team. Open the Priority and add it at the top of its *Action Plan*. It also shows on Commitments.
 - **Get back to where you were.** The back link on a row's page brings you back here to the row you came from, and opens its Focus Area if you'd collapsed it.
 
 Adding a Focus Area, Goal or Priority is done by your company admin.

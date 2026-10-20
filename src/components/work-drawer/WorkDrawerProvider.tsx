@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -72,7 +74,19 @@ type Guard = { dirty: () => boolean; save: () => Promise<boolean> };
 
 const UNDO_MS = 30000;
 
-export function WorkDrawerProvider({ children }: { children: ReactNode }) {
+// Whether the person signed in may name someone else as a new
+// commitment's owner. Anyone in a company may (Jason, 2026-10-20;
+// RLS 0293), and an admin for it always could. Set once by the app
+// layout: a person with a company of their own. A portfolio admin has
+// none, so it adds its own unless it is switched on as the company's
+// admin, which `isAdmin` says.
+const AssignsOthersContext = createContext(false);
+
+export function useCanPickOwner(isAdmin: boolean): boolean {
+  return useContext(AssignsOthersContext) || isAdmin;
+}
+
+export function WorkDrawerProvider({ children, assignsOthers = false }: { children: ReactNode; assignsOthers?: boolean }) {
   const router = useRouter();
   const commitments = useRef(new Map<string, { c: CommitmentWithMeta; ctx: CommitmentContext }>());
   const issues = useRef(new Map<string, { issue: IssueWithCommitments; ctx: IssueContext }>());
@@ -348,6 +362,7 @@ export function WorkDrawerProvider({ children }: { children: ReactNode }) {
   }, [view?.kind, go]);
 
   return (
+    <AssignsOthersContext.Provider value={assignsOthers}>
     <WorkDrawerContext.Provider value={api}>
       {children}
       <Drawer
@@ -400,6 +415,7 @@ export function WorkDrawerProvider({ children }: { children: ReactNode }) {
         </div>
       ) : null}
     </WorkDrawerContext.Provider>
+    </AssignsOthersContext.Provider>
   );
 }
 
@@ -713,9 +729,10 @@ function NewIssuePanel({
 
 // Adding a commitment on the issue, in place. The same action as the
 // row it replaces on the issues page (createCommitmentAction): a
-// description, an owner (an admin picks anyone, everyone else adds
-// their own) and a due date.
+// description, an owner (anyone in the company, or an admin for it,
+// picks anyone on the roster; 0293) and a due date.
 function AddCommitment({ issueId, ctx }: { issueId: string; ctx: IssueContext }) {
+  const pickOwner = useCanPickOwner(ctx.isAdmin);
   const [description, setDescription] = useState("");
   const [ownerId, setOwnerId] = useState(ctx.currentUserId);
   const [due, setDue] = useState(ctx.todayIso);
@@ -784,7 +801,7 @@ function AddCommitment({ issueId, ctx }: { issueId: string; ctx: IssueContext })
       </span>
       <NotesEditor key={notesKey} initial={null} onChange={setNotes} label="New commitment notes" />
       <div className={styles.addRow}>
-        {ctx.isAdmin ? (
+        {pickOwner ? (
           <select
             className={styles.select}
             value={ownerId}
@@ -842,6 +859,7 @@ function NewCommitmentPanel({
   guard: React.MutableRefObject<Guard | null>;
   onAdded: () => void;
 }) {
+  const pickOwner = useCanPickOwner(ctx.isAdmin);
   const pinned = ctx.fixedPriorityId ?? null;
   const blankLink = pinned ? `priority:${pinned}` : "none";
   const [description, setDescription] = useState("");
@@ -969,8 +987,8 @@ function NewCommitmentPanel({
           </select>
         </Field>
       )}
-      <Field label="Owner" htmlFor={ctx.isAdmin ? "work-new-commitment-owner" : undefined}>
-        {ctx.isAdmin ? (
+      <Field label="Owner" htmlFor={pickOwner ? "work-new-commitment-owner" : undefined}>
+        {pickOwner ? (
           <select
             id="work-new-commitment-owner"
             className={styles.select}
