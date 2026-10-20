@@ -16,6 +16,7 @@ import { getCurrentQuarter } from "@/lib/quarters/service";
 import { getDashboardData } from "@/lib/dashboard/service";
 import { todayInTimezone, formatShortDate, formatWeekBeginning, thisFriday, addDays } from "@/lib/dates";
 import { simplifyOn } from "@/lib/ui/simplify";
+import { headlineAreas } from "@/lib/meeting/areas";
 import type { Priority } from "@/lib/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { CommitmentRow } from "../commitments/CommitmentRow";
@@ -331,7 +332,7 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
   const [functions, headlines, people] = await Promise.all([
     supabase
       .from("functions")
-      .select("id, title, lead_id")
+      .select("id, title, lead_id, parent_function_id")
       .eq("company_id", companyId)
       .eq("archived", false)
       .order("sort_order")
@@ -343,8 +344,11 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
       .in("week_ending", [week, lastWeek]),
     getAssignablePeople(supabase, companyId),
   ]);
-  type Fn = { id: string; title: string; lead_id: string | null };
-  const rows = (functions.data ?? []) as Fn[];
+  type Fn = { id: string; title: string; lead_id: string | null; parent_function_id: string | null };
+  // The functional areas only: the leadership seats (the Visionary and
+  // Integrator, whatever they are called) give no headline
+  // (meeting/areas.ts; Jason, 2026-10-20).
+  const rows = headlineAreas((functions.data ?? []) as Fn[]);
   type Headline = { function_id: string; week_ending: string; body: string; source_meeting_id?: string | null };
   const byKey = new Map(
     ((headlines.data ?? []) as unknown as Headline[]).map((h) => [`${h.function_id}:${h.week_ending}`, h])
@@ -356,7 +360,7 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
   const leadName = (f: Fn) => (f.lead_id ? names.get(f.lead_id) ?? null : null);
 
   return (
-    <StepCard id="meeting-headlines" title="Headlines" meta={rows.length > 0 ? `${rows.length} functional areas` : null} footer={footer}>
+    <StepCard id="meeting-headlines" title="Headlines, for this past week" meta={rows.length > 0 ? `${rows.length} functional areas` : null} footer={footer}>
       {rows.length === 0 ? (
         <p className={styles.mutedPad}>
           No functional areas yet. <Link href="/chart">Add them on the Functional Chart</Link>.
