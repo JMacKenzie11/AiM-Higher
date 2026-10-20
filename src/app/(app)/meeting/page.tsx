@@ -366,19 +366,19 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
           No functional areas yet. <Link href="/chart">Add them on the Functional Chart</Link>.
         </p>
       ) : (
-        rows.map((f) => {
+        rows.map((f, i) => {
           const lastRow = byKey.get(`${f.id}:${lastWeek}`);
           const nowRow = byKey.get(`${f.id}:${week}`);
           const last = lastRow?.body.trim() ?? "";
           const now = nowRow?.body ?? "";
           const lead = leadName(f);
           return (
-            <section key={f.id} className={styles.headlineRow} aria-label={`${f.title} headlines`}>
-              <h3 className={styles.rowTitle}>
+            <section key={f.id} aria-label={`${f.title} headlines`}>
+              <h3 className={`${styles.subhead} ${i === 0 ? styles.subheadFirst : ""}`}>
                 {f.title}
-                {lead ? <span className={styles.muted}> · {lead}</span> : null}
+                {lead ? <span className={styles.subheadMeta}>{lead}</span> : null}
               </h3>
-              <div className={styles.headlineGrid}>
+              <div className={`${styles.headlineGrid} ${styles.headlineRow}`}>
                 <div className={styles.headlineCol}>
                   <h4>Last week, {formatWeekBeginning(lastWeek)}</h4>
                   {last ? <p className={styles.headlineLast}>{last}</p> : <p className={styles.muted}>Nothing written.</p>}

@@ -183,12 +183,9 @@
 
 /* Headlines: a row per functional area inside the card, last week
    beside this week. The field is the only control; it saves on blur. */
+/* Under the area's band: last week beside this week. */
 .headlineRow {
   padding: var(--space-3) var(--space-4) var(--space-4);
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .rowTitle {
