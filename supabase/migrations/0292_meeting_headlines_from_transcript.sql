@@ -22,6 +22,11 @@
 -- grant. The analysis writes as the service role, which RLS does not
 -- apply to.
 --
+-- The call that writes them is logged under its own purpose,
+-- 'headlines', so a cost review sees what it adds to a meeting: the
+-- token log's purpose check gains it (as 0285; src/lib/coach/usage.ts
+-- lists the same, and usage-purposes.test.ts holds the two together).
+--
 -- Harness probe "headlines · only the transcript marks one".
 
 alter table public.meeting_headlines
@@ -65,3 +70,31 @@ end;
 $$;
 
 revoke all on function public.stamp_meeting_headline() from public, anon, authenticated;
+
+alter table public.coach_token_usage
+  drop constraint if exists coach_token_usage_purpose_check;
+
+alter table public.coach_token_usage
+  add constraint coach_token_usage_purpose_check
+  check (purpose in (
+    'turn',
+    'title',
+    'themes',
+    'analyzer',
+    'rd',
+    'strengths',
+    'brief',
+    'clarity',
+    'facilitation',
+    'facilitation_retry',
+    'insights_analysis',
+    'memory',
+    'speakers',
+    'coverage',
+    'questions',
+    'invitation',
+    'principles_check',
+    'session_brief',
+    'headlines',
+    'other'
+  ));

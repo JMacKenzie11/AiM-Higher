@@ -69,6 +69,11 @@ export const SIMPLIFY_CHANGES = [
   //     2026-10-19; the log itself, 0291, records with the switch off
   //     too).
   "past-numbers",
+  // 13. Headlines from the transcript: when a meeting's transcript is
+  //     analysed, each functional area's update as it was said fills
+  //     that week's empty Headlines box on the meeting page, marked as
+  //     from the transcript until someone edits it (Jason, 2026-10-20).
+  "transcript-headlines",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

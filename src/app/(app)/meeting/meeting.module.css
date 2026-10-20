@@ -219,6 +219,13 @@
   color: var(--text-muted);
 }
 
+/* Under last week's headline, when the transcript wrote it. */
+.headlineSource {
+  margin: var(--space-1) 0 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
 .headlineStatus[role="alert"] {
   color: var(--aims-danger);
 }
