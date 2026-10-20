@@ -67,7 +67,7 @@ describe("the outstanding line and the save count one population", () => {
     // direction: a value typed into the current column has to save
     // too, or the box lies. Still filtered to canLog, so it never
     // reaches another function.
-    const save = code.slice(code.indexOf("function save()"));
+    const save = code.slice(code.indexOf("function save("));
     const upToTransition = save.slice(0, save.indexOf("startTransition"));
     expect(upToTransition).toContain("filter((g) => g.canLog)");
     expect(upToTransition).toContain("editableWeeks");

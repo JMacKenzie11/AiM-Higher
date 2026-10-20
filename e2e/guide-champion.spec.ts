@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, simplifyOn } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // The AiMS champion seat, and the two things it actually does.
@@ -57,7 +57,11 @@ async function setChampion(page: Page, label: string): Promise<boolean> {
   // The options carry full names, not emails: the picker is a list
   // of this company's people as they appear everywhere else.
   await select.selectOption({ label });
-  await page.getByRole("button", { name: /save champion/i }).click();
+  // Choosing saves under the "autosave" switch (simplification review,
+  // change 8); otherwise it is the button.
+  if (!simplifyOn("autosave")) {
+    await page.getByRole("button", { name: /save champion/i }).click();
+  }
   await expect(page.getByRole("status").first()).toBeVisible({
     timeout: 30_000,
   });
