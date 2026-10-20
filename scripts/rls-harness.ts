@@ -12674,6 +12674,73 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Only the transcript marks a headline as its own (0292) ------
+//
+// meeting_headlines.source_meeting_id says a headline came from the
+// meeting's transcript. The analysis writes with nobody signed in; the
+// stamp trigger clears the mark on any signed-in write. As a member:
+//   granted   the analysis's own write (nobody signed in) keeps the mark
+//   withheld  a member inserting a headline with the mark set has it
+//             cleared; a member editing a filled-in headline clears it
+// Red before 0292: there is no column, so nothing runs.
+async function meetingHeadlinesSourceProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "headlines · only the transcript marks one";
+  const M = ids.member, CO = ids.memberCompany;
+  const FN_A = randomUUID(), FN_B = randomUUID(), MEETING = randomUUID();
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into public.functions (id, company_id, title) values
+  ('${FN_A}', '${CO}', 'harness 0292 filled'),
+  ('${FN_B}', '${CO}', 'harness 0292 typed');
+insert into public.meetings (id, company_id, provider_file_id, file_name, content_hash, transcript_text, status)
+values ('${MEETING}', '${CO}', 'harness-0292', 'harness 0292.txt', 'harness-0292-${MEETING}', 'harness', 'complete');
+insert into public.meeting_headlines (company_id, function_id, week_ending, body, source_meeting_id)
+values ('${CO}', '${FN_A}', current_date, 'harness 0292 from the transcript', '${MEETING}');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+insert into _p select 'pipeline_kept', (source_meeting_id is not null)::text
+  from public.meeting_headlines where function_id = '${FN_A}';
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  begin
+    insert into public.meeting_headlines (company_id, function_id, week_ending, body, source_meeting_id)
+    values ('${CO}', '${FN_B}', current_date, 'harness 0292 typed', '${MEETING}');
+    get diagnostics n = row_count; insert into _p values ('member_insert', n::text);
+  exception when others then insert into _p values ('member_insert', 'error ' || sqlstate); end;
+  begin
+    update public.meeting_headlines set body = 'harness 0292 edited' where function_id = '${FN_A}';
+    get diagnostics n = row_count; insert into _p values ('member_edit', n::text);
+  exception when others then insert into _p values ('member_edit', 'error ' || sqlstate); end;
+end $$;
+reset role;
+insert into _p select 'typed_marked', (source_meeting_id is not null)::text
+  from public.meeting_headlines where function_id = '${FN_B}';
+insert into _p select 'edited_marked', (source_meeting_id is not null)::text
+  from public.meeting_headlines where function_id = '${FN_A}';
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0292 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const ok =
+    r.pipeline_kept === "true" && r.member_insert === "1" && r.member_edit === "1" &&
+    r.typed_marked === "false" && r.edited_marked === "false";
+  return [{
+    name,
+    granted: `the analysis's write keeps the mark: ${r.pipeline_kept} (want true)`,
+    withheld: `member's insert ${r.member_insert} keeps the mark: ${r.typed_marked}; member's edit ${r.member_edit} keeps it: ${r.edited_marked} (want 1, false each)`,
+    ok,
+    detail: ok
+      ? "only the analysis marks a headline as the transcript's; a person's insert or edit leaves it theirs"
+      : "a signed-in write can mark a headline as the transcript's, or keeps the mark after an edit",
+  }];
+}
+
 // ---- Attendance is one company's own (0290) ----------------------
 //
 // meeting_attendance marks a person present at a company's weekly
@@ -14537,6 +14604,7 @@ async function main(): Promise<void> {
   const guideFeatures = await guideFeatureReadProbes(run, ids, pendingSql);
   const notes = await notesFollowTheRowProbes(run, ids, pendingSql);
   const headlines = await meetingHeadlinesProbes(run, ids, pendingSql);
+  const headlinesSource = await meetingHeadlinesSourceProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -14564,7 +14632,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
