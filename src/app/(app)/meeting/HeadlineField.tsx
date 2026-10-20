@@ -58,7 +58,7 @@ export function HeadlineField({
         value={value}
         maxLength={HEADLINE_MAX_CHARS}
         rows={3}
-        placeholder="What happened, what worked, what's coming, what you need."
+        placeholder="What happened, what worked well, anything exciting coming for this next week?"
         onChange={(e) => {
           setState(null);
           setValue(e.target.value);

@@ -3,6 +3,7 @@ import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { HEADLINE_MAX_CHARS } from "@/lib/meeting/headlines";
+import { headlineAreas } from "@/lib/meeting/areas";
 import { VOICE_CORE } from "@/lib/voice/core";
 import { PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
 import { requestJson } from "./model";
@@ -99,14 +100,16 @@ export function formatFunctions(fns: readonly HeadlineFunction[]): string {
 export async function loadHeadlineFunctions(admin: Admin, companyId: string): Promise<HeadlineFunction[]> {
   const { data, error } = await admin
     .from("functions")
-    .select("id, title, lead_id")
+    .select("id, title, lead_id, parent_function_id")
     .eq("company_id", companyId)
     .eq("archived", false);
   if (error) {
     console.warn(`[headlines] functions unreadable for company ${companyId}: ${error.message}`);
     return [];
   }
-  const rows = (data ?? []) as Array<{ id: string; title: string; lead_id: string | null }>;
+  // The functional areas only, as the meeting page shows them: no
+  // headline for the leadership seats (meeting/areas.ts).
+  const rows = headlineAreas((data ?? []) as Array<{ id: string; title: string; lead_id: string | null; parent_function_id: string | null }>);
   const leadIds = [...new Set(rows.map((r) => r.lead_id).filter((id): id is string => !!id))];
   const names = new Map<string, string>();
   if (leadIds.length > 0) {
