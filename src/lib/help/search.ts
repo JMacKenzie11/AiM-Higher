@@ -63,14 +63,18 @@ export function purposeOf(markdown: string): string {
   return sentence.length > 220 ? `${sentence.slice(0, 217)}...` : sentence;
 }
 
-export async function helpIndexFor(role: Role, features: readonly ModuleFeature[]): Promise<HelpIndexEntry[]> {
+export async function helpIndexFor(
+  role: Role,
+  features: readonly ModuleFeature[],
+  companyId?: string | null
+): Promise<HelpIndexEntry[]> {
   const docs = await loadAllHelpFor(role);
   const out: HelpIndexEntry[] = [];
-  for (const entry of linkablePagesFor(role, features)) {
+  for (const entry of linkablePagesFor(role, features, companyId)) {
     const doc = docFor(entry, docs);
     // A page whose help this role cannot read is not advertised either.
     if (!doc) continue;
-    out.push({ path: entry.pattern, title: entry.title ?? doc.title, purpose: purposeOf(doc.markdown) });
+    out.push({ path: entry.path, title: entry.title ?? doc.title, purpose: purposeOf(doc.markdown) });
   }
   return out;
 }
@@ -158,15 +162,16 @@ export async function searchHelp(
   query: string,
   role: Role,
   features: readonly ModuleFeature[],
+  companyId?: string | null,
   limit = 3
 ): Promise<HelpHit[]> {
   const wanted = terms(query);
   if (wanted.length === 0) return [];
   const docs = await loadAllHelpFor(role);
-  const pages = linkablePagesFor(role, features);
+  const pages = linkablePagesFor(role, features, companyId);
   const linkFor = (slug: string): string | null =>
-    pages.find((p) => helpSlugsFor(p.pattern)[0] === slug)?.pattern ??
-    pages.find((p) => helpSlugsFor(p.pattern).includes(slug))?.pattern ??
+    pages.find((p) => helpSlugsFor(p.pattern)[0] === slug)?.path ??
+    pages.find((p) => helpSlugsFor(p.pattern).includes(slug))?.path ??
     null;
 
   const scored = docs.flatMap(sectionsOf).map((s) => {

@@ -17,6 +17,9 @@ import { searchHelp } from "./search";
 export function makeSearchHelpTool(args: {
   role: Role;
   features: readonly ModuleFeature[];
+  // The conversation's company: Company settings and Connections link
+  // as its pages (pages/registry.ts, companyPage).
+  companyId?: string | null;
   onSearch?: (found: boolean) => void;
 }): CoachTool {
   return {
@@ -43,7 +46,7 @@ export function makeSearchHelpTool(args: {
           ? (input as { query: string }).query.trim().slice(0, 200)
           : "";
       if (!query) return { status: "empty" as const, results: [] };
-      const results = await searchHelp(query, args.role, args.features);
+      const results = await searchHelp(query, args.role, args.features, args.companyId);
       args.onSearch?.(results.length > 0);
       return results.length > 0
         ? { status: "found" as const, results }

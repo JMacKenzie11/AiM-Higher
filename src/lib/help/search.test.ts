@@ -69,4 +69,10 @@ describe("purposeOf", () => {
       "Where the quarter's work lives."
     );
   });
+
+  it("links Connections as the conversation company's own page", async () => {
+    const hits = await searchHelp("connect Google meeting transcripts", "system_admin", [...ALL_FEATURES], "co-123");
+    const links = hits.map((h) => h.link).filter(Boolean);
+    expect(links.some((l) => l === "/admin/companies/co-123/connections" || l === "/admin/companies/co-123")).toBe(true);
+  });
 });

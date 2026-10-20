@@ -333,7 +333,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   const plainAimee = convo.mode === "general" && !practice;
   const helpFeatures = plainAimee ? await getCompanyFeatures(convo.company_id) : [];
   const helpIndexBlock = plainAimee
-    ? formatHelpIndex(await helpIndexFor(session.profile.role, helpFeatures), session.profile.role)
+    ? formatHelpIndex(await helpIndexFor(session.profile.role, helpFeatures, convo.company_id), session.profile.role)
     : "";
   // STARTED IN AIMEE'S PANEL (0240): short answers and no memory
   // writes (lib/aimee/panel.ts). Read from the row, so opening the
@@ -414,6 +414,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           makeSearchHelpTool({
             role: session.profile.role,
             features: helpFeatures,
+            companyId: convo.company_id,
             // Counted, never the query (lib/aimee/panel.ts).
             onSearch: (found) =>
               void recordPanelEvent(supabase, {
