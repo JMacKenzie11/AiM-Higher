@@ -12755,6 +12755,110 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Value changes are logged, and the log is read only (0291) ---
+//
+// success_measure_entry_changes records every add, change and removal
+// of a critical success factor value, written by a trigger. As a
+// company admin, with a function and measure seeded in its company and
+// a value on it pulled from HubSpot:
+//   granted   the admin adds a week and types over the pulled value,
+//             and both are logged with the admin as who and, for the
+//             second, the pulled value and its source as what it was;
+//             a member of the same company reads the log
+//   withheld  the admin cannot add, edit or remove a log row by hand
+//             (42501 each), and a member of another company reads none
+//             of it (with the rows that exist counted as the control)
+// Red before 0291: there is no table, so nothing runs.
+async function measureEntryChangesProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "value changes · logged, and read only";
+  const A = ids.companyAdmin, CO = ids.companyAdminCompany;
+  const OTHER = ids.otherCompany !== CO ? ids.otherCompany : ids.memberCompany;
+  const FN = randomUUID(), MEASURE = randomUUID(), PULLED = randomUUID();
+  const MATE = randomUUID(), OUTSIDER = randomUUID();
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${MATE}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${MATE}@example.invalid', '', now(), now(), now()),
+       ('${OUTSIDER}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${OUTSIDER}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${MATE}', '${CO}', 'Harness 0291 mate', 'team_member', 'active'),
+  ('${OUTSIDER}', '${OTHER}', 'Harness 0291 outsider', 'team_member', 'active');
+insert into public.functions (id, company_id, title) values ('${FN}', '${CO}', 'harness 0291');
+insert into public.success_measures (id, function_id, description, value_type, sort_order)
+values ('${MEASURE}', '${FN}', 'harness 0291', 'number', 9990);
+insert into public.success_measure_entries (id, measure_id, week_ending, value_number, entered_by, origin, pulled_at)
+values ('${PULLED}', '${MEASURE}', '2099-12-18', 7, '${A}', 'hubspot', now());
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int; v text;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${A}","role":"authenticated"}', true);
+  begin
+    insert into public.success_measure_entries (measure_id, week_ending, value_number) values ('${MEASURE}', '2099-12-25', 5);
+    get diagnostics n = row_count; insert into _p values ('admin_add', n::text);
+  exception when others then insert into _p values ('admin_add', 'error ' || sqlstate); end;
+  begin
+    update public.success_measure_entries set value_number = 9, origin = null, pulled_at = null where id = '${PULLED}';
+    get diagnostics n = row_count; insert into _p values ('admin_override', n::text);
+  exception when others then insert into _p values ('admin_override', 'error ' || sqlstate); end;
+  begin
+    select count(*) into n from public.success_measure_entry_changes
+     where measure_id = '${MEASURE}' and week_ending = '2099-12-25' and action = 'added' and changed_by = '${A}' and new_number = 5;
+    insert into _p values ('add_logged', n::text);
+    select count(*) into n from public.success_measure_entry_changes
+     where measure_id = '${MEASURE}' and week_ending = '2099-12-18' and action = 'changed' and changed_by = '${A}'
+       and old_number = 7 and old_origin = 'hubspot' and new_number = 9 and new_origin is null;
+    insert into _p values ('override_logged', n::text);
+  exception when others then insert into _p values ('add_logged', 'error ' || sqlstate); end;
+  begin
+    insert into public.success_measure_entry_changes (company_id, measure_id, week_ending, action) values ('${CO}', '${MEASURE}', '2099-12-11', 'added');
+    insert into _p values ('hand_insert', 'allowed');
+  exception when others then insert into _p values ('hand_insert', 'error ' || sqlstate); end;
+  begin
+    update public.success_measure_entry_changes set old_number = 0 where measure_id = '${MEASURE}';
+    insert into _p values ('hand_update', 'allowed');
+  exception when others then insert into _p values ('hand_update', 'error ' || sqlstate); end;
+  begin
+    delete from public.success_measure_entry_changes where measure_id = '${MEASURE}';
+    insert into _p values ('hand_delete', 'allowed');
+  exception when others then insert into _p values ('hand_delete', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', '{"sub":"${MATE}","role":"authenticated"}', true);
+  select count(*) into n from public.success_measure_entry_changes where measure_id = '${MEASURE}';
+  insert into _p values ('mate_reads', n::text);
+  perform set_config('request.jwt.claims', '{"sub":"${OUTSIDER}","role":"authenticated"}', true);
+  select count(*) into n from public.success_measure_entry_changes where measure_id = '${MEASURE}';
+  insert into _p values ('outsider_reads', n::text);
+end $$;
+reset role;
+insert into _p select 'rows_exist', count(*)::text from public.success_measure_entry_changes where measure_id = '${MEASURE}';
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0291 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const exist = Number(r.rows_exist ?? 0);
+  const ok =
+    r.admin_add === "1" && r.admin_override === "1" && r.add_logged === "1" && r.override_logged === "1" &&
+    exist >= 3 && r.mate_reads === String(exist) &&
+    r.hand_insert === "error 42501" && r.hand_update === "error 42501" && r.hand_delete === "error 42501" &&
+    r.outsider_reads === "0";
+  return [{
+    name,
+    granted: `admin adds ${r.admin_add}, types over the pulled value ${r.admin_override}; logged: add ${r.add_logged}, override with HubSpot as what it was ${r.override_logged}; a colleague reads ${r.mate_reads} of ${exist} rows (want 1, 1, 1, 1, all)`,
+    withheld: `by hand: add ${r.hand_insert}, edit ${r.hand_update}, remove ${r.hand_delete} (want error 42501 each); another company reads ${r.outsider_reads} of ${exist} (want 0)`,
+    ok,
+    detail: ok
+      ? "every value change is logged with who and what it was, typing over a pulled value included; the company reads the log and nobody can write it"
+      : r.add_logged !== "1"
+        ? "VALUE CHANGES ARE NOT LOGGED (is 0291 applied?)"
+        : "the log can be written by hand, misses a change, or reaches another company",
+  }];
+}
+
 // ---- A row stays in its company (0266) ---------------------------
 //
 // The owner rules on these tables checked the owner on the way out and
@@ -14434,6 +14538,7 @@ async function main(): Promise<void> {
   const notes = await notesFollowTheRowProbes(run, ids, pendingSql);
   const headlines = await meetingHeadlinesProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
+  const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
   const strengthsAnswers = await strengthsAnswersProbes(run, ids, pendingSql);
@@ -14459,7 +14564,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...attendance, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

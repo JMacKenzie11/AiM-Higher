@@ -62,6 +62,13 @@ export const SIMPLIFY_CHANGES = [
   //     row (Jason, 2026-10-19). Commitments, My week, the weekly
   //     meeting and a priority's page.
   "add-panel",
+  // 12. Older numbers can be corrected: whoever may log a critical
+  //     success factor (its function's Lead, or an admin) may change
+  //     any week the page shows, not only this week and last, and
+  //     every change is recorded with who and when (Jeff and Jason,
+  //     2026-10-19; the log itself, 0291, records with the switch off
+  //     too).
+  "past-numbers",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

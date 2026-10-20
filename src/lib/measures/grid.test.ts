@@ -399,3 +399,41 @@ describe("displayValue formats by value_type", () => {
     expect(cellFor("currency", 1234)).toBe("$1,234");
   });
 });
+
+describe("a cell carries its latest change (0291)", () => {
+  const entries = [{ measure_id: "m1", week_ending: "2026-09-11", value_number: 9, value_text: null }];
+  const changes = [
+    // Newest first, as getGridData reads them.
+    {
+      measure_id: "m1", week_ending: "2026-09-11", action: "changed" as const,
+      old_number: 7, old_text: null, old_origin: "hubspot", new_origin: null,
+      changed_by: "u_woody", changed_at: "2026-09-20T15:00:00Z",
+    },
+    {
+      measure_id: "m1", week_ending: "2026-09-11", action: "changed" as const,
+      old_number: 3, old_text: null, old_origin: null, new_origin: "hubspot",
+      changed_by: null, changed_at: "2026-09-12T06:00:00Z",
+    },
+    {
+      measure_id: "m1", week_ending: "2026-09-18", action: "added" as const,
+      old_number: null, old_text: null, old_origin: null, new_origin: null,
+      changed_by: "u_woody", changed_at: "2026-09-18T10:00:00Z",
+    },
+  ];
+
+  it("shows the newest change: who, when, what it was and where that came from", () => {
+    const cells = buildGridData(spine({ entryRows: entries }), "u_woody", true, changes).groups[0].rows[0].cells;
+    expect(cells.find((c) => c.weekEnding === "2026-09-11")?.lastChange).toEqual({
+      by: "Woody",
+      at: "2026-09-20T15:00:00Z",
+      was: "7",
+      wasPulledFrom: "hubspot",
+      nowPulledFrom: null,
+    });
+  });
+
+  it("says nothing for a value only ever entered once", () => {
+    const cells = buildGridData(spine({ entryRows: entries }), "u_woody", true, changes).groups[0].rows[0].cells;
+    expect(cells.find((c) => c.weekEnding === "2026-09-18")?.lastChange).toBeUndefined();
+  });
+});
