@@ -13,6 +13,8 @@ import {
 } from "@/lib/commitments/service";
 import { CommitmentRow } from "@/app/(app)/commitments/CommitmentRow";
 import { InlineAddRow } from "@/app/(app)/commitments/InlineAddRow";
+import { AddCommitmentButton } from "@/app/(app)/commitments/AddCommitmentButton";
+import { simplifyOn } from "@/lib/ui/simplify";
 import commitmentStyles from "@/app/(app)/commitments/commitments.module.css";
 import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import { PriorityHeroPanel } from "./PriorityHeroPanel";
@@ -67,11 +69,29 @@ export default async function PriorityDetailPage({ params }: PageProps) {
       />
 
       <section className={styles.card} aria-labelledby="history">
-        <h2 id="history" className={styles.h2}>
-          Action Plan
-        </h2>
+        <div className={styles.cardHead}>
+          <h2 id="history" className={styles.h2}>
+            Action Plan
+          </h2>
+          {/* Under the "add-panel" switch, a button top right of the card
+              opens the drawer on a new commitment pinned to this priority,
+              in place of the add row. */}
+          {simplifyOn("add-panel") && canOwnWorkIn(session.profile, detail.priority.company_id) ? (
+            <AddCommitmentButton
+              ctx={{
+                roster: rosterMinimal,
+                priorityOptions: [],
+                functionalAreaOptions: [],
+                thisFriday: panel.thisFriday,
+                currentUserId: session.profile.id,
+                isAdmin,
+                fixedPriorityId: detail.priority.id,
+              }}
+            />
+          ) : null}
+        </div>
 
-        {canOwnWorkIn(session.profile, detail.priority.company_id) ? (
+        {!simplifyOn("add-panel") && canOwnWorkIn(session.profile, detail.priority.company_id) ? (
           <InlineAddRow
             thisFriday={panel.thisFriday}
             priorityOptions={[]}

@@ -31,7 +31,7 @@ Anyone who can see the commitment can read its notes. Whoever can change the com
 ::: role team_member
 ## What you can do here
 
-- **Add a commitment.** Type it into the add row, at the top of the page or at the foot of *This week*, and press *Add*. Your own are also pinned at the top under *Yours this week*.
+- **Add a commitment.** See *Adding a commitment* below. Your own are also pinned at the top under *Yours this week*.
 - **Close one out.** Click the circle on the left of your commitment and choose *Mark kept*. Once it's past its due date, the choice is *Mark kept (late)*.
 - **Move it.** *Reschedule* picks a new date. *Park* sets it aside so it doesn't count either way, and *Bring back* returns it with a new date.
 - **Hand it to someone else.** Click the owner's name on your commitment and pick the new owner.
@@ -54,10 +54,22 @@ Everything a team member can do with their own commitments, for anyone's:
 
 Read every commitment and filter the list.
 
-If you're assigned to this company, you can also add commitments of your own with the add row, and close out, reschedule or park the ones you own. Where a system admin has made you this company's admin, you can close out, reschedule or reassign anyone's.
+If you're assigned to this company, you can also add commitments of your own, and close out, reschedule or park the ones you own. Where a system admin has made you this company's admin, you can close out, reschedule or reassign anyone's.
 
 Without an assignment the page is read only, and changes are made by the company's own people.
 :::
+
+## Adding a commitment
+
+::: feature ui_add_panel
+Press **Add a commitment** at the top right of the first list. A panel opens on the right. Say what you'll do, pick what it's linked to, the owner and the due date, add notes if you like, and press *Add commitment*. The panel stays open and empties, ready for the next one. Close it with the X or Escape.
+:::
+
+::: feature ui_add_panel_off
+Type it into the add row, at the top of the page or at the foot of *This week*, pick what it's linked to, the owner and the date, and press *Add*.
+:::
+
+Only an admin or guide can pick someone else as the owner. Everyone else adds their own.
 
 ## Needs rewording
 
@@ -65,7 +77,7 @@ A commitment from a meeting sometimes mentions something personal about someone,
 
 ## Repeating commitments
 
-Tick **Ongoing (weekly)** when you add a commitment and it comes back every week. Closing it out records that week and moves the date on seven days. Each week counts on its own toward follow-through. To stop it repeating, click the *Ongoing (weekly)* tag on the commitment.
+Tick **Repeats every week** (or **Ongoing (weekly)** on the add row) when you add a commitment and it comes back every week. Closing it out records that week and moves the date on seven days. Each week counts on its own toward follow-through. To stop it repeating, click the *Ongoing (weekly)* tag on the commitment.
 
 ## Common questions
 

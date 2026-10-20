@@ -40,14 +40,15 @@ import {
   WorkDrawerContext,
   type CommitmentContext,
   type IssueContext,
+  type NewCommitmentContext,
   type WorkDrawerApi,
 } from "./context";
 import styles from "./work-drawer.module.css";
 
 // THE WORK DRAWER. See context.ts for how rows feed it.
 //
-// ONE DRAWER, NEVER TWO. It shows one of three things: an issue, a
-// new issue, or a commitment. Opening a commitment from inside an
+// ONE DRAWER, NEVER TWO. It shows one of four things: an issue, a
+// new issue, a commitment, or a new commitment (the add-panel switch). Opening a commitment from inside an
 // issue swaps the content and leaves a back arrow to the issue;
 // previous and next swap it again. Nothing ever opens a second drawer
 // over this one, which is also why a commitment row inside it keeps
@@ -64,6 +65,7 @@ import styles from "./work-drawer.module.css";
 type View =
   | { kind: "issue"; id: string }
   | { kind: "newIssue"; ctx: IssueContext }
+  | { kind: "newCommitment"; ctx: NewCommitmentContext }
   | { kind: "commitment"; id: string; order: string[]; fromIssue: string | null };
 
 type Guard = { dirty: () => boolean; save: () => Promise<boolean> };
@@ -142,6 +144,7 @@ export function WorkDrawerProvider({ children }: { children: ReactNode }) {
 
   const openIssue = useCallback((id: string) => go({ kind: "issue", id }), [go]);
   const openNewIssue = useCallback((ctx: IssueContext) => go({ kind: "newIssue", ctx }), [go]);
+  const openNewCommitment = useCallback((ctx: NewCommitmentContext) => go({ kind: "newCommitment", ctx }), [go]);
 
   // ---- Undo chips ----
   //
@@ -214,11 +217,12 @@ export function WorkDrawerProvider({ children }: { children: ReactNode }) {
       openCommitment,
       openIssue,
       openNewIssue,
+      openNewCommitment,
       isIssueHidden: (id) => hiddenIssues.has(id),
       deleteIssueWithUndo,
       showUndo,
     }),
-    [registerCommitment, registerIssue, openCommitment, openIssue, openNewIssue, hiddenIssues, deleteIssueWithUndo, showUndo]
+    [registerCommitment, registerIssue, openCommitment, openIssue, openNewIssue, openNewCommitment, hiddenIssues, deleteIssueWithUndo, showUndo]
   );
 
   // ---- What the drawer shows ----
@@ -243,6 +247,16 @@ export function WorkDrawerProvider({ children }: { children: ReactNode }) {
           setView({ kind: "issue", id: issue.id });
           router.refresh();
         }}
+      />
+    );
+  } else if (view?.kind === "newCommitment") {
+    title = "New commitment";
+    body = (
+      <NewCommitmentPanel
+        key={JSON.stringify(view.ctx.fixedPriorityId ?? "")}
+        ctx={view.ctx}
+        guard={guard}
+        onAdded={() => router.refresh()}
       />
     );
   } else if (view?.kind === "commitment") {
@@ -807,6 +821,214 @@ function AddCommitment({ issueId, ctx }: { issueId: string; ctx: IssueContext })
         </p>
       ) : null}
     </div>
+  );
+}
+
+// ---- A new commitment (the add-panel switch) -------------------------
+//
+// "Add a commitment" opens this, as "Add an issue" opens a new issue
+// (Jason, 2026-10-19). The same fields the always-open add row had,
+// and the same action (createCommitmentAction): what, linked to, an
+// owner (an admin picks anyone, everyone else adds their own), a due
+// date or every week, and notes. After it is added the form empties
+// and stays open, so a meeting can add the next one straight away;
+// the new row shows in the list behind it.
+function NewCommitmentPanel({
+  ctx,
+  guard,
+  onAdded,
+}: {
+  ctx: NewCommitmentContext;
+  guard: React.MutableRefObject<Guard | null>;
+  onAdded: () => void;
+}) {
+  const pinned = ctx.fixedPriorityId ?? null;
+  const blankLink = pinned ? `priority:${pinned}` : "none";
+  const [description, setDescription] = useState("");
+  const [link, setLink] = useState(blankLink);
+  const [ownerId, setOwnerId] = useState(ctx.currentUserId);
+  const [due, setDue] = useState(ctx.thisFriday);
+  const [ongoing, setOngoing] = useState(false);
+  const [notes, setNotes] = useState<NotesDoc | null>(null);
+  const [notesKey, setNotesKey] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [added, setAdded] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const dirty = Boolean(description.trim() || cleanNotes(notes));
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  async function save(): Promise<boolean> {
+    if (!description.trim()) {
+      setError("Say what the commitment is.");
+      return false;
+    }
+    const target = linkTarget(link);
+    const fd = new FormData();
+    fd.set("description", description);
+    fd.set("week_ending", ctx.thisFriday);
+    fd.set("due_date", due);
+    fd.set("owner_id", ownerId);
+    fd.set("is_ongoing", ongoing ? "true" : "false");
+    fd.set("priority_id", target.type === "priority" ? target.id : "");
+    fd.set("functional_area_id", target.type === "functional_area" ? target.id : "");
+    setPending(true);
+    setError(null);
+    setAdded(null);
+    const result = await createCommitmentAction({ ok: false, message: "" }, fd);
+    if (!result.ok) {
+      setPending(false);
+      setError(result.message);
+      return false;
+    }
+    if (notes) {
+      const saved = await saveCommitmentNotesAction(result.commitment.id, notes);
+      if (!saved.ok) {
+        setPending(false);
+        setError(`The commitment was added, but its notes did not save: ${saved.message}`);
+        return false;
+      }
+    }
+    setPending(false);
+    setAdded(description.trim());
+    setDescription("");
+    setLink(blankLink);
+    setOwnerId(ctx.currentUserId);
+    setDue(ctx.thisFriday);
+    setOngoing(false);
+    setNotes(null);
+    setNotesKey((k) => k + 1);
+    onAdded();
+    inputRef.current?.focus();
+    return true;
+  }
+
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => {
+    guard.current = { dirty: () => dirtyRef.current, save: () => saveRef.current() };
+  }, [guard]);
+
+  return (
+    <>
+      <Field label="What" htmlFor="work-new-commitment-what">
+        <textarea
+          id="work-new-commitment-what"
+          ref={inputRef}
+          className={styles.textarea}
+          value={description}
+          onChange={(e) => {
+            setAdded(null);
+            setDescription(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              void save();
+            }
+          }}
+          rows={2}
+          placeholder="A specific step you can check off."
+          aria-label="New commitment"
+          disabled={pending}
+        />
+      </Field>
+      {pinned ? null : (
+        <Field label="Linked to" htmlFor="work-new-commitment-link">
+          <select
+            id="work-new-commitment-link"
+            className={styles.select}
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            disabled={pending}
+          >
+            <option value="none">Nothing (operational)</option>
+            {ctx.priorityOptions.length > 0 ? (
+              <optgroup label="Priorities">
+                {ctx.priorityOptions.map((p) => (
+                  <option key={p.id} value={`priority:${p.id}`}>
+                    {p.title}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {ctx.functionalAreaOptions.length > 0 ? (
+              <optgroup label="Functional areas">
+                {ctx.functionalAreaOptions.map((f) => (
+                  <option key={f.id} value={`functional_area:${f.id}`}>
+                    {f.title}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+          </select>
+        </Field>
+      )}
+      <Field label="Owner" htmlFor={ctx.isAdmin ? "work-new-commitment-owner" : undefined}>
+        {ctx.isAdmin ? (
+          <select
+            id="work-new-commitment-owner"
+            className={styles.select}
+            value={ownerId}
+            onChange={(e) => setOwnerId(e.target.value)}
+            disabled={pending}
+          >
+            {ctx.roster.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.full_name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className={styles.readText}>
+            {ctx.roster.find((p) => p.id === ctx.currentUserId)?.full_name ?? "You"}
+          </span>
+        )}
+      </Field>
+      <Field label="Due date" htmlFor="work-new-commitment-due">
+        <input
+          id="work-new-commitment-due"
+          type="date"
+          className={styles.date}
+          value={due}
+          onChange={(e) => setDue(e.target.value)}
+          disabled={pending || ongoing}
+        />
+      </Field>
+      <label className={styles.checkLine}>
+        <input type="checkbox" checked={ongoing} onChange={(e) => setOngoing(e.target.checked)} disabled={pending} />
+        Repeats every week
+      </label>
+      <Field label="Notes">
+        <NotesEditor key={notesKey} initial={null} onChange={setNotes} label="New commitment notes" />
+      </Field>
+      <div className={styles.saveBar}>
+        <button
+          type="button"
+          className={styles.save}
+          data-testid="commitment-add-submit"
+          onClick={() => void save()}
+          disabled={pending || !description.trim()}
+        >
+          {pending ? "Adding…" : "Add commitment"}
+        </button>
+        {added && !dirty ? (
+          <span className={styles.saved} role="status">
+            <span aria-hidden>✓</span> Added. Add another, or close.
+          </span>
+        ) : null}
+        {error ? (
+          <p role="alert" className={styles.error}>
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </>
   );
 }
 

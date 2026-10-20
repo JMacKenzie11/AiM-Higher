@@ -9,6 +9,9 @@ import { formatShortDate } from "@/lib/dates";
 import { PageShell } from "@/components/ui/PageShell";
 import { CommitmentRow } from "../commitments/CommitmentRow";
 import { InlineAddRow } from "../commitments/InlineAddRow";
+import { AddCommitmentButton } from "../commitments/AddCommitmentButton";
+import issueStyles from "../issues/issues.module.css";
+import { simplifyOn } from "@/lib/ui/simplify";
 import commitmentStyles from "../commitments/commitments.module.css";
 import styles from "./dashboard.module.css";
 
@@ -55,6 +58,9 @@ export async function MyWeek({
   const numbers = numbersToLog(grid);
 
   const roster = data.roster.map((p) => ({ id: p.id, full_name: p.full_name }));
+  // Under the "add-panel" switch the add row goes and "Add a
+  // commitment" sits top right of the list's card, opening the drawer.
+  const addPanel = simplifyOn("add-panel");
   const name = profile.first_name?.trim();
 
   return (
@@ -67,16 +73,18 @@ export async function MyWeek({
           : `${mine.length} open${late.length > 0 ? `, ${late.length} past due` : ""}. Due by ${formatShortDate(data.thisFriday)}.`
       }
     >
-      <section className={`${commitmentStyles.group} ${commitmentStyles.addFirst}`} aria-label="Add a commitment">
-        <InlineAddRow
-          thisFriday={data.thisFriday}
-          priorityOptions={data.priorityOptions}
-          functionalAreaOptions={data.functionalAreaOptions}
-          roster={roster}
-          currentUserId={profile.id}
-          isAdmin={false}
-        />
-      </section>
+      {addPanel ? null : (
+        <section className={`${commitmentStyles.group} ${commitmentStyles.addFirst}`} aria-label="Add a commitment">
+          <InlineAddRow
+            thisFriday={data.thisFriday}
+            priorityOptions={data.priorityOptions}
+            functionalAreaOptions={data.functionalAreaOptions}
+            roster={roster}
+            currentUserId={profile.id}
+            isAdmin={false}
+          />
+        </section>
+      )}
 
       <section className={commitmentStyles.group} aria-labelledby="my-week-list">
         <div className={commitmentStyles.groupHeader}>
@@ -86,6 +94,20 @@ export async function MyWeek({
           <span className={commitmentStyles.groupMeta}>
             {mine.length} open
           </span>
+          {addPanel ? (
+            <span className={issueStyles.headerAdd}>
+              <AddCommitmentButton
+                ctx={{
+                  roster,
+                  priorityOptions: data.priorityOptions,
+                  functionalAreaOptions: data.functionalAreaOptions,
+                  thisFriday: data.thisFriday,
+                  currentUserId: profile.id,
+                  isAdmin: false,
+                }}
+              />
+            </span>
+          ) : null}
         </div>
         {ordered.length > 0 ? (
           <ul className={`${commitmentStyles.rowList} ${styles.myWeekList}`}>
@@ -107,7 +129,7 @@ export async function MyWeek({
           </ul>
         ) : (
           <p className={styles.myWeekEmpty}>
-            Nothing open. Add what you&rsquo;ll do next in the box above.
+            {addPanel ? "Nothing open." : <>Nothing open. Add what you&rsquo;ll do next in the box above.</>}
           </p>
         )}
         {later > 0 ? (

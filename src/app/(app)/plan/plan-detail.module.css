@@ -421,3 +421,13 @@ details[open] > .editSummary::after {
 .orphanReasonChip {
   composes: orphanReasonChip from "./plan.module.css";
 }
+
+/* A card's title with its main action top right (the add-panel
+   switch puts "Add a commitment" here on the Action Plan). */
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}

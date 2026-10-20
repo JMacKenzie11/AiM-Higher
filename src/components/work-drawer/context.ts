@@ -44,6 +44,19 @@ export type IssueContext = {
   canAdd: boolean;
 };
 
+// What "Add a commitment" knows when it opens the drawer on a new
+// commitment (the add-panel switch): the same choices the add row
+// offered. `fixedPriorityId` pins the link on a priority's own page.
+export type NewCommitmentContext = {
+  roster: Roster;
+  priorityOptions: Array<Pick<Priority, "id" | "title">>;
+  functionalAreaOptions: Array<{ id: string; title: string }>;
+  thisFriday: string;
+  currentUserId: string;
+  isAdmin: boolean;
+  fixedPriorityId?: string | null;
+};
+
 export type WorkDrawerApi = {
   registerCommitment: (c: CommitmentWithMeta, ctx: CommitmentContext) => void;
   registerIssue: (issue: IssueWithCommitments, ctx: IssueContext) => void;
@@ -53,6 +66,7 @@ export type WorkDrawerApi = {
   openCommitment: (id: string, from: HTMLElement | null) => void;
   openIssue: (id: string) => void;
   openNewIssue: (ctx: IssueContext) => void;
+  openNewCommitment: (ctx: NewCommitmentContext) => void;
   // Issues deleted with the undo chip still showing: hidden at once,
   // deleted when the chip goes.
   isIssueHidden: (id: string) => boolean;
