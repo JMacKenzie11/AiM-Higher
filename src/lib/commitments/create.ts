@@ -7,6 +7,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import type { requireProfile, SessionProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getAssignablePeople } from "@/lib/people/assignable";
 import { scoreCommitmentClarity } from "./clarity";
 import type { Commitment, Priority } from "@/lib/types";
 import { addDays, fridayOf, todayInTimezone } from "@/lib/dates";
@@ -44,7 +45,8 @@ export type NewCommitment = {
   priorityId?: string | null;
   issueId?: string | null;
   functionalAreaId?: string | null;
-  // Honoured for an admin of the company only; anyone else owns it.
+  // Someone else on the company's roster, for an admin of it or anyone
+  // in it (0293); unset, or anyone else, owns it themselves.
   ownerId?: string | null;
   isOngoing?: boolean;
   // The company the commitment belongs to when nothing linked says so.
@@ -225,11 +227,27 @@ export async function insertCommitment(
   }
   const weekEnding = fridayOf(dueDate);
 
+  // Who owns it. An admin for the company, or anyone in it, may name
+  // someone else on its roster (Jason, 2026-10-20; RLS 0293, which
+  // says the same). Anyone else, a portfolio admin not switched on as
+  // the company's admin among them, owns what they add.
   const isAdmin = isAdminForCompany(profile, companyId);
-  const ownerId = isAdmin && input.ownerId ? input.ownerId : profile.id;
+  const mayAssign = isAdmin || profile.company_id === companyId;
+  let ownerId = profile.id;
+  if (mayAssign && input.ownerId && input.ownerId !== profile.id) {
+    const roster = await getAssignablePeople(supabase, companyId);
+    if (!roster.some((p) => p.id === input.ownerId)) {
+      return { ok: false, message: "That person isn't on this company's team." };
+    }
+    ownerId = input.ownerId;
+  }
+  // Once saved, a commitment for someone else is theirs, and only they
+  // or an admin may change it: so its clarity is scored with the insert,
+  // as for an outside assistant, not written by an update after it.
+  const scoreFirst = input.clarityBeforeInsert || (ownerId !== profile.id && !isAdmin);
 
   let preScore: Awaited<ReturnType<typeof scoreCommitmentClarity>> = null;
-  if (input.clarityBeforeInsert) {
+  if (scoreFirst) {
     try {
       preScore = await scoreCommitmentClarity(description, dueDate);
     } catch (err) {
@@ -263,7 +281,7 @@ export async function insertCommitment(
   }
 
   let finalRow: Commitment = data;
-  if (input.clarityBeforeInsert) return { ok: true, commitment: finalRow };
+  if (scoreFirst) return { ok: true, commitment: finalRow };
   try {
     const score = await scoreCommitmentClarity(description, dueDate);
     if (score) {

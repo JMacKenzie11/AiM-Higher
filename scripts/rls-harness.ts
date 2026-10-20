@@ -12741,6 +12741,80 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- A commitment for a colleague (0293) -------------------------
+//
+// commitments_insert_for_colleague: anyone in a company may add a
+// commitment owned by someone on that company's roster. As a member:
+//   granted   a commitment owned by an active colleague in its company
+//   withheld  one owned by someone in another company, or by an
+//             inactive colleague, both in its own company; and one in
+//             another company, owned by that company's person
+// Red before 0293: the colleague's insert is refused.
+async function commitmentsForColleagueProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "commitments · for a colleague";
+  const M = ids.member, CO = ids.memberCompany, OTHER = ids.otherCompany;
+  const COLLEAGUE = randomUUID(), GONE = randomUUID(), OUTSIDER = randomUUID();
+  const user = (id: string) =>
+    `('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now())`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ${user(COLLEAGUE)}, ${user(GONE)}, ${user(OUTSIDER)};
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${COLLEAGUE}', '${CO}', 'Harness 0293 colleague', 'team_member', 'active'),
+  ('${GONE}', '${CO}', 'Harness 0293 gone', 'team_member', 'inactive'),
+  ('${OUTSIDER}', '${OTHER}', 'Harness 0293 outsider', 'team_member', 'active');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  begin
+    insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status)
+    values ('${CO}', '${COLLEAGUE}', 'harness 0293 for a colleague', current_date, current_date, 'open');
+    get diagnostics n = row_count; insert into _p values ('colleague', n::text);
+  exception when others then insert into _p values ('colleague', 'error ' || sqlstate); end;
+  begin
+    insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status)
+    values ('${CO}', '${OUTSIDER}', 'harness 0293 for an outsider', current_date, current_date, 'open');
+    get diagnostics n = row_count; insert into _p values ('outsider', n::text);
+  exception when others then insert into _p values ('outsider', 'error ' || sqlstate); end;
+  begin
+    insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status)
+    values ('${CO}', '${GONE}', 'harness 0293 for someone gone', current_date, current_date, 'open');
+    get diagnostics n = row_count; insert into _p values ('inactive', n::text);
+  exception when others then insert into _p values ('inactive', 'error ' || sqlstate); end;
+  begin
+    insert into public.commitments (company_id, owner_id, description, week_ending, due_date, status)
+    values ('${OTHER}', '${OUTSIDER}', 'harness 0293 into another company', current_date, current_date, 'open');
+    get diagnostics n = row_count; insert into _p values ('other_company', n::text);
+  exception when others then insert into _p values ('other_company', 'error ' || sqlstate); end;
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const ok =
+    r.colleague === "1" && r.outsider === "error 42501" && r.inactive === "error 42501" && r.other_company === "error 42501";
+  return [{
+    name,
+    granted: `member's commitment for a colleague ${r.colleague} (want 1)`,
+    withheld: `for another company's person ${r.outsider}, for an inactive colleague ${r.inactive}, into another company ${r.other_company} (want error 42501 each)`,
+    ok,
+    detail: ok
+      ? "a member adds a commitment for anyone on its company's roster, and for nobody outside it"
+      : r.colleague !== "1"
+        ? "A MEMBER CANNOT ADD A COMMITMENT FOR A COLLEAGUE (is 0293 applied?)"
+        : "a member can give a commitment to someone off its company's roster, or into another company",
+  }];
+}
+
 // ---- Attendance is one company's own (0290) ----------------------
 //
 // meeting_attendance marks a person present at a company's weekly
@@ -14605,6 +14679,7 @@ async function main(): Promise<void> {
   const notes = await notesFollowTheRowProbes(run, ids, pendingSql);
   const headlines = await meetingHeadlinesProbes(run, ids, pendingSql);
   const headlinesSource = await meetingHeadlinesSourceProbes(run, ids, pendingSql);
+  const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -14632,7 +14707,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...forColleague, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

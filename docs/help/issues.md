@@ -59,7 +59,7 @@ Where a system admin has made you this company's admin, you can add, rename, reo
 1. Open the issue.
 2. Type the next step into *New commitment*, under its commitments.
 3. Add notes under it if you like.
-4. Change the due date if you need to. The owner is you unless an admin picks someone else.
+4. Change the due date if you need to. The owner starts as you; pick someone else on the team to add it for them.
 5. Press *Add*, or press Cmd/Ctrl+Enter.
 
 To change it afterwards, click its text to open it, make the change and press *Save*.

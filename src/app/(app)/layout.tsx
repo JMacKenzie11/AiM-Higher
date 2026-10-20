@@ -185,7 +185,7 @@ export default async function AppLayout({
             {/* One drawer for an issue or a commitment, on every page
                 that lists them. Mounted here so it outlives a page
                 change (an issue's delete waits out its undo chip). */}
-            <WorkDrawerProvider>
+            <WorkDrawerProvider assignsOthers={session.profile.company_id !== null}>
               <NavInfoProvider role={session.profile.role} features={features}>
                 <main id="content" tabIndex={-1} className={styles.main}>{children}</main>
               </NavInfoProvider>

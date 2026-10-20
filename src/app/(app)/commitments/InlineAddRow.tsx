@@ -7,6 +7,7 @@ import {
 } from "@/lib/commitments/actions";
 import type { Priority, Profile } from "@/lib/types";
 import { LinkPicker } from "./LinkPicker";
+import { useCanPickOwner } from "@/components/work-drawer/WorkDrawerProvider";
 import styles from "./commitments.module.css";
 
 // Always-live entry row. Sits at the bottom of "This week"; the row
@@ -41,6 +42,8 @@ export function InlineAddRow({
   isAdmin,
   fixedPriorityId,
 }: InlineAddRowProps) {
+  // Anyone in the company picks the owner, not only an admin (0293).
+  const pickOwner = useCanPickOwner(isAdmin);
   const pinnedPriority = fixedPriorityId ?? null;
   const [priorityId, setPriorityId] = useState<string | null>(pinnedPriority);
   const [functionalAreaId, setFunctionalAreaId] = useState<string | null>(null);
@@ -135,7 +138,7 @@ export function InlineAddRow({
           />
         )}
 
-        {isAdmin ? (
+        {pickOwner ? (
           <select
             className={styles.addField}
             value={ownerId}
