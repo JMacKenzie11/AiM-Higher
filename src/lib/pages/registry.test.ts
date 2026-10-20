@@ -59,8 +59,13 @@ describe("the page list", () => {
     expect(mismatches).toEqual([]);
   });
 
-  it("only offers links to pages without a record id in them", () => {
-    expect(PAGES.filter((p) => p.link && p.pattern.includes("[")).map((p) => p.pattern)).toEqual([]);
+  // A company page's one [id] is the company in scope, which Aimee
+  // always has; any other id she does not.
+  it("only offers links to pages without a record id in them, but for a company's own", () => {
+    expect(PAGES.filter((p) => p.link && p.pattern.includes("[") && !p.companyPage).map((p) => p.pattern)).toEqual([]);
+    expect(
+      PAGES.filter((p) => p.companyPage && (p.pattern.match(/\[[^\]]+\]/g) ?? []).join() !== "[id]").map((p) => p.pattern)
+    ).toEqual([]);
   });
 
   it("has a help file, its own or a parent's, for every page Aimee may link to", () => {
@@ -79,6 +84,20 @@ describe("linkablePagesFor", () => {
     const pages = linkablePagesFor("team_member", ["execution", "classroom", "strengths"]).map((p) => p.pattern);
     expect(pages.filter((p) => p.startsWith("/admin") || p === "/hq" || p === "/portfolio")).toEqual([]);
     expect(pages).toContain("/plan");
+  });
+
+  // Company settings and Connections (Jason, 2026-10-20): Aimee had
+  // them as record pages and told a system admin to ask a company admin.
+  it("offers Company settings and Connections as the company in scope's pages", () => {
+    const pages = linkablePagesFor("system_admin", ["execution"], "co-123").map((p) => p.path);
+    expect(pages).toContain("/admin/companies/co-123");
+    expect(pages).toContain("/admin/companies/co-123/connections");
+    expect(pages.some((p) => p.includes("[id]"))).toBe(false);
+  });
+
+  it("leaves company pages out with no company in scope, and from a team member", () => {
+    expect(linkablePagesFor("system_admin", ["execution"]).some((p) => p.companyPage)).toBe(false);
+    expect(linkablePagesFor("team_member", ["execution"], "co-123").some((p) => p.companyPage)).toBe(false);
   });
 
   it("does not offer pages behind a feature the company has not got", () => {

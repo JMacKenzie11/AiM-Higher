@@ -33,12 +33,17 @@ import type { ModuleFeature } from "@/lib/subscriptions/service";
 //   link      whether Aimee may link to it. False for record pages
 //             (they need an id she does not have), for pages that only
 //             redirect, and for action pages like /ask-aimee/new.
+//   companyPage  the page's one [id] is a company's, so in a company
+//             Aimee can link to it with the company in scope filled in
+//             (Company settings, Connections). Offered only when there
+//             is one.
 
 export type PageEntry = {
   pattern: string;
   roles: "all" | readonly Role[];
   feature: ModuleFeature | null;
   link: boolean;
+  companyPage?: boolean;
   // Only for a linkable page with no help file of its own, whose help
   // comes from a parent's (the loader falls back the same way). Without
   // it two pages would share the parent's title in Aimee's index.
@@ -106,10 +111,13 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/hq", roles: ["aims_guide", "system_admin"], feature: null, link: true },
   { pattern: "/portfolio", roles: ["portfolio_admin", "system_admin"], feature: null, link: true },
   { pattern: "/admin/companies", roles: ADMINS_AND_PORTFOLIO, feature: null, link: true },
-  { pattern: "/admin/companies/[id]", roles: ADMINS_AND_PORTFOLIO, feature: null, link: false },
+  // Company settings and Connections, for the company in scope. Aimee
+  // had them as record pages, could not link them, and told a system
+  // admin to ask a company admin (Jason, 2026-10-20).
+  { pattern: "/admin/companies/[id]", roles: ADMINS_AND_PORTFOLIO, feature: null, link: true, companyPage: true },
   // The outside systems a company connects (external connections plan,
   // phase 3). The page refuses anyone isAdminForCompany does not admit.
-  { pattern: "/admin/companies/[id]/connections", roles: ADMINS_AND_PORTFOLIO, feature: null, link: false },
+  { pattern: "/admin/companies/[id]/connections", roles: ADMINS_AND_PORTFOLIO, feature: null, link: true, companyPage: true },
   { pattern: "/admin/transcripts", roles: ["system_admin", "aims_guide"], feature: null, link: false },
   { pattern: "/admin/transcripts/meetings/[id]", roles: ["system_admin", "aims_guide"], feature: null, link: false },
 
@@ -130,12 +138,25 @@ export function canRoleOpen(entry: PageEntry, role: Role): boolean {
   return entry.roles === "all" || entry.roles.includes(role);
 }
 
+// A linkable page, with the path to link to: its pattern, or for a
+// company page the pattern with the company in scope filled in.
+export type LinkablePage = PageEntry & { path: string };
+
 // The pages a person may be sent to: open to their role, and part of a
-// feature their company has (or of none).
-export function linkablePagesFor(role: Role, features: readonly ModuleFeature[]): PageEntry[] {
+// feature their company has (or of none). A company page only when a
+// company is in scope, linked as that company's.
+export function linkablePagesFor(
+  role: Role,
+  features: readonly ModuleFeature[],
+  companyId?: string | null
+): LinkablePage[] {
   return PAGES.filter(
-    (p) => p.link && canRoleOpen(p, role) && (p.feature === null || features.includes(p.feature))
-  );
+    (p) =>
+      p.link &&
+      (!p.companyPage || Boolean(companyId)) &&
+      canRoleOpen(p, role) &&
+      (p.feature === null || features.includes(p.feature))
+  ).map((p) => ({ ...p, path: p.companyPage && companyId ? p.pattern.replace("[id]", companyId) : p.pattern }));
 }
 
 // The help files a page's title and purpose may come from, most specific
