@@ -1,4 +1,5 @@
 import type { Role } from "@/lib/types";
+import { simplifyOn, type SimplifyChange } from "@/lib/ui/simplify";
 
 // THE SIDEBAR'S SECTIONS (simplification review, change 4, the
 // "nav-sections" switch).
@@ -34,6 +35,8 @@ export type SectionTab = {
   roles?: readonly Role[];
   // Absent: no module needed beyond the section's own.
   feature?: SectionFeature;
+  // A page that exists only while its own simplification switch is on.
+  requires?: SimplifyChange;
 };
 
 export type Section = {
@@ -66,7 +69,10 @@ export const SECTIONS: readonly Section[] = [
     label: "Meeting",
     icon: "meeting",
     feature: "execution",
-    tabs: [{ label: "Meeting Summaries", href: "/leadership", icon: "meeting" }],
+    tabs: [
+      { label: "Run the meeting", href: "/meeting", icon: "meeting", requires: "meeting-mode" },
+      { label: "Meeting Summaries", href: "/leadership", icon: "meeting" },
+    ],
   },
   {
     key: "work",
@@ -113,7 +119,12 @@ export const SECTIONS: readonly Section[] = [
   },
 ];
 
-function allowed(item: { roles?: readonly Role[]; feature?: SectionFeature | null }, role: Role, features: readonly string[]) {
+function allowed(
+  item: { roles?: readonly Role[]; feature?: SectionFeature | null; requires?: SimplifyChange },
+  role: Role,
+  features: readonly string[]
+) {
+  if (item.requires && !simplifyOn(item.requires)) return false;
   if (item.roles && !item.roles.includes(role)) return false;
   if (item.feature && !features.includes(item.feature)) return false;
   return true;

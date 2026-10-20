@@ -44,6 +44,9 @@ export const SIMPLIFY_CHANGES = [
   //    tabs; Ask Aimee, Classroom and the Strengths assessment move to
   //    the account menu.
   "nav-sections",
+  // 5. Meeting mode: the weekly meeting in one view at /meeting,
+  //    walking the five agenda sections, then a close.
+  "meeting-mode",
 ] as const;
 
 export type SimplifyChange = (typeof SIMPLIFY_CHANGES)[number];

@@ -1,0 +1,158 @@
+/* Meeting mode (simplification review, change 5). Built for a shared
+   screen: larger type than the rest of the app, one column, and the
+   only controls are the agenda and Back / Next. */
+
+.heroBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.step {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  color: color-mix(in srgb, var(--aims-white) 72%, transparent);
+  background: color-mix(in srgb, var(--aims-white) 8%, transparent);
+  font: var(--text-body);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.step[data-done="true"] {
+  color: var(--aims-white);
+}
+
+.step[aria-current="step"] {
+  background: var(--aims-white);
+  color: var(--aims-navy);
+}
+
+.step:focus-visible {
+  outline: 2px solid var(--aims-chartreuse);
+  outline-offset: 2px;
+}
+
+.timer {
+  color: color-mix(in srgb, var(--aims-white) 80%, transparent);
+  font: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  font-size: 17px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cardTitle {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+.question {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: clamp(22px, 2.4vw, 30px);
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--text-heading);
+  text-wrap: balance;
+}
+
+.plainList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.plainList > li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.plainList > li:last-child {
+  border-bottom: 0;
+}
+
+.tally {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.muted {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.mutedPad {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--text-muted);
+}
+
+.good {
+  margin: 0;
+  color: var(--aims-success);
+  font-weight: 600;
+}
+
+.bad {
+  color: var(--aims-danger);
+  font-weight: 600;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.back {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+}
+
+.next {
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
+}
+
+/* Each person's commitments sit under their name, so the owner cell
+   (the row's fifth child) says nothing; hidden so columns stay put. */
+.ownedList > li > :nth-child(5) {
+  visibility: hidden;
+}
