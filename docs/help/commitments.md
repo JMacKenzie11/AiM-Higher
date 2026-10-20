@@ -31,7 +31,7 @@ Anyone who can see the commitment can read its notes. Whoever can change the com
 ::: role team_member
 ## What you can do here
 
-- **Add a commitment.** Use the add row at the bottom of *This week*. Your own are also pinned at the top under *Yours this week*.
+- **Add a commitment.** Type it into the add row, at the top of the page or at the foot of *This week*, and press *Add*. Your own are also pinned at the top under *Yours this week*.
 - **Close one out.** Click the circle on the left of your commitment and choose *Mark kept*. Once it's past its due date, the choice is *Mark kept (late)*.
 - **Move it.** *Reschedule* picks a new date. *Park* sets it aside so it doesn't count either way, and *Bring back* returns it with a new date.
 - **Hand it to someone else.** Click the owner's name on your commitment and pick the new owner.
@@ -54,7 +54,7 @@ Everything a team member can do with their own commitments, for anyone's:
 
 Read every commitment and filter the list.
 
-If you're assigned to this company, you can also add commitments of your own with the add row at the bottom of *This week*, and close out, reschedule or park the ones you own. Where a system admin has made you this company's admin, you can close out, reschedule or reassign anyone's.
+If you're assigned to this company, you can also add commitments of your own with the add row, and close out, reschedule or park the ones you own. Where a system admin has made you this company's admin, you can close out, reschedule or reassign anyone's.
 
 Without an assignment the page is read only, and changes are made by the company's own people.
 :::

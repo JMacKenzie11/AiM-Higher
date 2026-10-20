@@ -557,3 +557,11 @@
   composes: btnDanger from "../../../components/ui/ui.module.css";
 }
 
+
+/* The roster card's header row, holding Add a person on the right
+   (simplification review, change 6). */
+.rosterHead {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-3);
+}
