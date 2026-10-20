@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { figtree, inter } from "@/lib/fonts";
 import "./globals.css";
+import { simplifyAttr } from "@/lib/ui/simplify";
 
 export const metadata: Metadata = {
   title: {
@@ -28,6 +29,9 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} ${figtree.variable}`}
+      // The simplification switches (lib/ui/simplify.ts), for the CSS
+      // that reads them. Absent when every change is off.
+      data-simplify={simplifyAttr()}
     >
       <body>{children}</body>
     </html>

@@ -163,7 +163,7 @@ export default async function LeadershipPage() {
                         {m.status === "complete" ? (
                           <Link
                             href={`/leadership/meetings/${m.id}`}
-                            className={styles.ghostButton}
+                            className={`${styles.ghostButton}`}
                           >
                             View
                           </Link>

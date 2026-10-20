@@ -59,7 +59,7 @@ export function SectionEditToggle({
             <div className={styles.cardFooter}>
               <button
                 type="button"
-                className={styles.editButton}
+                className={`${styles.editButton}`}
                 onClick={() => setEditing(true)}
               >
                 Edit

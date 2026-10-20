@@ -27,7 +27,7 @@ export function ArchiveConversationButton({
     <>
       <button
         type="button"
-        className={styles.ghostButton}
+        className={`${styles.ghostButton}`}
         onClick={() => setConfirmOpen(true)}
         disabled={pending}
       >

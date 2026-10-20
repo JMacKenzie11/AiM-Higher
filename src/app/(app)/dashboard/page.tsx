@@ -413,7 +413,7 @@ export default async function DashboardPage() {
                         {canCoachPerson(person.id) ? (
                           <Link
                             href={`/coach/${person.id}`}
-                            className={styles.coachButton}
+                            className={`${styles.coachButton}`}
                           >
                             Coach
                           </Link>

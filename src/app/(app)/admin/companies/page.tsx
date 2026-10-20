@@ -188,7 +188,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
                         <ScopeIntoCompanyButton
                           companyId={company.id}
                           destination={`/admin/companies/${company.id}`}
-                          className={styles.ghostButton}
+                          className={`${styles.ghostButton}`}
                         >
                           Settings
                         </ScopeIntoCompanyButton>
