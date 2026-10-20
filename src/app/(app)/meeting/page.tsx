@@ -273,7 +273,7 @@ async function CheckIn({
           canMark={canMark}
         />
       </div>
-      <h3 className={styles.subhead}>Open with this</h3>
+      <h3 className={styles.subhead}>Suggested positive check-in question</h3>
       <div className={styles.cardBody}>
         <p className={styles.question}>{checkInQuestion(todayIso)}</p>
       </div>
