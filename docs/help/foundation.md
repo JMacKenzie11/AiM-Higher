@@ -34,7 +34,7 @@ Read the whole plan. Changes are made by the company's own people.
 
 ## Focus Areas
 
-Focus Areas show here as a preview. They're managed on Goals & Priorities, alongside the goals and priorities that sit under them. Anything added or changed there shows up here.
+Focus Areas show here as a preview. They're managed on Goals & Priorities, alongside the goals and priorities that sit under them. Anything added or changed there shows up here, in the same order.
 
 ## Common questions
 
