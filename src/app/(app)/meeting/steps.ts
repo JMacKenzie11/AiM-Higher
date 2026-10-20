@@ -9,7 +9,7 @@
 export const MEETING_STEPS = [
   { key: "checkin", label: "Check-in", lead: "Start with what went well." },
   { key: "headlines", label: "Headlines", lead: "What happened in your area last week, and what's coming." },
-  { key: "numbers", label: "Numbers", lead: "The numbers worth talking about this week." },
+  { key: "numbers", label: "Numbers", lead: "Last week's numbers, by functional area." },
   { key: "strategy", label: "Strategy", lead: "The quarter's priorities that still need moving." },
   { key: "commitments", label: "Commitments", lead: "Each person's week: kept, moved, or new." },
   { key: "solve", label: "Solve", lead: "What do you need support on? What haven't you been able to solve on your own yet?" },

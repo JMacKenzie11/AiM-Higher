@@ -401,59 +401,74 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
 
 // ---- 3. Numbers --------------------------------------------------
 //
-// Only the numbers worth a conversation: off target, or not logged,
-// for the week just ended. The rest are counted, not listed.
+// Every critical success factor for the week just ended, under its
+// functional area (Jason, 2026-10-20: on target ones too, grouped by
+// area). In each area the ones to talk about lead: off target, then
+// not logged, then on target, then logged with no target.
 async function Numbers({ companyId, timezone, footer }: { companyId: string; timezone: string; footer: ReactNode }) {
   const board = await getBoardData(companyId, timezone);
   const week = board.weeks.at(-2) ?? board.weeks.at(-1) ?? null;
-  const rows = board.functions.flatMap((f) =>
-    f.metrics.map((m) => ({ fn: f, m, cell: week ? m.cells.find((c) => c.weekEnding === week) ?? null : null }))
-  );
+  type Row = { m: (typeof board.functions)[number]["metrics"][number]; cell: (typeof board.functions)[number]["metrics"][number]["cells"][number] | null };
   // The board says "no target" before it looks for a value, so a
   // measure with no target is logged or not by whether it has one.
   // An empty cell's display value is the board's "—" placeholder.
-  const logged = (r: (typeof rows)[number]) =>
+  const logged = (r: Row) =>
     Boolean(r.cell && r.cell.status !== "unlogged" && r.cell.displayValue && r.cell.displayValue !== "—");
-  const talk = rows.filter((r) => r.cell?.status === "off" || !logged(r));
-  const onTarget = rows.filter((r) => r.cell?.status === "good").length;
-  const noTarget = rows.filter((r) => r.cell?.status === "no_target" && logged(r)).length;
+  const rank = (r: Row) => (r.cell?.status === "off" ? 0 : !logged(r) ? 1 : r.cell?.status === "good" ? 2 : 3);
+  const areas = board.functions
+    .map((fn) => ({
+      fn,
+      rows: fn.metrics
+        .map((m): Row => ({ m, cell: week ? m.cells.find((c) => c.weekEnding === week) ?? null : null }))
+        .sort((x, y) => rank(x) - rank(y)),
+    }))
+    .filter((a) => a.rows.length > 0);
+  const all = areas.flatMap((a) => a.rows);
+  const off = all.filter((r) => r.cell?.status === "off").length;
+  const onTarget = all.filter((r) => r.cell?.status === "good").length;
+  const notLogged = all.filter((r) => !logged(r)).length;
+  const meta = [off > 0 ? `${off} off target` : null, onTarget > 0 ? `${onTarget} on target` : null, notLogged > 0 ? `${notLogged} not logged` : null]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <StepCard
       id="meeting-numbers"
       title={week ? `Week ending ${formatShortDate(week)}` : "This week's numbers"}
+      meta={meta || null}
       footer={footer}
     >
-      {rows.length === 0 ? (
+      {all.length === 0 ? (
         <p className={styles.mutedPad}>
           No critical success factors yet. <Link href="/measures">Add them on Critical Success Factors</Link>.
         </p>
-      ) : talk.length === 0 && noTarget === 0 ? (
-        <p className={`${styles.mutedPad} ${styles.good}`}>All {rows.length} logged and on target.</p>
       ) : (
-        <>
-          <ul className={styles.plainList}>
-            {talk.map(({ fn, m, cell }) => (
-              <li key={m.id}>
-                <span>
-                  <strong>{m.description}</strong>
-                  <span className={styles.muted}> · {fn.title}{fn.seatHolder ? `, ${fn.seatHolder}` : ""}</span>
-                </span>
-                <span className={cell?.status === "off" ? styles.bad : styles.muted}>
-                  {cell?.status === "off" ? `${cell.displayValue} (target ${m.target ?? "not set"})` : "Not logged"}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {onTarget > 0 || noTarget > 0 ? (
-            <p className={styles.mutedPad}>
-              {[onTarget > 0 ? `${onTarget} on target` : null, noTarget > 0 ? `${noTarget} logged with no target set` : null]
-                .filter(Boolean)
-                .join(", ")}
-              .
-            </p>
-          ) : null}
-        </>
+        areas.map(({ fn, rows }, i) => (
+          <section key={fn.id} aria-labelledby={`numbers-${fn.id}`}>
+            <h3 id={`numbers-${fn.id}`} className={`${styles.subhead} ${i === 0 ? styles.subheadFirst : ""}`}>
+              {fn.title}
+              {fn.seatHolder ? <span className={styles.subheadMeta}>{fn.seatHolder}</span> : null}
+            </h3>
+            <ul className={styles.plainList}>
+              {rows.map((r) => {
+                const status = r.cell?.status;
+                const text = !logged(r)
+                  ? "Not logged"
+                  : status === "no_target"
+                    ? `${r.cell?.displayValue} (no target)`
+                    : `${r.cell?.displayValue} (target ${r.m.target ?? "not set"})`;
+                return (
+                  <li key={r.m.id}>
+                    <strong>{r.m.description}</strong>
+                    <span className={status === "off" ? styles.bad : status === "good" && logged(r) ? styles.good : styles.muted}>
+                      {text}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))
       )}
       <p className={styles.mutedPad}>
         <Link href="/measures">Log or change numbers on Critical Success Factors</Link>
@@ -464,42 +479,74 @@ async function Numbers({ companyId, timezone, footer }: { companyId: string; tim
 
 // ---- 4. Strategy -------------------------------------------------
 //
-// The quarter's priorities that are not done, behind ones first, with
-// who owns each and how much is still open on it.
+// The quarter's priorities that are not done, as the plan holds them
+// (Jason, 2026-10-20: organised so what is related reads together):
+// under each focus area, its own priorities, then each goal with its
+// priorities; then goals outside any focus area, then priorities
+// under no goal. Behind ones first in each list.
 async function Strategy({ companyId, footer }: { companyId: string; footer: ReactNode }) {
   const quarter = await getCurrentQuarter(companyId);
   const cascade = await getCascade(companyId, quarter?.id ?? null);
-  const all: CascadePriority[] = [
+  const order: Record<Priority["status"], number> = { behind: 0, not_started: 1, on_track: 2, ongoing: 3, complete: 4 };
+  const label: Record<Priority["status"], string> = { behind: "Behind", not_started: "Not started", on_track: "On track", ongoing: "Ongoing", complete: "Complete" };
+  const live = (ps: CascadePriority[]) => ps.filter((p) => p.status !== "complete").sort((a, b) => order[a.status] - order[b.status]);
+
+  type Block = { goal: string | null; priorities: CascadePriority[] };
+  type Group = { key: string; title: string; blocks: Block[] };
+  const groups: Group[] = [
+    ...cascade.sfas.map((s) => ({
+      key: s.id,
+      title: s.title,
+      blocks: [{ goal: null, priorities: live(s.priorities) }, ...s.goals.map((g) => ({ goal: g.title, priorities: live(g.priorities) }))],
+    })),
+    { key: "no-sfa", title: "Not under a focus area", blocks: cascade.orphanGoals.map((g) => ({ goal: g.title, priorities: live(g.priorities) })) },
+    { key: "no-goal", title: "Not under a goal", blocks: [{ goal: null, priorities: live(cascade.orphanPriorities) }] },
+  ]
+    .map((g) => ({ ...g, blocks: g.blocks.filter((b) => b.priorities.length > 0) }))
+    .filter((g) => g.blocks.length > 0);
+
+  const total = [
     ...cascade.sfas.flatMap((s) => [...s.priorities, ...s.goals.flatMap((g) => g.priorities)]),
     ...cascade.orphanGoals.flatMap((g) => g.priorities),
     ...cascade.orphanPriorities,
   ];
-  const order: Record<Priority["status"], number> = { behind: 0, not_started: 1, on_track: 2, ongoing: 3, complete: 4 };
-  const live = all.filter((p) => p.status !== "complete").sort((a, b) => order[a.status] - order[b.status]);
-  const done = all.length - live.length;
-  const label: Record<Priority["status"], string> = { behind: "Behind", not_started: "Not started", on_track: "On track", ongoing: "Ongoing", complete: "Complete" };
+  const done = total.filter((p) => p.status === "complete").length;
 
   return (
     <StepCard id="meeting-strategy" title={quarter ? quarter.label : "This quarter"} meta={done > 0 ? `${done} complete` : null} footer={footer}>
-      {all.length === 0 ? (
+      {total.length === 0 ? (
         <p className={styles.mutedPad}>
           No priorities this quarter. <Link href="/plan">Add them on Goals &amp; Priorities</Link>.
         </p>
+      ) : groups.length === 0 ? (
+        <p className={styles.mutedPad}>Every priority this quarter is complete.</p>
       ) : (
-        <ul className={styles.plainList}>
-          {live.map((p) => (
-            <li key={p.id}>
-              <span>
-                <Link href={`/plan/priority/${p.id}`}>{p.title}</Link>
-                <span className={styles.muted}>
-                  {" "}
-                  · {p.owner?.full_name ?? "Unassigned"} · {p.open_count} open
-                </span>
-              </span>
-              <span className={p.status === "behind" ? styles.bad : styles.muted}>{label[p.status]}</span>
-            </li>
-          ))}
-        </ul>
+        groups.map((g, i) => (
+          <section key={g.key} aria-labelledby={`strategy-${g.key}`}>
+            <h3 id={`strategy-${g.key}`} className={`${styles.subhead} ${i === 0 ? styles.subheadFirst : ""}`}>
+              {g.title}
+            </h3>
+            {g.blocks.map((b, j) => (
+              <div key={b.goal ?? `direct-${j}`}>
+                {b.goal ? <h4 className={styles.goalHead}>{b.goal}</h4> : null}
+                <ul className={`${styles.plainList} ${b.goal ? styles.nested : ""}`}>
+                  {b.priorities.map((p) => (
+                    <li key={p.id}>
+                      <span>
+                        <Link href={`/plan/priority/${p.id}`}>{p.title}</Link>
+                        <span className={styles.muted}>
+                          {" "}
+                          · {p.owner?.full_name ?? "Unassigned"} · {p.open_count} open
+                        </span>
+                      </span>
+                      <span className={p.status === "behind" ? styles.bad : styles.muted}>{label[p.status]}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </section>
+        ))
       )}
     </StepCard>
   );
