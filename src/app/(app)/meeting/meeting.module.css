@@ -92,11 +92,11 @@
   color: var(--text-muted);
 }
 
+/* The question itself, plain, so it reads apart from its heading. */
 .question {
   margin: 0;
   font: var(--text-body);
-  font-weight: 600;
-  color: var(--text-heading);
+  color: var(--text);
 }
 
 .plainList {
