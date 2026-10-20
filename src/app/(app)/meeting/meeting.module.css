@@ -81,9 +81,39 @@
   margin: 0;
   padding: var(--space-3) var(--space-4) var(--space-2);
   border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  /* A band in the brand's cobalt tint, lighter than the card's navy
+     header, so a section heading reads apart from the rows under it
+     (Jason, 2026-10-20). */
+  background: var(--aims-cobalt-tint);
   font: var(--text-body);
   font-weight: 600;
   color: var(--text-heading);
+}
+
+/* The rows right under a band carry no top rule of their own. */
+.subhead + .plainList > li:first-child,
+.subhead + ul > li:first-child {
+  border-top: 0;
+}
+
+/* A goal inside a focus area on Strategy: a quieter heading, the
+   priorities under it set in. */
+.goalHead {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  border-top: 1px solid var(--border);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.goalHead + .plainList > li:first-child {
+  border-top: 0;
+}
+
+.nested > li {
+  padding-left: var(--space-6);
 }
 
 .subheadMeta {
@@ -312,4 +342,10 @@
 /* The card's first subheading sits right under its header. */
 .subheadFirst {
   border-top: 0;
+}
+
+/* A row's status keeps to the right when a long title wraps it onto a
+   line of its own. */
+.plainList > li > :last-child {
+  margin-left: auto;
 }
