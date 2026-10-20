@@ -24,7 +24,6 @@ import { TrackOnMount } from "@/lib/analytics/TrackOnMount";
 import type { StrategicFocusArea } from "@/lib/types";
 import styles from "./foundation.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import uiStyles from "@/components/ui/ui.module.css";
 
 export const metadata = { title: "One-Page Plan" };
 
@@ -87,25 +86,25 @@ export default async function OnePagePlanPage() {
           scrolls normally so it doesn't eat viewport once you've
           oriented on the page. */}
         <nav className={styles.pageNav} aria-label="One-Page Plan sections">
-          <a href="#purpose" className={`${styles.pageNavLink} ${uiStyles.quiet}`}>
+          <a href="#purpose" className={`${styles.pageNavLink}`}>
             Purpose
           </a>
-          <a href="#vision" className={`${styles.pageNavLink} ${uiStyles.quiet}`}>
+          <a href="#vision" className={`${styles.pageNavLink}`}>
             Vision
           </a>
-          <a href="#values" className={`${styles.pageNavLink} ${uiStyles.quiet}`}>
+          <a href="#values" className={`${styles.pageNavLink}`}>
             Core Values
           </a>
-          <a href="#diffs" className={`${styles.pageNavLink} ${uiStyles.quiet}`}>
+          <a href="#diffs" className={`${styles.pageNavLink}`}>
             Differentiators
           </a>
-          <a href="#ica" className={`${styles.pageNavLink} ${uiStyles.quiet}`}>
+          <a href="#ica" className={`${styles.pageNavLink}`}>
             Ideal Customer
           </a>
-          <a href="#sfas" className={`${styles.pageNavLink} ${uiStyles.quiet}`}>
+          <a href="#sfas" className={`${styles.pageNavLink}`}>
             Focus Areas
           </a>
-          <a href="#metrics" className={`${styles.pageNavLink} ${uiStyles.quiet}`}>
+          <a href="#metrics" className={`${styles.pageNavLink}`}>
             Success Metrics
           </a>
         </nav>

@@ -21,7 +21,6 @@ import { BoardView } from "../measures/board/BoardView";
 import { PageShell } from "@/components/ui/PageShell";
 import { formatShortDate, formatWeekBeginning } from "@/lib/dates";
 import styles from "./dashboard.module.css";
-import uiStyles from "@/components/ui/ui.module.css";
 import { simplifyOn } from "@/lib/ui/simplify";
 import { MyWeek } from "./MyWeek";
 
@@ -442,7 +441,7 @@ export default async function DashboardPage({
                         {canCoachPerson(person.id) ? (
                           <Link
                             href={`/coach/${person.id}`}
-                            className={`${styles.coachButton} ${uiStyles.quiet}`}
+                            className={`${styles.coachButton}`}
                           >
                             Coach
                           </Link>
