@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { SectionTabs } from "@/components/sidebar/NavInfo";
 import styles from "./PageShell.module.css";
 
 // Shared page chrome: gradient hero on top, content band underneath
@@ -56,6 +57,8 @@ export function PageShell({
           <span className={styles.rule} aria-hidden="true" />
           {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
           {heroExtras}
+          {/* The section's pages, under the "nav-sections" switch. */}
+          <SectionTabs />
         </div>
       </section>
       <div className={styles.content}>{children}</div>

@@ -1,0 +1,34 @@
+/* A section's pages as tabs at the foot of the navy page header
+   (simplification review, change 4). White on navy like the header's
+   own text; the current page carries the brand's chartreuse rule, the
+   same mark that sits under every page title. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin-top: var(--space-5);
+}
+
+.tab {
+  padding-block: var(--space-1);
+  color: color-mix(in srgb, var(--aims-white) 72%, transparent);
+  font: var(--text-body);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+}
+
+.tab:hover {
+  color: var(--aims-white);
+}
+
+.tab[aria-current="page"] {
+  color: var(--aims-white);
+  border-bottom-color: var(--aims-chartreuse);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--aims-chartreuse);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
