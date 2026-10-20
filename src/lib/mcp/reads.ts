@@ -448,6 +448,7 @@ export async function companyPlan({ db, company }: Ctx) {
       .eq("company_id", company.id)
       .eq("archived", false)
       .order("sort_order")
+      .order("created_at")
       .then((res) => must(res) as Array<{ title: string; description: string | null; sponsor_id: string | null; status: string }>),
     roster(db, company.id),
   ]);
