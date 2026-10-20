@@ -338,19 +338,20 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
       .order("title"),
     supabase
       .from("meeting_headlines")
-      .select("function_id, week_ending, body")
+      .select(simplifyOn("transcript-headlines") ? "function_id, week_ending, body, source_meeting_id" : "function_id, week_ending, body")
       .eq("company_id", companyId)
       .in("week_ending", [week, lastWeek]),
     getAssignablePeople(supabase, companyId),
   ]);
   type Fn = { id: string; title: string; lead_id: string | null };
   const rows = (functions.data ?? []) as Fn[];
+  type Headline = { function_id: string; week_ending: string; body: string; source_meeting_id?: string | null };
   const byKey = new Map(
-    ((headlines.data ?? []) as Array<{ function_id: string; week_ending: string; body: string }>).map((h) => [
-      `${h.function_id}:${h.week_ending}`,
-      h.body,
-    ])
+    ((headlines.data ?? []) as unknown as Headline[]).map((h) => [`${h.function_id}:${h.week_ending}`, h])
   );
+  // Under the "transcript-headlines" switch, a headline the meeting's
+  // transcript filled in says so, until someone edits it (0292).
+  const fromTranscript = (h: Headline | undefined) => Boolean(h?.source_meeting_id);
   const names = new Map(people.map((p) => [p.id, p.full_name]));
   const leadName = (f: Fn) => (f.lead_id ? names.get(f.lead_id) ?? null : null);
 
@@ -362,8 +363,10 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
         </p>
       ) : (
         rows.map((f) => {
-          const last = byKey.get(`${f.id}:${lastWeek}`)?.trim() ?? "";
-          const now = byKey.get(`${f.id}:${week}`) ?? "";
+          const lastRow = byKey.get(`${f.id}:${lastWeek}`);
+          const nowRow = byKey.get(`${f.id}:${week}`);
+          const last = lastRow?.body.trim() ?? "";
+          const now = nowRow?.body ?? "";
           const lead = leadName(f);
           return (
             <section key={f.id} className={styles.headlineRow} aria-label={`${f.title} headlines`}>
@@ -375,10 +378,17 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
                 <div className={styles.headlineCol}>
                   <h4>Last week, {formatWeekBeginning(lastWeek)}</h4>
                   {last ? <p className={styles.headlineLast}>{last}</p> : <p className={styles.muted}>Nothing written.</p>}
+                  {last && fromTranscript(lastRow) ? <p className={styles.headlineSource}>From the meeting&rsquo;s transcript.</p> : null}
                 </div>
                 <div className={styles.headlineCol}>
                   <h4>This week, {formatWeekBeginning(week)}</h4>
-                  <HeadlineField functionId={f.id} functionTitle={f.title} weekEnding={week} initial={now} />
+                  <HeadlineField
+                    functionId={f.id}
+                    functionTitle={f.title}
+                    weekEnding={week}
+                    initial={now}
+                    fromTranscript={now.trim() !== "" && fromTranscript(nowRow)}
+                  />
                 </div>
               </div>
             </section>

@@ -122,6 +122,7 @@ export type CoachUsagePurpose =
   | "invitation" // the Guide's invitation card (guide/headline.ts)
   | "principles_check" // Agent Hub: a prompt checked against the coaching principles
   | "session_brief" // HQ session brief
+  | "headlines" // each functional area's headline from a meeting (0292)
   | "other";
 
 // Fire-and-forget log. Callers should NOT await this in the

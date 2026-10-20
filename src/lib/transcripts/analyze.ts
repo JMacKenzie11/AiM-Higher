@@ -20,7 +20,7 @@ import {
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
 import { settleSummary } from "./summary";
-import { mapStrings, redactAnalysis, redactionCount } from "./redact";
+import { mapStrings, redactAnalysis, redactionCount, rewordProse } from "./redact";
 import { rewordWithModel } from "./reword";
 import { callSettings, requestJson, transcriptModel } from "./model";
 import { buildSpeller, describeChanges, summariseChanges, type SpellingChange, type SpellingEntry } from "./spelling";
@@ -28,6 +28,8 @@ import { computeOverall, SCORE_WEIGHTS } from "@/lib/leadership/facilitation/sco
 import { generateMeetingQuestions } from "@/lib/leadership/questions";
 import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
+import { extractHeadlines, fillMeetingHeadlines, loadHeadlineFunctions, type ExtractedHeadline } from "./headlines";
+import { simplifyOn } from "@/lib/ui/simplify";
 import { COMMITMENT_CLARITY_RULES } from "./clarity-rules";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
@@ -269,6 +271,26 @@ export async function analyzeMeeting(
         })
       : Promise.resolve(null);
 
+    // ---- Call 4: each functional area's headline ----
+    // Under the "transcript-headlines" switch, for a company with
+    // functional areas, and not on a summary-only run. Best effort,
+    // like the review: null is "no headlines" (headlines.ts).
+    const headlineFunctions =
+      simplifyOn("transcript-headlines") && !options.carryOver
+        ? await loadHeadlineFunctions(admin, meetingRow.company_id)
+        : [];
+    const headlinesP: Promise<ExtractedHeadline[] | null> =
+      headlineFunctions.length > 0
+        ? extractHeadlines(client, {
+            model,
+            transcript: meetingRow.transcript_text,
+            companyBlock,
+            speakerBlock,
+            functions: headlineFunctions,
+            onMessage: usageLogger({ companyId: meetingRow.company_id, purpose: "headlines", model }),
+          })
+        : Promise.resolve(null);
+
     // ---- Call 1: analysis ----
     const analysisRequest = {
       model,
@@ -282,10 +304,11 @@ export async function analyzeMeeting(
       messages: [{ role: "user", content: analysisUserMessage }],
     });
 
-    const [analysisMessage, rawExtraction, reviewFromCall] = await Promise.all([
+    const [analysisMessage, rawExtraction, reviewFromCall, rawHeadlines] = await Promise.all([
       analysisP,
       extractionP,
       facilitationP,
+      headlinesP,
     ]);
     const logAnalysisUsage = (message: Anthropic.Message) => {
       if (!message.usage) return;
@@ -586,6 +609,35 @@ export async function analyzeMeeting(
         )
       : 0;
 
+    // The week's empty Headlines boxes, after the analysis row is
+    // stored: a meeting whose summary failed fills nothing. The same
+    // passes as everything else stored from this meeting: names for
+    // speaker labels, the company's spellings, no dashes, nothing
+    // about anyone's private life. Never throws (headlines.ts).
+    async function fillHeadlinesFromMeeting(raw: ExtractedHeadline[]): Promise<number> {
+      try {
+        const cleaned = raw.map((h) => stripEmDashes(spelled(replaceSpeakerLabels(h.body, speakerMap).text)));
+        const { texts } = await rewordProse(cleaned, personalDetail, reword);
+        return await fillMeetingHeadlines(admin, {
+          companyId: meetingRow!.company_id!,
+          meetingId,
+          weekEnding: fridayOf(meetingDateIso),
+          headlines: raw
+            .map((h, i) => ({ function_id: h.function_id, body: texts[i].trim() }))
+            .filter((h) => h.body !== ""),
+        });
+      } catch (err) {
+        console.error(
+          `[headlines] not filled for meeting ${meetingId}:`,
+          err instanceof Error ? err.message : err
+        );
+        return 0;
+      }
+    }
+    const headlinesFilled = rawHeadlines && rawHeadlines.length > 0
+      ? await fillHeadlinesFromMeeting(rawHeadlines)
+      : 0;
+
     await admin
       .from("meetings")
       .update({
@@ -642,6 +694,7 @@ export async function analyzeMeeting(
         commitments_extracted: stored.commitments_json.length,
         commitments_created: created,
         auto_track: autoTrackOn,
+        headlines_filled: headlinesFilled,
       },
       { company: meetingRow.company_id }
     );

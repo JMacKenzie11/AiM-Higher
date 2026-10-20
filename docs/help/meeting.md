@@ -29,3 +29,7 @@ Press *Next* at the foot of the card to move on, or *Back* to go back. You can a
 
 **Who can open it?** Everyone in the company. What each person can change is the same as everywhere else, and anyone in the company can write a headline.
 :::
+
+::: feature ui_transcript_headlines
+**Can the headlines fill themselves in?** Yes. When the meeting's transcript comes in and is summarised, each functional area's update, as it was said in the meeting, goes into that week's Headlines box. Only empty boxes are filled: anything someone typed stays as it is, and an area nobody talked about stays empty. A filled-in headline says *From the meeting's transcript* under it. Edit it and it becomes yours.
+:::

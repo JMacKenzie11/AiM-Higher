@@ -124,9 +124,12 @@ test.describe("the conversation in the panel", () => {
 
     // Moving to another page keeps the panel and its conversation.
     await composer.fill("a draft that should survive navigation");
-    // The sidebar's link, not the phone menu's copy of it.
-    await page.locator('a[href="/scorecard"]:visible').first().click();
-    await expect(page).toHaveURL(/\/scorecard/);
+    // The sidebar's link, not the phone menu's copy of it. Commitments,
+    // which a team member's sidebar has with or without the
+    // nav-sections switch (AiMS Implementation is not in its Home
+    // section there).
+    await page.locator('a[href="/commitments"]:visible').first().click();
+    await expect(page).toHaveURL(/\/commitments/);
     await expect(panel).toBeVisible();
     await expect(composer).toHaveValue("a draft that should survive navigation");
   });

@@ -17,6 +17,9 @@ const h = vi.hoisted(() => ({
   track: vi.fn(),
   writes: [] as Array<{ table: string; op: string; payload?: unknown }>,
   features: [] as string[],
+  simplify: [] as string[],
+  functions: [] as Array<{ id: string; title: string; lead_id: string | null }>,
+  headlines: [] as Array<{ function_id: string; body: string }>,
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -24,6 +27,7 @@ vi.mock("@anthropic-ai/sdk", () => ({
     messages = { create: h.create };
   },
 }));
+vi.mock("@/lib/ui/simplify", () => ({ simplifyOn: (name: string) => h.simplify.includes(name) }));
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
 vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: vi.fn(), usageLogger: () => () => {} }));
 vi.mock("@/lib/analytics/track", () => ({ track: h.track }));
@@ -75,6 +79,8 @@ function fakeDb() {
           return { data: h.features.includes(filters.feature as string) ? { feature: filters.feature } : null, error: null };
         }
         if (table === "company_foundation" || table === "quarters") return { data: null, error: null };
+        if (table === "functions") return { data: h.functions, error: null };
+        if (table === "meeting_headlines") return { data: h.headlines, error: null };
         return { data: [], error: null };
       };
       b.maybeSingle = async () => result();
@@ -93,6 +99,8 @@ const EXTRACTION = JSON.stringify({ commitments: [], issues: [{ title: "Quote ti
 const kindOf = (req: { system: Array<{ text: string }> }) =>
   req.system[0].text.startsWith("You extract commitments")
     ? "extraction"
+    : req.system[0].text.startsWith("You read a leadership team's weekly meeting")
+      ? "headlines"
     : req.system[0].text.startsWith("Each item below")
       ? "reword"
       : "analysis";
@@ -102,6 +110,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.writes.length = 0;
   h.features = ["meeting_facilitation_review"];
+  h.simplify = [];
+  h.functions = [];
+  h.headlines = [];
   process.env.ANTHROPIC_API_KEY = "test";
   h.nudge.mockResolvedValue({ raised: false, reason: "test" });
 });
@@ -286,5 +297,75 @@ describe("a summary never stores somebody's private life", () => {
       { title: "Cover while Pat is on sick leave", needs_rewording: true },
     ]);
     warn.mockRestore();
+  });
+});
+
+// Each functional area's headline (change 13): filled into the
+// meeting's week, never over a person, and never at the meeting's cost.
+describe("headlines from the transcript", () => {
+  const HEADLINES = JSON.stringify({
+    headlines: [
+      { function_id: "fn-ops", body: "The Hale job finished early." },
+      { function_id: "fn-sales", body: "Two quotes out this week." },
+    ],
+  });
+  const answer = (headlines: string) => async (req: { system: Array<{ text: string }> }) => {
+    const k = kindOf(req);
+    return text(k === "analysis" ? SUMMARY : k === "headlines" ? headlines : EXTRACTION);
+  };
+
+  beforeEach(() => {
+    h.simplify = ["transcript-headlines"];
+    h.functions = [
+      { id: "fn-ops", title: "Operations", lead_id: null },
+      { id: "fn-sales", title: "Sales", lead_id: null },
+    ];
+    h.facilitation.mockResolvedValue(null);
+  });
+
+  it("fills the meeting's week, marked with the meeting, and leaves a typed one alone", async () => {
+    h.headlines = [{ function_id: "fn-sales", body: "Typed in the room." }];
+    h.create.mockImplementation(answer(HEADLINES));
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    const filled = h.writes.filter((w) => w.table === "meeting_headlines");
+    // The meeting was on Tuesday 2026-09-22: its week ends Friday the 25th.
+    expect(filled).toEqual([
+      {
+        table: "meeting_headlines",
+        op: "insert",
+        payload: {
+          company_id: "c1",
+          function_id: "fn-ops",
+          week_ending: "2026-09-25",
+          body: "The Hale job finished early.",
+          source_meeting_id: "m1",
+        },
+      },
+    ]);
+  });
+
+  it("an unreadable answer is no headlines, and the meeting completes", async () => {
+    h.create.mockImplementation(answer("not json"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(h.writes.filter((w) => w.table === "meeting_headlines")).toEqual([]);
+    expect(h.writes.filter((w) => w.table === "meetings" && w.op === "update").at(-1)?.payload).toMatchObject({
+      status: "complete",
+    });
+    err.mockRestore();
+  });
+
+  it("asks for nothing with the switch off", async () => {
+    h.simplify = [];
+    h.create.mockImplementation(answer(HEADLINES));
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+
+    expect(h.create.mock.calls.map(([req]) => kindOf(req))).not.toContain("headlines");
+    expect(h.writes.filter((w) => w.table === "meeting_headlines")).toEqual([]);
   });
 });

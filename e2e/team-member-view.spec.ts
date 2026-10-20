@@ -1,4 +1,4 @@
-import { test, expect, signIn, users } from "./fixtures";
+import { test, expect, signIn, users, simplifyOn } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { ADMIN_ONLY_CONTROLS } from "../src/lib/help/admin-only-controls";
 
@@ -20,6 +20,9 @@ function control(page: Page, name: string) {
     .getByRole("button", { name, exact: true })
     .or(page.getByRole("link", { name, exact: true }))
     .or(page.locator("summary").getByText(name, { exact: true }))
+    // Goals & Priorities' adds are one Add menu under the "main-action"
+    // switch, its items named without the "Add" (change 1).
+    .or(page.getByRole("menuitem", { name: name.replace(/^Add (.)/, (_, c: string) => c.toUpperCase()), exact: true }))
     // Visible ones only: Aimee's panel stays in the page, hidden, with
     // its own "Close" button.
     .filter({ visible: true });
@@ -29,6 +32,14 @@ async function openPage(page: Page, path: string) {
   await page.goto(path);
   await expect(page).toHaveURL(new RegExp(`${path}$`), { timeout: 30_000 });
   await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: 30_000 });
+  // Open the plan's Add menu where there is one, so its items can be
+  // seen (or seen to be missing).
+  const menu = page.getByTestId("plan-add-menu").filter({ visible: true });
+  if (simplifyOn("main-action") && (await menu.count()) > 0) await menu.first().click();
+  // The Team page's form opens from Add a person under the
+  // "adds-on-top" switch (change 6).
+  const addPerson = page.getByRole("button", { name: "Add a person", exact: true }).filter({ visible: true });
+  if (simplifyOn("adds-on-top") && (await addPerson.count()) > 0) await addPerson.first().click();
 }
 
 test("a team member sees each page, and none of its admin controls", async ({ page }) => {

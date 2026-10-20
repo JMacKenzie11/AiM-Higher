@@ -8,22 +8,27 @@ import styles from "./meeting.module.css";
 // This week's headline for one functional area, written in the room.
 // Saves when the field loses focus and something changed (the same
 // way the autosave switch treats the measures grid), so there is no
-// Save button to find on a shared screen.
+// Save button to find on a shared screen. One filled in from the
+// meeting's transcript says so until it is changed: saving makes it
+// the person's (0292).
 export function HeadlineField({
   functionId,
   functionTitle,
   weekEnding,
   initial,
+  fromTranscript = false,
 }: {
   functionId: string;
   functionTitle: string;
   weekEnding: string;
   initial: string;
+  fromTranscript?: boolean;
 }) {
   const [value, setValue] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [pending, startTransition] = useTransition();
   const [state, setState] = useState<{ ok: boolean; text: string } | null>(null);
+  const [marked, setMarked] = useState(fromTranscript);
 
   function save() {
     const next = value.trim();
@@ -33,6 +38,7 @@ export function HeadlineField({
       const result = await saveMeetingHeadlineAction(functionId, weekEnding, next);
       if (result.ok) {
         setSaved(next);
+        setMarked(false);
         setState({ ok: true, text: "Saved" });
       } else {
         setState({ ok: false, text: result.message });
@@ -60,7 +66,7 @@ export function HeadlineField({
         onBlur={save}
       />
       <p className={styles.headlineStatus} role={state?.ok === false ? "alert" : "status"} aria-live="polite">
-        {pending ? "Saving" : state?.text ?? ""}
+        {pending ? "Saving" : state?.text ?? (marked ? "From the meeting’s transcript. Edit it to make it yours." : "")}
       </p>
     </div>
   );
