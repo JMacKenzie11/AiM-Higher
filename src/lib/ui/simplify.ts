@@ -18,8 +18,10 @@
 // set in the root layout, as `:root[data-simplify~="name"] .x { }`.
 
 export const SIMPLIFY_CHANGES = [
-  // 1. One main action per page, placed top right of the first card;
-  //    repeated and secondary actions become quiet text buttons.
+  // 1. One main action per page, placed top right of the first card.
+  //    Every action stays a button: secondary ones drawn as text were
+  //    tried and taken out (Jason, 2026-10-20: "I want them all to be
+  //    buttons").
   "main-action",
   // 2. Quieter list rows: one red per late commitment, controls that
   //    show on hover or focus, no Open chip in an open section, and no
