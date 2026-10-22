@@ -12750,6 +12750,122 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 //             inactive colleague, both in its own company; and one in
 //             another company, owned by that company's person
 // Red before 0293: the colleague's insert is refused.
+// ---- The Capacity Diagnostic is system admin only (0294) ----------
+//
+// Eight tables, none scoped to a company. One row of each is seeded as
+// postgres inside the transaction, so an empty clone cannot pass for
+// the wrong reason. Then, as each role:
+//   granted   a system admin reads all eight seeded rows, adds a client,
+//             and updates an answer (1 row)
+//   withheld  a company admin, an assigned guide, a portfolio admin and
+//             a team member each read 0 of the eight and add nothing
+//             (42501); an answer update by the member reaches 0 rows; a
+//             system admin's update to a note once the diagnostic is
+//             published reaches 0 rows
+//   canary    a planted permissive read rule on diagnostic_answers must
+//             let the member read that row, or a clean result is a
+//             broken probe
+// Red before 0294: the tables do not exist.
+async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "diagnostics · system admin only";
+  const CL = randomUUID(), DX = randomUUID(), PT = randomUUID(), TK = randomUUID();
+  const reads = `(select count(*) from public.diagnostic_clients where id = '${CL}')
+    + (select count(*) from public.diagnostics where id = '${DX}')
+    + (select count(*) from public.diagnostic_participants where id = '${PT}')
+    + (select count(*) from public.diagnostic_tasks where id = '${TK}')
+    + (select count(*) from public.diagnostic_answers where participant_id = '${PT}')
+    + (select count(*) from public.diagnostic_notes where participant_id = '${PT}')
+    + (select count(*) from public.diagnostic_quotes where diagnostic_id = '${DX}')
+    + (select count(*) from public.diagnostic_wins where diagnostic_id = '${DX}')`;
+  const asRole = (key: string, sub: string) => `
+  perform set_config('request.jwt.claims', '{"sub":"${sub}","role":"authenticated"}', true);
+  select ${reads} into n; insert into _p values ('${key}_reads', n::text);
+  begin
+    insert into public.diagnostic_clients (name) values ('Harness 0294 by ${key}');
+    get diagnostics n = row_count; insert into _p values ('${key}_insert', n::text);
+  exception when others then insert into _p values ('${key}_insert', 'error ' || sqlstate); end;
+  update public.diagnostic_answers set best_work = 'harness ${key}' where participant_id = '${PT}';
+  get diagnostics n = row_count; insert into _p values ('${key}_update', n::text);`;
+  let row: Record<string, string> | undefined;
+  try {
+    const [pick] = await run<{ pa: string | null }>(
+      "select (select id::text from public.profiles where role = 'portfolio_admin' and status = 'active' order by id limit 1) as pa;"
+    );
+    if (!pick?.pa) {
+      return [{ name, granted: "not attempted", withheld: "no active portfolio admin on the clone", ok: false, detail: "NOT PROVEN: a role could not be tried" }];
+    }
+    [row] = await run(["begin;", pending, `
+insert into public.diagnostic_clients (id, name) values ('${CL}', 'Harness 0294 client');
+insert into public.diagnostics (id, client_id) values ('${DX}', '${CL}');
+insert into public.diagnostic_participants (id, diagnostic_id, name) values ('${PT}', '${DX}', 'Harness 0294 person');
+insert into public.diagnostic_tasks (id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment)
+  values ('${TK}', '${DX}', '${PT}', 'Quoting', 6, 1, 2);
+insert into public.diagnostic_answers (participant_id, best_work) values ('${PT}', 'seeded');
+insert into public.diagnostic_notes (diagnostic_id, participant_id, body) values ('${DX}', '${PT}', 'seeded');
+insert into public.diagnostic_quotes (diagnostic_id, text) values ('${DX}', 'seeded line');
+insert into public.diagnostic_wins (diagnostic_id, task_id, pattern, title, is_first_win)
+  values ('${DX}', '${TK}', 'quote_first_draft', 'Quote first draft', true);
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  ${asRole("system_admin", ids.systemAdmin)}
+  ${asRole("company_admin", ids.companyAdmin)}
+  ${asRole("guide", ids.guide)}
+  ${asRole("portfolio_admin", pick.pa)}
+  ${asRole("member", ids.member)}
+end $$;
+reset role;
+update public.diagnostics set published_at = now() where id = '${DX}';
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  update public.diagnostic_notes set body = 'after publishing' where participant_id = '${PT}';
+  get diagnostics n = row_count; insert into _p values ('published_note_update', n::text);
+end $$;
+reset role;
+create policy harness_planted_leak on public.diagnostic_answers for select to authenticated using (true);
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.member}","role":"authenticated"}', true);
+  select count(*) into n from public.diagnostic_answers where participant_id = '${PT}';
+  insert into _p values ('canary', n::text);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0294 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const others = ["company_admin", "guide", "portfolio_admin", "member"];
+  const othersOk = others.every(
+    (k) => r[`${k}_reads`] === "0" && r[`${k}_insert`] === "error 42501" && r[`${k}_update`] === "0"
+  );
+  const adminOk = r.system_admin_reads === "8" && r.system_admin_insert === "1" && r.system_admin_update === "1";
+  const ok = adminOk && othersOk && r.published_note_update === "0" && r.canary === "1";
+  return [{
+    name,
+    granted: `system admin reads ${r.system_admin_reads} of 8, adds a client ${r.system_admin_insert}, updates an answer ${r.system_admin_update} (want 8, 1, 1)`,
+    withheld:
+      others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]}, updates ${r[`${k}_update`]}`).join(" | ") +
+      ` (want 0, error 42501, 0 each) | note update after publishing ${r.published_note_update} (want 0) | ` +
+      `planted permissive rule on diagnostic_answers: ${r.canary === "1" ? "caught" : `missed (${r.canary})`}`,
+    ok,
+    detail: ok
+      ? "only a system admin reads or writes a diagnostic, and a published diagnostic's notes are frozen"
+      : !adminOk
+        ? "A SYSTEM ADMIN CANNOT RUN A DIAGNOSTIC (is 0294 applied?)"
+        : "SOMEONE OTHER THAN A SYSTEM ADMIN REACHES A DIAGNOSTIC TABLE, or a published note can change, or the planted leak went unseen",
+  }];
+}
+
 async function commitmentsForColleagueProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "commitments · for a colleague";
   const M = ids.member, CO = ids.memberCompany, OTHER = ids.otherCompany;
@@ -14680,6 +14796,7 @@ async function main(): Promise<void> {
   const headlines = await meetingHeadlinesProbes(run, ids, pendingSql);
   const headlinesSource = await meetingHeadlinesSourceProbes(run, ids, pendingSql);
   const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
+  const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -14707,7 +14824,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...forColleague, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
