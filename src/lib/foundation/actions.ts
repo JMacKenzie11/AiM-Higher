@@ -384,6 +384,31 @@ export async function createSnippetAction(
   return { ok: true, item: data };
 }
 
+// Allowed roles: system_admin, company_admin, aims_guide (RLS:
+// marketing_snippets_update and marketing_snippets_update_guide).
+export async function updateSnippetAction(
+  _prev: Result<MarketingSnippet> | undefined,
+  formData: FormData
+): Promise<Result<MarketingSnippet>> {
+  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const id = String(formData.get("id") ?? "");
+  const content = String(formData.get("content") ?? "").trim();
+  if (!id) return { ok: false, message: "Missing id." };
+  if (!content) return { ok: false, message: "Write something." };
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data, error } = await supabase
+    .from("marketing_snippets")
+    .update({ content })
+    .eq("id", id)
+    .select("*")
+    .single<MarketingSnippet>();
+  if (error || !data) return { ok: false, message: "Couldn't save." };
+
+  revalidatePath("/foundation");
+  return { ok: true, item: data };
+}
+
 export async function deleteSnippetAction(
   snippetId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {

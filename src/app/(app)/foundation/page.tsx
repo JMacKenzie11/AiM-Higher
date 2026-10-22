@@ -16,7 +16,7 @@ import {
 } from "./FoundationItemForms";
 import { PurposeForm } from "./PurposeForm";
 import { VisionForm } from "./VisionForm";
-import { AddSnippetForm } from "./MarketingForms";
+import { AddSnippetForm, EditSnippetForm } from "./MarketingForms";
 import { SectionEditToggle } from "./SectionEditToggle";
 import { CardAccent } from "@/components/ui/CardAccent";
 import { PageShell } from "@/components/ui/PageShell";
@@ -297,6 +297,7 @@ export default async function OnePagePlanPage() {
                         <p className={styles.bodyText}>{snippet.content}</p>
                         {isAdmin ? (
                           <div className={styles.subcardActions}>
+                            <EditSnippetForm snippet={snippet} label="Best-fit client or project" />
                             <DeleteButton
                               action={deleteSnippetAction}
                               itemId={snippet.id}
@@ -332,6 +333,7 @@ export default async function OnePagePlanPage() {
                         <p className={styles.bodyText}>{snippet.content}</p>
                         {isAdmin ? (
                           <div className={styles.subcardActions}>
+                            <EditSnippetForm snippet={snippet} label="Psychographic" />
                             <DeleteButton
                               action={deleteSnippetAction}
                               itemId={snippet.id}

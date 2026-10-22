@@ -21,7 +21,7 @@ The links under the page heading jump straight to each section.
 
 - **Edit Purpose and Vision.** Click *Edit* on the card, make the change and save. The card switches back to reading view in place.
 - **Add, edit or delete Core Values and Strengths & Differentiators.** Each numbered card has *Edit* and *Delete*, and each section has an add button at the bottom.
-- **Add or remove Ideal Customer Profile entries**, under best-fit and psychographic. Each entry has a delete button, and each list has its own add button.
+- **Add, edit or remove Ideal Customer Profile entries**, under best-fit and psychographic. Each entry has *Edit* and *Delete*, and each list has its own add button.
 
 Changes here are seen by everyone at the company, so it's worth a moment's thought before you save.
 :::

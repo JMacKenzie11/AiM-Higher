@@ -6,6 +6,7 @@ import {
   createPillarAction,
   createSnippetAction,
   updatePillarAction,
+  updateSnippetAction,
   upsertMarketingAction,
   type Result,
 } from "@/lib/foundation/actions";
@@ -234,7 +235,7 @@ export function EditPillarForm({ pillar }: { pillar: MessagingPillar }) {
   );
 }
 
-// ---------------- Snippet add ----------------------------------
+// ---------------- Snippet add/edit -----------------------------
 
 export function AddSnippetForm({
   kind,
@@ -284,5 +285,78 @@ export function AddSnippetForm({
         </div>
       </form>
     </details>
+  );
+}
+
+export function EditSnippetForm({
+  snippet,
+  label,
+}: {
+  snippet: MarketingSnippet;
+  label: string;
+}) {
+  const [state, formAction, pending] = useActionState<
+    Result<MarketingSnippet>,
+    FormData
+  >(updateSnippetAction, INITIAL_SNIPPET);
+  const [open, setOpen] = useState(false);
+  const errorMessage =
+    state && "ok" in state && !state.ok && state.message ? state.message : null;
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={styles.ghostButton}
+        onClick={() => setOpen(true)}
+      >
+        Edit
+      </button>
+    );
+  }
+
+  return (
+    <form
+      action={(data) => {
+        formAction(data);
+        setOpen(false);
+      }}
+      className={styles.form}
+    >
+      <input type="hidden" name="id" value={snippet.id} />
+      <div className={styles.fieldWide}>
+        <label className={styles.label}>{label}</label>
+        <textarea
+          name="content"
+          required
+          defaultValue={snippet.content}
+          className={styles.textarea}
+          rows={3}
+          disabled={pending}
+        />
+      </div>
+      {errorMessage ? (
+        <p role="alert" className={styles.errorMessage}>
+          {errorMessage}
+        </p>
+      ) : null}
+      <div className={styles.submitRow}>
+        <button
+          type="button"
+          className={styles.ghostButton}
+          onClick={() => setOpen(false)}
+          disabled={pending}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className={styles.primaryButton}
+          disabled={pending}
+        >
+          {pending ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </form>
   );
 }
