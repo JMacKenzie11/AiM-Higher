@@ -123,6 +123,7 @@ export type CoachUsagePurpose =
   | "principles_check" // Agent Hub: a prompt checked against the coaching principles
   | "session_brief" // HQ session brief
   | "headlines" // each functional area's headline from a meeting (0292)
+  | "diagnostic_titles" // Capacity Diagnostic: canonical task titles (0294)
   | "other";
 
 // Fire-and-forget log. Callers should NOT await this in the

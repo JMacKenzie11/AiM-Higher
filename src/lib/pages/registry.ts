@@ -132,6 +132,12 @@ export const PAGES: readonly PageEntry[] = [
   // Jason's choice, so Aimee does not link to it either.
   { pattern: "/meetinganalysis", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/meetinganalysis/[id]", roles: ["system_admin"], feature: null, link: false },
+  // The Capacity Diagnostic (0294). On no menu and named by nobody,
+  // as /meetinganalysis is, so Aimee does not link to it either.
+  { pattern: "/diagnostics", roles: ["system_admin"], feature: null, link: false },
+  { pattern: "/diagnostics/[id]", roles: ["system_admin"], feature: null, link: false },
+  { pattern: "/diagnostics/clients", roles: ["system_admin"], feature: null, link: false },
+  { pattern: "/diagnostics/clients/[id]", roles: ["system_admin"], feature: null, link: false },
 ];
 
 export function canRoleOpen(entry: PageEntry, role: Role): boolean {
