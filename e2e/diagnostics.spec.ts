@@ -52,7 +52,7 @@ test.describe("Capacity Diagnostic", () => {
     await survey.getByLabel("Judgment for Quotes").selectOption("2");
     await survey.getByRole("button", { name: "Save survey" }).click();
     await expect(survey.getByRole("status")).toContainText("Saved Dana Ruiz's survey", { timeout: 15_000 });
-    await survey.getByRole("button", { name: "Close" }).click();
+    await survey.getByText("Close", { exact: true }).click();
     await expect(page.getByText("1 of 1 entered")).toBeVisible({ timeout: 15_000 });
 
     // ---- the map ----
@@ -61,7 +61,11 @@ test.describe("Capacity Diagnostic", () => {
     await expect(page.getByRole("cell", { name: "Quotes" })).toBeVisible();
 
     // ---- tidy ----
+    // Wait for the client's page before pressing Archive: the
+    // diagnostic page has an Archive button of its own.
     await page.getByRole("link", { name }).first().click();
+    await expect(page).toHaveURL(/\/diagnostics\/clients\/[0-9a-f-]{36}$/, { timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Start a diagnostic" })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "Archive" }).click();
     await expect(page.getByRole("button", { name: "Restore" })).toBeVisible({ timeout: 15_000 });
   });

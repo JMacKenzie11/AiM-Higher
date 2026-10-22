@@ -46,9 +46,8 @@ export function CapacityMap({ points }: { points: MapPoint[] }) {
         </text>
         {dots.map((d) => (
           <circle key={d.taskId} cx={d.cx} cy={d.cy} r={d.r} className={d.checked ? styles.dotChecked : styles.dotEstimate} data-testid="map-dot">
-            <title>
-              {d.title}: {formatHours(d.hours)} hours a week{d.checked ? ", checked" : ", estimated"}
-            </title>
+            {/* One string: React wants a title's children as a single text node. */}
+            <title>{`${d.title}: ${formatHours(d.hours)} hours a week, ${d.checked ? "checked" : "estimated"}`}</title>
           </circle>
         ))}
       </svg>

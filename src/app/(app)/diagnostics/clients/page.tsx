@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/current-user";
+import { requireDiagnostics } from "@/lib/diagnostics/access";
 import { listClients, type ClientListRow } from "@/lib/diagnostics/service";
 import { decisionLabel, statusLabel } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
@@ -12,7 +12,7 @@ export const metadata = { title: "Diagnostic clients" };
 // The businesses a Capacity Diagnostic is run for (0294). A client is
 // its own row, never a company on the platform. Archive, never delete.
 export default async function DiagnosticClientsPage() {
-  await requireRole(["system_admin"]);
+  await requireDiagnostics();
   const all = await listClients();
   const active = all.filter((c) => !c.archived_at);
   const archived = all.filter((c) => c.archived_at);

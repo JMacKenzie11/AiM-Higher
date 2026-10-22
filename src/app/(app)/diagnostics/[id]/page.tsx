@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth/current-user";
+import { requireDiagnostics } from "@/lib/diagnostics/access";
 import { getDiagnostic } from "@/lib/diagnostics/service";
 import { DIAGNOSTIC_STEPS, isStep, stepAfter, stepBefore, stepForStatus, type DiagnosticStep } from "@/lib/diagnostics/steps";
 import { statusLabel, toTask, toWin } from "@/lib/diagnostics/types";
@@ -30,7 +30,7 @@ type PageProps = {
 };
 
 export default async function DiagnosticPage({ params, searchParams }: PageProps) {
-  const session = await requireRole(["system_admin"]);
+  const session = await requireDiagnostics();
   const { id } = await params;
   const sp = await searchParams;
   const bundle = await getDiagnostic(id);

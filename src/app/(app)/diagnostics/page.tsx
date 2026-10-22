@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth/current-user";
+import { requireDiagnostics } from "@/lib/diagnostics/access";
 import { listDiagnostics } from "@/lib/diagnostics/service";
 import { decisionLabel, statusLabel } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
@@ -13,7 +13,7 @@ export const metadata = { title: "Diagnostics" };
 // reached by its address, as /meetinganalysis is (Jason, 2026-10-22).
 // Every diagnostic across clients, newest first.
 export default async function DiagnosticsPage() {
-  await requireRole(["system_admin"]);
+  await requireDiagnostics();
   const rows = await listDiagnostics();
   const today = todayUtc();
 
