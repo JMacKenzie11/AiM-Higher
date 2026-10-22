@@ -12767,8 +12767,12 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 //             broken probe
 //   withheld  with instance_settings.is_primary switched off (0295), the
 //             system admin reads 0 of the eight and adds nothing (42501)
+//   frozen    once published (0296), the system admin's edit to the
+//             readout is refused (42501) and recording the decision is
+//             not (1 row)
 // Red before 0294: the tables do not exist. Red before 0295: the system
-// admin still reads all eight off the primary instance.
+// admin still reads all eight off the primary instance. Red before 0296:
+// published_readout does not exist.
 async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "diagnostics · system admin only";
   const CL = randomUUID(), DX = randomUUID(), PT = randomUUID(), TK = randomUUID();
@@ -12821,7 +12825,7 @@ begin
   ${asRole("member", ids.member)}
 end $$;
 reset role;
-update public.diagnostics set published_at = now() where id = '${DX}';
+update public.diagnostics set published_at = now(), published_readout = '{"version":1}'::jsonb where id = '${DX}';
 set local role authenticated;
 do $$
 declare n int;
@@ -12829,6 +12833,12 @@ begin
   perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
   update public.diagnostic_notes set body = 'after publishing' where participant_id = '${PT}';
   get diagnostics n = row_count; insert into _p values ('published_note_update', n::text);
+  begin
+    update public.diagnostics set capacity_destination = 'changed after publishing' where id = '${DX}';
+    get diagnostics n = row_count; insert into _p values ('published_readout_edit', n::text);
+  exception when others then insert into _p values ('published_readout_edit', 'error ' || sqlstate); end;
+  update public.diagnostics set decision = 'sprint', decided_at = now(), status = 'decided' where id = '${DX}';
+  get diagnostics n = row_count; insert into _p values ('published_decision', n::text);
 end $$;
 reset role;
 create policy harness_planted_leak on public.diagnostic_answers for select to authenticated using (true);
@@ -12867,22 +12877,26 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   );
   const adminOk = r.system_admin_reads === "8" && r.system_admin_insert === "1" && r.system_admin_update === "1";
   const offPrimaryOk = r.not_primary_reads === "0" && r.not_primary_insert === "error 42501";
-  const ok = adminOk && othersOk && r.published_note_update === "0" && r.canary === "1" && offPrimaryOk;
+  const frozenOk = r.published_readout_edit === "error 42501" && r.published_decision === "1";
+  const ok = adminOk && othersOk && r.published_note_update === "0" && frozenOk && r.canary === "1" && offPrimaryOk;
   return [{
     name,
     granted: `system admin reads ${r.system_admin_reads} of 8, adds a client ${r.system_admin_insert}, updates an answer ${r.system_admin_update} (want 8, 1, 1)`,
     withheld:
       others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]}, updates ${r[`${k}_update`]}`).join(" | ") +
       ` (want 0, error 42501, 0 each) | note update after publishing ${r.published_note_update} (want 0) | ` +
+      `readout edit after publishing ${r.published_readout_edit} (want error 42501), decision after publishing ${r.published_decision} (want 1) | ` +
       `planted permissive rule on diagnostic_answers: ${r.canary === "1" ? "caught" : `missed (${r.canary})`} | ` +
       `off the primary instance, system admin reads ${r.not_primary_reads}, adds ${r.not_primary_insert} (want 0, error 42501)`,
     ok,
     detail: ok
-      ? "only a system admin on the primary instance reads or writes a diagnostic, and a published diagnostic's notes are frozen"
+      ? "only a system admin on the primary instance reads or writes a diagnostic, and a published readout, its notes and quotes are frozen"
       : !adminOk
         ? "A SYSTEM ADMIN CANNOT RUN A DIAGNOSTIC (is 0294 applied? is the clone marked primary?)"
         : !offPrimaryOk
           ? "A DIAGNOSTIC OPENS OFF THE PRIMARY INSTANCE (is 0295 applied?)"
+          : !frozenOk
+            ? "A PUBLISHED READOUT CAN CHANGE, or its decision cannot be recorded (is 0296 applied?)"
           : "SOMEONE OTHER THAN A SYSTEM ADMIN REACHES A DIAGNOSTIC TABLE, or a published note can change, or the planted leak went unseen",
   }];
 }

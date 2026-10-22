@@ -75,9 +75,36 @@ export type DiagnosticRow = {
   decision: Decision;
   archived_at: string | null;
   created_at: string;
+  // Phase 2 (0296).
+  data_at_risk: string | null;
+  guardrail_rules: string | null;
+  roadmap: RoadmapItem[];
+  narrative: Narrative | null;
+  published_readout: unknown;
+  decided_at: string | null;
 };
 export const DIAGNOSTIC_COLUMNS =
-  "id, client_id, status, tools_in_use, it_contact, access_secured, brief_sent, conversations_booked, scope, capacity_destination, pledge_text, pledge_sent_at, kickoff_at, midpoint_at, midpoint_note, readout_at, published_at, guarantee_hours, decision, archived_at, created_at";
+  "id, client_id, status, tools_in_use, it_contact, access_secured, brief_sent, conversations_booked, scope, capacity_destination, pledge_text, pledge_sent_at, kickoff_at, midpoint_at, midpoint_note, readout_at, published_at, guarantee_hours, decision, archived_at, created_at, data_at_risk, guardrail_rules, roadmap, narrative, published_readout, decided_at";
+
+// One line of the 90-day roadmap: a next win, the week of the sprint it
+// is meant to land in, and the person to train as its champion.
+export type RoadmapItem = { title: string; target_week: number | null; champion: string };
+
+// The readout's sections, in the order the readout runs (the team's
+// own words first). The narrative call writes one short paragraph for
+// each; the lead can edit them until publishing.
+export const READOUT_SECTIONS = [
+  { key: "in_their_words", title: "In Their Words" },
+  { key: "first_win", title: "The First Win" },
+  { key: "capacity_map", title: "The Capacity Map" },
+  { key: "hours_back", title: "Hours Back" },
+  { key: "destination", title: "The Capacity Destination" },
+  { key: "next_wins", title: "Top 3 Next Wins" },
+  { key: "guardrails", title: "Guardrails Snapshot" },
+  { key: "roadmap", title: "The 90-Day Roadmap" },
+] as const;
+export type ReadoutSection = (typeof READOUT_SECTIONS)[number]["key"];
+export type Narrative = Partial<Record<ReadoutSection, string>>;
 
 export type ParticipantRow = {
   id: string;
@@ -126,6 +153,7 @@ export type NoteRow = {
   body: string;
   peak_experience: string | null;
   redeploy_wish: string | null;
+  destination_hours: number | null;
 };
 
 export type QuoteRow = {

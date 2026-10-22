@@ -7,9 +7,13 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { MAX_TASKS_PER_PARTICIPANT, type DataRisk } from "./hours-back";
 import { winPattern } from "./win-patterns";
 import { isStep, statusAfterVisiting, type DiagnosticStep } from "./steps";
-import { CLIENT_SOURCES, type DiagnosticStatus } from "./types";
+import { CLIENT_SOURCES, READOUT_SECTIONS, type DiagnosticStatus, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
 import { rollUpTitles } from "./titles";
 import { parseParticipantLines } from "./participants";
+import { getDiagnostic, readoutToday } from "./service";
+import { assembleReadout, publishBlocker } from "./readout";
+import { writeNarrative } from "./narrative-call";
+import { suggestQuoteLines } from "./quote-call";
 
 // The Capacity Diagnostic's writes. Allowed roles: system_admin, on
 // every action (requireRole as courtesy; row security in 0294 is the
@@ -20,6 +24,10 @@ import { parseParticipantLines } from "./participants";
 export type DxResult = { ok: true; id?: string } | { ok: false; message: string };
 
 const REFUSED: DxResult = { ok: false, message: "That didn't save. Reload the page and try again." };
+// 0296's freeze raises 42501 on any change to a published diagnostic
+// beyond its decision.
+const PUBLISHED: DxResult = { ok: false, message: "This readout is published, so it can't change." };
+const refusedOr = (error: { code?: string } | null): DxResult => (error?.code === "42501" ? PUBLISHED : REFUSED);
 
 async function caller() {
   await requireRole(["system_admin"]);
@@ -164,6 +172,8 @@ export type DiagnosticPatch = {
   midpoint_at?: string;
   midpoint_note?: string;
   guarantee_hours?: string | number;
+  data_at_risk?: string;
+  guardrail_rules?: string;
 };
 
 export async function updateDiagnosticAction(id: string, patch: DiagnosticPatch): Promise<DxResult> {
@@ -176,6 +186,8 @@ export async function updateDiagnosticAction(id: string, patch: DiagnosticPatch)
     ["capacity_destination", 2000],
     ["pledge_text", 4000],
     ["midpoint_note", 4000],
+    ["data_at_risk", 2000],
+    ["guardrail_rules", 2000],
   ];
   for (const [k, max] of limits) if (k in patch) row[k] = text(patch[k], max);
   for (const k of ["access_secured", "brief_sent", "conversations_booked"] as const) {
@@ -195,8 +207,8 @@ export async function updateDiagnosticAction(id: string, patch: DiagnosticPatch)
     row.guarantee_hours = g;
   }
   if (Object.keys(row).length === 0) return { ok: true };
-  const { data } = await supabase.from("diagnostics").update(row).eq("id", id).select("id");
-  if (!data?.length) return REFUSED;
+  const { data, error } = await supabase.from("diagnostics").update(row).eq("id", id).select("id");
+  if (!data?.length) return refusedOr(error);
   touched(id);
   return { ok: true };
 }
@@ -449,7 +461,7 @@ export async function rollUpTitlesAction(diagnosticId: string): Promise<DxResult
 
 // ---- Conversations -------------------------------------------------
 
-export type NotesInput = { body?: string; peak_experience?: string; redeploy_wish?: string };
+export type NotesInput = { body?: string; peak_experience?: string; redeploy_wish?: string; destination_hours?: string };
 
 export async function saveNotesAction(diagnosticId: string, participantId: string, input: NotesInput): Promise<DxResult> {
   const supabase = await caller();
@@ -457,6 +469,11 @@ export async function saveNotesAction(diagnosticId: string, participantId: strin
   if ("body" in input) row.body = (input.body ?? "").slice(0, 8000);
   if ("peak_experience" in input) row.peak_experience = text(input.peak_experience, 2000);
   if ("redeploy_wish" in input) row.redeploy_wish = text(input.redeploy_wish, 2000);
+  if ("destination_hours" in input) {
+    const h = numberIn(input.destination_hours, 0, 40);
+    if (h === "bad") return { ok: false, message: "Hours toward the destination should be between 0 and 40." };
+    row.destination_hours = h;
+  }
   const { data } = await supabase.from("diagnostic_notes").upsert(row, { onConflict: "participant_id" }).select("participant_id");
   if (!data?.length) return { ok: false, message: "Those notes didn't save. A published diagnostic's notes can't change." };
   touched(diagnosticId);
@@ -546,5 +563,122 @@ export async function saveFirstWinAction(diagnosticId: string, input: WinInput):
     : await supabase.from("diagnostic_wins").insert(row).select("id");
   if (!data?.length) return REFUSED;
   touched(diagnosticId);
+  return { ok: true };
+}
+
+// ---- The readout (phase 2) -----------------------------------------
+
+// Lines the quote call proposes from one person's notes, added as
+// unapproved quotes with no name.
+export async function suggestQuotesAction(diagnosticId: string, participantId: string): Promise<DxResult & { added?: number }> {
+  const supabase = await caller();
+  const [{ data: note }, { data: existing }] = await Promise.all([
+    supabase
+      .from("diagnostic_notes")
+      .select("body, peak_experience, redeploy_wish")
+      .eq("participant_id", participantId)
+      .eq("diagnostic_id", diagnosticId)
+      .maybeSingle<{ body: string; peak_experience: string | null; redeploy_wish: string | null }>(),
+    supabase.from("diagnostic_quotes").select("text").eq("diagnostic_id", diagnosticId).limit(200),
+  ]);
+  const notes = [note?.body, note?.peak_experience, note?.redeploy_wish].filter(Boolean).join("\n\n");
+  if (notes.trim().length < 40) return { ok: false, message: "Write the notes for this conversation first." };
+  const result = await suggestQuoteLines(notes, (existing ?? []).map((q: { text: string }) => q.text));
+  if (!result.ok) return result;
+  if (result.lines.length === 0) return { ok: false, message: "No lines in these notes stood out. Pull one by hand if you have one in mind." };
+  const { data } = await supabase
+    .from("diagnostic_quotes")
+    .insert(result.lines.map((t) => ({ diagnostic_id: diagnosticId, text: t })))
+    .select("id");
+  if (!data?.length) return REFUSED;
+  touched(diagnosticId);
+  return { ok: true, added: data.length };
+}
+
+export async function saveRoadmapAction(id: string, items: RoadmapItem[]): Promise<DxResult> {
+  const supabase = await caller();
+  if (!Array.isArray(items) || items.length > 3) return { ok: false, message: "The roadmap holds three next wins." };
+  const roadmap: RoadmapItem[] = [];
+  for (const item of items) {
+    const title = text(item?.title, 200);
+    if (!title) continue;
+    const week = numberIn(item?.target_week, 1, 13);
+    if (week === "bad" || (week != null && !Number.isInteger(week))) {
+      return { ok: false, message: "A target week is a whole number from 1 to 13." };
+    }
+    roadmap.push({ title, target_week: week, champion: text(item?.champion, 200) ?? "" });
+  }
+  const { data, error } = await supabase.from("diagnostics").update({ roadmap }).eq("id", id).select("id");
+  if (!data?.length) return refusedOr(error);
+  touched(id);
+  return { ok: true };
+}
+
+// The readout writer, over the readout as it stands. Replaces the
+// narrative; the lead edits it after.
+export async function generateNarrativeAction(id: string): Promise<DxResult & { dropped?: number }> {
+  const supabase = await caller();
+  const bundle = await getDiagnostic(id);
+  if (!bundle) return REFUSED;
+  if (bundle.diagnostic.published_at) return PUBLISHED;
+  const result = await writeNarrative(assembleReadout(bundle, readoutToday()), bundle.diagnostic.pledge_text);
+  if (!result.ok) return result;
+  const { data, error } = await supabase.from("diagnostics").update({ narrative: result.narrative }).eq("id", id).select("id");
+  if (!data?.length) return refusedOr(error);
+  touched(id);
+  return { ok: true, dropped: result.dropped.length };
+}
+
+export async function saveNarrativeSectionAction(id: string, section: ReadoutSection, value: string): Promise<DxResult> {
+  const supabase = await caller();
+  if (!READOUT_SECTIONS.some((s) => s.key === section)) return REFUSED;
+  const { data: d } = await supabase.from("diagnostics").select("narrative").eq("id", id).maybeSingle<{ narrative: Narrative | null }>();
+  if (!d) return REFUSED;
+  const narrative: Narrative = { ...(d.narrative ?? {}) };
+  const t = text(value, 1500);
+  if (t) narrative[section] = t;
+  else delete narrative[section];
+  const { data, error } = await supabase.from("diagnostics").update({ narrative }).eq("id", id).select("id");
+  if (!data?.length) return refusedOr(error);
+  touched(id);
+  return { ok: true };
+}
+
+// Publish: the readout as it stands becomes the one the owner gets.
+// published_at and published_readout are written together and never
+// change again (0296); the PDF renders from published_readout.
+export async function publishReadoutAction(id: string): Promise<DxResult> {
+  const supabase = await caller();
+  const bundle = await getDiagnostic(id);
+  if (!bundle) return REFUSED;
+  if (bundle.diagnostic.published_at) return PUBLISHED;
+  const readout = assembleReadout(bundle, readoutToday());
+  const blocker = publishBlocker(readout);
+  if (blocker) return { ok: false, message: blocker };
+  const status = statusAfterVisiting(bundle.diagnostic.status, "readout");
+  const { data, error } = await supabase
+    .from("diagnostics")
+    .update({ published_at: new Date().toISOString(), published_readout: readout, status })
+    .eq("id", id)
+    .is("published_at", null)
+    .select("id");
+  if (!data?.length) return refusedOr(error);
+  touched(id);
+  return { ok: true };
+}
+
+// Record decision sets the decision and nothing else on the platform:
+// a sprint that starts is set up by hand, where it belongs.
+export async function recordDecisionAction(id: string, decision: "sprint" | "declined" | "pending"): Promise<DxResult> {
+  const supabase = await caller();
+  if (!["sprint", "declined", "pending"].includes(decision)) return REFUSED;
+  const decided = decision !== "pending";
+  const { data, error } = await supabase
+    .from("diagnostics")
+    .update({ decision, decided_at: decided ? new Date().toISOString() : null, status: decided ? "decided" : "readout" })
+    .eq("id", id)
+    .select("id, client_id");
+  if (!data?.length) return refusedOr(error);
+  touched(id, data[0].client_id);
   return { ok: true };
 }

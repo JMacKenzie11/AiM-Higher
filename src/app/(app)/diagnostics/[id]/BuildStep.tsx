@@ -151,6 +151,32 @@ export function BuildStep({
         )}
       </StepCard>
 
+      <StepCard id="dx-guardrails" title="Guardrails snapshot">
+        <div className={styles.body}>
+          <p className={styles.muted}>
+            The tools in use come from pre-flight. Add the kinds of data the builds would touch and three rules to put in place now.
+          </p>
+          <DxField
+            diagnosticId={diagnostic.id}
+            field="data_at_risk"
+            label="Data at risk"
+            value={diagnostic.data_at_risk}
+            multiline
+            placeholder="Customer contact details in the inbox, pricing in the quote sheet"
+            maxLength={2000}
+          />
+          <DxField
+            diagnosticId={diagnostic.id}
+            field="guardrail_rules"
+            label="Three rules, one per line"
+            value={diagnostic.guardrail_rules}
+            multiline
+            placeholder={"A person reads every draft before it goes to a customer"}
+            maxLength={2000}
+          />
+        </div>
+      </StepCard>
+
       <StepCard id="dx-midpoint" title="Midpoint check" footer={footer}>
         <div className={styles.body}>
           <div className={styles.grid2}>

@@ -18,6 +18,7 @@ import {
   type TaskRow,
   type WinRow,
 } from "./types";
+import { assembleReadout, isReadoutData, type ReadoutData } from "./readout";
 
 // Every read goes through the caller's own client, so row security
 // (system admin only, 0294) is the boundary; the pages' requireRole is
@@ -121,7 +122,7 @@ export async function getDiagnostic(id: string): Promise<DiagnosticBundle | null
   const [answers, notes] = ids.length
     ? await Promise.all([
         supabase.from("diagnostic_answers").select("participant_id, best_work, task_to_lose, trust_needs").in("participant_id", ids),
-        supabase.from("diagnostic_notes").select("participant_id, body, peak_experience, redeploy_wish").in("participant_id", ids),
+        supabase.from("diagnostic_notes").select("participant_id, body, peak_experience, redeploy_wish, destination_hours").in("participant_id", ids),
       ])
     : [{ data: [] }, { data: [] }];
   return {
@@ -134,4 +135,19 @@ export async function getDiagnostic(id: string): Promise<DiagnosticBundle | null
     quotes: (quotes.data ?? []) as QuoteRow[],
     firstWin: ((wins.data ?? []) as WinRow[])[0] ?? null,
   };
+}
+
+// The readout to show: the published copy once there is one, so what
+// the owner was given never drifts; until then, the draft from the
+// current figures, dated today where the diagnostics are run.
+export async function getReadout(id: string): Promise<{ readout: ReadoutData; published: boolean; bundle: DiagnosticBundle } | null> {
+  const bundle = await getDiagnostic(id);
+  if (!bundle) return null;
+  const stored = bundle.diagnostic.published_readout;
+  if (isReadoutData(stored)) return { readout: stored, published: true, bundle };
+  return { readout: assembleReadout(bundle, readoutToday()), published: false, bundle };
+}
+
+export function readoutToday(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
 }

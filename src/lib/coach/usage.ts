@@ -124,6 +124,8 @@ export type CoachUsagePurpose =
   | "session_brief" // HQ session brief
   | "headlines" // each functional area's headline from a meeting (0292)
   | "diagnostic_titles" // Capacity Diagnostic: canonical task titles (0294)
+  | "diagnostic_quotes" // Capacity Diagnostic: suggested readout lines (0296)
+  | "diagnostic_readout" // Capacity Diagnostic: the readout narrative (0296)
   | "other";
 
 // Fire-and-forget log. Callers should NOT await this in the

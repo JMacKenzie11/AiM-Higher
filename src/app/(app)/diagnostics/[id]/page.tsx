@@ -2,10 +2,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
-import { getDiagnostic } from "@/lib/diagnostics/service";
+import { getDiagnostic, readoutToday } from "@/lib/diagnostics/service";
 import { DIAGNOSTIC_STEPS, isStep, stepAfter, stepBefore, stepForStatus, type DiagnosticStep } from "@/lib/diagnostics/steps";
 import { statusLabel, toTask, toWin } from "@/lib/diagnostics/types";
 import { candidateGroups, capacityMap, summarize, topNextWins } from "@/lib/diagnostics/hours-back";
+import { assembleReadout } from "@/lib/diagnostics/readout";
 import { PageShell } from "@/components/ui/PageShell";
 import { ArchiveButton } from "../ActionButtons";
 import { StepFooter } from "./StepFooter";
@@ -14,6 +15,7 @@ import { KickoffStep } from "./KickoffStep";
 import { SurveyStep } from "./SurveyStep";
 import { ConversationsStep } from "./ConversationsStep";
 import { BuildStep } from "./BuildStep";
+import { ReadoutStep } from "./ReadoutStep";
 import styles from "../diagnostics.module.css";
 
 export const metadata = { title: "Capacity Diagnostic" };
@@ -89,6 +91,9 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
         footer={footer}
       />
     );
+  }
+  if (step === "readout") {
+    content = <ReadoutStep diagnostic={diagnostic} readout={assembleReadout(bundle, readoutToday())} footer={footer} />;
   }
 
   return (

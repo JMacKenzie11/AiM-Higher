@@ -3,8 +3,10 @@ import { test, expect, signIn, users } from "./fixtures";
 // The Capacity Diagnostic, end to end, as the system admin who runs it
 // (0294): add a client, start a diagnostic, tick pre-flight access,
 // add one person, enter their survey, and see their tasks as dots on
-// the Capacity Map. Then archive the client, since nothing in the
-// module is ever deleted.
+// the Capacity Map; choose the first win and its measured week, publish
+// the readout, fetch its PDF and Markdown, and record the decision
+// (0296). Then archive the client, since nothing in the module is ever
+// deleted. The model calls (narrative, quotes) are not run here.
 //
 // The client's name is unique per run so a failed run leaves nothing
 // the next one trips on.
@@ -59,6 +61,35 @@ test.describe("Capacity Diagnostic", () => {
     await page.goto(page.url().replace(/step=survey$/, "step=build"));
     await expect(page.getByTestId("map-dot")).toHaveCount(1, { timeout: 15_000 });
     await expect(page.getByRole("cell", { name: "Quotes" })).toBeVisible();
+
+    // ---- the first win and its measured week ----
+    await page.getByRole("button", { name: "Choose first win" }).click();
+    const win = page.getByTestId("drawer-panel");
+    await win.getByLabel("Minutes per unit before").fill("25");
+    await win.getByLabel("Units a week").fill("24");
+    await win.getByLabel("In use from").fill("2026-10-12");
+    await win.getByLabel("Minutes per unit after").fill("10");
+    await win.getByLabel("Measured week ending").fill("2026-10-16");
+    await win.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("button", { name: "Edit first win" })).toBeVisible({ timeout: 15_000 });
+
+    // ---- the readout: publish, the PDF, the Markdown, the decision ----
+    await page.goto(page.url().replace(/step=build$/, "step=readout"));
+    await page.getByRole("button", { name: "Publish the readout" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Publish" }).click();
+    await expect(page.getByText(/^Published /)).toBeVisible({ timeout: 15_000 });
+    const base = page.url().replace(/\?step=readout$/, "");
+    const pdf = await page.request.get(`${base}/readout/pdf`);
+    expect(pdf.status()).toBe(200);
+    expect(pdf.headers()["content-type"]).toBe("application/pdf");
+    const md = await page.request.get(`${base}/readout/markdown`);
+    expect(await md.text()).toContain("## The Capacity Destination");
+    await page.getByRole("link", { name: "Open the readout" }).click();
+    await expect(page.getByRole("heading", { name: "Hours Back" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("6 hours a week, measured.")).toBeVisible();
+    await page.getByRole("link", { name: /Readout step/ }).click();
+    await page.getByRole("button", { name: "They chose the sprint" }).click();
+    await expect(page.getByRole("button", { name: "Set back to pending" })).toBeVisible({ timeout: 15_000 });
 
     // ---- tidy ----
     // Wait for the client's page before pressing Archive: the
