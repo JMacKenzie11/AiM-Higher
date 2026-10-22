@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { NoteRow, ParticipantRow, QuoteRow } from "@/lib/diagnostics/types";
+import { CONVERSATION_GUIDE, OPENING_LINE } from "@/lib/diagnostics/conversation-guide";
 import { StepCard } from "./StepCard";
 import { Notes } from "./Notes";
 import { Quotes } from "./Quotes";
@@ -10,17 +11,6 @@ import styles from "../diagnostics.module.css";
 // notes for the person on the right, saved as the cursor leaves each
 // box. Pull a quote turns selected words into a line the readout may
 // use, once the lead approves it.
-
-export const OPENING_LINE =
-  "What you tell me stays with me. The owner sees combined results, never your individual ratings or answers.";
-
-export const CONVERSATION_GUIDE = [
-  "Tell me about a time in the last year when you finished a day here feeling like you had done your best work. What were you doing, and what did you bring to it that made it go well?",
-  "Which parts of your week get in the way of more days like that?",
-  "If a tool handled the first draft, the lookup, or the paperwork on one of those, what would it have to get right for you to use it?",
-  "What would you want the owner to understand about how your work actually happens?",
-  "With a few hours back each week, what is the first thing you would put them toward?",
-] as const;
 
 export function ConversationsStep({
   diagnosticId,

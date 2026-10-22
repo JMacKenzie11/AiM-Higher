@@ -5,8 +5,11 @@ import { test, expect, signIn, users } from "./fixtures";
 // add one person, enter their survey, and see their tasks as dots on
 // the Capacity Map; choose the first win and its measured week, publish
 // the readout, fetch its PDF and Markdown, and record the decision
-// (0296). Then archive the client, since nothing in the module is ever
-// deleted. The model calls (narrative, quotes) are not run here.
+// (0296); run one conversation with the helper and see the Across
+// clients tab (phase 3). Then archive the client, since nothing in the
+// module is ever deleted. Of the model calls only the conversation
+// helper's runs here, and only what it saves is checked: the person's
+// words in their notes.
 //
 // The client's name is unique per run so a failed run leaves nothing
 // the next one trips on.
@@ -57,8 +60,20 @@ test.describe("Capacity Diagnostic", () => {
     await survey.getByText("Close", { exact: true }).click();
     await expect(page.getByText("1 of 1 entered")).toBeVisible({ timeout: 15_000 });
 
+    // ---- one conversation, with the helper ----
+    await page.goto(page.url().replace(/step=survey$/, "step=conversations"));
+    await page.getByRole("button", { name: "Run a capacity conversation" }).click();
+    await page.getByRole("button", { name: "Start with question 1" }).click();
+    await page.getByLabel("What they said").fill("Last March I rebuilt the Hendricks quote from scratch and we won it.");
+    await page.getByRole("button", { name: "Add to notes" }).click();
+    await expect(page.getByLabel("Notes", { exact: true })).toHaveValue(/^1\. Best work\nLast March I rebuilt the Hendricks quote/, { timeout: 60_000 });
+    for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Next question" }).click();
+    await page.getByRole("button", { name: "Finish" }).click();
+    await expect(page.getByText("Notes filled in from the conversation.")).toBeVisible();
+    await expect(page.getByLabel("Had a conversation")).toBeChecked();
+
     // ---- the map ----
-    await page.goto(page.url().replace(/step=survey$/, "step=build"));
+    await page.goto(page.url().replace(/step=conversations$/, "step=build"));
     await expect(page.getByTestId("map-dot")).toHaveCount(1, { timeout: 15_000 });
     await expect(page.getByRole("cell", { name: "Quotes" })).toBeVisible();
 
@@ -90,6 +105,12 @@ test.describe("Capacity Diagnostic", () => {
     await page.getByRole("link", { name: /Readout step/ }).click();
     await page.getByRole("button", { name: "They chose the sprint" }).click();
     await expect(page.getByRole("button", { name: "Set back to pending" })).toBeVisible({ timeout: 15_000 });
+
+    // ---- across clients ----
+    await page.goto("/diagnostics?view=across");
+    await expect(page.getByRole("heading", { level: 1, name: "Across clients" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Guarantee met").first()).toBeVisible();
+    await page.goto(`${base}?step=readout`);
 
     // ---- tidy ----
     // Wait for the client's page before pressing Archive: the
