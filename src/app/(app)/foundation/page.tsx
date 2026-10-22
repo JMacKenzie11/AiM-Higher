@@ -5,18 +5,11 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getFoundation } from "@/lib/foundation/service";
-import {
-  deleteFoundationItemAction,
-  deleteSnippetAction,
-} from "@/lib/foundation/actions";
-import { DeleteButton } from "./DeleteButton";
-import {
-  AddFoundationItemForm,
-  EditFoundationItemForm,
-} from "./FoundationItemForms";
+import { AddFoundationItemForm } from "./FoundationItemForms";
 import { PurposeForm } from "./PurposeForm";
 import { VisionForm } from "./VisionForm";
-import { AddSnippetForm, EditSnippetForm } from "./MarketingForms";
+import { AddSnippetForm } from "./MarketingForms";
+import { EditableFoundationItem, EditableSnippet } from "./InlineEdit";
 import { SectionEditToggle } from "./SectionEditToggle";
 import { CardAccent } from "@/components/ui/CardAccent";
 import { PageShell } from "@/components/ui/PageShell";
@@ -188,20 +181,13 @@ export default async function OnePagePlanPage() {
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div className={styles.numberedCardMain}>
-                      <h3 className={styles.h3}>{value.title}</h3>
-                      {value.body ? (
-                        <p className={styles.bodyText}>{value.body}</p>
-                      ) : null}
-                      {isAdmin ? (
-                        <div className={styles.subcardActions}>
-                          <EditFoundationItemForm item={value} />
-                          <DeleteButton
-                            action={deleteFoundationItemAction}
-                            itemId={value.id}
-                            confirmMessage="Delete this core value?"
-                          />
-                        </div>
-                      ) : null}
+                      <EditableFoundationItem
+                        item={value}
+                        canEdit={isAdmin}
+                        confirmMessage="Delete this core value?"
+                        titleLabel="Value title"
+                        bodyLabel="What it looks like in practice"
+                      />
                     </div>
                   </article>
                 ))}
@@ -241,20 +227,13 @@ export default async function OnePagePlanPage() {
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div className={styles.numberedCardMain}>
-                      <h3 className={styles.h3}>{item.title}</h3>
-                      {item.body ? (
-                        <p className={styles.bodyText}>{item.body}</p>
-                      ) : null}
-                      {isAdmin ? (
-                        <div className={styles.subcardActions}>
-                          <EditFoundationItemForm item={item} />
-                          <DeleteButton
-                            action={deleteFoundationItemAction}
-                            itemId={item.id}
-                            confirmMessage="Delete this differentiator?"
-                          />
-                        </div>
-                      ) : null}
+                      <EditableFoundationItem
+                        item={item}
+                        canEdit={isAdmin}
+                        confirmMessage="Delete this differentiator?"
+                        titleLabel="Differentiator title"
+                        bodyLabel="Supporting paragraph"
+                      />
                     </div>
                   </article>
                 ))}
@@ -291,20 +270,11 @@ export default async function OnePagePlanPage() {
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <div className={styles.numberedCardMain}>
-                        {/* ICP snippets have no separate title — rendering as
-                              body text (not h3) so the numbered card doesn't
-                              read as an over-weighted headline. */}
-                        <p className={styles.bodyText}>{snippet.content}</p>
-                        {isAdmin ? (
-                          <div className={styles.subcardActions}>
-                            <EditSnippetForm snippet={snippet} label="Best-fit client or project" />
-                            <DeleteButton
-                              action={deleteSnippetAction}
-                              itemId={snippet.id}
-                              confirmMessage="Remove this entry?"
-                            />
-                          </div>
-                        ) : null}
+                        <EditableSnippet
+                          snippet={snippet}
+                          canEdit={isAdmin}
+                          label="Best-fit client or project"
+                        />
                       </div>
                     </article>
                   ))}
@@ -330,17 +300,11 @@ export default async function OnePagePlanPage() {
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <div className={styles.numberedCardMain}>
-                        <p className={styles.bodyText}>{snippet.content}</p>
-                        {isAdmin ? (
-                          <div className={styles.subcardActions}>
-                            <EditSnippetForm snippet={snippet} label="Psychographic" />
-                            <DeleteButton
-                              action={deleteSnippetAction}
-                              itemId={snippet.id}
-                              confirmMessage="Remove this entry?"
-                            />
-                          </div>
-                        ) : null}
+                        <EditableSnippet
+                          snippet={snippet}
+                          canEdit={isAdmin}
+                          label="Psychographic"
+                        />
                       </div>
                     </article>
                   ))}
