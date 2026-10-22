@@ -12765,7 +12765,10 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 //   canary    a planted permissive read rule on diagnostic_answers must
 //             let the member read that row, or a clean result is a
 //             broken probe
-// Red before 0294: the tables do not exist.
+//   withheld  with instance_settings.is_primary switched off (0295), the
+//             system admin reads 0 of the eight and adds nothing (42501)
+// Red before 0294: the tables do not exist. Red before 0295: the system
+// admin still reads all eight off the primary instance.
 async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "diagnostics · system admin only";
   const CL = randomUUID(), DX = randomUUID(), PT = randomUUID(), TK = randomUUID();
@@ -12838,6 +12841,20 @@ begin
   insert into _p values ('canary', n::text);
 end $$;
 reset role;
+drop policy harness_planted_leak on public.diagnostic_answers;
+update public.instance_settings set is_primary = false;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  select ${reads} into n; insert into _p values ('not_primary_reads', n::text);
+  begin
+    insert into public.diagnostic_clients (name) values ('Harness 0295 off the primary');
+    get diagnostics n = row_count; insert into _p values ('not_primary_insert', n::text);
+  exception when others then insert into _p values ('not_primary_insert', 'error ' || sqlstate); end;
+end $$;
+reset role;
 select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   } catch (err) {
     const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
@@ -12849,20 +12866,24 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
     (k) => r[`${k}_reads`] === "0" && r[`${k}_insert`] === "error 42501" && r[`${k}_update`] === "0"
   );
   const adminOk = r.system_admin_reads === "8" && r.system_admin_insert === "1" && r.system_admin_update === "1";
-  const ok = adminOk && othersOk && r.published_note_update === "0" && r.canary === "1";
+  const offPrimaryOk = r.not_primary_reads === "0" && r.not_primary_insert === "error 42501";
+  const ok = adminOk && othersOk && r.published_note_update === "0" && r.canary === "1" && offPrimaryOk;
   return [{
     name,
     granted: `system admin reads ${r.system_admin_reads} of 8, adds a client ${r.system_admin_insert}, updates an answer ${r.system_admin_update} (want 8, 1, 1)`,
     withheld:
       others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]}, updates ${r[`${k}_update`]}`).join(" | ") +
       ` (want 0, error 42501, 0 each) | note update after publishing ${r.published_note_update} (want 0) | ` +
-      `planted permissive rule on diagnostic_answers: ${r.canary === "1" ? "caught" : `missed (${r.canary})`}`,
+      `planted permissive rule on diagnostic_answers: ${r.canary === "1" ? "caught" : `missed (${r.canary})`} | ` +
+      `off the primary instance, system admin reads ${r.not_primary_reads}, adds ${r.not_primary_insert} (want 0, error 42501)`,
     ok,
     detail: ok
-      ? "only a system admin reads or writes a diagnostic, and a published diagnostic's notes are frozen"
+      ? "only a system admin on the primary instance reads or writes a diagnostic, and a published diagnostic's notes are frozen"
       : !adminOk
-        ? "A SYSTEM ADMIN CANNOT RUN A DIAGNOSTIC (is 0294 applied?)"
-        : "SOMEONE OTHER THAN A SYSTEM ADMIN REACHES A DIAGNOSTIC TABLE, or a published note can change, or the planted leak went unseen",
+        ? "A SYSTEM ADMIN CANNOT RUN A DIAGNOSTIC (is 0294 applied? is the clone marked primary?)"
+        : !offPrimaryOk
+          ? "A DIAGNOSTIC OPENS OFF THE PRIMARY INSTANCE (is 0295 applied?)"
+          : "SOMEONE OTHER THAN A SYSTEM ADMIN REACHES A DIAGNOSTIC TABLE, or a published note can change, or the planted leak went unseen",
   }];
 }
 

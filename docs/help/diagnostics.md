@@ -27,4 +27,4 @@ On the client's page, select **Start a diagnostic**. It opens on the first step.
 
 ## Who sees what
 
-Only system admins can open these pages. Individual ratings, answers and notes stay with you. The owner sees combined results only.
+Only system admins on AiMS HQ can open these pages. Individual ratings, answers and notes stay with you. The owner sees combined results only.

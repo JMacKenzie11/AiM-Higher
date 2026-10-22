@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth/current-user";
+import { requireDiagnostics } from "@/lib/diagnostics/access";
 import { getClient } from "@/lib/diagnostics/service";
 import { CLIENT_SOURCES, decisionLabel, statusLabel } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
@@ -15,7 +15,7 @@ type PageProps = { params: Promise<{ id: string }> };
 
 // One client: their details and every diagnostic run for them.
 export default async function DiagnosticClientPage({ params }: PageProps) {
-  await requireRole(["system_admin"]);
+  await requireDiagnostics();
   const { id } = await params;
   const found = await getClient(id);
   if (!found) notFound();

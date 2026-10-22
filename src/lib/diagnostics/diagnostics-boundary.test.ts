@@ -49,6 +49,13 @@ describe("the Capacity Diagnostic's boundary", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("opens every page only for a system admin on the primary instance", () => {
+    const pages = all.filter((f) => inModule(f) && path.basename(f) === "page.tsx");
+    expect(pages.length).toBeGreaterThan(0);
+    const offenders = pages.filter((f) => !/await requireDiagnostics\(\)/.test(readFileSync(f, "utf8")));
+    expect(offenders.map((f) => path.relative(SRC, f))).toEqual([]);
+  });
+
   it("names no platform table", () => {
     const tables = /\.from\(\s*["'](companies|profiles|priorities|commitments|success_measures|issues|functions|foundation_items)["']/;
     const offenders = all.filter(inModule).filter((f) => !f.endsWith(".test.ts") && tables.test(readFileSync(f, "utf8")));
