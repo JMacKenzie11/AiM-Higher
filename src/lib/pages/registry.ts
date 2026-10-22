@@ -136,6 +136,7 @@ export const PAGES: readonly PageEntry[] = [
   // as /meetinganalysis is, so Aimee does not link to it either.
   { pattern: "/diagnostics", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/diagnostics/[id]", roles: ["system_admin"], feature: null, link: false },
+  { pattern: "/diagnostics/[id]/readout", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/diagnostics/clients", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/diagnostics/clients/[id]", roles: ["system_admin"], feature: null, link: false },
 ];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { addQuoteAction, saveNotesAction, updateParticipantAction, type NotesInput } from "@/lib/diagnostics/actions";
+import { addQuoteAction, saveNotesAction, suggestQuotesAction, updateParticipantAction, type NotesInput } from "@/lib/diagnostics/actions";
 import type { NoteRow, ParticipantRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../useDxAction";
 import admin from "../../admin/companies/admin.module.css";
@@ -32,13 +32,20 @@ export function Notes({ diagnosticId, participants, notes }: { diagnosticId: str
 }
 
 function NotesForm({ diagnosticId, person, note }: { diagnosticId: string; person: ParticipantRow; note: NoteRow | null }) {
-  const initial = { body: note?.body ?? "", peak_experience: note?.peak_experience ?? "", redeploy_wish: note?.redeploy_wish ?? "" };
+  const initial: Required<NotesInput> = {
+    body: note?.body ?? "",
+    peak_experience: note?.peak_experience ?? "",
+    redeploy_wish: note?.redeploy_wish ?? "",
+    destination_hours: note?.destination_hours == null ? "" : String(note.destination_hours),
+  };
   const [f, setF] = useState(initial);
   const [last, setLast] = useState(initial);
   const [had, setHad] = useState(person.in_conversations);
   const body = useRef<HTMLTextAreaElement>(null);
   const save = useDxAction();
   const quote = useDxAction();
+  const suggest = useDxAction();
+  const [suggested, setSuggested] = useState<number | null>(null);
   const mark = useDxAction();
 
   function blur(k: keyof NotesInput) {
@@ -91,7 +98,23 @@ function NotesForm({ diagnosticId, person, note }: { diagnosticId: string; perso
           <button type="button" className={`${styles.secondary} ${styles.small}`} onMouseDown={(e) => e.preventDefault()} onClick={pull} disabled={quote.pending}>
             Pull a quote
           </button>
+          <button
+            type="button"
+            className={`${styles.secondary} ${styles.small}`}
+            disabled={suggest.pending}
+            onClick={() => {
+              setSuggested(null);
+              suggest.run(() => suggestQuotesAction(diagnosticId, person.id), (r) => setSuggested((r as { added?: number }).added ?? 0));
+            }}
+          >
+            {suggest.pending ? "Reading the notes" : "Suggest quotes"}
+          </button>
           {quote.error ? <span className={styles.error} role="alert">{quote.error}</span> : quote.saved ? <span className={styles.status}>Added below, not yet approved.</span> : null}
+          {suggest.error ? (
+            <span className={styles.error} role="alert">{suggest.error}</span>
+          ) : suggested ? (
+            <span className={styles.status}>{suggested === 1 ? "One line" : `${suggested} lines`} added below, not yet approved.</span>
+          ) : null}
         </span>
       </div>
       <div className={admin.field}>
@@ -119,6 +142,20 @@ function NotesForm({ diagnosticId, person, note }: { diagnosticId: string; perso
           onBlur={() => blur("redeploy_wish")}
           maxLength={2000}
         />
+      </div>
+      <div className={admin.field}>
+        <label className={admin.label} htmlFor="notes-destination-hours">
+          Hours a week toward the Capacity Destination
+        </label>
+        <input
+          id="notes-destination-hours"
+          className={admin.input}
+          inputMode="decimal"
+          value={f.destination_hours}
+          onChange={(e) => setF((x) => ({ ...x, destination_hours: e.target.value }))}
+          onBlur={() => blur("destination_hours")}
+        />
+        <span className={styles.status}>The readout adds these up by role.</span>
       </div>
       {save.error ? <span className={styles.error} role="alert">{save.error}</span> : save.pending ? <span className={styles.status}>Saving</span> : save.saved ? <span className={styles.status}>Saved</span> : null}
     </>

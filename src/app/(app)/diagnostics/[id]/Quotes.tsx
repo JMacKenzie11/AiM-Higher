@@ -16,10 +16,10 @@ export function Quotes({ quotes, participants, footer }: { quotes: QuoteRow[]; p
         <h2 id="dx-quotes" className={styles.cardTitle}>
           Lines for the readout
         </h2>
-        <span className={styles.cardMeta}>{approved} approved</span>
+        <span className={styles.cardMeta}>{approved} approved{approved > 3 ? ", the readout uses the first three" : ""}</span>
       </div>
       {quotes.length === 0 ? (
-        <p className={styles.empty}>Select words in the notes and press Pull a quote.</p>
+        <p className={styles.empty}>Select words in the notes and press Pull a quote, or press Suggest quotes.</p>
       ) : (
         <ul className={styles.plainList}>
           {quotes.map((q) => (
