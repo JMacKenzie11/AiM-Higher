@@ -1,0 +1,455 @@
+/* The Capacity Diagnostic's pages (0294). Cards follow the Commitments
+   and meeting cards: a navy-tint header with the title and its main
+   action top right, the content, then the foot. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.card + .card {
+  margin-top: var(--space-5);
+}
+
+.cardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--aims-navy-tint);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.cardTitle {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.cardMeta {
+  font: var(--text-caption);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.headerAction {
+  margin-left: auto;
+  align-self: center;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+/* A section heading inside a card, on the cobalt band the meeting
+   uses. */
+.subhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  background: var(--aims-cobalt-tint);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.subheadMeta {
+  font: var(--text-body-sm);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.plainList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.plainList > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  font: var(--text-body);
+}
+
+.plainList > li:first-child {
+  border-top: 0;
+}
+
+.plainList > li > :last-child {
+  margin-left: auto;
+}
+
+.muted {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font: var(--text-body);
+}
+
+/* The step pills in the hero, as the weekly meeting's. */
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.step {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  color: color-mix(in srgb, var(--aims-white) 72%, transparent);
+  background: color-mix(in srgb, var(--aims-white) 8%, transparent);
+  font: var(--text-body);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.step[data-done="true"] {
+  color: var(--aims-white);
+}
+
+.step[aria-current="step"],
+.step[aria-current="page"] {
+  background: var(--aims-white);
+  color: var(--aims-navy);
+}
+
+.step:focus-visible {
+  outline: 2px solid var(--aims-chartreuse);
+  outline-offset: 2px;
+}
+
+/* Forms. */
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body);
+  min-height: var(--tap-min);
+}
+
+.formRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.status {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.error {
+  font: var(--text-body-sm);
+  color: var(--aims-danger);
+}
+
+/* Tables that scroll inside their card at phone width. */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--text-body-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table thead th {
+  border-top: 0;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cellInput {
+  width: 100%;
+  min-width: 4.5rem;
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-body-sm);
+  /* 16px on phones so focusing does not zoom the page. */
+}
+
+@media (max-width: 640px) {
+  .cellInput {
+    font-size: 16px;
+  }
+}
+
+.cellWide {
+  min-width: 11rem;
+}
+
+.link {
+  color: var(--aims-cobalt);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* The conversation guide beside the notes. */
+.conversation {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--space-5);
+  padding: var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .conversation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.guide {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font: var(--text-body);
+}
+
+.opening {
+  margin: 0 0 var(--space-3);
+  font: var(--text-body);
+  font-style: italic;
+  color: var(--text-heading);
+}
+
+.quote {
+  font: var(--text-body);
+  color: var(--text);
+}
+
+/* The Capacity Map. */
+.map {
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  color: var(--text);
+}
+
+.mapFrame {
+  fill: none;
+  stroke: var(--border-strong);
+}
+
+.mapQuadrant {
+  fill: var(--aims-chartreuse-tint);
+}
+
+.mapAxis {
+  fill: var(--text-muted);
+  font: var(--text-caption);
+}
+
+.mapLabel {
+  fill: var(--text-heading);
+  font: var(--text-caption);
+  font-weight: 600;
+}
+
+.dotChecked {
+  fill: var(--aims-cobalt);
+  stroke: var(--aims-cobalt);
+  fill-opacity: 0.85;
+}
+
+.dotEstimate {
+  fill: var(--surface);
+  stroke: var(--aims-cobalt);
+  stroke-width: 2;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.legendDot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: var(--space-1);
+  border-radius: 50%;
+  border: 2px solid var(--aims-cobalt);
+  vertical-align: -1px;
+}
+
+.legendFilled {
+  background: var(--aims-cobalt);
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.figureValue {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.figureLabel {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.chip {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-success-tint);
+  color: var(--text-heading);
+  font: var(--text-caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chipMuted {
+  background: var(--surface-inset);
+  color: var(--text-muted);
+}
+
+/* Buttons: the house look (#216), one kind for every action. */
+.primary {
+  composes: btn btnPrimary from "../../../components/ui/ui.module.css";
+}
+
+.secondary {
+  composes: btn btnSecondary from "../../../components/ui/ui.module.css";
+}
+
+.danger {
+  composes: btn btnDanger from "../../../components/ui/ui.module.css";
+}
+
+.small {
+  composes: btnSm from "../../../components/ui/ui.module.css";
+}
+
+.textarea {
+  width: 100%;
+  min-height: 6rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  resize: vertical;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.archiveRow {
+  margin-top: var(--space-5);
+}
+
+.mapFigure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
