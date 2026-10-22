@@ -485,6 +485,49 @@
   box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
 }
 
+/* In-place editing on a numbered card (InlineEdit.tsx). The fields
+   take the place and the type of the text they replace, so Edit
+   changes the text into a box rather than opening a second copy
+   below it. One column, never wider than the card. */
+.inlineForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.inlineTitle,
+.inlineBody {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface);
+  color: var(--text-heading);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.inlineTitle {
+  font: var(--text-h3);
+}
+
+.inlineBody {
+  font: var(--text-body);
+  color: var(--text);
+  resize: none;
+  overflow: hidden;
+}
+
+.inlineTitle:focus,
+.inlineBody:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
 .submitRow {
   grid-column: 1 / -1;
   display: flex;
