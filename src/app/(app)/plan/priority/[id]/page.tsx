@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { meetingReturn } from "@/lib/meeting/return";
 import { mondayOf } from "@/lib/dates";
 import { requireProfile } from "@/lib/auth/current-user";
 import {
@@ -22,11 +23,16 @@ import styles from "../../plan-detail.module.css";
 
 export const metadata = { title: "Priority" };
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string | string[] }>;
+};
 
-export default async function PriorityDetailPage({ params }: PageProps) {
+export default async function PriorityDetailPage({ params, searchParams }: PageProps) {
   const session = await requireProfile();
   const { id } = await params;
+  // Opened from the weekly meeting: the crumb goes back to it.
+  const meetingBack = meetingReturn((await searchParams).from);
 
   const detail = await getPriorityDetail(id);
   if (!detail) notFound();
@@ -53,6 +59,7 @@ export default async function PriorityDetailPage({ params }: PageProps) {
         properties={{ priority_id: detail.priority.id }}
       />
       <PriorityHeroPanel
+        meetingBack={meetingBack}
         priority={detail.priority}
         people={detail.people}
         goalOptions={detail.goalOptions}

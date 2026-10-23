@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BACK_TO_MEETING } from "@/lib/meeting/return";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { StatusChip } from "@/components/plan/StatusChip";
@@ -49,6 +50,9 @@ export type GoalHeroPanelProps = {
   openCommitmentsCount: number;
   isAdmin: boolean;
   isOwner: boolean;
+  // The weekly meeting's address when this page was opened from it
+  // (lib/meeting/return.ts): the crumb goes back there instead.
+  meetingBack?: string | null;
 };
 
 export function GoalHeroPanel({
@@ -62,6 +66,7 @@ export function GoalHeroPanel({
   openCommitmentsCount,
   isAdmin,
   isOwner,
+  meetingBack = null,
 }: GoalHeroPanelProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -116,8 +121,8 @@ export function GoalHeroPanel({
     <div className={heroStyles.wrap}>
       <div className={heroStyles.band}>
         <div className={heroStyles.bandInner}>
-          <Link href={planHrefForGoal(goal.id)} className={heroStyles.crumb}>
-            ← Back to plan
+          <Link href={meetingBack ?? planHrefForGoal(goal.id)} className={heroStyles.crumb}>
+            ← {meetingBack ? BACK_TO_MEETING : "Back to plan"}
           </Link>
         </div>
       </div>

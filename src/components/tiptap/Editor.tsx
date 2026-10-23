@@ -3,7 +3,6 @@
 import { useEditor, EditorContent, type Editor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TextSelection } from "@tiptap/pm/state";
-import type { Mark as PMMark, Node as PMNode } from "@tiptap/pm/model";
 import { useEffect, useRef, useState } from "react";
 import { VideoEmbed } from "./nodes/VideoEmbed";
 import { ImageEmbed } from "./nodes/ImageEmbed";
@@ -18,6 +17,7 @@ import { TextAlign } from "./extensions/TextAlign";
 import { parseVideoUrl } from "@/lib/classroom/video-url";
 import { uploadClassroomImageAction } from "@/lib/classroom/actions";
 import { resolveVideoThumbnailAction } from "@/lib/classroom/video-thumbnail-action";
+import { pmDocToJson } from "./pm-json";
 import styles from "./Editor.module.css";
 
 // TipTap-based rich text editor. Client-side only — the editor bundle
@@ -194,40 +194,6 @@ async function uploadAndInsertImage(
 
 function emptyDoc(): EditorJSON {
   return { type: "doc", content: [{ type: "paragraph" }] };
-}
-
-// Custom ProseMirror doc → JSONContent walker. Mirrors the shape
-// ProseMirror's built-in toJSON produces, but reads attrs via
-// Object.keys/spread so nothing gets silently dropped between the
-// in-memory mark and the emitted JSON.
-function pmDocToJson(node: PMNode): JSONContent {
-  const json: JSONContent = { type: node.type.name };
-  const nodeAttrKeys = Object.keys(node.attrs ?? {});
-  if (nodeAttrKeys.length > 0) {
-    json.attrs = { ...node.attrs };
-  }
-  if (node.marks && node.marks.length > 0) {
-    json.marks = node.marks.map(pmMarkToJson);
-  }
-  if (node.isText) {
-    json.text = node.text ?? "";
-  } else if (node.content.size > 0) {
-    const content: JSONContent[] = [];
-    node.content.forEach((child) => content.push(pmDocToJson(child)));
-    if (content.length > 0) json.content = content;
-  }
-  return json;
-}
-
-function pmMarkToJson(mark: PMMark): { type: string; attrs?: Record<string, unknown> } {
-  const out: { type: string; attrs?: Record<string, unknown> } = {
-    type: mark.type.name,
-  };
-  const keys = Object.keys(mark.attrs ?? {});
-  if (keys.length > 0) {
-    out.attrs = { ...mark.attrs };
-  }
-  return out;
 }
 
 // ------- Toolbar -------

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BACK_TO_MEETING } from "@/lib/meeting/return";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { StatusChip } from "@/components/plan/StatusChip";
@@ -63,6 +64,9 @@ export type PriorityHeroPanelProps = {
   openCommitmentsCount: number;
   isAdmin: boolean;
   isOwner: boolean;
+  // The weekly meeting's address when this page was opened from it
+  // (lib/meeting/return.ts): the crumb goes back there instead.
+  meetingBack?: string | null;
 };
 
 export function PriorityHeroPanel({
@@ -79,6 +83,7 @@ export function PriorityHeroPanel({
   openCommitmentsCount,
   isAdmin,
   isOwner,
+  meetingBack = null,
 }: PriorityHeroPanelProps) {
   const router = useRouter();
   // Only when BOTH resolved parents are null and the row still names
@@ -144,15 +149,16 @@ export function PriorityHeroPanel({
               to the top of /plan, where its Standalone section is. */}
           <Link
             href={
-              goal
+              meetingBack ??
+              (goal
                 ? planHrefForGoal(goal.id)
                 : sfa
                   ? planHrefForSfa(sfa.id)
-                  : "/plan"
+                  : "/plan")
             }
             className={heroStyles.crumb}
           >
-            ← {goal ? "Back to goal" : sfa ? "Back to focus area" : "Back to plan"}
+            ← {meetingBack ? BACK_TO_MEETING : goal ? "Back to goal" : sfa ? "Back to focus area" : "Back to plan"}
           </Link>
         </div>
       </div>

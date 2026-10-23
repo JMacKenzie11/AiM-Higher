@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BACK_TO_MEETING } from "@/lib/meeting/return";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { StatusChip } from "@/components/plan/StatusChip";
@@ -39,6 +40,9 @@ export type SfaHeroPanelProps = {
   percent: number | null;
   isAdmin: boolean;
   isSponsor: boolean;
+  // The weekly meeting's address when this page was opened from it
+  // (lib/meeting/return.ts): the crumb goes back there instead.
+  meetingBack?: string | null;
 };
 
 export function SfaHeroPanel({
@@ -48,6 +52,7 @@ export function SfaHeroPanel({
   percent,
   isAdmin,
   isSponsor,
+  meetingBack = null,
 }: SfaHeroPanelProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -88,8 +93,8 @@ export function SfaHeroPanel({
     <div className={heroStyles.wrap}>
       <div className={heroStyles.band}>
         <div className={heroStyles.bandInner}>
-          <Link href={planHrefForSfa(sfa.id)} className={heroStyles.crumb}>
-            ← Back to plan
+          <Link href={meetingBack ?? planHrefForSfa(sfa.id)} className={heroStyles.crumb}>
+            ← {meetingBack ? BACK_TO_MEETING : "Back to plan"}
           </Link>
         </div>
       </div>

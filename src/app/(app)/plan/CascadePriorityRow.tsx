@@ -3,6 +3,7 @@ import { StatusChip } from "@/components/plan/StatusChip";
 import { ProgressBar } from "@/components/plan/ProgressBar";
 import type { CascadePriority } from "@/lib/plan/service";
 import { orphanReason, orphanReasonLabel } from "@/lib/plan/orphan-reason";
+import { fromMeeting } from "@/lib/meeting/return";
 import styles from "./plan.module.css";
 
 // One quarterly priority row in the /plan cascade.
@@ -20,14 +21,19 @@ import styles from "./plan.module.css";
 // only says something when the row GOT there rather than started
 // there. Under a goal or a focus area the parent is right above it
 // and the question does not arise.
+//
+// `from` is the weekly meeting's address when the cascade is shown in
+// it, so the priority's page can offer the way back.
 export function CascadePriorityRow({
   priority,
   trailing,
   explainOrphan = false,
+  from,
 }: {
   priority: CascadePriority;
   trailing?: React.ReactNode;
   explainOrphan?: boolean;
+  from?: string;
 }) {
   const orphanLabel = explainOrphan
     ? orphanReasonLabel(orphanReason(priority))
@@ -45,7 +51,7 @@ export function CascadePriorityRow({
           ) : null}
         </span>
         <Link
-          href={`/plan/priority/${priority.id}`}
+          href={`/plan/priority/${priority.id}${fromMeeting(from)}`}
           className={styles.priorityTitle}
         >
           {priority.title}
