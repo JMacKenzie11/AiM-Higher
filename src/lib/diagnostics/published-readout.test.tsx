@@ -17,8 +17,17 @@ import { ReadoutView } from "@/app/(app)/diagnostics/[id]/readout/ReadoutView";
 // that alters either for an old readout fails here.
 
 const golden = (f: string) => readFileSync(path.join(__dirname, "__golden__", f), "utf8");
-// The PDF carries its creation time and a random ID; nothing else moves.
-const stable = (b: Buffer) => b.toString("latin1").replace(/\(D:[0-9Z'+-]+\)/g, "(D:)").replace(/\/ID \[[^\]]*\]/g, "/ID []");
+// The PDF carries its creation time and a random ID, and the two logos
+// load at once, so whichever finishes first is written first: the same
+// objects come out in a different order, and numbered to match. So the
+// digest is of every object's content, references unnumbered, in sorted
+// order. Every stream (text, fonts, images) is still in it byte for
+// byte; only where each sits in the file is not.
+const stable = (b: Buffer) => {
+  const s = b.toString("latin1").replace(/\(D:[0-9Z'+-]+\)/g, "(D:)");
+  const objects = [...s.matchAll(/\n\d+ 0 obj\n([\s\S]*?)\nendobj/g)].map((m) => m[1].replace(/\b\d+ 0 R\b/g, "R"));
+  return objects.sort().join("\u0000");
+};
 
 describe("a readout published before phase 4", () => {
   const stored: unknown = JSON.parse(golden("published-v1.json"));
