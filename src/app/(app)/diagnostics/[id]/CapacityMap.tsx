@@ -7,7 +7,9 @@ import styles from "../diagnostics.module.css";
 // dot sized by its hours. A filled dot is volume-checked hours; a
 // hollow one is the person's own estimate. The shaded corner is the
 // candidates: draining and routine. Drawn inline from hours-back.ts's
-// output, in the theme's colours.
+// output, in the theme's colours. A task that copies information from
+// one system to another is ringed (phase 4); copying changes nothing
+// about whether it is a candidate.
 export function CapacityMap({ points }: { points: MapPoint[] }) {
   const dots = layoutMap(points);
   const x0 = xFor(0.5), x25 = xFor(2.5), x55 = xFor(5.5);
@@ -47,9 +49,14 @@ export function CapacityMap({ points }: { points: MapPoint[] }) {
         {dots.map((d) => (
           <circle key={d.taskId} cx={d.cx} cy={d.cy} r={d.r} className={d.checked ? styles.dotChecked : styles.dotEstimate} data-testid="map-dot">
             {/* One string: React wants a title's children as a single text node. */}
-            <title>{`${d.title}: ${formatHours(d.hours)} hours a week, ${d.checked ? "checked" : "estimated"}`}</title>
+            <title>{`${d.title}: ${formatHours(d.hours)} hours a week, ${d.checked ? "checked" : "estimated"}${d.copying ? ", copies between systems" : ""}`}</title>
           </circle>
         ))}
+        {dots
+          .filter((d) => d.copying)
+          .map((d) => (
+            <circle key={`${d.taskId}-ring`} cx={d.cx} cy={d.cy} r={d.r + 4} className={styles.dotRing} data-testid="map-ring" />
+          ))}
       </svg>
       <figcaption className={styles.legend}>
         <span>
@@ -60,6 +67,12 @@ export function CapacityMap({ points }: { points: MapPoint[] }) {
           <span className={styles.legendDot} aria-hidden="true" />
           Estimated hours
         </span>
+        {dots.some((d) => d.copying) ? (
+          <span>
+            <span className={`${styles.legendDot} ${styles.legendRing}`} aria-hidden="true" />
+            Copies between systems
+          </span>
+        ) : null}
         <span>Dot size is hours a week</span>
       </figcaption>
     </figure>

@@ -82,14 +82,42 @@ export function checkNarrative(data: unknown, r: ReadoutData): NarrativeCheck {
 // The map's and Hours Back's figures go in under names that say what
 // each one counts, so the model cannot read every task's hours as the
 // candidates' hours, or the recovery rate as a share of the map.
+//
+// With a Systems and AI Snapshot (phase 4) the seventh section is that,
+// under names that say what each figure counts, built from the
+// readout's summary alone: counts and tool names, never who uses what.
 export function narrativeInput(r: ReadoutData, ownerWords: string | null): string {
-  const { map, hoursBack, narrative: _narrative, ...rest } = r;
+  const { map, hoursBack, narrative: _narrative, systems, guardrails, ...rest } = r;
   void _narrative;
   return JSON.stringify({
     figures_you_may_use: readoutFigures(r),
     owner_words_at_kickoff: ownerWords,
     readout: {
       ...rest,
+      ...(systems
+        ? {
+            systems_and_ai_snapshot: {
+              systems: systems.map.systems.map((x) => ({ name: x.name, kind: x.kind })),
+              connections_where_information_is_carried_by_hand_top_three: systems.handCarried.map((c) => ({
+                from: c.from,
+                to: c.to,
+                what_moves: c.whatMoves,
+                hours_a_week_spent_carrying_it: c.hours,
+              })),
+              hours_a_week_spent_carrying_information_by_hand_across_every_connection: systems.handCarriedHours,
+              ai_use: {
+                people_who_answered_the_ai_questions: systems.ai.answered,
+                people_using_any_ai_tool_for_work: systems.ai.usingAny,
+                people_using_a_tool_they_found_themselves: systems.ai.usingPersonal,
+                tools_and_how_many_people_use_each: systems.ai.tools.map((t) => ({ tool: t.tool, people: t.users })),
+                tool_uses_the_company_provided: systems.ai.companyProvided,
+                tool_uses_people_found_themselves: systems.ai.personal,
+              },
+              guardrail_rules: guardrails.rules,
+              data_at_risk: guardrails.dataAtRisk,
+            },
+          }
+        : { guardrails }),
       map: {
         tasks_mapped: map.tasks,
         hours_a_week_on_all_mapped_tasks: map.totalHours,

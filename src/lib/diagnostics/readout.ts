@@ -1,6 +1,7 @@
 import { capacityMap, formatHours, summarize, topNextWins, type MapPoint } from "./hours-back";
 import { winPattern } from "./win-patterns";
-import { toTask, toWin, type DiagnosticBundle, type Narrative, type RoadmapItem } from "./types";
+import { READOUT_SECTIONS, toTask, toWin, type DiagnosticBundle, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
+import { bundleHasSystemsData, snapshotOf, type AiSummary, type Connection, type SnapshotSystem, type SystemsSnapshot } from "./systems-snapshot";
 
 // THE READOUT, ASSEMBLED. Everything the owner is shown, in the order
 // the readout runs, built from the engagement's rows and the figures in
@@ -19,6 +20,40 @@ export const MAX_READOUT_QUOTES = 3;
 export const PRIVACY_LINE =
   "Your team's individual ratings, answers and conversation notes stay with the person running this diagnostic. What you see here is combined.";
 const NO_ROLE = "Team member";
+
+// How many hand-carried connections the Systems and AI Snapshot names.
+export const MAX_READOUT_CONNECTIONS = 3;
+
+// The Systems and AI Snapshot (phase 4). Systems and how information
+// moves between them, and AI use as counts and tool names only: built
+// from systems-snapshot.ts's summary, never from a participant's rows,
+// so it cannot say who uses which tool.
+export type ReadoutSystems = {
+  map: { systems: SnapshotSystem[]; connections: Connection[] };
+  handCarried: Array<{ from: string; to: string; whatMoves: string[]; hours: number }>;
+  // Every hand-carried connection's hours together, the cross-client
+  // view's figure.
+  handCarriedHours: number;
+  ai: AiSummary;
+};
+
+export function readoutSystems(snap: SystemsSnapshot): ReadoutSystems {
+  return {
+    map: { systems: snap.systems, connections: snap.connections },
+    handCarried: snap.handCarried.slice(0, MAX_READOUT_CONNECTIONS).map((c) => ({ from: c.from, to: c.to, whatMoves: c.whatMoves, hours: c.hoursCarried })),
+    handCarriedHours: snap.handCarriedHours,
+    ai: snap.ai,
+  };
+}
+
+// The seventh section's title: the Systems and AI Snapshot where the
+// readout has one, the Guardrails Snapshot otherwise, as every readout
+// published before phase 4 has it. The narrative keeps its key either
+// way, so a stored paragraph is never lost.
+export function sectionTitle(k: ReadoutSection, r: Pick<ReadoutData, "systems">): string {
+  if (k === "guardrails" && r.systems) return "Systems and AI Snapshot";
+  return READOUT_SECTIONS.find((s) => s.key === k)!.title;
+}
 
 export type ReadoutData = {
   version: 1;
@@ -54,6 +89,9 @@ export type ReadoutData = {
   guardrails: { tools: string[]; dataAtRisk: string | null; rules: string[] };
   roadmap: RoadmapItem[];
   narrative: Narrative;
+  // Phase 4. Absent on a readout with no systems data, and on every
+  // readout published before it: those show the Guardrails section.
+  systems?: ReadoutSystems;
 };
 
 // A free-text list, one item per line or comma: the tools in use and
@@ -149,6 +187,7 @@ export function assembleReadout(b: DiagnosticBundle, preparedOn: string): Readou
     guardrails: { tools: splitList(d.tools_in_use), dataAtRisk: d.data_at_risk, rules: splitList(d.guardrail_rules, /\n+/) },
     roadmap: (d.roadmap ?? []).filter((r) => r.title?.trim()),
     narrative: d.narrative ?? {},
+    ...(bundleHasSystemsData(b) ? { systems: readoutSystems(snapshotOf(b)) } : {}),
   };
 }
 
@@ -221,6 +260,20 @@ export function readoutFigures(r: ReadoutData): string[] {
   add(r.nextWins.length);
   add(r.guardrails.tools.length);
   add(r.guardrails.rules.length);
+  if (r.systems) {
+    const sys = r.systems;
+    add(sys.map.systems.length);
+    add(sys.handCarried.length);
+    sys.handCarried.forEach((c) => add(c.hours));
+    add(sys.handCarriedHours);
+    add(sys.ai.answered);
+    add(sys.ai.usingAny);
+    add(sys.ai.usingPersonal);
+    add(sys.ai.tools.length);
+    sys.ai.tools.forEach((t) => add(t.users));
+    add(sys.ai.companyProvided);
+    add(sys.ai.personal);
+  }
   for (const item of r.roadmap) add(item.target_week);
   add(r.roadmap.length);
   add(r.quotes.length);
@@ -237,6 +290,7 @@ export function readoutFigures(r: ReadoutData): string[] {
     ...r.guardrails.tools,
     ...r.guardrails.rules,
     ...r.roadmap.flatMap((x) => [x.title, x.champion]),
+    ...(r.systems ? [...r.systems.map.systems.map((x) => x.name), ...r.systems.handCarried.flatMap((c) => c.whatMoves), ...r.systems.ai.tools.map((t) => t.tool)] : []),
   ];
   for (const w of words) if (w) numbersIn(w).forEach((n) => out.add(n));
   return [...out];

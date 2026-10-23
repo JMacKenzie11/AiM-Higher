@@ -28,6 +28,12 @@ export type AcrossRow = {
   // when there are none.
   averageMeasured: number | null;
   averageProjected: number | null;
+  // Phase 4, from readouts with a Systems and AI Snapshot only; null
+  // when there are none. Hours a week carried between systems by hand,
+  // averaged per readout; and of everyone who answered the AI questions
+  // across them, the share using a tool they found themselves.
+  averageHandCarried: number | null;
+  personalAiShare: number | null;
 };
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -39,7 +45,21 @@ function average(values: number[]): number | null {
 export function acrossRow(label: string, rows: readonly AcrossInput[]): AcrossRow {
   const measured: number[] = [];
   const projected: number[] = [];
-  const out: AcrossRow = { label, running: 0, readouts: 0, guaranteeMet: 0, sprint: 0, declined: 0, pending: 0, averageMeasured: null, averageProjected: null };
+  const handCarried: number[] = [];
+  let answered = 0, personal = 0;
+  const out: AcrossRow = {
+    label,
+    running: 0,
+    readouts: 0,
+    guaranteeMet: 0,
+    sprint: 0,
+    declined: 0,
+    pending: 0,
+    averageMeasured: null,
+    averageProjected: null,
+    averageHandCarried: null,
+    personalAiShare: null,
+  };
   for (const d of rows) {
     const r = d.published_at && isReadoutData(d.published_readout) ? d.published_readout : null;
     if (!r) {
@@ -50,12 +70,19 @@ export function acrossRow(label: string, rows: readonly AcrossInput[]): AcrossRo
     if (r.hoursBack.guaranteeMet) out.guaranteeMet += 1;
     if (r.hoursBack.measured != null) measured.push(r.hoursBack.measured);
     if (r.hoursBack.projected != null) projected.push(r.hoursBack.projected);
+    if (r.systems) {
+      if (r.systems.map.systems.length) handCarried.push(r.systems.handCarriedHours);
+      answered += r.systems.ai.answered;
+      personal += r.systems.ai.usingPersonal;
+    }
     if (d.decision === "sprint") out.sprint += 1;
     else if (d.decision === "declined") out.declined += 1;
     else out.pending += 1;
   }
   out.averageMeasured = average(measured);
   out.averageProjected = average(projected);
+  out.averageHandCarried = average(handCarried);
+  out.personalAiShare = answered ? personal / answered : null;
   return out;
 }
 

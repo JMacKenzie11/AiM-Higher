@@ -1,14 +1,25 @@
 import type { ReactNode } from "react";
-import type { DiagnosticRow } from "@/lib/diagnostics/types";
+import type { DiagnosticRow, SystemLinkRow, SystemRow } from "@/lib/diagnostics/types";
 import { StepCard } from "./StepCard";
 import { DxCheck, DxField } from "./DxField";
+import { SystemsWalkthrough } from "./SystemsWalkthrough";
 import styles from "../diagnostics.module.css";
 
 // 1. PRE-FLIGHT. The five working days before kickoff: the tools the
 // group lives in, one IT contact, and three ticks. Next waits for
 // "access secured": no access by kickoff means the kickoff moves, not
-// the build.
-export function PreflightStep({ diagnostic, footer }: { diagnostic: DiagnosticRow; footer: ReactNode }) {
+// the build. Under them, the systems walkthrough (phase 4).
+export function PreflightStep({
+  diagnostic,
+  systems,
+  links,
+  footer,
+}: {
+  diagnostic: DiagnosticRow;
+  systems: SystemRow[];
+  links: SystemLinkRow[];
+  footer: ReactNode;
+}) {
   const id = diagnostic.id;
   return (
     <StepCard id="step-preflight" title="Pre-flight" footer={footer}>
@@ -28,6 +39,7 @@ export function PreflightStep({ diagnostic, footer }: { diagnostic: DiagnosticRo
           <DxCheck diagnosticId={id} field="brief_sent" label="One-page brief sent to the owner" checked={diagnostic.brief_sent} />
           <DxCheck diagnosticId={id} field="conversations_booked" label="Conversations booked" checked={diagnostic.conversations_booked} />
         </div>
+        <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} />
       </div>
     </StepCard>
   );

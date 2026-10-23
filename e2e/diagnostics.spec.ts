@@ -6,7 +6,10 @@ import { test, expect, signIn, users } from "./fixtures";
 // the Capacity Map; choose the first win and its measured week, publish
 // the readout, fetch its PDF and Markdown, and record the decision
 // (0296); run one conversation with the helper and see the Across
-// clients tab (phase 3). Then archive the client, since nothing in the
+// clients tab (phase 3); add two systems and a retyped link on
+// Pre-flight, mark the survey's task as copying between them, see the
+// arrow labelled with its hours on Build and the Systems and AI
+// Snapshot in the readout (phase 4). Then archive the client, since nothing in the
 // module is ever deleted. Of the model calls only the conversation
 // helper's runs here, and only what it saves is checked: the person's
 // words in their notes.
@@ -38,6 +41,24 @@ test.describe("Capacity Diagnostic", () => {
     await expect(next).toBeDisabled();
     await page.getByLabel(/^Access secured/).check();
     await expect(next).toBeEnabled({ timeout: 15_000 });
+
+    // ---- the systems walkthrough ----
+    for (const [system, kind] of [["Outlook", "email"], ["Epicor", "erp"]]) {
+      await page.getByRole("button", { name: "Add a system" }).click();
+      const sys = page.getByTestId("drawer-panel");
+      await sys.getByLabel("System name").fill(system);
+      await sys.getByLabel("Kind").selectOption(kind);
+      await sys.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByRole("cell", { name: system, exact: true })).toBeVisible({ timeout: 15_000 });
+    }
+    await page.getByRole("button", { name: "Add a link" }).click();
+    const lk = page.getByTestId("drawer-panel");
+    await lk.getByLabel("From").selectOption({ label: "Outlook" });
+    await lk.getByLabel("To", { exact: true }).selectOption({ label: "Epicor" });
+    await lk.getByLabel("What moves").fill("Orders");
+    await lk.getByLabel("How it gets there").selectOption("retyped");
+    await lk.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("cell", { name: "Typed in again" })).toBeVisible({ timeout: 15_000 });
     await next.click();
     await expect(page).toHaveURL(/step=kickoff$/, { timeout: 15_000 });
 
@@ -55,6 +76,10 @@ test.describe("Capacity Diagnostic", () => {
     await survey.getByLabel("Hours a week for task 1").fill("8");
     await survey.getByLabel("Energy for Quotes").selectOption("1");
     await survey.getByLabel("Judgment for Quotes").selectOption("2");
+    await survey.getByLabel("Copies between systems for task 1").selectOption("yes");
+    await survey.getByLabel("From for task 1").selectOption({ label: "Outlook" });
+    await survey.getByLabel("To for task 1").selectOption({ label: "Epicor" });
+    await survey.getByLabel("None", { exact: true }).check();
     await survey.getByRole("button", { name: "Save survey" }).click();
     await expect(survey.getByRole("status")).toContainText("Saved Dana Ruiz's survey", { timeout: 15_000 });
     await survey.getByText("Close", { exact: true }).click();
@@ -76,6 +101,8 @@ test.describe("Capacity Diagnostic", () => {
     await page.goto(page.url().replace(/step=conversations$/, "step=build"));
     await expect(page.getByTestId("map-dot")).toHaveCount(1, { timeout: 15_000 });
     await expect(page.getByRole("cell", { name: "Quotes" })).toBeVisible();
+    await expect(page.getByTestId("system-arrow").getByText("8 hours a week", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("map-ring")).toHaveCount(1);
 
     // ---- the first win and its measured week ----
     await page.getByRole("button", { name: "Choose first win" }).click();
@@ -102,6 +129,8 @@ test.describe("Capacity Diagnostic", () => {
     await page.getByRole("link", { name: "Open the readout" }).click();
     await expect(page.getByRole("heading", { name: "Hours Back" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("6 hours a week, measured.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Systems and AI Snapshot" })).toBeVisible();
+    await expect(page.getByText("8 hours a week by hand", { exact: true })).toBeVisible();
     await page.getByRole("link", { name: /Readout step/ }).click();
     await page.getByRole("button", { name: "They chose the sprint" }).click();
     await expect(page.getByRole("button", { name: "Set back to pending" })).toBeVisible({ timeout: 15_000 });

@@ -29,6 +29,8 @@ export function AcrossClients({ rows }: { rows: AcrossInput[] }) {
             <Figure value={String(all.pending)} label="Decision pending" />
             <Figure value={hours(all.averageMeasured)} label="Average hours back a week, measured" />
             <Figure value={hours(all.averageProjected)} label="Average further hours a week, projected" />
+            <Figure value={dash(all.averageHandCarried, formatHours)} label="Average hours a week carried between systems by hand" />
+            <Figure value={dash(all.personalAiShare, share)} label="Of those asked, use AI tools they found themselves" />
           </div>
         )}
       </section>
@@ -39,6 +41,9 @@ export function AcrossClients({ rows }: { rows: AcrossInput[] }) {
 }
 
 const hours = (h: number | null) => (h == null ? "None yet" : formatHours(h));
+// The phase 4 columns: a dash where no readout has systems data.
+const dash = (v: number | null, f: (n: number) => string) => (v == null ? "-" : f(v));
+const share = (v: number) => `${Math.round(v * 100)}%`;
 
 function Figure({ value, label }: { value: string; label: string }) {
   return (
@@ -71,6 +76,8 @@ function Breakdown({ id, title, rows, first }: { id: string; title: string; rows
               <th>Pending</th>
               <th>Hours back, measured</th>
               <th>Projected</th>
+              <th>Carried by hand, hours</th>
+              <th>Own AI tools</th>
             </tr>
           </thead>
           <tbody>
@@ -85,6 +92,8 @@ function Breakdown({ id, title, rows, first }: { id: string; title: string; rows
                 <td>{r.pending}</td>
                 <td>{hours(r.averageMeasured)}</td>
                 <td>{hours(r.averageProjected)}</td>
+                <td>{dash(r.averageHandCarried, formatHours)}</td>
+                <td>{dash(r.personalAiShare, share)}</td>
               </tr>
             ))}
           </tbody>

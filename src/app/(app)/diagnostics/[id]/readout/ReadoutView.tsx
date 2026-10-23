@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { formatHours } from "@/lib/diagnostics/hours-back";
-import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, type ReadoutData } from "@/lib/diagnostics/readout";
-import { READOUT_SECTIONS, type ReadoutSection } from "@/lib/diagnostics/types";
+import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, sectionTitle, type ReadoutData } from "@/lib/diagnostics/readout";
+import type { ReadoutSection } from "@/lib/diagnostics/types";
 import { CapacityMap } from "../CapacityMap";
+import { SystemsMap } from "../SystemsMap";
 import { shortDate } from "../../format";
 import styles from "../../diagnostics.module.css";
 
@@ -11,14 +12,12 @@ import styles from "../../diagnostics.module.css";
 // shape for the draft and the published copy; the PDF draws the same
 // sections from the same data (lib/diagnostics/pdf/ReadoutPdf.tsx).
 
-const titleOf = (k: ReadoutSection) => READOUT_SECTIONS.find((s) => s.key === k)!.title;
-
 function Section({ k, r, children }: { k: ReadoutSection; r: ReadoutData; children: ReactNode }) {
   return (
     <section className={styles.card} aria-labelledby={`readout-${k}`}>
       <div className={styles.cardHeader}>
         <h2 id={`readout-${k}`} className={styles.cardTitle}>
-          {titleOf(k)}
+          {sectionTitle(k, r)}
         </h2>
       </div>
       <div className={styles.body}>
@@ -138,6 +137,11 @@ export function ReadoutView({ r }: { r: ReadoutData }) {
         )}
       </Section>
 
+      {r.systems ? (
+        <Section k="guardrails" r={r}>
+          <SystemsAndAi r={r} />
+        </Section>
+      ) : (
       <Section k="guardrails" r={r}>
         <div className={styles.figures}>
           <Figure value={String(r.guardrails.tools.length)} label={r.guardrails.tools.length === 1 ? "Tool in use" : "Tools in use"} />
@@ -156,6 +160,7 @@ export function ReadoutView({ r }: { r: ReadoutData }) {
           </ol>
         ) : null}
       </Section>
+      )}
 
       <Section k="roadmap" r={r}>
         {r.roadmap.length === 0 ? (
@@ -174,6 +179,56 @@ export function ReadoutView({ r }: { r: ReadoutData }) {
           </ol>
         )}
       </Section>
+    </>
+  );
+}
+
+// The Systems and AI Snapshot (phase 4): the systems map, the top three
+// connections carried by hand, AI use as counts and tool names, and the
+// guardrails.
+function SystemsAndAi({ r }: { r: ReadoutData }) {
+  const sys = r.systems!;
+  return (
+    <>
+      {sys.map.systems.length ? <SystemsMap systems={sys.map.systems} connections={sys.map.connections} /> : null}
+      {sys.handCarried.length ? (
+        <ol className={styles.plainList}>
+          {sys.handCarried.map((c, i) => (
+            <li key={i}>
+              <span>
+                <strong>
+                  {c.from} to {c.to}
+                </strong>
+                , {c.whatMoves.join(", ")}
+              </span>
+              <span>{formatHours(c.hours)} hours a week by hand</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className={styles.muted}>No information is carried between systems by hand.</p>
+      )}
+      {sys.ai.answered ? (
+        <>
+          <div className={styles.figures}>
+            <Figure value={`${sys.ai.usingAny} of ${sys.ai.answered}`} label="Use an AI tool for work" />
+            <Figure value={String(sys.ai.usingPersonal)} label="Use a tool they found themselves" />
+          </div>
+          {sys.ai.tools.length ? <p className={styles.muted}>{sys.ai.tools.map((t) => `${t.tool} (${t.users})`).join(", ")}</p> : null}
+        </>
+      ) : null}
+      {r.guardrails.dataAtRisk ? (
+        <p>
+          <strong>Data at risk:</strong> {r.guardrails.dataAtRisk}
+        </p>
+      ) : null}
+      {r.guardrails.rules.length ? (
+        <ol className={styles.readoutRules}>
+          {r.guardrails.rules.map((rule, i) => (
+            <li key={i}>{rule}</li>
+          ))}
+        </ol>
+      ) : null}
     </>
   );
 }

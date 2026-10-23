@@ -4,6 +4,8 @@ import { winPattern } from "@/lib/diagnostics/win-patterns";
 import type { DiagnosticRow, ParticipantRow, TaskRow, WinRow } from "@/lib/diagnostics/types";
 import { StepCard } from "./StepCard";
 import { CapacityMap } from "./CapacityMap";
+import { SystemsMap } from "./SystemsMap";
+import type { SystemsSnapshot } from "@/lib/diagnostics/systems-snapshot";
 import { WinButton } from "./WinDrawer";
 import { DxField } from "./DxField";
 import { shortDate } from "../format";
@@ -13,7 +15,9 @@ import styles from "../diagnostics.module.css";
 // chosen from the library, built with the person who owns the task,
 // put in use, then measured over its first full week. The midpoint
 // check with the owner is a dated note here. Every figure is from
-// hours-back.ts.
+// hours-back.ts, and the systems figures from systems-snapshot.ts
+// (phase 4): the systems map beside the Capacity Map, and the systems
+// and AI card for the assessor.
 
 const RISK: Record<string, string> = { low: "Low", medium: "Medium", high: "High" };
 
@@ -26,6 +30,7 @@ export function BuildStep({
   groups,
   next,
   points,
+  snapshot,
   footer,
 }: {
   diagnostic: DiagnosticRow;
@@ -36,6 +41,7 @@ export function BuildStep({
   groups: CandidateGroup[];
   next: CandidateGroup[];
   points: MapPoint[];
+  snapshot: SystemsSnapshot;
   footer: ReactNode;
 }) {
   const names = new Map(participants.map((p) => [p.id, p.name]));
@@ -45,18 +51,23 @@ export function BuildStep({
   return (
     <>
       <StepCard id="step-build" title="Capacity Map" meta={`${summary.tasks} tasks, ${summary.candidates} candidates`}>
-        {points.length === 0 ? (
-          <p className={styles.empty}>The map fills in as surveys are entered.</p>
-        ) : (
-          <div className={styles.body}>
+        <div className={styles.body}>
+          {points.length ? (
             <div className={styles.figures}>
               <Figure value={formatHours(summary.totalHours)} label="Hours a week on these tasks" />
               <Figure value={formatHours(summary.candidateHours)} label="Hours on candidates" />
               <Figure value={formatHours(summary.checkedHours)} label="Hours volume-checked" />
             </div>
-            <CapacityMap points={points} />
+          ) : null}
+          <div className={styles.systemsMaps}>
+            {points.length === 0 ? <p className={styles.empty}>The map fills in as surveys are entered.</p> : <CapacityMap points={points} />}
+            {snapshot.systems.length ? (
+              <SystemsMap systems={snapshot.systems} connections={snapshot.connections} />
+            ) : (
+              <p className={styles.empty}>The systems map fills in as systems are added on Pre-flight.</p>
+            )}
           </div>
-        )}
+        </div>
       </StepCard>
 
       <StepCard id="dx-candidates" title="Candidates" meta={`${groups.length}`}>
@@ -149,6 +160,72 @@ export function BuildStep({
             <p className={styles.muted}>Measured and projected are kept apart. The projection uses the rate the first win achieved.</p>
           </div>
         )}
+      </StepCard>
+
+      <StepCard id="dx-systems" title="Systems and AI" meta={snapshot.handCarried.length ? `${formatHours(snapshot.handCarriedHours)} hours a week carried by hand` : undefined}>
+        <div className={styles.body}>
+          <div>
+            <h3 className={styles.subhead}>Carried by hand</h3>
+            {snapshot.handCarried.length === 0 ? (
+              <p className={styles.empty}>No information typed in again or exported and imported yet.</p>
+            ) : (
+              <ol className={styles.plainList}>
+                {snapshot.handCarried.map((c) => (
+                  <li key={`${c.fromId}>${c.toId}`}>
+                    <span>
+                      {c.from} to {c.to}
+                      <span className={styles.muted}>, {c.whatMoves.join(", ")}</span>
+                    </span>
+                    <span className={styles.muted}>
+                      {formatHours(c.hoursCarried)} hours a week, {c.tasks === 1 ? "1 task" : `${c.tasks} tasks`}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+          {snapshot.unlinked.length ? (
+            <div>
+              <h3 className={styles.subhead}>Copying with no link yet</h3>
+              <p className={styles.muted}>These tasks copy between systems the walkthrough did not link. Add the link on Pre-flight so their hours count.</p>
+              <ul className={styles.plainList}>
+                {snapshot.unlinked.map((u) => (
+                  <li key={`${u.fromId}>${u.toId}`}>
+                    <span>
+                      {u.from} to {u.to}
+                    </span>
+                    <span className={styles.muted}>
+                      {formatHours(u.hours)} hours a week, {u.tasks === 1 ? "1 task" : `${u.tasks} tasks`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div>
+            <h3 className={styles.subhead}>AI use</h3>
+            {snapshot.ai.answered === 0 ? (
+              <p className={styles.empty}>Nobody has answered the AI questions yet.</p>
+            ) : (
+              <>
+                <p>
+                  {snapshot.ai.usingAny} of {snapshot.ai.answered} use an AI tool for work; {snapshot.ai.usingPersonal} use one they found themselves.
+                  {snapshot.ai.tools.length ? ` ${snapshot.ai.tools.map((t) => `${t.tool} (${t.users})`).join(", ")}.` : ""}
+                </p>
+                {snapshot.usesAsWritten.length ? (
+                  <>
+                    <p className={styles.muted}>What they use it for, as written. For you only; the readout shows counts and tool names.</p>
+                    <ul>
+                      {snapshot.usesAsWritten.map((u, i) => (
+                        <li key={i}>{u}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
       </StepCard>
 
       <StepCard id="dx-guardrails" title="Guardrails snapshot">

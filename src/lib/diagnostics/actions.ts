@@ -7,7 +7,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { MAX_TASKS_PER_PARTICIPANT, type DataRisk } from "./hours-back";
 import { winPattern } from "./win-patterns";
 import { isStep, statusAfterVisiting, type DiagnosticStep } from "./steps";
-import { CLIENT_SOURCES, READOUT_SECTIONS, type DiagnosticStatus, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
+import { CLIENT_SOURCES, LINK_HOWS, SYSTEM_KINDS, READOUT_SECTIONS, type DiagnosticStatus, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
 import { rollUpTitles } from "./titles";
 import { parseParticipantLines } from "./participants";
 import { getDiagnostic, readoutToday } from "./service";
@@ -274,7 +274,20 @@ export async function updateParticipantAction(id: string, patch: ParticipantPatc
 
 // ---- The survey ----------------------------------------------------
 
-export type SurveyTaskInput = { id?: string; title: string; hours_per_week: string | number; energy: string | number; judgment: string | number };
+export type SurveyTaskInput = {
+  id?: string;
+  title: string;
+  hours_per_week: string | number;
+  energy: string | number;
+  judgment: string | number;
+  // Phase 4 (0298), all optional: where the task happens, and the two
+  // systems it copies between.
+  system_id?: string | null;
+  copies_from_system_id?: string | null;
+  copies_to_system_id?: string | null;
+};
+
+export type AiUseInput = { id?: string; tool: string; provided_by?: string; used_for?: string; frequency?: string; never_share?: string };
 
 export type SurveyInput = {
   name: string;
@@ -285,6 +298,9 @@ export type SurveyInput = {
   best_work?: string;
   task_to_lose?: string;
   trust_needs?: string;
+  // The AI section (phase 4): one row per tool, or "None".
+  ai?: AiUseInput[];
+  uses_no_ai?: boolean;
 };
 
 // One participant's survey, as the assessor enters it: who they are,
@@ -302,19 +318,50 @@ export async function saveSurveyAction(participantId: string, input: SurveyInput
 
   const rows = input.tasks.filter((t) => text(t.title, 300));
   if (rows.length > MAX_TASKS_PER_PARTICIPANT) return { ok: false, message: `Up to ${MAX_TASKS_PER_PARTICIPANT} tasks per person.` };
-  const tasks: Array<{ id?: string; title: string; hours_per_week: number; energy: number; judgment: number }> = [];
+  const tasks: Array<{ id?: string; title: string; hours_per_week: number; energy: number; judgment: number; systems: Record<string, string | null> }> = [];
   for (const t of rows) {
+    const systems: Record<string, string | null> = {};
+    if ("system_id" in t) systems.system_id = t.system_id || null;
+    if ("copies_from_system_id" in t || "copies_to_system_id" in t) {
+      const from = t.copies_from_system_id || null, to = t.copies_to_system_id || null;
+      if (Boolean(from) !== Boolean(to)) return { ok: false, message: `Choose both systems "${t.title.trim()}" copies between, or neither.` };
+      if (from && from === to) return { ok: false, message: `"${t.title.trim()}" copies between two different systems.` };
+      systems.copies_from_system_id = from;
+      systems.copies_to_system_id = to;
+    }
     const hours = numberIn(t.hours_per_week, 0, 80);
     const energy = rating(t.energy);
     const judgment = rating(t.judgment);
     if (hours === "bad" || hours == null) return { ok: false, message: `Add hours a week for "${t.title.trim()}".` };
     if (energy === "bad" || judgment === "bad") return { ok: false, message: `Rate energy and judgment from 1 to 5 for "${t.title.trim()}".` };
-    tasks.push({ id: t.id, title: text(t.title, 300)!, hours_per_week: hours, energy, judgment });
+    tasks.push({ id: t.id, title: text(t.title, 300)!, hours_per_week: hours, energy, judgment, systems });
+  }
+
+  type AiRow = { id?: string; tool: string; provided_by: string | null; used_for: string | null; frequency: string | null; never_share: string | null };
+  const ai: AiRow[] = [];
+  for (const u of input.uses_no_ai ? [] : input.ai ?? []) {
+    const tool = text(u.tool, 200);
+    if (!tool) continue;
+    ai.push({
+      id: u.id,
+      tool,
+      provided_by: u.provided_by === "company" || u.provided_by === "personal" ? u.provided_by : null,
+      used_for: text(u.used_for, 2000),
+      frequency: ["daily", "weekly", "monthly", "rarely"].includes(u.frequency ?? "") ? u.frequency! : null,
+      never_share: text(u.never_share, 2000),
+    });
   }
 
   const { data: person } = await supabase
     .from("diagnostic_participants")
-    .update({ name, role_title: text(input.role_title, 200), email: mail, years_with_company: years, survey_entered_at: new Date().toISOString() })
+    .update({
+      name,
+      role_title: text(input.role_title, 200),
+      email: mail,
+      years_with_company: years,
+      survey_entered_at: new Date().toISOString(),
+      ...("uses_no_ai" in input ? { uses_no_ai: Boolean(input.uses_no_ai) } : {}),
+    })
     .eq("id", participantId)
     .select("id, diagnostic_id");
   if (!person?.length) return REFUSED;
@@ -328,7 +375,7 @@ export async function saveSurveyAction(participantId: string, input: SurveyInput
     if ((data?.length ?? 0) !== gone.length) return REFUSED;
   }
   for (const t of tasks) {
-    const fields = { title: t.title, hours_per_week: t.hours_per_week, energy: t.energy, judgment: t.judgment };
+    const fields = { title: t.title, hours_per_week: t.hours_per_week, energy: t.energy, judgment: t.judgment, ...t.systems };
     const { data } = t.id
       ? await supabase.from("diagnostic_tasks").update(fields).eq("id", t.id).eq("participant_id", participantId).select("id")
       : await supabase
@@ -346,6 +393,23 @@ export async function saveSurveyAction(participantId: string, input: SurveyInput
   };
   const { data: a } = await supabase.from("diagnostic_answers").upsert(answers, { onConflict: "participant_id" }).select("participant_id");
   if (!a?.length) return REFUSED;
+
+  // The AI section, when the form sent one. "None" clears the tools.
+  if ("ai" in input || "uses_no_ai" in input) {
+    const { data: had } = await supabase.from("diagnostic_ai_use").select("id").eq("participant_id", participantId);
+    const kept = new Set(ai.map((u) => u.id).filter(Boolean));
+    const drop = ((had ?? []) as Array<{ id: string }>).map((r) => r.id).filter((id) => !kept.has(id));
+    if (drop.length) {
+      const { data } = await supabase.from("diagnostic_ai_use").delete().in("id", drop).select("id");
+      if ((data?.length ?? 0) !== drop.length) return REFUSED;
+    }
+    for (const { id, ...fields } of ai) {
+      const { data } = id
+        ? await supabase.from("diagnostic_ai_use").update(fields).eq("id", id).eq("participant_id", participantId).select("id")
+        : await supabase.from("diagnostic_ai_use").insert({ ...fields, participant_id: participantId }).select("id");
+      if (!data?.length) return REFUSED;
+    }
+  }
 
   touched(diagnosticId);
   return { ok: true };
@@ -582,6 +646,61 @@ export async function deleteQuoteAction(id: string): Promise<DxResult> {
   const supabase = await caller();
   const { data } = await supabase.from("diagnostic_quotes").delete().eq("id", id).select("id, diagnostic_id");
   if (!data?.length) return { ok: false, message: "Only a line not yet approved can be discarded." };
+  touched(data[0].diagnostic_id);
+  return { ok: true };
+}
+
+// ---- Systems and how information moves (phase 4, 0298) -------------
+
+export type SystemInput = { name: string; kind?: string; holds?: string; owner_name?: string; notes?: string };
+
+export async function saveSystemAction(diagnosticId: string, id: string | null, input: SystemInput): Promise<DxResult> {
+  const supabase = await caller();
+  const name = text(input.name, 200);
+  if (!name) return { ok: false, message: "Name the system." };
+  const kind = SYSTEM_KINDS.some((k) => k.value === input.kind) ? input.kind : "other";
+  const row = { name, kind, holds: text(input.holds, 2000), owner_name: text(input.owner_name, 200), notes: text(input.notes, 4000) };
+  const { data } = id
+    ? await supabase.from("diagnostic_systems").update(row).eq("id", id).eq("diagnostic_id", diagnosticId).select("id")
+    : await supabase.from("diagnostic_systems").insert({ ...row, diagnostic_id: diagnosticId }).select("id");
+  if (!data?.length) return REFUSED;
+  touched(diagnosticId);
+  return { ok: true, id: data[0].id };
+}
+
+// Only while nothing points at it (0298: every reference restricts).
+export async function deleteSystemAction(id: string): Promise<DxResult> {
+  const supabase = await caller();
+  const { data, error } = await supabase.from("diagnostic_systems").delete().eq("id", id).select("id, diagnostic_id");
+  if (error?.code === "23503") return { ok: false, message: "A task or a link still uses this system. Change those first." };
+  if (!data?.length) return REFUSED;
+  touched(data[0].diagnostic_id);
+  return { ok: true };
+}
+
+export type LinkInput = { from_system_id: string; to_system_id: string; what_moves: string; how?: string; notes?: string };
+
+export async function saveLinkAction(diagnosticId: string, id: string | null, input: LinkInput): Promise<DxResult> {
+  const supabase = await caller();
+  if (!input.from_system_id || !input.to_system_id) return { ok: false, message: "Choose the system it comes from and the one it goes to." };
+  if (input.from_system_id === input.to_system_id) return { ok: false, message: "Choose two different systems." };
+  const what = text(input.what_moves, 300);
+  if (!what) return { ok: false, message: "Say what moves, such as orders or invoices." };
+  const how = LINK_HOWS.some((h) => h.value === input.how) ? input.how : "unknown";
+  const row = { from_system_id: input.from_system_id, to_system_id: input.to_system_id, what_moves: what, how, notes: text(input.notes, 4000) };
+  const { data, error } = id
+    ? await supabase.from("diagnostic_system_links").update(row).eq("id", id).eq("diagnostic_id", diagnosticId).select("id")
+    : await supabase.from("diagnostic_system_links").insert({ ...row, diagnostic_id: diagnosticId }).select("id");
+  if (error?.code === "23505") return { ok: false, message: "That link is already on the list." };
+  if (!data?.length) return REFUSED;
+  touched(diagnosticId);
+  return { ok: true, id: data[0].id };
+}
+
+export async function deleteLinkAction(id: string): Promise<DxResult> {
+  const supabase = await caller();
+  const { data } = await supabase.from("diagnostic_system_links").delete().eq("id", id).select("id, diagnostic_id");
+  if (!data?.length) return REFUSED;
   touched(data[0].diagnostic_id);
   return { ok: true };
 }

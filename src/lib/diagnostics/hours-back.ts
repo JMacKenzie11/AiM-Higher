@@ -25,6 +25,11 @@ export type DiagnosticTask = {
   dataRisk: DataRisk | null;
   buildEffortHours: number | null;
   candidateOverride: boolean | null;
+  // 0298. Optional so a task built without them reads as no system and
+  // no copying.
+  systemId?: string | null;
+  copiesFromSystemId?: string | null;
+  copiesToSystemId?: string | null;
 };
 
 export type DiagnosticWin = {
@@ -172,6 +177,10 @@ export type MapPoint = {
   hours: number;
   checked: boolean;
   candidate: boolean;
+  // Copies information from one system to another (0298): the map
+  // rings it. Absent rather than false, so a readout published before
+  // phase 4 holds exactly the points it held.
+  copying?: true;
 };
 
 // One dot per task for the Capacity Map, grouped by canonical title so
@@ -180,7 +189,9 @@ export function capacityMap(tasks: readonly DiagnosticTask[]): MapPoint[] {
   return tasks
     .map((t) => {
       const { hours, checked } = taskHours(t);
-      return { taskId: t.id, key: groupKey(t), title: groupLabel(t), energy: t.energy, judgment: t.judgment, hours, checked, candidate: isCandidate(t) };
+      const point: MapPoint = { taskId: t.id, key: groupKey(t), title: groupLabel(t), energy: t.energy, judgment: t.judgment, hours, checked, candidate: isCandidate(t) };
+      if (t.copiesFromSystemId && t.copiesToSystemId) point.copying = true;
+      return point;
     })
     .sort((a, b) => a.key.localeCompare(b.key));
 }
