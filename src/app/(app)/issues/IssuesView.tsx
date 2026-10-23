@@ -1,0 +1,269 @@
+import type { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
+import { getAssignablePeople } from "@/lib/people/assignable";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getIssuesPageData } from "@/lib/issues/service";
+import { getCurrentQuarter } from "@/lib/quarters/service";
+import { todayInTimezone } from "@/lib/dates";
+import type { Priority } from "@/lib/types";
+import { IssuesBoard } from "./IssuesBoard";
+import { AddIssueButton } from "./AddIssueButton";
+import { FilterPills } from "./FilterPills";
+import { ResolvedIssuesList } from "./ResolvedIssuesList";
+import commitmentStyles from "../commitments/commitments.module.css";
+import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { simplifyOn } from "@/lib/ui/simplify";
+import issueStyles from "./issues.module.css";
+
+// Issues/Solutions' working part: everything under the page header.
+// /issues renders it in its PageShell and the weekly meeting's Solve
+// step renders it in the meeting, so the two are one surface and
+// cannot drift apart. Ranks live inline (drag-to-reorder); resolved
+// issues collapse to a muted list beneath.
+
+type Session = Awaited<ReturnType<typeof requireProfile>>;
+type SearchParams = Record<string, string | string[] | undefined>;
+
+type IssueFilters = {
+  assignedTo: "all" | "me" | string;
+  status: "all" | "open" | "resolved";
+  source: "all" | "meeting" | "manual";
+};
+
+export async function IssuesView({
+  session,
+  companyId,
+  searchParams: sp,
+}: {
+  session: Session;
+  companyId: string;
+  searchParams: SearchParams;
+}) {
+  const filters: IssueFilters = {
+    assignedTo: pickString(sp.assigned, "all"),
+    status: pickString(sp.status, "all") as IssueFilters["status"],
+    source: pickString(sp.source, "all") as IssueFilters["source"],
+  };
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data: company } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", companyId)
+    .maybeSingle<{ timezone: string }>();
+  const timezone = company?.timezone ?? "America/Anchorage";
+  const { iso: todayIso } = todayInTimezone(timezone);
+
+  const [data, openQuarter] = await Promise.all([
+    getIssuesPageData(companyId),
+    getCurrentQuarter(companyId),
+  ]);
+
+  // Roster feeds the owner picker on the inline commitment add row.
+  // Priority + functional area options feed the LinkChip menu on
+  // each issue-linked commitment so a user can re-target the link
+  // (switch off the issue to a priority or functional area).
+  const [roster, { data: priorityRows }, { data: fnRows }] =
+    await Promise.all([
+      // Company members plus the people assigned to work with this
+      // company. This page never had the union /commitments had, so
+      // its owner picker was the narrower of the two even before
+      // guides could be picked at all.
+      getAssignablePeople(supabase, companyId),
+      openQuarter
+        ? supabase
+            .from("priorities")
+            .select("id, title")
+            .eq("company_id", companyId)
+            .eq("quarter_id", openQuarter.id)
+            .eq("archived", false)
+            .order("title")
+        : Promise.resolve({ data: [] as Array<Pick<Priority, "id" | "title">> }),
+      supabase
+        .from("functions")
+        .select("id, title")
+        .eq("company_id", companyId)
+        .eq("archived", false)
+        .order("title"),
+    ]);
+  const priorityOptions = (priorityRows ?? []) as Array<
+    Pick<Priority, "id" | "title">
+  >;
+  const functionalAreaOptions = (fnRows ?? []) as Array<{ id: string; title: string }>;
+
+  const isAdmin = isAdminForCompany(session.profile, companyId);
+
+  // Header stats computed against the unfiltered dataset — the pills
+  // report the company-wide state; filter pills below let the reader
+  // narrow the visible list without moving the counts.
+  const openCount = data.open.length;
+  const noCommitmentCount = data.open.filter(
+    (i) => i.commitments.filter((c) => c.status === "open").length === 0
+  ).length;
+  const resolvedThisQuarter = openQuarter
+    ? data.resolved.filter(
+        (r) =>
+          r.resolved_at !== null &&
+          r.resolved_at.slice(0, 10) >= openQuarter.start_date &&
+          r.resolved_at.slice(0, 10) <= openQuarter.end_date
+      ).length
+    : 0;
+
+  // Apply filters. Source + Assigned-to run against both open and
+  // resolved lists; Status decides which sections render at all.
+  const filteredOpen = data.open.filter((issue) => {
+    if (!matchesSource(issue.source_meeting_id, filters.source)) return false;
+    if (filters.assignedTo === "all") return true;
+    const targetId =
+      filters.assignedTo === "me" ? session.profile.id : filters.assignedTo;
+    return issue.commitments.some((c) => c.owner_id === targetId);
+  });
+  const filteredResolved = data.resolved.filter((issue) => {
+    if (!matchesSource(issue.source_meeting_id, filters.source)) return false;
+    if (filters.assignedTo === "all") return true;
+    const targetId =
+      filters.assignedTo === "me" ? session.profile.id : filters.assignedTo;
+    return issue.commitments.some((c) => c.owner_id === targetId);
+  });
+
+  const showOpenSection = filters.status !== "resolved";
+  const showResolvedSection =
+    filters.status !== "open" && filteredResolved.length > 0;
+
+  // issues_insert_member admits the company's own people and
+  // issues_insert_admin its admins (an assigned guide, or a portfolio
+  // admin switched on as company admin). Anyone else reads the board
+  // and raises nothing.
+  const canRaise = session.profile.company_id === companyId || isAdmin;
+  const addOnTop = simplifyOn("main-action");
+  const addIssue = (
+    <AddIssueButton
+      ctx={{
+        roster: roster.map((p) => ({ id: p.id, full_name: p.full_name })),
+        priorityOptions,
+        functionalAreaOptions,
+        todayIso,
+        currentUserId: session.profile.id,
+        isAdmin,
+      }}
+    />
+  );
+
+  return (
+    <>
+      <div className={commitmentStyles.statBar}>
+        <span className={commitmentStyles.statPill}>
+          <span
+            className={`${commitmentStyles.statPillValue} aims-tabular`}
+          >
+            {openCount}
+          </span>
+          <span className={commitmentStyles.statPillLabel}>Open</span>
+        </span>
+        <span className={commitmentStyles.statPill}>
+          <span
+            className={`${commitmentStyles.statPillValue} aims-tabular`}
+          >
+            {noCommitmentCount}
+          </span>
+          <span className={commitmentStyles.statPillLabel}>
+            No commitment yet
+          </span>
+        </span>
+        <span className={commitmentStyles.statPill}>
+          <span
+            className={`${commitmentStyles.statPillValue} aims-tabular`}
+          >
+            {resolvedThisQuarter}
+          </span>
+          <span className={commitmentStyles.statPillLabel}>
+            Resolved this quarter
+          </span>
+        </span>
+      </div>
+
+      <FilterPills
+        currentUserId={session.profile.id}
+        roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
+        assignedTo={filters.assignedTo}
+        status={filters.status}
+        source={filters.source}
+      />
+
+      {showOpenSection ? (
+        <section
+          className={commitmentStyles.group}
+          aria-labelledby="issues-open"
+        >
+          <div className={commitmentStyles.groupHeader}>
+            <h2 id="issues-open" className={commitmentStyles.groupTitle}>
+              Open issues
+            </h2>
+            <span className={commitmentStyles.groupMeta}>
+              {filteredOpen.length}{" "}
+              {filteredOpen.length === 1 ? "issue" : "issues"}
+            </span>
+            {canRaise && addOnTop ? <span className={issueStyles.headerAdd}>{addIssue}</span> : null}
+          </div>
+          <IssuesBoard
+            issues={filteredOpen}
+            roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
+            priorityOptions={priorityOptions}
+            functionalAreaOptions={functionalAreaOptions}
+            todayIso={todayIso}
+            currentUserId={session.profile.id}
+            isAdmin={isAdmin}
+            openIssueId={pickString(sp.issue, "") || null}
+          />
+          {/* At the foot, unless the "main-action" switch puts it in the
+              header above (simplification review, change 1). */}
+          {canRaise && !addOnTop ? (
+            <div className={commitmentStyles.inlineAddRow}>{addIssue}</div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {showResolvedSection ? (
+        <section
+          className={commitmentStyles.group}
+          aria-labelledby="issues-resolved"
+        >
+          <div className={commitmentStyles.groupHeader}>
+            <h2 id="issues-resolved" className={commitmentStyles.groupTitle}>
+              Resolved issues
+            </h2>
+            <span className={commitmentStyles.groupMeta}>
+              {filteredResolved.length}{" "}
+              {filteredResolved.length === 1 ? "issue" : "issues"}
+            </span>
+          </div>
+          <ResolvedIssuesList
+            items={filteredResolved}
+            roster={roster.map((p) => ({ id: p.id, full_name: p.full_name }))}
+            priorityOptions={priorityOptions}
+            todayIso={todayIso}
+            currentUserId={session.profile.id}
+            isAdmin={isAdmin}
+          />
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function pickString(
+  value: string | string[] | undefined,
+  fallback: string
+): string {
+  if (Array.isArray(value)) return value[0] ?? fallback;
+  return value ?? fallback;
+}
+
+function matchesSource(
+  sourceMeetingId: string | null,
+  filter: IssueFilters["source"]
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "meeting") return sourceMeetingId !== null;
+  return sourceMeetingId === null;
+}

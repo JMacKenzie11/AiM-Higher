@@ -87,10 +87,11 @@ describe("the measures page reads in weeks beginning", () => {
     join(ROOT, "src/app/(app)/measures/MeasuresGrid.tsx"),
     "utf8"
   );
-  const page = readFileSync(
-    join(ROOT, "src/app/(app)/measures/page.tsx"),
-    "utf8"
-  );
+  // The page and the view it renders (MeasuresView, shared with the
+  // weekly meeting), read as one.
+  const page =
+    readFileSync(join(ROOT, "src/app/(app)/measures/page.tsx"), "utf8") +
+    readFileSync(join(ROOT, "src/app/(app)/measures/MeasuresView.tsx"), "utf8");
 
   it("labels a column Week N of its month, not a date", () => {
     expect(grid).toContain("Week {weekOfMonth(w)}");
@@ -101,7 +102,7 @@ describe("the measures page reads in weeks beginning", () => {
   // 2026-10-06): "the week beginning Sep 28" sat above a grid calling
   // that week September's Week 4.
   it("names the week as its column does, in the hero, the count and each box", () => {
-    expect(page).toContain("{weekLabel(weekEnding)} for the functions you lead");
+    expect(page).toContain("{weekLabel(data.weekEnding)} for the functions you lead");
     expect(grid).toContain("logged for ${weekLabel(chasedWeek)}");
     expect(grid).toContain("still to log for ${weekLabel(chasedWeek)}");
     expect(grid).toContain("`${row.description}, ${weekLabel(week)}`");
