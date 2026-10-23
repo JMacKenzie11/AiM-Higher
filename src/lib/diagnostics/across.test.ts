@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { acrossClients, type AcrossInput } from "./across";
 import { assembleReadout } from "./readout";
 import { readoutBundle } from "./readout.fixture";
+import { frontOffice } from "./systems.fixture";
 
 // The fixture's readout measures 6 hours back and projects 16.2 more,
 // against a guarantee of 3.
@@ -45,3 +46,23 @@ describe("across clients", () => {
     expect(acrossClients([{ ...running(null, null), published_at: "2026-10-22T12:00:00Z" }]).all.readouts).toBe(0);
   });
 });
+
+describe("across clients, systems and AI (phase 4)", () => {
+  // The front office: 15 hours a week carried by hand; 1 of 4 who
+  // answered uses a tool they found themselves.
+  const withSystems = (): AcrossInput => {
+    const b = readoutBundle();
+    const o = frontOffice();
+    return { ...published("sprint", "Manufacturing", "referral"), published_readout: assembleReadout({ ...b, ...o }, "2026-10-22") };
+  };
+
+  it("averages hand-carried hours and pools the share using their own AI tools, over readouts with systems data only", () => {
+    const view = acrossClients([withSystems(), published("declined", "Manufacturing", "lift")]);
+    expect(view.all).toMatchObject({ readouts: 2, averageHandCarried: 15, personalAiShare: 0.25 });
+  });
+
+  it("shows nothing for those columns when no readout has systems data", () => {
+    expect(acrossClients([published("sprint", null, null)]).all).toMatchObject({ averageHandCarried: null, personalAiShare: null });
+  });
+});
+

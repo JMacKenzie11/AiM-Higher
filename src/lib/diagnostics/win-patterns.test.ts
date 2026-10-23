@@ -14,8 +14,8 @@ function files(dir: string): string[] {
 }
 
 describe("win patterns", () => {
-  it("has five patterns with unique slugs the database accepts", () => {
-    expect(WIN_PATTERNS).toHaveLength(5);
+  it("has six patterns with unique slugs the database accepts", () => {
+    expect(WIN_PATTERNS).toHaveLength(6);
     const slugs = WIN_PATTERNS.map((p) => p.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
     for (const s of slugs) expect(s).toMatch(/^[a-z_]{1,60}$/);

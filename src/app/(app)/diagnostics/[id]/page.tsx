@@ -6,6 +6,7 @@ import { getDiagnostic, readoutToday } from "@/lib/diagnostics/service";
 import { DIAGNOSTIC_STEPS, isStep, stepAfter, stepBefore, stepForStatus, type DiagnosticStep } from "@/lib/diagnostics/steps";
 import { statusLabel, toTask, toWin } from "@/lib/diagnostics/types";
 import { candidateGroups, capacityMap, summarize, topNextWins } from "@/lib/diagnostics/hours-back";
+import { snapshotOf } from "@/lib/diagnostics/systems-snapshot";
 import { assembleReadout } from "@/lib/diagnostics/readout";
 import { PageShell } from "@/components/ui/PageShell";
 import { ArchiveButton } from "../ActionButtons";
@@ -59,7 +60,7 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
   const win = toWin(bundle.firstWin);
 
   let content: ReactNode = null;
-  if (step === "preflight") content = <PreflightStep diagnostic={diagnostic} footer={footer} />;
+  if (step === "preflight") content = <PreflightStep diagnostic={diagnostic} systems={bundle.systems} links={bundle.links} footer={footer} />;
   if (step === "kickoff") {
     content = (
       <KickoffStep
@@ -72,7 +73,7 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
     );
   }
   if (step === "survey") {
-    content = <SurveyStep diagnosticId={id} participants={bundle.participants} tasks={bundle.tasks} answers={bundle.answers} footer={footer} />;
+    content = <SurveyStep diagnosticId={id} participants={bundle.participants} tasks={bundle.tasks} answers={bundle.answers} systems={bundle.systems} aiUse={bundle.aiUse} footer={footer} />;
   }
   if (step === "conversations") {
     content = <ConversationsStep diagnosticId={id} participants={bundle.participants} notes={bundle.notes} quotes={bundle.quotes} footer={footer} />;
@@ -88,6 +89,7 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
         groups={candidateGroups(tasks)}
         next={topNextWins(tasks, win)}
         points={capacityMap(tasks)}
+        snapshot={snapshotOf(bundle)}
         footer={footer}
       />
     );

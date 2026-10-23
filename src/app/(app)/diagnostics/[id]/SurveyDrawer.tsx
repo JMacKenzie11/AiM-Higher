@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { Drawer } from "@/components/ui/Drawer";
-import { saveSurveyAction, type SurveyInput, type SurveyTaskInput } from "@/lib/diagnostics/actions";
+import { saveSurveyAction, saveSystemAction, type AiUseInput, type SurveyInput, type SurveyTaskInput } from "@/lib/diagnostics/actions";
 import { MAX_TASKS_PER_PARTICIPANT } from "@/lib/diagnostics/hours-back";
-import type { AnswerRow, ParticipantRow, TaskRow } from "@/lib/diagnostics/types";
+import { AI_FREQUENCIES, SYSTEM_KINDS, type AiUseRow, type AnswerRow, type ParticipantRow, type SystemRow, type TaskRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../useDxAction";
 import admin from "../../admin/companies/admin.module.css";
 import styles from "../diagnostics.module.css";
@@ -20,7 +20,17 @@ export const OPEN_QUESTIONS = [
   { key: "trust_needs", label: "What would you need to hear or see to trust a tool with that task?" },
 ] as const;
 
-type Props = { participants: ParticipantRow[]; tasks: TaskRow[]; answers: AnswerRow[] };
+type Props = { participants: ParticipantRow[]; tasks: TaskRow[]; answers: AnswerRow[]; systems: SystemRow[]; aiUse: AiUseRow[] };
+
+// The AI section's questions (phase 4), in the brief's order.
+export const AI_QUESTIONS = {
+  intro: "There are no right or wrong answers, and nobody's individual answer is shared.",
+  tools: "Which AI tools, if any, do you use for work?",
+  provided: "Did the company provide it, or did you find it yourself?",
+  usedFor: "What do you use it for?",
+  frequency: "How often?",
+  neverShare: "What would you never put into one?",
+} as const;
 
 export function SurveyButton({ label, startWith, ...props }: Props & { label: string; startWith: string }) {
   const [open, setOpen] = useState(false);
@@ -34,7 +44,7 @@ export function SurveyButton({ label, startWith, ...props }: Props & { label: st
   );
 }
 
-function SurveyDrawer({ participants, tasks, answers, startWith, onClose }: Props & { startWith: string; onClose: () => void }) {
+function SurveyDrawer({ participants, tasks, answers, systems, aiUse, startWith, onClose }: Props & { startWith: string; onClose: () => void }) {
   const [current, setCurrent] = useState(startWith);
   const [done, setDone] = useState<string | null>(null);
   const person = participants.find((p) => p.id === current);
@@ -69,6 +79,8 @@ function SurveyDrawer({ participants, tasks, answers, startWith, onClose }: Prop
         person={person}
         tasks={tasks.filter((t) => t.participant_id === current)}
         answers={answers.find((a) => a.participant_id === current) ?? null}
+        systems={systems}
+        aiUse={aiUse.filter((u) => u.participant_id === current)}
         onSaved={afterSave}
         onClose={onClose}
       />
@@ -76,22 +88,38 @@ function SurveyDrawer({ participants, tasks, answers, startWith, onClose }: Prop
   );
 }
 
-type Row = SurveyTaskInput & { key: string };
+type Row = SurveyTaskInput & { key: string; copies: boolean };
+type AiRow = AiUseInput & { key: string };
+
+const newKey = (i: number) => `new-${i}-${Math.random().toString(36).slice(2, 8)}`;
 
 function blankRow(i: number): Row {
-  return { key: `new-${i}-${Math.random().toString(36).slice(2, 8)}`, title: "", hours_per_week: "", energy: "", judgment: "" };
+  return { key: newKey(i), title: "", hours_per_week: "", energy: "", judgment: "", system_id: "", copies: false, copies_from_system_id: "", copies_to_system_id: "" };
 }
+
+function blankTool(i: number): AiRow {
+  return { key: newKey(i), tool: "", provided_by: "", used_for: "", frequency: "", never_share: "" };
+}
+
+// A system picker's "Add a system" choice, for one the walkthrough
+// missed.
+const ADD = "__add";
+type SystemField = "system_id" | "copies_from_system_id" | "copies_to_system_id";
 
 function SurveyForm({
   person,
   tasks,
   answers,
+  systems: initialSystems,
+  aiUse,
   onSaved,
   onClose,
 }: {
   person: ParticipantRow;
   tasks: TaskRow[];
   answers: AnswerRow | null;
+  systems: SystemRow[];
+  aiUse: AiUseRow[];
   onSaved: () => void;
   onClose: () => void;
 }) {
@@ -112,17 +140,87 @@ function SurveyForm({
       hours_per_week: String(t.hours_per_week),
       energy: String(t.energy),
       judgment: String(t.judgment),
+      system_id: t.system_id ?? "",
+      copies: Boolean(t.copies_from_system_id),
+      copies_from_system_id: t.copies_from_system_id ?? "",
+      copies_to_system_id: t.copies_to_system_id ?? "",
     }));
     return existing.length ? existing : [blankRow(0), blankRow(1), blankRow(2)];
   });
+  const [systems, setSystems] = useState(initialSystems);
+  const [adding, setAdding] = useState<{ row: string; field: SystemField } | null>(null);
+  const [newSystem, setNewSystem] = useState({ name: "", kind: "other" });
+  const addSystem = useDxAction();
+  const [noAi, setNoAi] = useState(person.uses_no_ai);
+  const [tools, setTools] = useState<AiRow[]>(() =>
+    aiUse.length
+      ? aiUse.map((u) => ({
+          key: u.id,
+          id: u.id,
+          tool: u.tool,
+          provided_by: u.provided_by ?? "",
+          used_for: u.used_for ?? "",
+          frequency: u.frequency ?? "",
+          never_share: u.never_share ?? "",
+        }))
+      : [blankTool(0)]
+  );
+  const setTool = (key: string, k: keyof AiUseInput, v: string) => setTools((ts) => ts.map((t) => (t.key === key ? { ...t, [k]: v } : t)));
   const { pending, error, run } = useDxAction();
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const setRow = (key: string, k: keyof SurveyTaskInput, v: string) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [k]: v } : r)));
+  const setRow = (key: string, k: keyof Row, v: string | boolean) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, [k]: v } : r)));
 
   function save() {
-    const input: SurveyInput = { ...form, tasks: rows.map(({ key: _key, ...r }) => r) };
+    const input: SurveyInput = {
+      ...form,
+      tasks: rows.map(({ key: _key, copies, ...r }) => ({
+        ...r,
+        copies_from_system_id: copies ? r.copies_from_system_id : "",
+        copies_to_system_id: copies ? r.copies_to_system_id : "",
+      })),
+      uses_no_ai: noAi,
+      ai: noAi ? [] : tools.map(({ key: _key, ...t }) => t),
+    };
     run(() => saveSurveyAction(person.id, input), onSaved);
   }
+
+  function pickSystem(r: Row, field: SystemField, v: string) {
+    if (v === ADD) {
+      setNewSystem({ name: "", kind: "other" });
+      setAdding({ row: r.key, field });
+      return;
+    }
+    setRow(r.key, field, v);
+  }
+
+  function saveNewSystem() {
+    const target = adding;
+    if (!target) return;
+    addSystem.run(
+      () => saveSystemAction(person.diagnostic_id, null, newSystem),
+      (res) => {
+        if (!res.id) return;
+        setSystems((ss) => [...ss, { id: res.id!, diagnostic_id: person.diagnostic_id, name: newSystem.name.trim(), kind: newSystem.kind as SystemRow["kind"], holds: null, owner_name: null, notes: null, created_at: "" }]);
+        setRow(target.row, target.field, res.id!);
+        setAdding(null);
+      }
+    );
+  }
+
+  const systemPicker = (r: Row, field: SystemField, label: string, i: number) => (
+    <label className={styles.inlineField}>
+      <span>{label}</span>
+      <select className={styles.cellInput} aria-label={`${label} for task ${i + 1}`} value={String(r[field] ?? "")} onChange={(e) => pickSystem(r, field, e.target.value)}>
+        <option value="">{field === "system_id" ? "Not said" : "Choose"}</option>
+        {systems.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+        <option value={ADD}>Add a system</option>
+      </select>
+    </label>
+  );
 
   const rating = (r: Row, k: "energy" | "judgment", label: string) => (
     <select className={styles.cellInput} aria-label={`${label} for ${r.title || "this task"}`} value={String(r[k])} onChange={(e) => setRow(r.key, k, e.target.value)}>
@@ -186,7 +284,7 @@ function SurveyForm({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
+            {rows.map((r, i) => [
               <tr key={r.key}>
                 <td>
                   <input
@@ -218,11 +316,65 @@ function SurveyForm({
                     Remove
                   </button>
                 </td>
-              </tr>
-            ))}
+              </tr>,
+              <tr key={`${r.key}-systems`} className={styles.subRow}>
+                <td colSpan={5}>
+                  <span className={styles.formRow}>
+                    {systemPicker(r, "system_id", "Where does this happen?", i)}
+                    <label className={styles.inlineField}>
+                      <span>Does this mean copying information from one system to another?</span>
+                      <select
+                        className={styles.cellInput}
+                        aria-label={`Copies between systems for task ${i + 1}`}
+                        value={r.copies ? "yes" : "no"}
+                        onChange={(e) => setRow(r.key, "copies", e.target.value === "yes")}
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </label>
+                    {r.copies ? (
+                      <>
+                        {systemPicker(r, "copies_from_system_id", "From", i)}
+                        {systemPicker(r, "copies_to_system_id", "To", i)}
+                      </>
+                    ) : null}
+                  </span>
+                </td>
+              </tr>,
+            ])}
           </tbody>
         </table>
       </div>
+      {adding ? (
+        <div className={styles.runner} aria-label="Add a system">
+          <span className={styles.formRow}>
+            <input
+              className={admin.input}
+              aria-label="New system name"
+              placeholder="System name"
+              value={newSystem.name}
+              onChange={(e) => setNewSystem((n) => ({ ...n, name: e.target.value }))}
+              maxLength={200}
+              autoFocus
+            />
+            <select className={admin.select} aria-label="New system kind" value={newSystem.kind} onChange={(e) => setNewSystem((n) => ({ ...n, kind: e.target.value }))}>
+              {SYSTEM_KINDS.map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+            <button type="button" className={`${styles.primary} ${styles.small}`} onClick={saveNewSystem} disabled={addSystem.pending}>
+              Add the system
+            </button>
+            <button type="button" className={`${styles.secondary} ${styles.small}`} onClick={() => setAdding(null)} disabled={addSystem.pending}>
+              Cancel
+            </button>
+            {addSystem.error ? <span className={styles.error} role="alert">{addSystem.error}</span> : null}
+          </span>
+        </div>
+      ) : null}
       <div className={styles.body}>
         {rows.length < MAX_TASKS_PER_PARTICIPANT ? (
           <span>
@@ -241,6 +393,79 @@ function SurveyForm({
             <textarea id={`survey-${q.key}`} className={styles.textarea} value={form[q.key]} onChange={set(q.key)} maxLength={4000} />
           </div>
         ))}
+      </div>
+      <h3 className={styles.subhead}>
+        AI at work
+        <span className={styles.subheadMeta}>{AI_QUESTIONS.intro}</span>
+      </h3>
+      <div className={styles.body}>
+        <span className={admin.label}>{AI_QUESTIONS.tools}</span>
+        <label className={styles.check}>
+          <input type="checkbox" checked={noAi} onChange={(e) => setNoAi(e.target.checked)} />
+          None
+        </label>
+        {noAi
+          ? null
+          : tools.map((t, i) => (
+              <fieldset key={t.key} className={styles.toolRow}>
+                <legend className={styles.srOnly}>AI tool {i + 1}</legend>
+                <div className={styles.grid2}>
+                  <div className={admin.field}>
+                    <label className={admin.label} htmlFor={`ai-tool-${t.key}`}>
+                      Tool {i + 1}
+                    </label>
+                    <input id={`ai-tool-${t.key}`} className={admin.input} value={t.tool} onChange={(e) => setTool(t.key, "tool", e.target.value)} maxLength={200} />
+                  </div>
+                  <div className={admin.field}>
+                    <label className={admin.label} htmlFor={`ai-provided-${t.key}`}>
+                      {AI_QUESTIONS.provided}
+                    </label>
+                    <select id={`ai-provided-${t.key}`} className={admin.select} value={t.provided_by} onChange={(e) => setTool(t.key, "provided_by", e.target.value)}>
+                      <option value="">Not said</option>
+                      <option value="company">The company provided it</option>
+                      <option value="personal">Found it myself</option>
+                    </select>
+                  </div>
+                  <div className={admin.field}>
+                    <label className={admin.label} htmlFor={`ai-for-${t.key}`}>
+                      {AI_QUESTIONS.usedFor}
+                    </label>
+                    <input id={`ai-for-${t.key}`} className={admin.input} value={t.used_for} onChange={(e) => setTool(t.key, "used_for", e.target.value)} maxLength={2000} />
+                  </div>
+                  <div className={admin.field}>
+                    <label className={admin.label} htmlFor={`ai-often-${t.key}`}>
+                      {AI_QUESTIONS.frequency}
+                    </label>
+                    <select id={`ai-often-${t.key}`} className={admin.select} value={t.frequency} onChange={(e) => setTool(t.key, "frequency", e.target.value)}>
+                      <option value="">Not said</option>
+                      {AI_FREQUENCIES.map((f) => (
+                        <option key={f.value} value={f.value}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className={admin.field}>
+                  <label className={admin.label} htmlFor={`ai-never-${t.key}`}>
+                    {AI_QUESTIONS.neverShare}
+                  </label>
+                  <input id={`ai-never-${t.key}`} className={admin.input} value={t.never_share} onChange={(e) => setTool(t.key, "never_share", e.target.value)} maxLength={2000} />
+                </div>
+                <span>
+                  <button type="button" className={`${styles.secondary} ${styles.small}`} onClick={() => setTools((ts) => ts.filter((x) => x.key !== t.key))}>
+                    Remove tool {i + 1}
+                  </button>
+                </span>
+              </fieldset>
+            ))}
+        {noAi ? null : (
+          <span>
+            <button type="button" className={`${styles.secondary} ${styles.small}`} onClick={() => setTools((ts) => [...ts, blankTool(ts.length)])}>
+              Add a tool
+            </button>
+          </span>
+        )}
         <span className={styles.formRow}>
           <button type="button" className={styles.primary} onClick={save} disabled={pending}>
             Save survey

@@ -7,6 +7,7 @@ import { VOICE_CORE } from "@/lib/voice/core";
 import { findBannedPhrases, retryInstruction } from "@/lib/voice/banned";
 import { personalDetailMatcher, removePersonalDetail, PERSONAL_DETAIL_RULE } from "@/lib/voice/personal-detail";
 import { READOUT_SECTIONS, type Narrative, type ReadoutSection } from "./types";
+import { sectionTitle } from "./readout";
 import { checkNarrative, findDenials, narrativeInput, NARRATIVE_SCHEMA } from "./narrative";
 import type { ReadoutData } from "./readout";
 
@@ -23,9 +24,9 @@ import type { ReadoutData } from "./readout";
 const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 6000;
 
-const SYSTEM = `You write the narrative of a Capacity Diagnostic readout: a one-page report a small business owner reads after a three-week engagement that found the hours their team spends on draining, routine work and gave some of them back.
+const system = (r: ReadoutData) => `You write the narrative of a Capacity Diagnostic readout: a one-page report a small business owner reads after a three-week engagement that found the hours their team spends on draining, routine work and gave some of them back.
 
-The readout has these sections, in this order: ${READOUT_SECTIONS.map((s) => s.title).join(", ")}. For each, first list the evidence you are using (the figures and facts from the input, copied exactly), then write one short paragraph of two to four sentences that tells the owner what that section shows and why it matters to them.
+The readout has these sections, in this order: ${READOUT_SECTIONS.map((s) => sectionTitle(s.key, r)).join(", ")}. For each, first list the evidence you are using (the figures and facts from the input, copied exactly), then write one short paragraph of two to four sentences that tells the owner what that section shows and why it matters to them.
 
 Rules for the words:
 - Write to the owner, as "you" and "your team".
@@ -33,7 +34,11 @@ Rules for the words:
 - The recovery rate is the share of the first win's own task hours that the first win gave back, written with a percent sign ("60%"). It is separate from the guarantee, which is a number of hours. Write a date as a reader would say it ("October 16, 2026").
 - Measured hours and projected hours are two separate numbers. Never add them together or blur them. The measured figure is what the first win returned in its first full week. The projected figure is a further estimate, on top of the measured one, for the other candidate tasks at the rate the first win achieved; write it as "a further" amount, never as what the measured hours "grow to".
 - The quotes come from one-to-one conversations with the team during the diagnostic, not from the kickoff. The owner's own words at kickoff are in "owner_words_at_kickoff".
-- Name nobody. Refer to roles, never to a person, except that an approved quote may carry the name it was given.
+${
+  r.systems
+    ? `- The ${sectionTitle("guardrails", r)} (the "guardrails" entry) covers the client's systems, where information is carried by hand from one to another and the hours a week that takes, how the team uses AI tools today, and the guardrail rules. Hours carried by hand are a separate figure from the hours back: never add them to the measured or projected hours. Describe AI use only as counts and tool names, never who uses which tool.\n`
+    : ""
+}- Name nobody. Refer to roles, never to a person, except that an approved quote may carry the name it was given.
 - When a section has nothing in the input (no quotes yet, no roadmap yet), write one sentence saying what will go there.
 - Plain English, short sentences, no jargon, no sales language, no exclamation marks.
 - Never set a thing against what it is not: no "not a guess", "not just X but Y", "not one number added to the other". Say only what it is. Never repeat a point another sentence already made.
@@ -54,7 +59,7 @@ export async function writeNarrative(r: ReadoutData, ownerWords: string | null):
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: narrativeInput(r, ownerWords) }];
 
   try {
-    let { data, message } = await requestJson(client, { model, max_tokens: MAX_TOKENS, thinking: "off", system: SYSTEM, schema: NARRATIVE_SCHEMA, messages });
+    let { data, message } = await requestJson(client, { model, max_tokens: MAX_TOKENS, thinking: "off", system: system(r), schema: NARRATIVE_SCHEMA, messages });
     log(message);
     let checked = checkNarrative(data, r);
     const written = Object.values(checked.narrative).join("\n");
@@ -64,7 +69,7 @@ export async function writeNarrative(r: ReadoutData, ownerWords: string | null):
         model,
         max_tokens: MAX_TOKENS,
         thinking: "off",
-        system: SYSTEM,
+        system: system(r),
         schema: NARRATIVE_SCHEMA,
         messages: [...messages, { role: "assistant", content: JSON.stringify(data) }, { role: "user", content: retryInstruction(hits) }],
       }));

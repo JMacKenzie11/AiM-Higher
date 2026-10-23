@@ -12770,12 +12770,22 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 //   frozen    once published (0296), the system admin's edit to the
 //             readout is refused (42501) and recording the decision is
 //             not (1 row)
+//   systems   (0298) the three systems tables are read and written by
+//             the system admin alone, like the eight: one seeded row of
+//             each counts toward the reads, and each role's add of a
+//             system is tried. As the system admin: a link to another
+//             diagnostic's system and a task pointing at one are
+//             refused (23514), half a copy pair is refused (23514), a
+//             whole pair saves (1 row), a system still in use cannot be
+//             deleted (23503), and a link and an AI row can (1 each)
 // Red before 0294: the tables do not exist. Red before 0295: the system
 // admin still reads all eight off the primary instance. Red before 0296:
-// published_readout does not exist.
+// published_readout does not exist. Red before 0298: the systems tables
+// do not exist.
 async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "diagnostics · system admin only";
   const CL = randomUUID(), DX = randomUUID(), PT = randomUUID(), TK = randomUUID();
+  const DX2 = randomUUID(), S1 = randomUUID(), S2 = randomUUID(), S3 = randomUUID(), LK = randomUUID(), AI = randomUUID();
   const reads = `(select count(*) from public.diagnostic_clients where id = '${CL}')
     + (select count(*) from public.diagnostics where id = '${DX}')
     + (select count(*) from public.diagnostic_participants where id = '${PT}')
@@ -12783,7 +12793,10 @@ async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pe
     + (select count(*) from public.diagnostic_answers where participant_id = '${PT}')
     + (select count(*) from public.diagnostic_notes where participant_id = '${PT}')
     + (select count(*) from public.diagnostic_quotes where diagnostic_id = '${DX}')
-    + (select count(*) from public.diagnostic_wins where diagnostic_id = '${DX}')`;
+    + (select count(*) from public.diagnostic_wins where diagnostic_id = '${DX}')
+    + (select count(*) from public.diagnostic_systems where id = '${S1}')
+    + (select count(*) from public.diagnostic_system_links where id = '${LK}')
+    + (select count(*) from public.diagnostic_ai_use where id = '${AI}')`;
   const asRole = (key: string, sub: string) => `
   perform set_config('request.jwt.claims', '{"sub":"${sub}","role":"authenticated"}', true);
   select ${reads} into n; insert into _p values ('${key}_reads', n::text);
@@ -12791,6 +12804,10 @@ async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pe
     insert into public.diagnostic_clients (name) values ('Harness 0294 by ${key}');
     get diagnostics n = row_count; insert into _p values ('${key}_insert', n::text);
   exception when others then insert into _p values ('${key}_insert', 'error ' || sqlstate); end;
+  begin
+    insert into public.diagnostic_systems (diagnostic_id, name) values ('${DX}', 'Harness 0298 by ${key}');
+    get diagnostics n = row_count; insert into _p values ('${key}_sys_insert', n::text);
+  exception when others then insert into _p values ('${key}_sys_insert', 'error ' || sqlstate); end;
   update public.diagnostic_answers set best_work = 'harness ${key}' where participant_id = '${PT}';
   get diagnostics n = row_count; insert into _p values ('${key}_update', n::text);`;
   let row: Record<string, string> | undefined;
@@ -12812,6 +12829,12 @@ insert into public.diagnostic_notes (diagnostic_id, participant_id, body) values
 insert into public.diagnostic_quotes (diagnostic_id, text) values ('${DX}', 'seeded line');
 insert into public.diagnostic_wins (diagnostic_id, task_id, pattern, title, is_first_win)
   values ('${DX}', '${TK}', 'quote_first_draft', 'Quote first draft', true);
+insert into public.diagnostics (id, client_id) values ('${DX2}', '${CL}');
+insert into public.diagnostic_systems (id, diagnostic_id, name, kind) values
+  ('${S1}', '${DX}', 'Harness ERP', 'erp'), ('${S2}', '${DX}', 'Harness inbox', 'email'), ('${S3}', '${DX2}', 'Harness other ERP', 'erp');
+insert into public.diagnostic_system_links (id, diagnostic_id, from_system_id, to_system_id, what_moves, how)
+  values ('${LK}', '${DX}', '${S2}', '${S1}', 'Orders', 'retyped');
+insert into public.diagnostic_ai_use (id, participant_id, tool, provided_by) values ('${AI}', '${PT}', 'Harness tool', 'personal');
 create temp table _p (k text, v text) on commit drop;
 grant all on _p to authenticated;
 set local role authenticated;
@@ -12823,6 +12846,40 @@ begin
   ${asRole("guide", ids.guide)}
   ${asRole("portfolio_admin", pick.pa)}
   ${asRole("member", ids.member)}
+end $$;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  begin
+    insert into public.diagnostic_system_links (diagnostic_id, from_system_id, to_system_id, what_moves)
+    values ('${DX}', '${S1}', '${S3}', 'Across diagnostics');
+    get diagnostics n = row_count; insert into _p values ('cross_link', n::text);
+  exception when others then insert into _p values ('cross_link', 'error ' || sqlstate); end;
+  begin
+    update public.diagnostic_tasks set system_id = '${S3}' where id = '${TK}';
+    get diagnostics n = row_count; insert into _p values ('cross_task', n::text);
+  exception when others then insert into _p values ('cross_task', 'error ' || sqlstate); end;
+  begin
+    update public.diagnostic_tasks set copies_from_system_id = '${S2}' where id = '${TK}';
+    get diagnostics n = row_count; insert into _p values ('half_pair', n::text);
+  exception when others then insert into _p values ('half_pair', 'error ' || sqlstate); end;
+  begin
+    update public.diagnostic_tasks set system_id = '${S1}', copies_from_system_id = '${S2}', copies_to_system_id = '${S1}' where id = '${TK}';
+    get diagnostics n = row_count; insert into _p values ('whole_pair', n::text);
+  exception when others then insert into _p values ('whole_pair', 'error ' || sqlstate); end;
+  begin
+    delete from public.diagnostic_systems where id = '${S1}';
+    get diagnostics n = row_count; insert into _p values ('system_in_use_delete', n::text);
+  exception when others then insert into _p values ('system_in_use_delete', 'error ' || sqlstate); end;
+  begin
+    delete from public.diagnostic_system_links where id = '${LK}';
+    get diagnostics n = row_count; insert into _p values ('link_delete', n::text);
+  exception when others then insert into _p values ('link_delete', 'error ' || sqlstate); end;
+  begin
+    delete from public.diagnostic_ai_use where id = '${AI}';
+    get diagnostics n = row_count; insert into _p values ('ai_delete', n::text);
+  exception when others then insert into _p values ('ai_delete', 'error ' || sqlstate); end;
 end $$;
 reset role;
 update public.diagnostics set published_at = now(), published_readout = '{"version":1}'::jsonb where id = '${DX}';
@@ -12868,23 +12925,30 @@ reset role;
 select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   } catch (err) {
     const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
-    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0294 applied?)" }];
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (are 0294 and 0298 applied?)" }];
   }
   const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
   const others = ["company_admin", "guide", "portfolio_admin", "member"];
   const othersOk = others.every(
-    (k) => r[`${k}_reads`] === "0" && r[`${k}_insert`] === "error 42501" && r[`${k}_update`] === "0"
+    (k) => r[`${k}_reads`] === "0" && r[`${k}_insert`] === "error 42501" && r[`${k}_sys_insert`] === "error 42501" && r[`${k}_update`] === "0"
   );
-  const adminOk = r.system_admin_reads === "8" && r.system_admin_insert === "1" && r.system_admin_update === "1";
+  const adminOk =
+    r.system_admin_reads === "11" && r.system_admin_insert === "1" && r.system_admin_sys_insert === "1" && r.system_admin_update === "1";
+  const systemsOk =
+    r.cross_link === "error 23514" && r.cross_task === "error 23514" && r.half_pair === "error 23514" && r.whole_pair === "1" &&
+    r.system_in_use_delete === "error 23503" && r.link_delete === "1" && r.ai_delete === "1";
   const offPrimaryOk = r.not_primary_reads === "0" && r.not_primary_insert === "error 42501";
   const frozenOk = r.published_readout_edit === "error 42501" && r.published_decision === "1";
-  const ok = adminOk && othersOk && r.published_note_update === "0" && frozenOk && r.canary === "1" && offPrimaryOk;
+  const ok = adminOk && othersOk && systemsOk && r.published_note_update === "0" && frozenOk && r.canary === "1" && offPrimaryOk;
   return [{
     name,
-    granted: `system admin reads ${r.system_admin_reads} of 8, adds a client ${r.system_admin_insert}, updates an answer ${r.system_admin_update} (want 8, 1, 1)`,
+    granted:
+      `system admin reads ${r.system_admin_reads} of 11, adds a client ${r.system_admin_insert} and a system ${r.system_admin_sys_insert}, updates an answer ${r.system_admin_update} (want 11, 1, 1, 1) | ` +
+      `whole copy pair ${r.whole_pair}, deletes a link ${r.link_delete} and an AI row ${r.ai_delete} (want 1 each)`,
     withheld:
-      others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]}, updates ${r[`${k}_update`]}`).join(" | ") +
-      ` (want 0, error 42501, 0 each) | note update after publishing ${r.published_note_update} (want 0) | ` +
+      others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]} and ${r[`${k}_sys_insert`]}, updates ${r[`${k}_update`]}`).join(" | ") +
+      ` (want 0, error 42501 twice, 0 each) | another diagnostic's system on a link ${r.cross_link} and on a task ${r.cross_task}, half a copy pair ${r.half_pair} (want error 23514 each), ` +
+      `deleting a system in use ${r.system_in_use_delete} (want error 23503) | note update after publishing ${r.published_note_update} (want 0) | ` +
       `readout edit after publishing ${r.published_readout_edit} (want error 42501), decision after publishing ${r.published_decision} (want 1) | ` +
       `planted permissive rule on diagnostic_answers: ${r.canary === "1" ? "caught" : `missed (${r.canary})`} | ` +
       `off the primary instance, system admin reads ${r.not_primary_reads}, adds ${r.not_primary_insert} (want 0, error 42501)`,
@@ -12893,6 +12957,8 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
       ? "only a system admin on the primary instance reads or writes a diagnostic, and a published readout, its notes and quotes are frozen"
       : !adminOk
         ? "A SYSTEM ADMIN CANNOT RUN A DIAGNOSTIC (is 0294 applied? is the clone marked primary?)"
+        : !systemsOk
+          ? "A SYSTEM CROSSES DIAGNOSTICS, a copy pair can be half set, or a delete is wrong (is 0298 applied?)"
         : !offPrimaryOk
           ? "A DIAGNOSTIC OPENS OFF THE PRIMARY INSTANCE (is 0295 applied?)"
           : !frozenOk

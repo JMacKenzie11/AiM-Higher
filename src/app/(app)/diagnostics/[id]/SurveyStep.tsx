@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { AnswerRow, ParticipantRow, TaskRow } from "@/lib/diagnostics/types";
+import type { AiUseRow, AnswerRow, ParticipantRow, SystemRow, TaskRow } from "@/lib/diagnostics/types";
 import { StepCard } from "./StepCard";
 import { SurveyButton } from "./SurveyDrawer";
 import { TaskGrid } from "./TaskGrid";
@@ -16,12 +16,16 @@ export function SurveyStep({
   participants,
   tasks,
   answers,
+  systems,
+  aiUse,
   footer,
 }: {
   diagnosticId: string;
   participants: ParticipantRow[];
   tasks: TaskRow[];
   answers: AnswerRow[];
+  systems: SystemRow[];
+  aiUse: AiUseRow[];
   footer: ReactNode;
 }) {
   const entered = participants.filter((p) => p.survey_entered_at).length;
@@ -33,7 +37,7 @@ export function SurveyStep({
         title="Surveys"
         meta={`${entered} of ${participants.length} entered`}
         action={
-          firstOpen ? <SurveyButton label="Enter a survey" startWith={firstOpen.id} participants={participants} tasks={tasks} answers={answers} /> : null
+          firstOpen ? <SurveyButton label="Enter a survey" startWith={firstOpen.id} participants={participants} tasks={tasks} answers={answers} systems={systems} aiUse={aiUse} /> : null
         }
       >
         {participants.length === 0 ? (
@@ -55,6 +59,8 @@ export function SurveyStep({
                     participants={participants}
                     tasks={tasks}
                     answers={answers}
+                    systems={systems}
+                    aiUse={aiUse}
                   />
                 </li>
               );

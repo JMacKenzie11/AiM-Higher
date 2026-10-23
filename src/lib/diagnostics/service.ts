@@ -8,6 +8,12 @@ import {
   PARTICIPANT_COLUMNS,
   TASK_COLUMNS,
   WIN_COLUMNS,
+  SYSTEM_COLUMNS,
+  SYSTEM_LINK_COLUMNS,
+  AI_USE_COLUMNS,
+  type AiUseRow,
+  type SystemLinkRow,
+  type SystemRow,
   type AnswerRow,
   type ClientRow,
   type DiagnosticBundle,
@@ -124,7 +130,7 @@ export async function getDiagnostic(id: string): Promise<DiagnosticBundle | null
   const supabase = await db();
   const { data: diagnostic } = await supabase.from("diagnostics").select(DIAGNOSTIC_COLUMNS).eq("id", id).maybeSingle<DiagnosticRow>();
   if (!diagnostic) return null;
-  const [client, participants, tasks, quotes, wins] = await Promise.all([
+  const [client, participants, tasks, quotes, wins, systems, links] = await Promise.all([
     supabase.from("diagnostic_clients").select(CLIENT_COLUMNS).eq("id", diagnostic.client_id).maybeSingle<ClientRow>(),
     supabase.from("diagnostic_participants").select(PARTICIPANT_COLUMNS).eq("diagnostic_id", id).order("created_at"),
     supabase.from("diagnostic_tasks").select(TASK_COLUMNS).eq("diagnostic_id", id).order("created_at"),
@@ -134,16 +140,19 @@ export async function getDiagnostic(id: string): Promise<DiagnosticBundle | null
       .eq("diagnostic_id", id)
       .order("created_at"),
     supabase.from("diagnostic_wins").select(WIN_COLUMNS).eq("diagnostic_id", id).eq("is_first_win", true).limit(1),
+    supabase.from("diagnostic_systems").select(SYSTEM_COLUMNS).eq("diagnostic_id", id).order("created_at"),
+    supabase.from("diagnostic_system_links").select(SYSTEM_LINK_COLUMNS).eq("diagnostic_id", id).order("created_at"),
   ]);
   if (!client.data) return null;
   const people = (participants.data ?? []) as ParticipantRow[];
   const ids = people.map((p) => p.id);
-  const [answers, notes] = ids.length
+  const [answers, notes, aiUse] = ids.length
     ? await Promise.all([
         supabase.from("diagnostic_answers").select("participant_id, best_work, task_to_lose, trust_needs").in("participant_id", ids),
         supabase.from("diagnostic_notes").select("participant_id, body, peak_experience, redeploy_wish, destination_hours").in("participant_id", ids),
+        supabase.from("diagnostic_ai_use").select(AI_USE_COLUMNS).in("participant_id", ids).order("created_at"),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }];
   return {
     diagnostic,
     client: client.data,
@@ -153,6 +162,9 @@ export async function getDiagnostic(id: string): Promise<DiagnosticBundle | null
     notes: (notes.data ?? []) as NoteRow[],
     quotes: (quotes.data ?? []) as QuoteRow[],
     firstWin: ((wins.data ?? []) as WinRow[])[0] ?? null,
+    systems: (systems.data ?? []) as SystemRow[],
+    links: (links.data ?? []) as SystemLinkRow[],
+    aiUse: (aiUse.data ?? []) as AiUseRow[],
   };
 }
 

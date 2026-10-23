@@ -117,9 +117,11 @@ export type ParticipantRow = {
   in_conversations: boolean;
   conversation_at: string | null;
   created_at: string;
+  // "None" in the survey's AI section (0298), so no tools is an answer.
+  uses_no_ai: boolean;
 };
 export const PARTICIPANT_COLUMNS =
-  "id, diagnostic_id, name, role_title, email, years_with_company, survey_entered_at, in_conversations, conversation_at, created_at";
+  "id, diagnostic_id, name, role_title, email, years_with_company, survey_entered_at, in_conversations, conversation_at, created_at, uses_no_ai";
 
 export type TaskRow = {
   id: string;
@@ -137,9 +139,82 @@ export type TaskRow = {
   candidate_override: boolean | null;
   canonical_title: string | null;
   created_at: string;
+  // Where the task happens, and the two systems it copies between,
+  // both or neither (0298).
+  system_id: string | null;
+  copies_from_system_id: string | null;
+  copies_to_system_id: string | null;
 };
 export const TASK_COLUMNS =
-  "id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment, source, volume_units_per_week, minutes_per_unit, data_risk, build_effort_hours, candidate_override, canonical_title, created_at";
+  "id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment, source, volume_units_per_week, minutes_per_unit, data_risk, build_effort_hours, candidate_override, canonical_title, created_at, system_id, copies_from_system_id, copies_to_system_id";
+
+// ---- Systems and AI use (0298) -------------------------------------
+
+export const SYSTEM_KINDS = [
+  { value: "erp", label: "ERP" },
+  { value: "accounting", label: "Accounting" },
+  { value: "crm", label: "CRM" },
+  { value: "quoting", label: "Quoting" },
+  { value: "scheduling", label: "Scheduling" },
+  { value: "email", label: "Email" },
+  { value: "spreadsheet", label: "Spreadsheet" },
+  { value: "file_storage", label: "File storage" },
+  { value: "other", label: "Other" },
+] as const;
+export type SystemKind = (typeof SYSTEM_KINDS)[number]["value"];
+export const systemKindLabel = (k: string) => SYSTEM_KINDS.find((x) => x.value === k)?.label ?? "Other";
+
+export const LINK_HOWS = [
+  { value: "retyped", label: "Typed in again" },
+  { value: "export_import", label: "Exported and imported" },
+  { value: "automatic", label: "Connected automatically" },
+  { value: "unknown", label: "Not sure" },
+] as const;
+export type LinkHow = (typeof LINK_HOWS)[number]["value"];
+export const linkHowLabel = (h: string) => LINK_HOWS.find((x) => x.value === h)?.label ?? "Not sure";
+
+export const AI_FREQUENCIES = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "rarely", label: "Rarely" },
+] as const;
+
+export type SystemRow = {
+  id: string;
+  diagnostic_id: string;
+  name: string;
+  kind: SystemKind;
+  holds: string | null;
+  owner_name: string | null;
+  notes: string | null;
+  created_at: string;
+};
+export const SYSTEM_COLUMNS = "id, diagnostic_id, name, kind, holds, owner_name, notes, created_at";
+
+export type SystemLinkRow = {
+  id: string;
+  diagnostic_id: string;
+  from_system_id: string;
+  to_system_id: string;
+  what_moves: string;
+  how: LinkHow;
+  notes: string | null;
+  created_at: string;
+};
+export const SYSTEM_LINK_COLUMNS = "id, diagnostic_id, from_system_id, to_system_id, what_moves, how, notes, created_at";
+
+export type AiUseRow = {
+  id: string;
+  participant_id: string;
+  tool: string;
+  provided_by: "company" | "personal" | null;
+  used_for: string | null;
+  frequency: "daily" | "weekly" | "monthly" | "rarely" | null;
+  never_share: string | null;
+  created_at: string;
+};
+export const AI_USE_COLUMNS = "id, participant_id, tool, provided_by, used_for, frequency, never_share, created_at";
 
 export type AnswerRow = {
   participant_id: string;
@@ -198,6 +273,9 @@ export function toTask(r: TaskRow): DiagnosticTask {
     dataRisk: r.data_risk,
     buildEffortHours: num(r.build_effort_hours),
     candidateOverride: r.candidate_override,
+    systemId: r.system_id ?? null,
+    copiesFromSystemId: r.copies_from_system_id ?? null,
+    copiesToSystemId: r.copies_to_system_id ?? null,
   };
 }
 
@@ -221,4 +299,7 @@ export type DiagnosticBundle = {
   notes: NoteRow[];
   quotes: QuoteRow[];
   firstWin: WinRow | null;
+  systems: SystemRow[];
+  links: SystemLinkRow[];
+  aiUse: AiUseRow[];
 };

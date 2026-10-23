@@ -1,0 +1,178 @@
+{
+  "version": 1,
+  "clientName": "Acme Fabrication",
+  "ownerName": "Pat Moreau",
+  "preparedOn": "2026-10-22",
+  "quotes": [
+    {
+      "text": "I spend my mornings retyping the same quote.",
+      "name": null
+    },
+    {
+      "text": "If the first draft was there, I'd check it and send it.",
+      "name": "Lee Chan"
+    },
+    {
+      "text": "The inbox decides my day.",
+      "name": null
+    }
+  ],
+  "firstWin": {
+    "title": "Quote drafts from email",
+    "pattern": "Quote first draft",
+    "serves": "Quoting",
+    "role": "Estimator",
+    "baselineMinutes": 25,
+    "afterMinutes": 10,
+    "unitsPerWeek": 24,
+    "measured": 6,
+    "measuredWeekEnding": "2026-10-16"
+  },
+  "map": {
+    "points": [
+      {
+        "taskId": "t3",
+        "key": "order entry",
+        "title": "Order entry",
+        "energy": 1,
+        "judgment": 1,
+        "hours": 5,
+        "checked": false,
+        "candidate": true
+      },
+      {
+        "taskId": "t4",
+        "key": "order entry",
+        "title": "Order entry",
+        "energy": 2,
+        "judgment": 1,
+        "hours": 7,
+        "checked": false,
+        "candidate": true
+      },
+      {
+        "taskId": "t7",
+        "key": "production planning",
+        "title": "Production planning",
+        "energy": 4,
+        "judgment": 5,
+        "hours": 10,
+        "checked": false,
+        "candidate": false
+      },
+      {
+        "taskId": "t1",
+        "key": "quoting",
+        "title": "Quoting",
+        "energy": 1,
+        "judgment": 2,
+        "hours": 10,
+        "checked": true,
+        "candidate": true
+      },
+      {
+        "taskId": "t2",
+        "key": "quoting",
+        "title": "Quoting",
+        "energy": 2,
+        "judgment": 2,
+        "hours": 6,
+        "checked": false,
+        "candidate": true
+      },
+      {
+        "taskId": "t5",
+        "key": "shared inbox",
+        "title": "Shared inbox",
+        "energy": 2,
+        "judgment": 2,
+        "hours": 6,
+        "checked": false,
+        "candidate": true
+      },
+      {
+        "taskId": "t6",
+        "key": "supplier follow-up",
+        "title": "Supplier follow-up",
+        "energy": 2,
+        "judgment": 2,
+        "hours": 3,
+        "checked": false,
+        "candidate": true
+      }
+    ],
+    "tasks": 7,
+    "candidates": 6,
+    "totalHours": 47,
+    "candidateHours": 37,
+    "checkedHours": 10
+  },
+  "hoursBack": {
+    "measured": 6,
+    "projected": 16.2,
+    "recoveryRate": 0.6,
+    "guaranteeHours": 3,
+    "guaranteeMet": true
+  },
+  "destination": {
+    "text": "Answer every quote request the same day.",
+    "roles": [
+      {
+        "role": "Estimator",
+        "hours": 5,
+        "wishes": [
+          "Walk the shop floor with new customers",
+          "Follow up on open quotes"
+        ]
+      }
+    ],
+    "assignedHours": 5
+  },
+  "nextWins": [
+    {
+      "title": "Order entry",
+      "hours": 12,
+      "people": 2,
+      "helps": [
+        "Estimator",
+        "Office manager"
+      ],
+      "dataRisk": "low",
+      "buildEffortHours": 3
+    },
+    {
+      "title": "Supplier follow-up",
+      "hours": 3,
+      "people": 1,
+      "helps": [
+        "Team member"
+      ],
+      "dataRisk": "low",
+      "buildEffortHours": 3
+    }
+  ],
+  "guardrails": {
+    "tools": [
+      "Outlook",
+      "Excel",
+      "QuickBooks"
+    ],
+    "dataAtRisk": "Customer contact details, pricing",
+    "rules": [
+      "A person reads every draft before it goes out",
+      "No customer data in a personal account",
+      "Name one owner for each tool"
+    ]
+  },
+  "roadmap": [
+    {
+      "title": "Order entry from email",
+      "target_week": 3,
+      "champion": "Estimator"
+    }
+  ],
+  "narrative": {
+    "hours_back": "Your first win gave back 6 hours a week.",
+    "guardrails": "Three rules keep the builds safe."
+  }
+}

@@ -52,6 +52,14 @@ export const WIN_PATTERNS: readonly WinPattern[] = [
     measure: "Minutes per follow-up sent.",
     needs: "The list of who to follow up with and the email account it goes from.",
   },
+  {
+    // Phase 4: for a connection the systems map shows carried by hand.
+    slug: "retyping_removed",
+    title: "Retyping removed",
+    whatItDoes: "An import file or form that takes information from where it arrives into the system it needs to reach.",
+    measure: "Minutes per record retyped.",
+    needs: "A few records as they arrive, and the import format or entry form of the system they go into.",
+  },
 ];
 
 export function winPattern(slug: string): WinPattern | undefined {

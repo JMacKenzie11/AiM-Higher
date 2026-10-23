@@ -1,9 +1,10 @@
 import path from "node:path";
-import { Circle, Defs, Document, Font, Image, Line, LinearGradient, Page, Rect, Stop, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
+import { Circle, Defs, Document, Font, Image, Line, LinearGradient, Page, Polygon, Rect, Stop, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 import { formatHours } from "../hours-back";
 import { MAP, layoutMap, xFor, yFor } from "../map-layout";
-import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, type ReadoutData } from "../readout";
-import { READOUT_SECTIONS, type ReadoutSection } from "../types";
+import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, sectionTitle, type ReadoutData } from "../readout";
+import type { ReadoutSection } from "../types";
+import { SYSTEMS_MAP, layoutSystemsMap } from "../systems-map-layout";
 
 // THE CAPACITY DIAGNOSTIC READOUT, AS A PDF. The owner receives this and
 // nothing else. AiMS Institute branding as the meeting analysis PDF
@@ -43,6 +44,8 @@ const C = {
   muted: "#5B6472",
   faint: "#606A77",
   border: "#E2E4DE",
+  // The warning accent, for a connection carried by hand (phase 4).
+  warning: "#8D6222",
 };
 
 const s = StyleSheet.create({
@@ -88,7 +91,6 @@ function PageFrame({ r, section, children }: { r: ReadoutData; section: string; 
   );
 }
 
-const titleOf = (k: ReadoutSection) => READOUT_SECTIONS.find((x) => x.key === k)!.title;
 
 // together: the whole section moves to the next page rather than split,
 // for the short sections whose heading, paragraph and figures read as
@@ -97,7 +99,7 @@ function Section({ k, r, together = false, children }: { k: ReadoutSection; r: R
   return (
     <View wrap={!together}>
       <Text style={s.h2} minPresenceAhead={80}>
-        {titleOf(k)}
+        {sectionTitle(k, r)}
       </Text>
       {r.narrative[k] ? <Text style={s.lead}>{r.narrative[k]}</Text> : null}
       {children}
@@ -131,6 +133,87 @@ function Rows({ rows }: { rows: Array<[string, string]> }) {
   );
 }
 
+// The systems map, drawn from the same layout as the page's SVG
+// (phase 4): hand-carried arrows heavy and in the warning accent,
+// labelled with their hours; automatic ones thin.
+function SystemsMapPdf({ r }: { r: ReadoutData }) {
+  const sys = r.systems!;
+  const { boxes, arrows } = layoutSystemsMap(sys.map.systems, sys.map.connections);
+  const width = 504;
+  const height = (width * SYSTEMS_MAP.height) / SYSTEMS_MAP.width;
+  const head = (x1: number, y1: number, x2: number, y2: number, size: number) => {
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    const p = (da: number) => `${x2 - size * Math.cos(a + da)},${y2 - size * Math.sin(a + da)}`;
+    return `${x2},${y2} ${p(0.45)} ${p(-0.45)}`;
+  };
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <Svg viewBox={`0 0 ${SYSTEMS_MAP.width} ${SYSTEMS_MAP.height}`} style={{ width, height }}>
+        {arrows.map((a) => (
+          <Line key={a.key} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke={a.handCarried ? C.warning : C.faint} strokeWidth={a.handCarried ? 3.5 : 1} />
+        ))}
+        {arrows.map((a) => (
+          <Polygon key={`${a.key}-head`} points={head(a.x1, a.y1, a.x2, a.y2, a.handCarried ? 12 : 8)} fill={a.handCarried ? C.warning : C.faint} />
+        ))}
+        {boxes.map((b) => (
+          <Rect key={b.id} x={b.x} y={b.y} width={b.w} height={b.h} rx={6} fill={C.white} stroke={C.border} strokeWidth={1.5} />
+        ))}
+      </Svg>
+      {/* The words sit on top as positioned text, in the report's own fonts. */}
+      {boxes.map((b) => (
+        <View key={b.id} style={{ position: "absolute", left: (b.x * width) / SYSTEMS_MAP.width, top: (b.y * height) / SYSTEMS_MAP.height + 4, width: (b.w * width) / SYSTEMS_MAP.width }}>
+          <Text style={{ textAlign: "center", fontFamily: "Inter", fontSize: 8, fontWeight: 700, color: C.navy }}>{b.name.length > 20 ? `${b.name.slice(0, 19)}…` : b.name}</Text>
+          <Text style={{ textAlign: "center", fontSize: 7, color: C.muted }}>{b.kindLabel}</Text>
+        </View>
+      ))}
+      {arrows
+        .filter((a) => a.label)
+        .map((a) => (
+          <View key={`${a.key}-label`} style={{ position: "absolute", left: (a.lx * width) / SYSTEMS_MAP.width - 50, top: (a.ly * height) / SYSTEMS_MAP.height - 8, width: 100 }}>
+            <Text style={{ textAlign: "center", fontSize: 7.5, fontWeight: 700, color: C.warning, backgroundColor: C.white }}>{a.label}</Text>
+          </View>
+        ))}
+      <Text style={[s.small, s.muted]}>Heavy arrows: typed in again, or exported and imported. Thin arrows: connected automatically, or not sure.</Text>
+    </View>
+  );
+}
+
+function SystemsAndAiPdf({ r }: { r: ReadoutData }) {
+  const sys = r.systems!;
+  return (
+    <>
+      {sys.map.systems.length ? <SystemsMapPdf r={r} /> : null}
+      {sys.handCarried.length ? (
+        <Rows rows={sys.handCarried.map((c) => [`${c.from} to ${c.to}, ${c.whatMoves.join(", ")}`, `${formatHours(c.hours)} hours a week by hand`])} />
+      ) : (
+        <Text style={s.muted}>No information is carried between systems by hand.</Text>
+      )}
+      {sys.ai.answered ? (
+        <>
+          <Figures
+            items={[
+              ["Use an AI tool for work", `${sys.ai.usingAny} of ${sys.ai.answered}`],
+              ["Use a tool they found themselves", String(sys.ai.usingPersonal)],
+            ]}
+          />
+          {sys.ai.tools.length ? <Text style={[s.p, s.muted]}>{sys.ai.tools.map((t) => `${t.tool} (${t.users})`).join(", ")}</Text> : null}
+        </>
+      ) : null}
+      {r.guardrails.dataAtRisk ? (
+        <Text style={s.p}>
+          <Text style={s.bold}>Data at risk: </Text>
+          {r.guardrails.dataAtRisk}
+        </Text>
+      ) : null}
+      {r.guardrails.rules.map((rule, i) => (
+        <Text key={i} style={s.p}>
+          {i + 1}. {rule}
+        </Text>
+      ))}
+    </>
+  );
+}
+
 // The Capacity Map, drawn from the same layout as the page's SVG.
 function MapPdf({ r }: { r: ReadoutData }) {
   const dots = layoutMap(r.map.points);
@@ -157,6 +240,11 @@ function MapPdf({ r }: { r: ReadoutData }) {
             strokeWidth={1.5}
           />
         ))}
+        {dots
+          .filter((d) => d.copying)
+          .map((d) => (
+            <Circle key={`${d.taskId}-ring`} cx={d.cx} cy={d.cy} r={d.r + 4} fill="none" stroke={C.warning} strokeWidth={1.5} strokeDasharray="3 2" />
+          ))}
       </Svg>
       <View style={{ flexDirection: "row", justifyContent: "space-between", width, marginTop: 2 }}>
         <Text style={[s.small, s.muted]}>Left: drains me. Right: energizes me.</Text>
@@ -313,6 +401,11 @@ export function ReadoutPdf({ r }: { r: ReadoutData }) {
           )}
         </Section>
 
+        {r.systems ? (
+          <Section k="guardrails" r={r} together>
+            <SystemsAndAiPdf r={r} />
+          </Section>
+        ) : (
         <Section k="guardrails" r={r}>
           <Text style={s.p}>
             <Text style={s.bold}>
@@ -332,6 +425,7 @@ export function ReadoutPdf({ r }: { r: ReadoutData }) {
             </Text>
           ))}
         </Section>
+        )}
 
         <Section k="roadmap" r={r}>
           {r.roadmap.length === 0 ? (

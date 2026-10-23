@@ -516,3 +516,106 @@
   padding-left: var(--space-5);
   font: var(--text-body);
 }
+
+/* Phase 4: the survey's system pickers under each task, and one AI
+   tool's answers. */
+.subRow td {
+  border-top: none;
+  padding-top: 0;
+}
+
+.inlineField {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.toolRow {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The systems map (phase 4). Hand-carried arrows in the warning
+   accent; automatic ones thin and quiet. */
+.systemsMaps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.systemBox {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.arrowQuiet {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+}
+
+.arrowHeadQuiet {
+  fill: var(--text-faint);
+}
+
+.arrowHand {
+  --hand: var(--aims-warning);
+  stroke: var(--hand);
+  stroke-width: 3.5;
+}
+
+.arrowHeadHand {
+  fill: var(--aims-warning);
+}
+
+.arrowLabel {
+  fill: var(--aims-warning);
+  font: var(--text-caption);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+}
+
+:global([data-theme="dark"]) .arrowHand {
+  stroke: #d9a55a;
+}
+
+:global([data-theme="dark"]) .arrowHeadHand,
+:global([data-theme="dark"]) .arrowLabel {
+  fill: #d9a55a;
+}
+
+.legendLine {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  margin-right: var(--space-1);
+  border-top: 1px solid var(--text-faint);
+  vertical-align: middle;
+}
+
+.legendHand {
+  border-top: 3px solid var(--aims-warning);
+}
+
+/* A task that copies between systems, ringed on the Capacity Map. */
+.dotRing {
+  fill: none;
+  stroke: var(--aims-warning);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+
+.legendRing {
+  border: 2px dashed var(--aims-warning);
+}

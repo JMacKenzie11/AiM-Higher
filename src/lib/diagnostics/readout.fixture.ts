@@ -14,6 +14,7 @@ const person = (id: string, name: string, role: string | null): ParticipantRow =
   in_conversations: true,
   conversation_at: null,
   created_at: "2026-10-01T00:00:00Z",
+  uses_no_ai: false,
 });
 
 let n = 0;
@@ -33,6 +34,9 @@ const task = (participant: string, title: string, hours: number, energy: number,
   candidate_override: null,
   canonical_title: null,
   created_at: "2026-10-01T00:00:00Z",
+  system_id: null,
+  copies_from_system_id: null,
+  copies_to_system_id: null,
   ...extra,
 });
 
@@ -123,6 +127,9 @@ export function readoutBundle(overrides: Partial<DiagnosticRow> = {}, firstWin: 
       quote("q4", "The inbox decides my day.", "2026-10-08T00:00:00Z"),
       quote("q5", "A fourth approved line.", "2026-10-09T00:00:00Z"),
     ],
+    systems: [],
+    links: [],
+    aiUse: [],
     firstWin:
       firstWin === null
         ? null
