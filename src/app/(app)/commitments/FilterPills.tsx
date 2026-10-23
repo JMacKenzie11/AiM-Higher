@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { Profile } from "@/lib/types";
 import styles from "./commitments.module.css";
@@ -50,6 +50,9 @@ export function FilterPills({
   type,
 }: FilterPillsProps) {
   const router = useRouter();
+  // The page it sits on: /commitments, or the weekly meeting, which shows
+  // the same view and keeps its own step in the query.
+  const pathname = usePathname() ?? "/commitments";
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
 
@@ -62,7 +65,7 @@ export function FilterPills({
     }
     const qs = next.toString();
     startTransition(() => {
-      router.push(qs ? `/commitments?${qs}` : "/commitments");
+      router.push(qs ? `${pathname}?${qs}` : pathname);
     });
   }
 

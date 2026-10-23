@@ -12674,6 +12674,86 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Check-in notes are one company's own (0299) ----------------
+//
+// meeting_checkins holds the weekly meeting's check-in notes for a
+// week, written by whoever is at the keyboard. As a team member, and
+// as an assigned guide:
+//   granted   the member writes and rewrites its own company's notes;
+//             the guide writes an assigned company's
+//   withheld  the member's notes for another company are refused, its
+//             rewrite of the other company's notes reaches no row, and
+//             a rewrite cannot move its own row to another company
+// Red before 0299: there is no table, so nothing runs.
+async function meetingCheckinsProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "check-in notes · one company's own";
+  const M = ids.member, CO = ids.memberCompany, OTHER = ids.otherCompany;
+  const G = ids.guide, GCO = ids.guideCompany;
+  const THEIRS = randomUUID();
+  const DOC = `'{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"harness 0299"}]}]}'::jsonb`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into public.meeting_checkins (id, company_id, week_ending, body)
+values ('${THEIRS}', '${OTHER}', current_date, ${DOC});
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  begin
+    insert into public.meeting_checkins (company_id, week_ending, body) values ('${CO}', current_date, ${DOC});
+    get diagnostics n = row_count; insert into _p values ('own_insert', n::text);
+  exception when others then insert into _p values ('own_insert', 'error ' || sqlstate); end;
+  begin
+    update public.meeting_checkins set body = ${DOC} where company_id = '${CO}' and week_ending = current_date;
+    get diagnostics n = row_count; insert into _p values ('own_update', n::text);
+  exception when others then insert into _p values ('own_update', 'error ' || sqlstate); end;
+  begin
+    update public.meeting_checkins set company_id = '${OTHER}' where company_id = '${CO}' and week_ending = current_date;
+    insert into _p values ('own_moved', (select count(*)::text from public.meeting_checkins where company_id = '${CO}' and week_ending = current_date));
+  exception when others then insert into _p values ('own_moved', 'error ' || sqlstate); end;
+  begin
+    insert into public.meeting_checkins (company_id, week_ending, body) values ('${OTHER}', current_date - 7, ${DOC});
+    get diagnostics n = row_count; insert into _p values ('their_insert', n::text);
+  exception when others then insert into _p values ('their_insert', 'error ' || sqlstate); end;
+  begin
+    update public.meeting_checkins set body = ${DOC} where id = '${THEIRS}';
+    get diagnostics n = row_count; insert into _p values ('their_update', n::text);
+  exception when others then insert into _p values ('their_update', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', '{"sub":"${G}","role":"authenticated"}', true);
+  begin
+    insert into public.meeting_checkins (company_id, week_ending, body) values ('${GCO}', current_date, ${DOC});
+    get diagnostics n = row_count; insert into _p values ('guide_insert', n::text);
+  exception when others then insert into _p values ('guide_insert', 'error ' || sqlstate); end;
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0299 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  // The member's row stays in its own company after the attempted move
+  // (the stamp trigger keeps company_id), so it still counts 1 there.
+  const ok =
+    r.own_insert === "1" && r.own_update === "1" && r.guide_insert === "1" && r.own_moved === "1" &&
+    r.their_insert === "error 42501" && r.their_update === "0";
+  return [{
+    name,
+    granted: `member's own insert ${r.own_insert}, rewrite ${r.own_update}, guide's insert ${r.guide_insert} (want 1 each)`,
+    withheld: `member into another company ${r.their_insert} (want error 42501), rewrite of theirs ${r.their_update} (want 0), own row still in its company after a move ${r.own_moved} (want 1)`,
+    ok,
+    detail: ok
+      ? "a member and an assigned guide write check-in notes in their company; another company's are refused, and a row cannot move company"
+      : r.own_insert !== "1"
+        ? "CHECK-IN NOTES DO NOT SAVE for a member of the company (is 0299 applied?)"
+        : "check-in notes reach another company, or a row moves company",
+  }];
+}
+
 // ---- Only the transcript marks a headline as its own (0292) ------
 //
 // meeting_headlines.source_meeting_id says a headline came from the
@@ -14896,6 +14976,7 @@ async function main(): Promise<void> {
   const notes = await notesFollowTheRowProbes(run, ids, pendingSql);
   const headlines = await meetingHeadlinesProbes(run, ids, pendingSql);
   const headlinesSource = await meetingHeadlinesSourceProbes(run, ids, pendingSql);
+  const checkins = await meetingCheckinsProbes(run, ids, pendingSql);
   const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
   const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
@@ -14925,7 +15006,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

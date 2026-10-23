@@ -9,15 +9,15 @@ The weekly leadership meeting in one view, for the screen everyone is looking at
 
 ## The steps
 
-- **Check-in.** First, mark who's here: click the circle beside each person's name and it fills with a tick. Click it again to take the mark off. It saves as you go, and the count underneath shows how many are here. Then start with what went well. Under *Suggested positive check-in question* is a simple one to go round the room, and it changes from week to week. Under it are the commitments kept in the last seven days and, when there are any, the critical success factors that met or beat their target for the week just ended.
+- **Check-in.** First, mark who's here: click the circle beside each person's name and it fills with a tick. Click it again to take the mark off. It saves as you go, and the count underneath shows how many are here. Then start with what went well. Under *Suggested positive check-in questions* are two simple ones to go round the room, and they change every week. Write down what people share under *Check-in notes*. It's one page for the whole meeting, with buttons for bold, italic and lists, and it saves when you click away.
 - **Headlines, for this past week.** Each functional area gives its update: what happened, what worked well, and anything exciting coming this next week. The leadership seats, like the Visionary and Integrator (or CEO and COO), don't give one. Keep commitments and numbers for their own steps. Every area has a block showing last week's headline beside this week's. Type this week's in the box; it saves when you click away.
-- **Numbers.** Every critical success factor for the week just ended, under its functional area. In each area the ones to talk about come first: off target in red, then not logged, then on target in green. The count at the top says how many are off target, on target and not logged.
-- **Strategy.** The quarter's priorities that aren't finished, laid out as your plan is: under each focus area, then under each goal, the ones behind first. Each shows who owns it and how much is still open on it. Click one to open it.
-- **Commitments.** Everything open this week and past due, grouped by person, so each person can go in turn. Close one out with its circle, or add new ones at the top of the card.
-- **Solve.** Open with the question at the top: what do you need support on, and what haven't you been able to solve on your own? *Add an issue* puts each one on the list. Drag the list into the order you want to talk them through; the Issues page keeps that order. Click one to open it in the panel, talk it through, and add the next commitment there.
+- **Numbers.** The whole Critical Success Factors grid, just as it is on its own page. Log or change a number right here.
+- **Strategy.** The whole Goals & Priorities page: every focus area, goal and priority, with the quarter switcher and the add buttons. Click a priority, goal or focus area to open it, then *Back to the meeting* at the top of its page brings you back to this step.
+- **Commitments.** The whole Functional Commitments page: needs attention, this week, future weeks, prior weeks with the closed ones, and the parking lot, with the same filters. Close one out with its circle, or add a new one.
+- **Solve.** Open with the question at the top: what do you need support on, and what haven't you been able to solve on your own? Under it is the whole Issues/Solutions page, with open and resolved issues and the same filters. *Add an issue* puts each one on the list. Drag the list into the order you want to talk them through; the Issues page keeps that order. Click one to open it in the panel, talk it through, and add the next commitment there.
 - **Close.** A reminder that commitments live here and get marked complete as you go, then how many people were here and what changed while the meeting ran: commitments kept and added, issues resolved and raised.
 
-Press *Next* at the foot of the card to move on, or *Back* to go back. You can also click any step in the row at the top to jump to it. Whatever you change here is the same as changing it on its own page.
+Press *Next* at the foot of the card to move on (under Numbers, Strategy, Commitments and Solve it's on its own card below the page), or *Back* to go back. You can also click any step in the row at the top to jump to it. Whatever you change here is the same as changing it on its own page.
 
 ## Common questions
 
@@ -27,7 +27,9 @@ Press *Next* at the foot of the card to move on, or *Back* to go back. You can a
 
 **Can I change last week's headline?** No. Last week's is there to read against this week's. Only this week's box is open.
 
-**Who can open it?** Everyone in the company. What each person can change is the same as everywhere else, and anyone in the company can write a headline.
+**Are the check-in notes kept?** Yes, one page a week. Open the meeting again later that week and they're still there. Next week starts with a fresh page.
+
+**Who can open it?** Everyone in the company. What each person can change is the same as everywhere else, and anyone in the company can write a headline or the check-in notes.
 :::
 
 ::: feature ui_transcript_headlines

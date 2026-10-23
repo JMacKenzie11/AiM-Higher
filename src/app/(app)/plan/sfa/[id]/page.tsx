@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { meetingReturn } from "@/lib/meeting/return";
 import { PlusIcon } from "../../../../../components/ui/PlusIcon";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
@@ -15,11 +16,16 @@ export const metadata = { title: "Strategic focus area" };
 
 // SFA detail — Section 8.3.
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string | string[] }>;
+};
 
-export default async function SfaDetailPage({ params }: PageProps) {
+export default async function SfaDetailPage({ params, searchParams }: PageProps) {
   const session = await requireProfile();
   const { id } = await params;
+  // Opened from the weekly meeting: the crumb goes back to it.
+  const meetingBack = meetingReturn((await searchParams).from);
 
   const detail = await getSfaDetail(id);
   if (!detail) notFound();
@@ -33,6 +39,7 @@ export default async function SfaDetailPage({ params }: PageProps) {
   return (
     <>
       <SfaHeroPanel
+        meetingBack={meetingBack}
         sfa={detail.sfa}
         people={detail.people}
         sponsor={sponsor}

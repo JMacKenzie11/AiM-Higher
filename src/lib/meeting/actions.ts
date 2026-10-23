@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { thisFriday } from "@/lib/dates";
 import { HEADLINE_MAX_CHARS } from "./headlines";
+import { checkCheckinDoc } from "./checkins";
 
 // The weekly meeting's own writes (simplification review, change 5,
 // the meeting-mode switch). Everything else the meeting page does is
@@ -107,6 +108,42 @@ export async function setMeetingAttendanceAction(
         .eq("company_id", companyId)
         .eq("week_ending", week)
         .eq("profile_id", profileId);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath("/meeting");
+  return { ok: true };
+}
+
+// Save this week's check-in notes (meeting_checkins, 0299): the room's
+// answers to the positive check-in, as one rich text page. The same
+// people who may write a headline may write them, and RLS says the
+// same. Only the week now running is written; the notes are taken in
+// the room.
+export async function saveMeetingCheckinAction(weekEnding: string, doc: unknown): Promise<HeadlineResult> {
+  const session = await requireProfile();
+  const companyId = await getEffectiveCompanyId(session);
+  if (!companyId) return { ok: false, message: "No company in scope." };
+  const profile = session.profile;
+  if (profile.company_id !== companyId && !isAdminForCompany(profile, companyId)) {
+    return { ok: false, message: "Not your company to write in." };
+  }
+  const checked = checkCheckinDoc(doc);
+  if (!checked.ok) return checked;
+
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data: company } = await supabase
+    .from("companies")
+    .select("timezone")
+    .eq("id", companyId)
+    .maybeSingle<{ timezone: string }>();
+  const week = thisFriday(company?.timezone ?? "America/Anchorage");
+  if (weekEnding !== week) {
+    return { ok: false, message: "Only this week's check-in notes can be changed." };
+  }
+
+  const { error } = await supabase
+    .from("meeting_checkins")
+    .upsert({ company_id: companyId, week_ending: week, body: checked.doc }, { onConflict: "company_id,week_ending" });
   if (error) return { ok: false, message: error.message };
 
   revalidatePath("/meeting");

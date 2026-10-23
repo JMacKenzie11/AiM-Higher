@@ -21,12 +21,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { thisFriday } from "@/lib/dates";
+import { fromMeeting } from "@/lib/meeting/return";
 
 // Goals & Priorities' working part (Section 8.3): everything under the
 // page header. /plan renders it in its PageShell and the weekly
 // meeting's Strategy step renders it in the meeting, so the two are
 // one surface and cannot drift apart. `q` is the quarter picked in
-// the switcher; none means the open one.
+// the switcher; none means the open one. `from` is the meeting's
+// address when the meeting shows it, carried on every link into a
+// focus area, goal or priority so that page offers the way back.
 
 type Session = Awaited<ReturnType<typeof requireProfile>>;
 
@@ -47,11 +50,14 @@ export async function PlanView({
   session,
   companyId,
   q,
+  from,
 }: {
   session: Session;
   companyId: string;
   q: string | undefined;
+  from?: string;
 }) {
+  const back = fromMeeting(from);
   const quarters = await getQuartersForCompany(companyId);
   const openQuarter = quarters.find((quarter) => quarter.status === "open");
   const selectedQuarter =
@@ -194,7 +200,7 @@ export async function PlanView({
                       Focus Area
                     </span>
                     <Link
-                      href={`/plan/sfa/${sfa.id}`}
+                      href={`/plan/sfa/${sfa.id}${back}`}
                       className={styles.sfaTitle}
                     >
                       {sfa.title}
@@ -239,7 +245,7 @@ export async function PlanView({
                                   Goal
                                 </span>
                                 <Link
-                                  href={`/plan/goal/${goal.id}`}
+                                  href={`/plan/goal/${goal.id}${back}`}
                                   className={styles.goalTitle}
                                 >
                                   {goal.title}
@@ -270,6 +276,7 @@ export async function PlanView({
                                 <ul className={styles.rowList}>
                                   {goal.priorities.map((priority) => (
                                     <CascadePriorityRow
+                                      from={from}
                                       key={priority.id}
                                       priority={priority}
                                     />
@@ -303,6 +310,7 @@ export async function PlanView({
                       ))}
                       {sfa.priorities.map((priority) => (
                         <CascadePriorityRow
+                          from={from}
                           key={priority.id}
                           priority={priority}
                         />
@@ -382,7 +390,7 @@ export async function PlanView({
                           Goal
                         </span>
                         <Link
-                          href={`/plan/goal/${goal.id}`}
+                          href={`/plan/goal/${goal.id}${back}`}
                           className={styles.goalTitle}
                         >
                           {goal.title}
@@ -429,6 +437,7 @@ export async function PlanView({
                 <ul className={styles.rowList}>
                   {cascade.orphanPriorities.map((priority) => (
                     <CascadePriorityRow
+                      from={from}
                       key={priority.id}
                       priority={priority}
                       explainOrphan
