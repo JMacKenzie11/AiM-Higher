@@ -400,10 +400,10 @@ describe("functions but no measures still renders a card", () => {
 
   it("still has something for a reader with no seat", () => {
     const page = readFileSync(
-      join(process.cwd(), "src/app/(app)/measures/page.tsx"),
+      join(process.cwd(), "src/app/(app)/measures/MeasuresView.tsx"),
       "utf8"
     );
-    expect(page).toContain("!hasAnyMeasure && !isAdmin");
+    expect(page).toContain("!grid.hasRows && !isAdmin");
     expect(page).toContain("Nobody has set critical success factors");
   });
 });
