@@ -287,6 +287,21 @@
   color: var(--text-heading);
 }
 
+/* Run a capacity conversation, inside the notes column. */
+.runner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+}
+
+.runner .opening {
+  margin: 0;
+}
+
 .quote {
   font: var(--text-body);
   color: var(--text);

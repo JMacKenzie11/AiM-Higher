@@ -19,6 +19,7 @@ import {
   type WinRow,
 } from "./types";
 import { assembleReadout, isReadoutData, type ReadoutData } from "./readout";
+import type { AcrossInput } from "./across";
 
 // Every read goes through the caller's own client, so row security
 // (system admin only, 0294) is the boundary; the pages' requireRole is
@@ -98,6 +99,24 @@ export async function listDiagnostics(): Promise<DiagnosticListRow[]> {
     participants: counts.get(d.id)?.n ?? 0,
     surveys: counts.get(d.id)?.s ?? 0,
     first_win_measured: measured.has(d.id),
+  }));
+}
+
+// The rows the Across clients tab adds up: every diagnostic not
+// archived, with its client's industry and source.
+export async function listAcrossClients(): Promise<AcrossInput[]> {
+  const supabase = await db();
+  const [{ data: dx }, { data: clients }] = await Promise.all([
+    supabase.from("diagnostics").select("client_id, published_at, published_readout, decision").is("archived_at", null).limit(2000),
+    supabase.from("diagnostic_clients").select("id, industry, source").limit(2000),
+  ]);
+  const byId = new Map(((clients ?? []) as Array<{ id: string; industry: string | null; source: string | null }>).map((c) => [c.id, c]));
+  return ((dx ?? []) as Array<{ client_id: string; published_at: string | null; published_readout: unknown; decision: string }>).map((d) => ({
+    published_at: d.published_at,
+    published_readout: d.published_readout,
+    decision: d.decision,
+    industry: byId.get(d.client_id)?.industry ?? null,
+    source: byId.get(d.client_id)?.source ?? null,
   }));
 }
 

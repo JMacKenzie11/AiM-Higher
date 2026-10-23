@@ -14,6 +14,10 @@ import { getDiagnostic, readoutToday } from "./service";
 import { assembleReadout, publishBlocker } from "./readout";
 import { writeNarrative } from "./narrative-call";
 import { suggestQuoteLines } from "./quote-call";
+import { writePledge } from "./pledge-call";
+import { conversationTurn } from "./conversation-call";
+import { exchangesIn, MAX_SAID, notesWithAnswer, type Turn } from "./conversation";
+import { CONVERSATION_GUIDE } from "./conversation-guide";
 
 // The Capacity Diagnostic's writes. Allowed roles: system_admin, on
 // every action (requireRole as courtesy; row security in 0294 is the
@@ -459,6 +463,36 @@ export async function rollUpTitlesAction(diagnosticId: string): Promise<DxResult
   return { ok: true };
 }
 
+// The pledge drafted in the owner's voice from the kickoff answers
+// (phase 3). Returns the draft for the box; the box saves it as it
+// saves anything typed there, and nothing sends it.
+export async function draftPledgeAction(id: string): Promise<DxResult & { text?: string }> {
+  const session = await requireRole(["system_admin"]);
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data: d } = await supabase
+    .from("diagnostics")
+    .select("client_id, scope, capacity_destination, pledge_sent_at")
+    .eq("id", id)
+    .maybeSingle<{ client_id: string; scope: string | null; capacity_destination: string | null; pledge_sent_at: string | null }>();
+  if (!d) return REFUSED;
+  if (d.pledge_sent_at) return { ok: false, message: "The pledge is marked as sent. Mark it as not sent to draft it again." };
+  const { data: c } = await supabase
+    .from("diagnostic_clients")
+    .select("name, owner_name, industry")
+    .eq("id", d.client_id)
+    .maybeSingle<{ name: string; owner_name: string | null; industry: string | null }>();
+  if (!c) return REFUSED;
+  const result = await writePledge({
+    ownerName: c.owner_name,
+    leadName: session.profile.full_name ?? "the person running this diagnostic",
+    company: c.name,
+    industry: c.industry,
+    scope: d.scope,
+    destination: d.capacity_destination,
+  });
+  return result.ok ? { ok: true, text: result.text } : result;
+}
+
 // ---- Conversations -------------------------------------------------
 
 export type NotesInput = { body?: string; peak_experience?: string; redeploy_wish?: string; destination_hours?: string };
@@ -478,6 +512,39 @@ export async function saveNotesAction(diagnosticId: string, participantId: strin
   if (!data?.length) return { ok: false, message: "Those notes didn't save. A published diagnostic's notes can't change." };
   touched(diagnosticId);
   return { ok: true };
+}
+
+// One turn of Run a capacity conversation (phase 3). The person's words
+// go into their notes first, under the question's heading, so they are
+// saved whatever the helper does; then the helper reads every answer
+// so far and offers a follow-up. Only the person's words are written;
+// the helper's suggestions come back to the page for the lead.
+export async function conversationTurnAction(
+  diagnosticId: string,
+  participantId: string,
+  question: number,
+  said: string
+): Promise<DxResult & { body?: string; turn?: Turn | null; message?: string }> {
+  const supabase = await caller();
+  if (!Number.isInteger(question) || question < 0 || question >= CONVERSATION_GUIDE.length) return REFUSED;
+  const words = text(said, MAX_SAID);
+  if (!words) return { ok: false, message: "Type what they said first." };
+  const [{ data: person }, { data: note }] = await Promise.all([
+    supabase
+      .from("diagnostic_participants")
+      .select("role_title")
+      .eq("id", participantId)
+      .eq("diagnostic_id", diagnosticId)
+      .maybeSingle<{ role_title: string | null }>(),
+    supabase.from("diagnostic_notes").select("body").eq("participant_id", participantId).maybeSingle<{ body: string }>(),
+  ]);
+  if (!person) return REFUSED;
+  const body = notesWithAnswer(note?.body ?? "", question, words);
+  if (body.length > 8000) return { ok: false, message: "These notes are full. Finish the conversation in the notes box." };
+  const saved = await saveNotesAction(diagnosticId, participantId, { body });
+  if (!saved.ok) return saved;
+  const turn = await conversationTurn(question, exchangesIn(body), person.role_title);
+  return turn.ok ? { ok: true, body, turn: turn.turn } : { ok: true, body, turn: null, message: turn.message };
 }
 
 // A line pulled from the notes, unapproved and without a name until

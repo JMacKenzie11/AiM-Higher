@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { addQuoteAction, saveNotesAction, suggestQuotesAction, updateParticipantAction, type NotesInput } from "@/lib/diagnostics/actions";
 import type { NoteRow, ParticipantRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../useDxAction";
+import { ConversationRunner } from "./ConversationRunner";
 import admin from "../../admin/companies/admin.module.css";
 import styles from "../diagnostics.module.css";
 
@@ -47,6 +48,8 @@ function NotesForm({ diagnosticId, person, note }: { diagnosticId: string; perso
   const suggest = useDxAction();
   const [suggested, setSuggested] = useState<number | null>(null);
   const mark = useDxAction();
+  const [running, setRunning] = useState(false);
+  const [filled, setFilled] = useState(false);
 
   function blur(k: keyof NotesInput) {
     if (f[k] === last[k]) return;
@@ -64,8 +67,52 @@ function NotesForm({ diagnosticId, person, note }: { diagnosticId: string; perso
     quote.run(() => addQuoteAction(diagnosticId, words));
   }
 
+  // Finish on the conversation helper: the two short fields it drafted
+  // go in where the lead has left them empty, and the person is marked
+  // as having had their conversation.
+  function finish(fields: { peak: string | null; redeploy: string | null }) {
+    const patch: NotesInput = {};
+    if (fields.peak && !f.peak_experience.trim()) patch.peak_experience = fields.peak;
+    if (fields.redeploy && !f.redeploy_wish.trim()) patch.redeploy_wish = fields.redeploy;
+    if (Object.keys(patch).length) {
+      setF((x) => ({ ...x, ...patch }));
+      save.run(() => saveNotesAction(diagnosticId, person.id, patch), () => setLast((l) => ({ ...l, ...patch })));
+    }
+    if (!had) {
+      setHad(true);
+      mark.run(() => updateParticipantAction(person.id, { in_conversations: true }));
+    }
+    setFilled(true);
+  }
+
   return (
     <>
+      {running ? (
+        <ConversationRunner
+          diagnosticId={diagnosticId}
+          participantId={person.id}
+          onBody={(b) => {
+            setF((x) => ({ ...x, body: b }));
+            setLast((l) => ({ ...l, body: b }));
+          }}
+          onFinish={finish}
+          onClose={() => setRunning(false)}
+        />
+      ) : (
+        <span className={styles.formRow}>
+          <button
+            type="button"
+            className={`${styles.secondary} ${styles.small}`}
+            onClick={() => {
+              setFilled(false);
+              setRunning(true);
+            }}
+          >
+            Run a capacity conversation
+          </button>
+          {filled ? <span className={styles.status}>Notes filled in from the conversation. Check them, then suggest quotes.</span> : null}
+        </span>
+      )}
       <label className={styles.check}>
         <input
           type="checkbox"

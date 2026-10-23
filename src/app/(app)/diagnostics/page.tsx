@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
-import { listDiagnostics } from "@/lib/diagnostics/service";
+import { listAcrossClients, listDiagnostics } from "@/lib/diagnostics/service";
 import { decisionLabel, statusLabel } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { SectionNav } from "./SectionNav";
+import { AcrossClients } from "./AcrossClients";
 import { daysTo, todayUtc } from "./format";
 import styles from "./diagnostics.module.css";
 
@@ -11,9 +12,22 @@ export const metadata = { title: "Diagnostics" };
 
 // THE CAPACITY DIAGNOSTIC (0294). System admins only, on no menu and
 // reached by its address, as /meetinganalysis is (Jason, 2026-10-22).
-// Every diagnostic across clients, newest first.
-export default async function DiagnosticsPage() {
+// Every diagnostic across clients, newest first; ?view=across is the
+// Across clients tab (phase 3).
+export default async function DiagnosticsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireDiagnostics();
+  if ((await searchParams).view === "across") {
+    return (
+      <PageShell
+        eyebrow="Capacity Diagnostic"
+        title="Across clients"
+        subtitle="How the diagnostics have gone, taken together. Only published readouts count toward the figures."
+        heroExtras={<SectionNav current="across" />}
+      >
+        <AcrossClients rows={await listAcrossClients()} />
+      </PageShell>
+    );
+  }
   const rows = await listDiagnostics();
   const today = todayUtc();
 
