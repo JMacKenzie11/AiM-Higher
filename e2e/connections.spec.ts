@@ -2,14 +2,15 @@ import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
-// The Connections page (external connections plan, phase 3).
+// The Connections card on Company settings (external connections plan,
+// phase 3; a card there since 2026-10-24, not a page of its own).
 //
-// A company admin reaches it from Company settings and sees the Google
-// card. With measures from outside systems switched on, the HubSpot card
+// A company admin sees the Google section on Company settings. With measures from outside systems switched on, the HubSpot card
 // appears, and a key HubSpot refuses is never stored: this sends a
 // well-formed key HubSpot has never issued, to HubSpot itself, and
 // checks the database holds no HubSpot connection afterwards. A team
-// member of the same company is told the page is not there.
+// member of the same company gets no card, and the old Connections address
+// lands on Company settings.
 //
 // Writes on E2E Fixture Co only: the external_measures feature, switched
 // on for the test and put back as it was.
@@ -39,8 +40,7 @@ async function hubspotRows(companyId: string): Promise<number> {
 
 async function openConnections(page: Page, companyId: string) {
   await page.goto(`/admin/companies/${companyId}`);
-  await page.getByRole("link", { name: "Connections" }).first().click();
-  await expect(page).toHaveURL(new RegExp(`/admin/companies/${companyId}/connections`), { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Connections" })).toBeVisible({ timeout: 30_000 });
 }
 
 test.describe("Connections", () => {
@@ -92,7 +92,14 @@ test.describe("Connections", () => {
     expect(await hubspotRows(companyId)).toBe(0);
   });
 
-  test("a team member is told the page is not there", async ({ page }) => {
+  test("the old Connections address lands on Company settings", async ({ page }) => {
+    await signIn(page, users.companyAdmin());
+    await page.goto(`/admin/companies/${companyId}/connections`);
+    await expect(page).toHaveURL(new RegExp(`/admin/companies/${companyId}(#connections)?$`), { timeout: 30_000 });
+    await expect(page.getByTestId("connection-google")).toBeVisible();
+  });
+
+  test("a team member gets no Connections card", async ({ page }) => {
     await signIn(page, users.member());
     await page.goto(`/admin/companies/${companyId}/connections`);
     // Sent elsewhere by the role check, or shown "not found": either

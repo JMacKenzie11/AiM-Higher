@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { removeConnectionAction } from "@/lib/connections/actions";
 import type { Connector } from "@/lib/connections/vault";
-import styles from "../../admin.module.css";
+import styles from "../admin.module.css";
 
 // Disconnect, with the consequence said before it happens. The stored
 // secret is deleted; connecting again starts from nothing.

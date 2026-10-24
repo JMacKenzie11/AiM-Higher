@@ -21,7 +21,6 @@ import type { Connector } from "./vault";
 export type ConnectionResult = { ok: true; message: string } | { ok: false; message: string };
 
 function refresh(companyId: string) {
-  revalidatePath(`/admin/companies/${companyId}/connections`);
   revalidatePath(`/admin/companies/${companyId}`);
 }
 

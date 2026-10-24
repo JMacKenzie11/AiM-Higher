@@ -41,20 +41,19 @@ export function CompanyTranscriptsPanel({
         Meeting transcripts
       </h2>
 
-      {/* The Google account itself is managed on the Connections page
-          (external connections plan, phase 3): one place for every
-          outside system, shown once. */}
+      {/* The Google account itself is managed on the Connections card
+          above (external connections plan, phase 3): one place for
+          every outside system, shown once. */}
       {!connectedAccount ? (
         <p className={styles.subtitleInline}>
-          Connect a Google account on <Link href={`/admin/companies/${companyId}/connections`}>Connections</Link> first.
-          Each company connects its own account, so folders can live under different Google Workspaces.
+          Connect a Google account under Connections, above, first. Each company connects its own account, so folders
+          can live under different Google Workspaces.
         </p>
       ) : (
         <>
           <p className={styles.subtitleInline} style={{ marginBottom: "var(--space-3)" }}>
             Reading Drive as <strong>{connectedAccount}</strong>. Share each transcript folder with that address
-            (Viewer), then connect it below. The account is managed on{" "}
-            <Link href={`/admin/companies/${companyId}/connections`}>Connections</Link>.
+            (Viewer), then connect it below. The account is managed under Connections, above.
           </p>
 
           {sources.length > 0 ? (

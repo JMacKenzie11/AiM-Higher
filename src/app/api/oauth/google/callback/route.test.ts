@@ -123,7 +123,7 @@ describe("GET /api/oauth/google/callback", () => {
       expect.any(String)
     );
     expect(res.headers.get("location")).toBe(
-      `http://localhost:3200/admin/companies/${CO_ACME}/connections?oauth_connected=ops%40example.com`
+      `http://localhost:3200/admin/companies/${CO_ACME}?oauth_connected=ops%40example.com#connections`
     );
   });
 
