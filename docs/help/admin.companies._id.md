@@ -38,7 +38,7 @@ Everything on the page:
 - **Open this company, archive it or reactivate it** under Actions. Deleting a company is for system admins.
 - **Set the industry, timezone and features.**
 - **See who else administers the company** under Assigned access.
-- **See the meeting transcript folders** and the company's recent meetings.
+- **See the meeting transcript folders.**
 
 Choosing the AiMS champion, rolling the quarter and starting the strategy again are done by the company's own admins.
 :::
@@ -88,7 +88,7 @@ Meetings come in from Google Drive folders you connect here, under **Meeting tra
 4. If the folder holds meetings for more than one company, add a transcript alias: a word or phrase from the file names that marks a meeting as this company's. Capital letters don't matter.
 5. Click *Check now* on the folder to bring in what's already there. New meetings come in on their own after that.
 
-*Reconnect or switch account*, on Connections, changes which Google account is used. **Recent meetings** lists what's come in, with *View* on each finished one.
+*Reconnect or switch account*, on Connections, changes which Google account is used. Each folder shows how many meetings it has brought in.
 :::
 
 ::: role company_admin,system_admin

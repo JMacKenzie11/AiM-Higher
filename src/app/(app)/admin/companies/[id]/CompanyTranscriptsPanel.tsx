@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type {
   MeetingAdminRow,
   TranscriptAlias,
@@ -11,8 +10,9 @@ import styles from "../admin.module.css";
 
 // Per-company transcripts card. Each company connects its own
 // Google account (0110) and points at its own Drive folders. Shows
-// the connection state, folder sources, and recent meetings for
-// this company. The unrouted queue lives on the overview page.
+// the connection state, the folder sources with how many meetings
+// each brought in, and the aliases. The meetings themselves are on
+// the meetings pages, not listed here (Jason, 2026-10-24). The unrouted queue lives on the overview page.
 
 export function CompanyTranscriptsPanel({
   companyId,
@@ -126,58 +126,6 @@ export function CompanyTranscriptsPanel({
             <AliasEditor companyId={companyId} aliases={aliases} />
           </div>
 
-          {meetings.length > 0 ? (
-            <div style={{ marginTop: "var(--space-4)" }}>
-              <h3 className={styles.h3}>Recent meetings</h3>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>File</th>
-                    <th>Received</th>
-                    <th>Status</th>
-                    <th className={styles.actionHead}>Analysis</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {meetings.slice(0, 20).map((m) => (
-                    <tr key={m.id}>
-                      <td>{m.meeting_title ?? m.file_name}</td>
-                      <td className={styles.mutedCell}>
-                        {new Date(m.created_at).toLocaleDateString()}
-                      </td>
-                      <td>
-                        <span
-                          className={
-                            m.status === "complete"
-                              ? styles.chipAccepted
-                              : m.status === "failed"
-                                ? styles.chipRevoked
-                                : styles.chipPending
-                          }
-                        >
-                          {m.status === "failed" && m.error
-                            ? `failed (${m.error})`
-                            : m.status}
-                        </span>
-                      </td>
-                      <td>
-                        {m.status === "complete" ? (
-                          <Link
-                            href={`/leadership/meetings/${m.id}`}
-                            className={styles.ghostButton}
-                          >
-                            View
-                          </Link>
-                        ) : (
-                          <span className={styles.mutedCell}>—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
         </>
       )}
     </section>
