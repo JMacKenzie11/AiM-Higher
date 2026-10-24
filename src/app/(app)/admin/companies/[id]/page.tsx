@@ -23,7 +23,7 @@ import { ChampionForm, type ChampionCandidate } from "./ChampionForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
-import { CompanyConnectionsCard, type ConnectionEventRow } from "./CompanyConnectionsCard";
+import { CompanyConnectionsCard } from "./CompanyConnectionsCard";
 import type { ConnectionRow } from "@/lib/connections/vault";
 import { QuarterCard } from "./QuarterCard";
 import { getQuarterCardData } from "@/lib/quarters/service";
@@ -93,7 +93,6 @@ export default async function CompanyDetailPage({
     connectedAccount,
     assignedAccess,
     { data: connectionRows },
-    { data: connectionEvents },
     hubspotOn,
   ] = await Promise.all([
     supabase
@@ -132,12 +131,6 @@ export default async function CompanyDetailPage({
       .from("connections")
       .select("id, company_id, connector, status, account_label, scopes, secret_hint, checked_at, last_error")
       .eq("company_id", id),
-    supabase
-      .from("connection_events")
-      .select("connector, event, created_at, actor:profiles!actor_profile_id(full_name)")
-      .eq("company_id", id)
-      .order("created_at", { ascending: false })
-      .limit(8),
     companyHasFeature(id, "external_measures"),
   ]);
 
@@ -396,7 +389,6 @@ export default async function CompanyDetailPage({
           <CompanyConnectionsCard
             companyId={company.id}
             connections={(connectionRows ?? []) as ConnectionRow[]}
-            events={(connectionEvents ?? []) as unknown as ConnectionEventRow[]}
             hubspotOn={hubspotOn}
             flash={flash}
           />

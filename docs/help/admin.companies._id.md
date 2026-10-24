@@ -12,7 +12,7 @@ Everything that sets up one company: its connections, its meeting recordings, it
 
 - **Set the industry** on the Industry card.
 - **Choose your AiMS champion** on the AiMS champion card. More on this below.
-- **Connect Google and HubSpot** on the Connections card. See *Connections* below.
+- **Connect Google and HubSpot** on the External connections card. See *External connections* below.
 - **Connect your meeting recordings.** See *Connecting Google Drive* below.
 - **See who else administers your company** under Assigned access, and remove an AiMS Guide.
 - **Roll the quarter** on the Quarter card.
@@ -26,7 +26,7 @@ Everything on the page:
 
 - **Open this company, archive it or reactivate it** under Actions. Once a company is archived, *Delete* appears too.
 - **Set the industry, timezone and features**, and choose the AiMS champion.
-- **Connect Google and HubSpot** on the Connections card. See *Connections* below.
+- **Connect Google and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* below.
 - **See who else administers the company** under Assigned access, and remove an AiMS Guide.
 - **Roll the quarter**, or **start the strategy again**.
@@ -47,16 +47,18 @@ Choosing the AiMS champion, rolling the quarter and starting the strategy again 
 ## What you can do here
 
 - **Open this company** under Actions to work inside it.
-- **Connect Google and HubSpot** on the Connections card. See *Connections* below.
+- **Connect Google and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* below.
 
 Industry, the AiMS champion, the quarter and Assigned access are managed by the company's admins.
 :::
 
 ::: role company_admin,system_admin,aims_guide,portfolio_admin
-## Connections
+## External connections
 
-The **Connections** card holds the outside systems AiMS reads for this company. Your company's admins can use it, and so can the AiMS Guides assigned to your company.
+The **External connections** card lists the outside systems this company has connected. Your company's admins can use it, and so can the AiMS Guides assigned to your company.
+
+To add one, choose it under **Add a connection**. Its setup opens below. Once it's connected, it shows on the card and leaves the list.
 
 **Google** brings in your meeting transcripts from Google Drive, and any measures read from a Google Sheet.
 
@@ -64,31 +66,29 @@ The **Connections** card holds the outside systems AiMS reads for this company. 
 - **Reconnect or switch account** signs in again, with the same account or a different one.
 - **Disconnect** stops transcripts and Sheets measures coming in until you connect again.
 
-**HubSpot** feeds Critical Success Factors from your deals. AiMS only reads; it never changes anything in HubSpot. It shows on the card when your company has measures from outside systems switched on.
+**HubSpot** feeds Critical Success Factors from your deals. AiMS only reads; it never changes anything in HubSpot. It's in the list when your company has measures from outside systems switched on.
 
 1. In HubSpot, a Super Admin creates a **service key**: Settings → Integrations → Service keys. Give it two read-only scopes: `crm.objects.deals.read` and `crm.schemas.deals.read`.
-2. Copy the key and paste it into *HubSpot service key* on the card, then click *Save key*.
+2. Choose *HubSpot* under *Add a connection*, paste the key into *HubSpot service key*, then click *Save key*.
 3. AiMS checks the key with HubSpot before saving it. If HubSpot refuses it, or a scope is missing, nothing is saved and the card says what to fix.
 
-**Paste the key here yourself.** Never send a key by email or in a chat, to AiMS or anyone else. Once saved, nobody can see the key again, here or anywhere else; the card shows only its last four characters.
+**Paste the key here yourself.** Never send a key by email or in a chat, to AiMS or anyone else. Once saved, nobody can see the key again; the card shows only its last four characters.
 
-To change keys, paste the new one under *Replace the key*. *Disconnect* deletes the saved key, and measures from HubSpot stop updating until you add one again.
-
-**History**, at the bottom of the card, lists who connected, replaced or disconnected what.
+To change keys, click *Replace key* and paste the new one. *Disconnect* deletes the saved key, and measures from HubSpot stop updating until you add one again.
 :::
 
 ::: role company_admin,system_admin,aims_guide
 ## Connecting Google Drive
 
-Meetings come in from Google Drive folders you connect here, under **Meeting transcripts**. The Google account itself is connected on the **Connections** card, above it.
+Meetings come in from Google Drive folders you connect here, under **Meeting transcripts**. The Google account itself is connected on the **External connections** card, above it.
 
-1. On *Connections*, click *Connect Google account* and sign in. That account is used for this company only, so different companies can use different Google accounts.
+1. On *External connections*, choose *Google* under *Add a connection*, click *Connect Google account* and sign in. That account is used for this company only, so different companies can use different Google accounts.
 2. In Google Drive, share the folder your recordings are saved to with that account, as a Viewer.
 3. Back here, paste the folder's address and click *Connect folder*.
 4. If the folder holds meetings for more than one company, add a transcript alias: a word or phrase from the file names that marks a meeting as this company's. Capital letters don't matter.
 5. Click *Check now* on the folder to bring in what's already there. New meetings come in on their own after that.
 
-*Reconnect or switch account*, on Connections, changes which Google account is used. Each folder shows how many meetings it has brought in.
+*Reconnect or switch account*, on External connections, changes which Google account is used. Each folder shows how many meetings it has brought in.
 :::
 
 ::: role company_admin,system_admin
@@ -175,9 +175,9 @@ Once a company is archived, *Delete* appears. It removes the company from every 
 :::
 
 ::: role company_admin,system_admin,aims_guide,portfolio_admin
-**Why can't I see HubSpot on the Connections card?** It appears only when your company has measures from outside systems switched on. Ask AiMS if you'd like it.
+**Why isn't HubSpot under Add a connection?** It appears only when your company has measures from outside systems switched on. Ask AiMS if you'd like it.
 
-**Where did the Connections page go?** It's the Connections card on this page now, so everything is set up in one place.
+**Where did the Connections page go?** It's the External connections card on this page now, so everything is set up in one place.
 :::
 
 ::: role company_admin

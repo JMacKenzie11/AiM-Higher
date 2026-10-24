@@ -2,11 +2,12 @@ import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
-// The Connections card on Company settings (external connections plan,
-// phase 3; a card there since 2026-10-24, not a page of its own).
+// The External connections card on Company settings (external
+// connections plan, phase 3; a card there since 2026-10-24). It lists
+// what is connected, and the rest are added from a dropdown.
 //
-// A company admin sees the Google section on Company settings. With measures from outside systems switched on, the HubSpot card
-// appears, and a key HubSpot refuses is never stored: this sends a
+// A company admin can add Google from the dropdown. With measures from outside systems switched on, the HubSpot card
+// is offered too, and a key HubSpot refuses is never stored: this sends a
 // well-formed key HubSpot has never issued, to HubSpot itself, and
 // checks the database holds no HubSpot connection afterwards. A team
 // member of the same company gets no card, and the old Connections address
@@ -40,7 +41,7 @@ async function hubspotRows(companyId: string): Promise<number> {
 
 async function openConnections(page: Page, companyId: string) {
   await page.goto(`/admin/companies/${companyId}`);
-  await expect(page.getByRole("heading", { name: "Connections" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "External connections" })).toBeVisible({ timeout: 30_000 });
 }
 
 test.describe("Connections", () => {
@@ -63,18 +64,18 @@ test.describe("Connections", () => {
     }
   });
 
-  test("a company admin sees Google, and HubSpot only with the feature", async ({ page }) => {
+  test("a company admin is offered HubSpot only with the feature", async ({ page }) => {
     if (hadFeature) {
       await db().from("company_features").delete().eq("company_id", companyId).eq("feature", "external_measures");
     }
     await signIn(page, users.companyAdmin());
     await openConnections(page, companyId);
-    await expect(page.getByTestId("connection-google")).toBeVisible();
-    await expect(page.getByTestId("connection-hubspot")).toHaveCount(0);
+    const add = page.getByLabel("Add a connection");
+    await expect(add.locator("option", { hasText: "HubSpot" })).toHaveCount(0);
 
     await db().from("company_features").insert({ company_id: companyId, feature: "external_measures" });
     await page.reload();
-    await expect(page.getByTestId("connection-hubspot")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel("Add a connection").locator("option", { hasText: "HubSpot" })).toHaveCount(1, { timeout: 30_000 });
   });
 
   test("a key HubSpot refuses is never stored", async ({ page }) => {
@@ -83,7 +84,8 @@ test.describe("Connections", () => {
 
     await signIn(page, users.companyAdmin());
     await openConnections(page, companyId);
-    const card = page.getByTestId("connection-hubspot");
+    await page.getByLabel("Add a connection").selectOption({ label: "HubSpot" });
+    const card = page.getByTestId("setup-hubspot");
     await card.getByLabel("HubSpot service key").fill(`pat-na1-${"0".repeat(8)}-${"e2e0".repeat(7)}`);
     await card.getByRole("button", { name: "Save key" }).click();
     await expect(card.getByRole("alert")).toContainText(/did not accept that key|Couldn't reach HubSpot/, { timeout: 30_000 });
@@ -96,7 +98,7 @@ test.describe("Connections", () => {
     await signIn(page, users.companyAdmin());
     await page.goto(`/admin/companies/${companyId}/connections`);
     await expect(page).toHaveURL(new RegExp(`/admin/companies/${companyId}(#connections)?$`), { timeout: 30_000 });
-    await expect(page.getByTestId("connection-google")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "External connections" })).toBeVisible();
   });
 
   test("a team member gets no Connections card", async ({ page }) => {
@@ -104,7 +106,7 @@ test.describe("Connections", () => {
     await page.goto(`/admin/companies/${companyId}/connections`);
     // Sent elsewhere by the role check, or shown "not found": either
     // way, no connection card.
-    await expect(page.getByTestId("connection-google")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "External connections" })).toHaveCount(0);
     await expect(page.getByLabel("HubSpot service key")).toHaveCount(0);
   });
 });
