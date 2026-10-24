@@ -413,6 +413,25 @@ describe("getEffectiveCompanyId (invariant coverage)", () => {
     expect(result).toBeNull();
   });
 
+  // A system admin with a company of their own (Jason, 2026-10-24)
+  // still works across every company.
+  it("does not pin a system admin with a company of their own to it", async () => {
+    cookieMocks.store.set("aims_scope_company", "root:co_client");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: { id: "root", role: "system_admin", company_id: "co_own", guide_company_ids: [] },
+    });
+    expect(result).toBe("co_client");
+  });
+
+  it("leaves a system admin with their own company unscoped when no cookie is set", async () => {
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: { id: "root", role: "system_admin", company_id: "co_own", guide_company_ids: [] },
+    });
+    expect(result).toBeNull();
+  });
+
   it("ignores a stale scope cookie for a guide unassigned to that company", async () => {
     cookieMocks.store.set("aims_scope_company", "co_unassigned");
     const { getEffectiveCompanyId } = await import("./scope");

@@ -55,7 +55,7 @@ Each guide has a row with a tick box for every company. Tick the companies they 
 
 The ⋯ menu on a guide's row has *Resend invite*, *Copy invite link* and *Delete guide*.
 
-**A guide who runs their own coaching company** can have it as *Their own company*, on their row. Pick the company and press *Save*. They join it as its admin, so they can be on its chart, be given its commitments, priorities and critical success factors, and sit in its meetings. They keep guiding their clients from the same sign-in. Their own company stays ticked in their list. To take it away, set *Their own company* back to *None*, then untick it if they shouldn't reach it at all.
+**A guide who runs their own coaching company** can have it as *Their own company*, on their row. Pick the company and press *Save*. They join it as its admin, so they can be on its chart, be given its commitments, priorities and critical success factors, and sit in its meetings. They keep guiding their clients from the same sign-in. A system admin with a caseload can have one the same way, and keeps every system admin page. Their own company stays ticked in their list. To take it away, set *Their own company* back to *None*, then untick it if they shouldn't reach it at all.
 
 Use **Add a guide** to invite a new one. **Give a system admin a coaching caseload** assigns an existing system admin to companies without sending an invite. Their row shows a *System admin* badge, and unticking all their companies is fine, because they can reach every company anyway.
 

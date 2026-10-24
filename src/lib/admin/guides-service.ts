@@ -137,7 +137,7 @@ export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
     invited_at: g.invited_at,
     role: g.role,
     email: null,
-    company_id: g.role === "aims_guide" ? g.company_id ?? null : null,
+    company_id: g.role === "aims_guide" || g.role === "system_admin" ? g.company_id ?? null : null,
     assignments: assignmentsByGuide.get(g.id) ?? [],
     openCommitmentsByCompany: openByGuide.get(g.id) ?? {},
   }));

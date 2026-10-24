@@ -95,7 +95,7 @@ export function GuidesPanel({
         guide who runs their own coaching business can have it as their
         own company: they join it as its admin and can be on its chart
         and own its work. System admins can also carry a coaching
-        caseload. Their row appears here once they&rsquo;re assigned
+        caseload, and have their own company the same way. Their row appears here once they&rsquo;re assigned
         to at least one company.
       </p>
 
@@ -135,14 +135,12 @@ export function GuidesPanel({
                 >
                   {isSysadmin ? "System admin · Active" : pill.label}
                 </span>
-                {isSysadmin ? null : (
-                  <GuideOwnCompany
-                    guideId={g.id}
-                    guideName={g.full_name}
-                    companyId={g.company_id}
-                    companies={companies.map((c) => ({ id: c.id, name: c.name }))}
-                  />
-                )}
+                <GuideOwnCompany
+                  guideId={g.id}
+                  guideName={g.full_name}
+                  companyId={g.company_id}
+                  companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+                />
               </>
             ),
             actions: (

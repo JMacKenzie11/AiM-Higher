@@ -12874,6 +12874,145 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- A system admin's own company (no migration) ----------------
+//
+// Jason, 2026-10-24: a system admin who also runs a company, as a guide
+// can (0300), belongs to it through profiles.company_id. Nobody with
+// either role had a company_id before, so this asks two things of the
+// schema as it stands, seeded inside the transaction on the company
+// admin's company:
+//   reads     for every public table, a system admin and a guide each
+//             see at least as many rows with a company of their own as
+//             without one (a company_id must never narrow what they
+//             read; a rule keyed on auth_company_id() could)
+//   granted   the system admin adds a function there; the company's
+//             admin still edits a member
+//   withheld  the company's admin and its guide each try to make the
+//             system admin a team member, and to delete them
+// Red before 0300: the demotions and deletes reach the system admin.
+async function sysadminOwnCompanyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "a system admin's own company · reads nothing less, members only";
+  const ADMIN = ids.companyAdmin, CO = ids.companyAdminCompany, G = ids.guide;
+  const ROOT = randomUUID(), PEER = randomUUID();
+  const claims = (sub: string) => `'{"sub":"${sub}","role":"authenticated"}'`;
+  const countAll = (column: "before" | "after") => `
+set local role authenticated;
+do $$
+declare v_t text; v_who text; v_sub text; n bigint;
+begin
+  for v_t in select tablename from pg_tables where schemaname = 'public' order by 1 loop
+    if has_table_privilege('authenticated', format('public.%I', v_t), 'select') then
+      foreach v_who in array array['root', 'guide'] loop
+        v_sub := case v_who when 'root' then '${ROOT}' else '${G}' end;
+        perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', v_sub), true);
+        begin
+          execute format('select count(*) from public.%I', v_t) into n;
+        exception when others then n := -1;
+        end;
+        ${column === "before"
+          ? "insert into _d (who, t, before) values (v_who, v_t, n);"
+          : "update _d set after = n where _d.who = v_who and _d.t = v_t;"}
+      end loop;
+    end if;
+  end loop;
+end $$;
+reset role;`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${ROOT}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-root-own@example.invalid', '', now(), now(), now()),
+       ('${PEER}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-peer-own@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${ROOT}', null, 'Harness Root Own', 'system_admin', 'active'),
+  ('${PEER}', '${CO}', 'Harness Peer Own', 'team_member', 'active');
+create temp table _d (who text, t text, before bigint, after bigint) on commit drop;
+grant all on _d to authenticated;
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+${countAll("before")}
+update public.profiles set company_id = '${CO}' where id in ('${ROOT}', '${G}');
+insert into public.guide_assignments (guide_id, company_id) values
+  ('${ROOT}', '${CO}'), ('${G}', '${CO}')
+on conflict do nothing;
+${countAll("after")}
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', ${claims(ADMIN)}, true);
+  begin
+    update public.profiles set position = 'harness own admin' where id = '${PEER}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('admin_edits_peer', n::text);
+    when others then insert into _p values ('admin_edits_peer', 'error ' || sqlstate); end;
+  begin
+    update public.profiles set role = 'team_member' where id = '${ROOT}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('admin_demotes_root', n::text);
+    when others then insert into _p values ('admin_demotes_root', 'error ' || sqlstate); end;
+  begin
+    delete from public.profiles where id = '${ROOT}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('admin_deletes_root', n::text);
+    when others then insert into _p values ('admin_deletes_root', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', ${claims(G)}, true);
+  begin
+    update public.profiles set role = 'team_member' where id = '${ROOT}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('guide_demotes_root', n::text);
+    when others then insert into _p values ('guide_demotes_root', 'error ' || sqlstate); end;
+  begin
+    delete from public.profiles where id = '${ROOT}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('guide_deletes_root', n::text);
+    when others then insert into _p values ('guide_deletes_root', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', ${claims(ROOT)}, true);
+  begin
+    insert into public.functions (company_id, title) values ('${CO}', 'harness own root');
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('root_adds_function', n::text);
+    when others then insert into _p values ('root_adds_function', 'error ' || sqlstate); end;
+end $$;
+reset role;
+insert into _p select 'root_role', role from public.profiles where id = '${ROOT}';
+insert into _p select 'tables', count(*)::text from _d where who = 'root';
+insert into _p select 'narrowed', coalesce(string_agg(who || ':' || t || ' ' || before || '>' || coalesce(after::text, '?'), ', ' order by who, t), '')
+  from _d where coalesce(after, -1) < before;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const granted = ["admin_edits_peer", "root_adds_function"];
+  const withheld = ["admin_demotes_root", "admin_deletes_root", "guide_demotes_root", "guide_deletes_root"];
+  const readsOk = r.narrowed === "" && Number(r.tables) > 0;
+  const ok = readsOk && granted.every((k) => r[k] === "1") && withheld.every((k) => r[k] === "0") && r.root_role === "system_admin";
+  return [{
+    name,
+    granted: granted.map((k) => `${k} ${r[k]}`).join(", ") + ` (want 1 each); ${r.tables} tables read the same or wider`,
+    withheld: withheld.map((k) => `${k} ${r[k]}`).join(", ") + `, still ${r.root_role}; narrowed: ${r.narrowed || "none"}`,
+    ok,
+    detail: ok
+      ? "a company of their own narrows nothing a system admin or guide reads, and only a system admin manages the system admin's account"
+      : !readsOk
+        ? `A COMPANY_ID NARROWS WHAT THEY READ: ${r.narrowed}`
+        : withheld.some((k) => r[k] !== "0")
+          ? "A COMPANY'S ADMIN OR GUIDE CAN DEMOTE OR DELETE A SYSTEM ADMIN who belongs to it"
+          : "a member edit or the system admin's own write there is refused",
+  }];
+}
+
 // ---- Only the transcript marks a headline as its own (0292) ------
 //
 // meeting_headlines.source_meeting_id says a headline came from the
@@ -15098,6 +15237,7 @@ async function main(): Promise<void> {
   const headlinesSource = await meetingHeadlinesSourceProbes(run, ids, pendingSql);
   const checkins = await meetingCheckinsProbes(run, ids, pendingSql);
   const guideOwn = await guideOwnCompanyProbes(run, ids, pendingSql);
+  const sysadminOwn = await sysadminOwnCompanyProbes(run, ids, pendingSql);
   const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
   const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
@@ -15127,7 +15267,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

@@ -98,7 +98,16 @@ describe("setGuideOwnCompanyAction", () => {
     expect(mocks.assignmentsUpsert).not.toHaveBeenCalled();
   });
 
-  it("refuses anyone who is not a guide", async () => {
+  it("gives a system admin one the same way, and leaves them a system admin", async () => {
+    mocks.state.profile = { id: "root_2", role: "system_admin", company_id: null };
+    const { setGuideOwnCompanyAction } = await import("./guides-actions");
+    const result = await setGuideOwnCompanyAction("root_2", "co_own");
+    expect(result.ok).toBe(true);
+    expect(mocks.assignmentsUpsert).toHaveBeenCalledWith({ guide_id: "root_2", company_id: "co_own" });
+    expect(mocks.profilesUpdate).toHaveBeenCalledWith({ company_id: "co_own" });
+  });
+
+  it("refuses anyone who is not a guide or a system admin", async () => {
     mocks.state.profile = { id: "u_1", role: "team_member", company_id: "co_x" };
     const { setGuideOwnCompanyAction } = await import("./guides-actions");
     const result = await setGuideOwnCompanyAction("u_1", "co_own");
