@@ -145,3 +145,33 @@ describe("setGuideCompanyAccessAction and a guide's own company", () => {
     expect(result.ok).toBe(true);
   });
 });
+
+describe("saveGuideAction: one Save for the row", () => {
+  it("sets their own company, then keeps it in their companies", async () => {
+    mocks.state.assignments = ["co_client"];
+    const { saveGuideAction } = await import("./guides-actions");
+    const result = await saveGuideAction("g_1", ["co_client"], "co_own");
+    expect(result.ok).toBe(true);
+    expect(mocks.calls.slice(0, 2)).toEqual(["assign", "profile"]);
+    expect(mocks.profilesUpdate).toHaveBeenCalledWith({ company_id: "co_own" });
+  });
+
+  it("stops before the companies when their own company can't be set", async () => {
+    mocks.state.company = null;
+    const { saveGuideAction } = await import("./guides-actions");
+    const result = await saveGuideAction("g_1", ["co_client"], "co_gone");
+    expect(result.ok).toBe(false);
+    expect(mocks.assignmentsInsert).not.toHaveBeenCalled();
+  });
+
+  it("leaves their own company alone when the row offers none", async () => {
+    mocks.state.profile = { id: "g_1", role: "aims_guide", company_id: "co_own" };
+    mocks.state.assignments = ["co_own"];
+    const { saveGuideAction } = await import("./guides-actions");
+    const result = await saveGuideAction("g_1", ["co_own", "co_client"]);
+    expect(result.ok).toBe(true);
+    expect(mocks.profilesUpdate).not.toHaveBeenCalled();
+    expect(mocks.assignmentsInsert).toHaveBeenCalledWith([{ guide_id: "g_1", company_id: "co_client" }]);
+  });
+});
+

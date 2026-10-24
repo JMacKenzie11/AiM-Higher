@@ -111,3 +111,25 @@
   letter-spacing: 0.04em;
   color: var(--primary);
 }
+
+/* A guide's own company, above their companies (2026-10-24). */
+.ownCompany {
+  margin-bottom: var(--space-4);
+  max-width: 360px;
+}
+
+.ownSelect {
+  width: 100%;
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body-sm);
+}
+
+.ownCompany .message {
+  display: block;
+  margin-top: var(--space-1);
+}

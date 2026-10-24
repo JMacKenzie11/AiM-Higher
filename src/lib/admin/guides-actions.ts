@@ -461,3 +461,26 @@ export async function setGuideOwnCompanyAction(
   revalidatePath("/chart");
   return { ok: true, guideId };
 }
+
+// ---- One Save on a guide's row ---------------------------------
+//
+// Jason, 2026-10-24: the row's own company and its companies are saved
+// together, by one button. Their own company goes first: it adds its
+// assignment, and moving off an old one is what lets the old one be
+// unticked in the same save. Their own company is always kept in the
+// list, as setGuideCompanyAccessAction requires.
+export async function saveGuideAction(
+  guideId: string,
+  companyIds: string[],
+  // Left out, their own company is left as it is.
+  ownCompanyId?: string | null
+): Promise<GuideActionResult> {
+  const g = await guard();
+  if (!g.ok) return g;
+  if (ownCompanyId !== undefined) {
+    const own = await setGuideOwnCompanyAction(guideId, ownCompanyId);
+    if (!own.ok) return own;
+  }
+  const ids = ownCompanyId && !companyIds.includes(ownCompanyId) ? [...companyIds, ownCompanyId] : companyIds;
+  return setGuideCompanyAccessAction(guideId, ids);
+}
