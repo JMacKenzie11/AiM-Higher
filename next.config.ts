@@ -86,6 +86,18 @@ const nextConfig: NextConfig = {
       "./node_modules/pdfkit/js/data/**/*",
     ],
   },
+  // Connections used to be its own page. It is a card on Company
+  // settings now (Jason, 2026-10-24), and an old link, a bookmark or
+  // an Aimee reply still lands there. The query string carries over.
+  async redirects() {
+    return [
+      {
+        source: "/admin/companies/:id/connections",
+        destination: "/admin/companies/:id#connections",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {

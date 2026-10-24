@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { saveHubSpotKeyAction } from "@/lib/connections/actions";
-import styles from "../../admin.module.css";
+import styles from "../admin.module.css";
 
 // Paste a HubSpot service key. It is checked with HubSpot before it is
 // saved, and a key HubSpot refuses is never stored. The field is

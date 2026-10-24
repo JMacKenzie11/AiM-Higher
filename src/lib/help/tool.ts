@@ -17,7 +17,7 @@ import { searchHelp } from "./search";
 export function makeSearchHelpTool(args: {
   role: Role;
   features: readonly ModuleFeature[];
-  // The conversation's company: Company settings and Connections link
+  // The conversation's company: Company settings (with Connections) links
   // as its pages (pages/registry.ts, companyPage).
   companyId?: string | null;
   onSearch?: (found: boolean) => void;

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth/current-user";
 import { canViewCompany, isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { companyHasFeature, getCompanyFeatures } from "@/lib/subscriptions/service";
 import { getBulkResetImpact } from "@/lib/plan/service";
 import { BulkResetButton } from "@/app/(app)/plan/BulkResetButton";
 import type {
@@ -23,6 +23,8 @@ import { ChampionForm, type ChampionCandidate } from "./ChampionForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
+import { CompanyConnectionsCard, type ConnectionEventRow } from "./CompanyConnectionsCard";
+import type { ConnectionRow } from "@/lib/connections/vault";
 import { QuarterCard } from "./QuarterCard";
 import { getQuarterCardData } from "@/lib/quarters/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -45,10 +47,13 @@ type TimezoneChange = {
 
 type PageProps = {
   params: Promise<{ id: string }>;
+  // Set by the Google sign-in callback, for the Connections card.
+  searchParams: Promise<{ oauth_connected?: string; oauth_error?: string }>;
 };
 
 export default async function CompanyDetailPage({
   params,
+  searchParams,
 }: PageProps) {
   const session = await requireRole([
     "system_admin",
@@ -57,6 +62,7 @@ export default async function CompanyDetailPage({
     "portfolio_admin",
   ]);
   const { id } = await params;
+  const flash = await searchParams;
   const isSystemAdmin = session.profile.role === "system_admin";
   const isCompanyAdmin = session.profile.role === "company_admin";
   // The container role. Everything below that is gated on
@@ -86,6 +92,9 @@ export default async function CompanyDetailPage({
     { data: meetings },
     connectedAccount,
     assignedAccess,
+    { data: connectionRows },
+    { data: connectionEvents },
+    hubspotOn,
   ] = await Promise.all([
     supabase
       .from("companies")
@@ -117,6 +126,19 @@ export default async function CompanyDetailPage({
     // is safe to fetch unconditionally. The card below is what decides
     // whether to render it, and for an aims_guide it does not.
     getAssignedAccess(id),
+    // The Connections card. Read under the caller's own session, so
+    // someone the database does not admit (0257) gets none.
+    supabase
+      .from("connections")
+      .select("id, company_id, connector, status, account_label, scopes, secret_hint, checked_at, last_error")
+      .eq("company_id", id),
+    supabase
+      .from("connection_events")
+      .select("connector, event, created_at, actor:profiles!actor_profile_id(full_name)")
+      .eq("company_id", id)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    companyHasFeature(id, "external_measures"),
   ]);
 
   if (!company) notFound();
@@ -368,19 +390,16 @@ export default async function CompanyDetailPage({
         ) : null}
 
         {/* Connections: the outside systems this company is connected
-            to, managed on their own page by the people decision 3 of the
-            external connections plan names (isAdminForCompany). */}
+            to, managed here by the people decision 3 of the external
+            connections plan names (isAdminForCompany). */}
         {isAdminForCompany(session.profile, company.id) ? (
-          <section className={styles.accentCard} aria-labelledby="connections-heading">
-            <h2 id="connections-heading" className={styles.h2}>
-              Connections
-            </h2>
-            <p className={styles.subtitleInline}>
-              {connectedAccount ? `Google is connected as ${connectedAccount}.` : "Google is not connected."} Connect
-              Google and HubSpot, replace a key, or disconnect, on{" "}
-              <Link href={`/admin/companies/${company.id}/connections`}>Connections</Link>.
-            </p>
-          </section>
+          <CompanyConnectionsCard
+            companyId={company.id}
+            connections={(connectionRows ?? []) as ConnectionRow[]}
+            events={(connectionEvents ?? []) as unknown as ConnectionEventRow[]}
+            hubspotOn={hubspotOn}
+            flash={flash}
+          />
         ) : null}
 
         <CompanyTranscriptsPanel

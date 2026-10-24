@@ -402,8 +402,7 @@ export async function removeSourceAction(id: string): Promise<ActionResult> {
 // Ingest-only leg of Check now. Kept fast so the user gets an
 // immediate "found N" answer; the client then chains a call to
 // analyzePendingForCompanyAction to run the (slower) analysis pass
-// and reveal per-meeting status transitions in the Recent meetings
-// table as revalidation catches them.
+// and the folder's meeting count catches up on revalidation.
 export type CheckSourceResult =
   | { ok: true; filesSeen: number; filesIngested: number }
   | { ok: false; message: string };

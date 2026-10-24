@@ -86,12 +86,12 @@ describe("linkablePagesFor", () => {
     expect(pages).toContain("/plan");
   });
 
-  // Company settings and Connections (Jason, 2026-10-20): Aimee had
-  // them as record pages and told a system admin to ask a company admin.
-  it("offers Company settings and Connections as the company in scope's pages", () => {
+  // Company settings (Jason, 2026-10-20): Aimee had it as a record page
+  // and told a system admin to ask a company admin. Connections is a
+  // card on it since 2026-10-24.
+  it("offers Company settings as the company in scope's page", () => {
     const pages = linkablePagesFor("system_admin", ["execution"], "co-123").map((p) => p.path);
     expect(pages).toContain("/admin/companies/co-123");
-    expect(pages).toContain("/admin/companies/co-123/connections");
     expect(pages.some((p) => p.includes("[id]"))).toBe(false);
   });
 

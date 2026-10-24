@@ -111,13 +111,10 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/hq", roles: ["aims_guide", "system_admin"], feature: null, link: true },
   { pattern: "/portfolio", roles: ["portfolio_admin", "system_admin"], feature: null, link: true },
   { pattern: "/admin/companies", roles: ADMINS_AND_PORTFOLIO, feature: null, link: true },
-  // Company settings and Connections, for the company in scope. Aimee
-  // had them as record pages, could not link them, and told a system
-  // admin to ask a company admin (Jason, 2026-10-20).
+  // Company settings, for the company in scope, with its Connections
+  // card. Aimee had it as a record page, could not link it, and told a
+  // system admin to ask a company admin (Jason, 2026-10-20).
   { pattern: "/admin/companies/[id]", roles: ADMINS_AND_PORTFOLIO, feature: null, link: true, companyPage: true },
-  // The outside systems a company connects (external connections plan,
-  // phase 3). The page refuses anyone isAdminForCompany does not admit.
-  { pattern: "/admin/companies/[id]/connections", roles: ADMINS_AND_PORTFOLIO, feature: null, link: true, companyPage: true },
   { pattern: "/admin/transcripts", roles: ["system_admin", "aims_guide"], feature: null, link: false },
   { pattern: "/admin/transcripts/meetings/[id]", roles: ["system_admin", "aims_guide"], feature: null, link: false },
 

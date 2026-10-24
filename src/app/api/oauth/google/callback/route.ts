@@ -67,18 +67,18 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (!isAdminForCompany(session.profile, companyId)) {
     return NextResponse.redirect(`${fallback}?oauth_error=forbidden`);
   }
-  // Back to the Connections page, where the Google card shows it.
-  const destination = `${APP_URL()}/admin/companies/${companyId}/connections`;
+  // Back to Company settings, where the Connections card shows it.
+  const destination = `${APP_URL()}/admin/companies/${companyId}`;
 
   try {
     const email = await exchangeCodeAndPersist(code, companyId, session.profile.id);
     return NextResponse.redirect(
-      `${destination}?oauth_connected=${encodeURIComponent(email)}`
+      `${destination}?oauth_connected=${encodeURIComponent(email)}#connections`
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "connect_failed";
     return NextResponse.redirect(
-      `${destination}?oauth_error=${encodeURIComponent(message)}`
+      `${destination}?oauth_error=${encodeURIComponent(message)}#connections`
     );
   }
 }
