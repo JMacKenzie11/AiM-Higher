@@ -189,7 +189,9 @@ async function resolveCompanyIdInternal(
   // guide assignment to it is what makes them its admin. It is one of
   // their companies, not their only one, so it does not pin them: they
   // reach it like any client, through the cookie or the picker below.
-  if (session.profile.company_id && role !== "aims_guide") {
+  // The same for a system admin with a company of their own (Jason,
+  // 2026-10-24): they still work across every company.
+  if (session.profile.company_id && role !== "aims_guide" && role !== "system_admin") {
     return session.profile.company_id;
   }
   if (role === "system_admin" || role === "portfolio_admin") {

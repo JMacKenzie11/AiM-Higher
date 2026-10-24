@@ -403,6 +403,12 @@ export async function setGuideCompanyAccessAction(
 //
 // 0300 keeps the company's own admins and its other guides from
 // changing or deleting the guide's account once they belong to it.
+//
+// A system admin carrying a caseload can have one too (Jason,
+// 2026-10-24): the same two writes, and their role stays
+// system_admin. scope.ts does not pin either role to it, and the
+// harness probe "a system admin's own company" shows a company_id
+// narrows nothing either role reads.
 export async function setGuideOwnCompanyAction(
   guideId: string,
   companyId: string | null
@@ -416,7 +422,7 @@ export async function setGuideOwnCompanyAction(
     .select("id, role, company_id")
     .eq("id", guideId)
     .maybeSingle<{ id: string; role: string; company_id: string | null }>();
-  if (!profile || profile.role !== "aims_guide") {
+  if (!profile || (profile.role !== "aims_guide" && profile.role !== "system_admin")) {
     return { ok: false, message: "That user isn't an AiMS Guide." };
   }
   if ((profile.company_id ?? null) === companyId) return { ok: true, guideId };
