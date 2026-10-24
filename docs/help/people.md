@@ -25,6 +25,7 @@ Everyone at your company, with their position, role, status, open commitments an
 - **Coach anyone at the company.** Click *Coach* on their row or their scorecard.
 - **Deactivate someone.** They can't sign in any more, and their commitments and history stay. *Reactivate* brings them back.
 - **Delete someone.** This removes their sign-in, their private coaching notes and their strengths assessment, and can't be undone. Their commitments stay as *Unassigned*, and the numbers they logged keep their history. Deactivate unless you really need them gone.
+- **A guide who runs this company as their own** shows on the list as *company admin*. Their sign-in also reaches the companies they coach, so only an AiMS system admin can edit or remove them.
 - **Remove a portfolio admin from this company.** A portfolio admin on your team shows on the list as *team member*, or as *company admin* if a system admin has made them this company's admin. Their menu offers *Remove from this company* instead of Delete. It ends their access here and leaves their account, their other companies and everything they own here as it is.
 :::
 
@@ -37,6 +38,8 @@ Everyone at your company, with their position, role, status, open commitments an
 - **Revise any of the company's role descriptions** with Aimee, from the list at the bottom of the page.
 
 Adding, editing and removing people is done by the company's own admins.
+
+In your own coaching company, if you have one, you're on this list as *company admin*, and the people there can see you, give you commitments and put you on the chart.
 :::
 
 ::: role portfolio_admin

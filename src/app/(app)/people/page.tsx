@@ -190,11 +190,15 @@ export default async function PeoplePage() {
                           this company's business, and "portfolio
                           admin" in a team list invites a question
                           nobody on that page can answer. */}
+                      {/* A guide who belongs here runs this company,
+                          their own coaching business, as its admin. */}
                       {person.viaAssignment
                         ? person.assignedAsAdmin
                           ? "company admin"
                           : "team member"
-                        : person.role.replace("_", " ")}
+                        : person.role === "aims_guide"
+                          ? "company admin"
+                          : person.role.replace("_", " ")}
                     </td>
                     <td>
                       <span className={pill.className} title={pill.title}>
@@ -220,7 +224,12 @@ export default async function PeoplePage() {
                             Coach
                           </Link>
                         ) : null}
-                        {isAdmin ? (
+                        {/* A guide's account reaches every client
+                            they coach, so only a system admin manages
+                            it (0300). */}
+                        {isAdmin &&
+                        (person.role !== "aims_guide" ||
+                          session.profile.role === "system_admin") ? (
                           <RowActionsMenu
                             profileId={person.id}
                             status={person.status}

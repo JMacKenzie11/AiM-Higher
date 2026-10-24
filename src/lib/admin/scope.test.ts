@@ -370,6 +370,49 @@ describe("getEffectiveCompanyId (invariant coverage)", () => {
     expect(result).toBeNull();
   });
 
+  it("does not pin a guide with a company of their own to it", async () => {
+    // Their own coaching company is one of their companies, reached
+    // like a client. The cookie says which one they are in.
+    cookieMocks.store.set("aims_scope_company", "g_1:co_client");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "g_1",
+        role: "aims_guide",
+        company_id: "co_own",
+        guide_company_ids: ["co_own", "co_client"],
+      },
+    });
+    expect(result).toBe("co_client");
+  });
+
+  it("scopes a guide into their own company like any assignment", async () => {
+    cookieMocks.store.set("aims_scope_company", "g_1:co_own");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "g_1",
+        role: "aims_guide",
+        company_id: "co_own",
+        guide_company_ids: ["co_own", "co_client"],
+      },
+    });
+    expect(result).toBe("co_own");
+  });
+
+  it("sends a guide with their own company and clients to the picker when no cookie is set", async () => {
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: {
+        id: "g_1",
+        role: "aims_guide",
+        company_id: "co_own",
+        guide_company_ids: ["co_own", "co_client"],
+      },
+    });
+    expect(result).toBeNull();
+  });
+
   it("ignores a stale scope cookie for a guide unassigned to that company", async () => {
     cookieMocks.store.set("aims_scope_company", "co_unassigned");
     const { getEffectiveCompanyId } = await import("./scope");

@@ -184,8 +184,14 @@ export async function getEffectiveCompanyId(
 async function resolveCompanyIdInternal(
   session: Scopeable
 ): Promise<string | null> {
-  if (session.profile.company_id) return session.profile.company_id;
   const role = session.profile.role;
+  // A guide's company_id is their own coaching company, and a
+  // guide assignment to it is what makes them its admin. It is one of
+  // their companies, not their only one, so it does not pin them: they
+  // reach it like any client, through the cookie or the picker below.
+  if (session.profile.company_id && role !== "aims_guide") {
+    return session.profile.company_id;
+  }
   if (role === "system_admin" || role === "portfolio_admin") {
     const cookie = await getScopedCompanyId(session.profile.id);
     // Verify the scoped company still exists and isn't soft-deleted.

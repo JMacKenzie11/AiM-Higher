@@ -191,6 +191,7 @@ function primeHappyPath() {
     data: {
       id: "profile_1",
       company_id: "co_acme",
+      role: "team_member",
       status: "pending",
       first_name: "New",
       invited_at: null,
@@ -464,6 +465,56 @@ describe("updateUserAction", () => {
 
     expect(res).toEqual({ ok: false, message: "Not your user to edit." });
     expect(mocks.updateUserById).not.toHaveBeenCalled();
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("refuses a company_admin editing a guide who belongs to their company", async () => {
+    // A coach's own company: the guide is a member there, and their
+    // account reaches every client they coach.
+    mocks.requireRole.mockResolvedValue(companyAdminSession("co_acme"));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "profile_1", company_id: "co_acme", role: "aims_guide" },
+      error: null,
+    });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(undefined, baseForm({ role: "team_member" }));
+
+    expect(res).toEqual({ ok: false, message: "Only a system admin can edit a guide's account." });
+    expect(mocks.updateUserById).not.toHaveBeenCalled();
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("lets a guide edit themselves in their own company and keep their role", async () => {
+    mocks.requireRole.mockResolvedValue({
+      profile: { id: "g_1", role: "aims_guide", company_id: "co_acme", guide_company_ids: ["co_acme"] },
+    });
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "g_1", company_id: "co_acme", role: "aims_guide" },
+      error: null,
+    });
+    mocks.getUserById.mockResolvedValueOnce({ data: { user: { email: "existing@acme.co" } }, error: null });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(undefined, baseForm({ id: "g_1", role: "aims_guide" }));
+
+    expect(res.ok).toBe(true);
+    expect(mocks.profilesUpdatePatch).toHaveBeenCalledWith(expect.objectContaining({ role: "aims_guide" }));
+  });
+
+  it("refuses a guide changing their own role", async () => {
+    mocks.requireRole.mockResolvedValue({
+      profile: { id: "g_1", role: "aims_guide", company_id: "co_acme", guide_company_ids: ["co_acme"] },
+    });
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "g_1", company_id: "co_acme", role: "aims_guide" },
+      error: null,
+    });
+    const { updateUserAction } = await import("./users");
+
+    const res = await updateUserAction(undefined, baseForm({ id: "g_1", role: "company_admin" }));
+
+    expect(res).toEqual({ ok: false, message: "Only a system admin can change a guide's role." });
     expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
   });
 
@@ -886,10 +937,24 @@ describe("deleteUserAction", () => {
     expect(mocks.deleteUser).not.toHaveBeenCalled();
   });
 
+  it("refuses a company_admin deleting a guide who belongs to their company", async () => {
+    mocks.requireRole.mockResolvedValue(companyAdminSession("co_acme"));
+    mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
+      data: { id: "profile_1", company_id: "co_acme", role: "aims_guide" },
+      error: null,
+    });
+    const { deleteUserAction } = await import("./users");
+
+    const res = await deleteUserAction("profile_1");
+
+    expect(res).toEqual({ ok: false, message: "Only a system admin can delete a guide's account." });
+    expect(mocks.deleteUser).not.toHaveBeenCalled();
+  });
+
   it("calls admin.auth.admin.deleteUser on a same-company target", async () => {
     mocks.requireRole.mockResolvedValue(companyAdminSession("co_acme"));
     mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
-      data: { id: "profile_1", company_id: "co_acme" },
+      data: { id: "profile_1", company_id: "co_acme", role: "team_member" },
       error: null,
     });
     const { deleteUserAction } = await import("./users");
@@ -1056,7 +1121,7 @@ describe("updateUserAction (aims_guide + reports_to scope)", () => {
   it("lets an aims_guide edit a user in an assigned company", async () => {
     mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
     mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
-      data: { id: "profile_1", company_id: "co_acme" },
+      data: { id: "profile_1", company_id: "co_acme", role: "team_member" },
       error: null,
     });
     const { updateUserAction } = await import("./users");
@@ -1073,7 +1138,7 @@ describe("updateUserAction (aims_guide + reports_to scope)", () => {
     mocks.requireRole.mockResolvedValue(sysAdminSession());
     mocks.profilesSelectMaybeSingle
       .mockResolvedValueOnce({
-        data: { id: "profile_1", company_id: "co_acme" },
+        data: { id: "profile_1", company_id: "co_acme", role: "team_member" },
         error: null,
       })
       .mockResolvedValueOnce({
@@ -1098,7 +1163,7 @@ describe("updateUserAction (aims_guide + reports_to scope)", () => {
     mocks.requireRole.mockResolvedValue(sysAdminSession());
     mocks.profilesSelectMaybeSingle
       .mockResolvedValueOnce({
-        data: { id: "profile_1", company_id: "co_acme" },
+        data: { id: "profile_1", company_id: "co_acme", role: "team_member" },
         error: null,
       })
       .mockResolvedValueOnce({ data: null, error: null });
@@ -1117,7 +1182,7 @@ describe("updateUserAction (aims_guide + reports_to scope)", () => {
     mocks.requireRole.mockResolvedValue(companyAdminSession("co_acme"));
     mocks.profilesSelectMaybeSingle
       .mockResolvedValueOnce({
-        data: { id: "profile_1", company_id: "co_acme" },
+        data: { id: "profile_1", company_id: "co_acme", role: "team_member" },
         error: null,
       })
       .mockResolvedValueOnce({
@@ -1249,7 +1314,7 @@ describe("sendInviteAction / getInviteLinkAction / deleteUserAction (aims_guide 
   it("lets an aims_guide delete a user in an assigned company", async () => {
     mocks.requireRole.mockResolvedValue(guideSession(["co_acme"]));
     mocks.profilesSelectMaybeSingle.mockResolvedValueOnce({
-      data: { id: "profile_1", company_id: "co_acme" },
+      data: { id: "profile_1", company_id: "co_acme", role: "team_member" },
       error: null,
     });
     const { deleteUserAction } = await import("./users");

@@ -58,6 +58,18 @@ export function EditUserForm({
     roleOptions.push({ value: "aims_guide", label: "AiMS guide" });
     roleOptions.push({ value: "portfolio_admin", label: "Portfolio admin" });
   }
+  // A guide in their own company, seen by anyone else: show the role
+  // they hold rather than letting the select fall back to its first
+  // option. The action refuses a change to it from anyone but a
+  // system admin.
+  if (!roleOptions.some((o) => o.value === subject.role)) {
+    const held: Record<string, string> = {
+      aims_guide: "AiMS guide",
+      system_admin: "System admin",
+      portfolio_admin: "Portfolio admin",
+    };
+    roleOptions.push({ value: subject.role, label: held[subject.role] ?? subject.role });
+  }
 
   const firstName = subject.first_name ?? subject.full_name.split(" ")[0] ?? "";
   const lastName =

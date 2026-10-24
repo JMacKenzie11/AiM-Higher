@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
     portfolio_company_ids: [] as string[],
   },
   del: vi.fn(),
+  guideCompanyId: null as string | null,
   revalidatePath: vi.fn(),
 }));
 
@@ -35,6 +36,11 @@ vi.mock("@/lib/instances/current", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => ({
     from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: { company_id: mocks.guideCompanyId }, error: null }),
+        }),
+      }),
       delete: () => ({
         eq: () => ({ eq: mocks.del }),
       }),
@@ -50,6 +56,7 @@ beforeEach(() => {
   mocks.profile.guide_company_ids = [];
   mocks.profile.portfolio_company_ids = [];
   mocks.del.mockResolvedValue({ error: null, count: 1 });
+  mocks.guideCompanyId = null;
 });
 
 describe("removeGuideFromCompanyAction", () => {
@@ -60,6 +67,18 @@ describe("removeGuideFromCompanyAction", () => {
     const result = await removeGuideFromCompanyAction("co_a", "g_1");
     expect(result.ok).toBe(true);
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/companies/co_a");
+  });
+
+  it("refuses ending a guide's assignment to their own company", async () => {
+    // The coach's own business: the assignment is what makes them its
+    // admin, and only a system admin changes it.
+    mocks.guideCompanyId = "co_a";
+    const { removeGuideFromCompanyAction } = await import(
+      "./assigned-access-actions"
+    );
+    const result = await removeGuideFromCompanyAction("co_a", "g_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.del).not.toHaveBeenCalled();
   });
 
   it("refuses a company admin another company", async () => {

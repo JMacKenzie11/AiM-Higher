@@ -41,6 +41,22 @@ export async function removeGuideFromCompanyAction(
   }
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+
+  // A guide's own company is not an engagement to end: the assignment
+  // is what makes them its admin. A system admin changes their own
+  // company on the AiMS Guides card instead.
+  const { data: guide } = await supabase
+    .from("profiles")
+    .select("company_id")
+    .eq("id", guideId)
+    .maybeSingle<{ company_id: string | null }>();
+  if (guide?.company_id === companyId) {
+    return {
+      ok: false,
+      message: "This is the guide's own company. A system admin can change that.",
+    };
+  }
+
   const { error, count } = await supabase
     .from("guide_assignments")
     .delete({ count: "exact" })

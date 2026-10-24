@@ -36,6 +36,10 @@ export default async function EditPersonPage({ params }: PageProps) {
   if (isCompanyAdmin && session.profile.company_id !== subject.company_id) {
     redirect("/people");
   }
+  // A guide in their own company is edited by a system admin only.
+  if (isCompanyAdmin && subject.role !== "company_admin" && subject.role !== "team_member") {
+    redirect(`/people/${id}`);
+  }
 
   // Email lives on auth.users. Only sysadmins can call the admin API,
   // but this page is only reachable by admin roles anyway. Use the

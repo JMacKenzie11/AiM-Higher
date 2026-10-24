@@ -42,7 +42,13 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   // managers see the same fields in read-only mode. Self-serve
   // basic edits still route through /profile for non-admins.
   const editorBundle = await loadEditorBundle(id, data.profile);
-  const canEditPerson = isAdmin;
+  // A guide who belongs to this company (their own coaching business)
+  // is edited by a system admin only: their account reaches every
+  // client they coach. updateUserAction and 0300 say the same.
+  const subjectIsMember =
+    data.profile.role === "company_admin" || data.profile.role === "team_member";
+  const canEditPerson =
+    session.profile.role === "system_admin" || (isAdmin && subjectIsMember);
 
   return (
     <div className={styles.stage}>
