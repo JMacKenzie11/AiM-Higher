@@ -48,6 +48,16 @@ export type AccessRowData = {
   actions?: ReactNode;
   /** Of companyIds, those switched on as company admin (0245). */
   adminCompanyIds?: string[];
+  /** The person's own company, where the card offers one (guides). */
+  ownCompanyId?: string | null;
+};
+
+// A company of the person's own, chosen on the row and saved with its
+// companies by the same button (guides, Jason 2026-10-24). Choosing
+// one ticks it, and it stays ticked: it is the company they run.
+export type OwnCompanyField = {
+  label: string;
+  hint: string;
 };
 
 // The company admin switch on a portfolio admin's assignment (0245).
@@ -67,13 +77,17 @@ export function CompanyAccessRows({
   emptyLabel,
   personLabel,
   adminSwitch,
+  ownCompany,
+  saveLabel = "Update",
 }: {
   rows: Row[];
   companies: Array<{ id: string; name: string }>;
-  action: (id: string, companyIds: string[]) => Promise<AccessResult>;
+  action: (id: string, companyIds: string[], ownCompanyId?: string | null) => Promise<AccessResult>;
   emptyLabel: string;
   personLabel: string;
   adminSwitch?: AdminSwitch;
+  ownCompany?: OwnCompanyField;
+  saveLabel?: string;
 }) {
   if (rows.length === 0) {
     return <p className={styles.emptyLine}>{emptyLabel}</p>;
@@ -88,6 +102,8 @@ export function CompanyAccessRows({
           action={action}
           personLabel={personLabel}
           adminSwitch={adminSwitch}
+          ownCompany={ownCompany}
+          saveLabel={saveLabel}
         />
       ))}
     </div>
@@ -100,12 +116,16 @@ function AccessRow({
   action,
   personLabel,
   adminSwitch,
+  ownCompany,
+  saveLabel,
 }: {
   row: Row;
   companies: Array<{ id: string; name: string }>;
-  action: (id: string, companyIds: string[]) => Promise<AccessResult>;
+  action: (id: string, companyIds: string[], ownCompanyId?: string | null) => Promise<AccessResult>;
   personLabel: string;
   adminSwitch?: AdminSwitch;
+  ownCompany?: OwnCompanyField;
+  saveLabel: string;
 }) {
   const [adminOn, setAdminOn] = useState<Set<string>>(() => new Set(row.adminCompanyIds ?? []));
   const [switching, startSwitch] = useTransition();
@@ -117,6 +137,8 @@ function AccessRow({
   const [saved, setSaved] = useState<Set<string>>(
     () => new Set(row.companyIds)
   );
+  const [own, setOwn] = useState(row.ownCompanyId ?? "");
+  const [ownSaved, setOwnSaved] = useState(row.ownCompanyId ?? "");
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -124,7 +146,8 @@ function AccessRow({
   const original = saved;
   const removing = [...original].filter((id) => !checked.has(id));
   const adding = [...checked].filter((id) => !original.has(id));
-  const dirty = removing.length > 0 || adding.length > 0;
+  const dirty = removing.length > 0 || adding.length > 0 || own !== ownSaved;
+  const ownFieldId = `own-company-${row.id}`;
 
   // What the confirm has to say out loud, counted before the person
   // decides rather than reported after.
@@ -139,7 +162,9 @@ function AccessRow({
     setConfirming(false);
     setMessage(null);
     startTransition(async () => {
-      const result = await action(row.id, [...checked]);
+      const result = ownCompany
+        ? await action(row.id, [...checked], own || null)
+        : await action(row.id, [...checked]);
       if (!result.ok) {
         setMessage(result.message);
         return;
@@ -159,6 +184,7 @@ function AccessRow({
       // the server has. Without this an Update leaves the button
       // enabled and the row looking unsaved.
       setSaved(new Set(checked));
+      setOwnSaved(own);
     });
   }
 
@@ -172,6 +198,37 @@ function AccessRow({
       </div>
 
       <div className={styles.rowBody}>
+        {ownCompany ? (
+          <div className={styles.ownCompany}>
+            <label htmlFor={ownFieldId} className={styles.companiesLabel}>
+              {ownCompany.label}
+            </label>
+            <select
+              id={ownFieldId}
+              className={styles.ownSelect}
+              value={own}
+              disabled={pending}
+              aria-describedby={`${ownFieldId}-hint`}
+              onChange={(e) => {
+                const next = e.target.value;
+                setOwn(next);
+                setMessage(null);
+                // Their own company is one they run, so it is ticked.
+                if (next) setChecked((prev) => new Set(prev).add(next));
+              }}
+            >
+              <option value="">None</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <p id={`${ownFieldId}-hint`} className={styles.message}>
+              {ownCompany.hint}
+            </p>
+          </div>
+        ) : null}
         <p className={styles.companiesLabel}>Companies</p>
         <ul className={styles.grid}>
           {companies.map((company) => {
@@ -182,7 +239,8 @@ function AccessRow({
                   <input
                     type="checkbox"
                     checked={checked.has(company.id)}
-                    disabled={pending}
+                    // Their own company stays ticked while it is theirs.
+                    disabled={pending || (ownCompany !== undefined && own === company.id)}
                     onChange={(e) => {
                       setChecked((prev) => {
                         const next = new Set(prev);
@@ -254,7 +312,7 @@ function AccessRow({
             disabled={pending || !dirty}
             onClick={() => (released > 0 ? setConfirming(true) : save())}
           >
-            {pending ? "Saving…" : "Update"}
+            {pending ? "Saving…" : saveLabel}
           </button>
           {message ? (
             <span className={styles.message} role="status">

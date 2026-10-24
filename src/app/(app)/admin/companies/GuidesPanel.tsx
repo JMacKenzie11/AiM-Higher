@@ -3,10 +3,9 @@ import type { GuideOverviewRow } from "@/lib/admin/guides-service";
 import { AssignSysadminForm } from "./AssignSysadminForm";
 import { CreateGuideForm } from "./CreateGuideForm";
 import { GuideRowActions } from "./GuideRowActions";
-import { GuideOwnCompany } from "./GuideOwnCompany";
 import styles from "./admin.module.css";
 import { CompanyAccessRows } from "@/components/access/CompanyAccessRows";
-import { setGuideCompanyAccessAction } from "@/lib/admin/guides-actions";
+import { saveGuideAction } from "@/lib/admin/guides-actions";
 
 // System-admin surface for managing AiMS Guides. Lists every guide,
 // their status (Active / Pending / Expired / Inactive), which
@@ -113,11 +112,11 @@ export function GuidesPanel({
           carrying a caseload, which is who the only visible row
           belonged to. */}
       {/* Keyed on everyone's assignments, so the rows start again from
-          what the server holds when a save elsewhere on the card
-          changes them: giving a guide their own company ticks it. */}
+          what the server holds after a save. One Save per row covers
+          their own company and their companies (2026-10-24). */}
       <CompanyAccessRows
         key={guides
-          .map((g) => `${g.id}:${g.assignments.map((a) => a.company_id).sort().join(",")}`)
+          .map((g) => `${g.id}:${g.company_id ?? ""}:${g.assignments.map((a) => a.company_id).sort().join(",")}`)
           .join("|")}
         rows={guides.map((g) => {
           const isSysadmin = g.role === "system_admin";
@@ -126,6 +125,7 @@ export function GuidesPanel({
             id: g.id,
             name: g.full_name,
             companyIds: g.assignments.map((a) => a.company_id),
+            ownCompanyId: g.company_id,
             openCommitmentsByCompany: g.openCommitmentsByCompany,
             detail: (
               <>
@@ -135,12 +135,6 @@ export function GuidesPanel({
                 >
                   {isSysadmin ? "System admin · Active" : pill.label}
                 </span>
-                <GuideOwnCompany
-                  guideId={g.id}
-                  guideName={g.full_name}
-                  companyId={g.company_id}
-                  companies={companies.map((c) => ({ id: c.id, name: c.name }))}
-                />
               </>
             ),
             actions: (
@@ -149,7 +143,12 @@ export function GuidesPanel({
           };
         })}
         companies={companies.map((c) => ({ id: c.id, name: c.name }))}
-        action={setGuideCompanyAccessAction}
+        action={saveGuideAction}
+        ownCompany={{
+          label: "Their own company",
+          hint: "They join it as its admin, so they can be on its chart and own its work.",
+        }}
+        saveLabel="Save"
         personLabel="Guide"
         emptyLabel="No guides yet."
       />
