@@ -65,6 +65,22 @@ function canManageProfileIn(
   return isAdminForCompany(profile, targetCompanyId);
 }
 
+// A company's own admins manage its company admins and team members.
+// A guide who belongs to a company (their own coaching business) is a
+// member there, and their account also reaches every client they
+// coach, so only a system admin or the guide themselves changes it.
+// RLS says the same since 0300: the profiles update and delete
+// policies for a company admin and an assigned guide admit only those
+// two roles.
+function mayManageAccount(
+  caller: Pick<Profile, "id" | "role">,
+  subject: Pick<Profile, "id" | "role">
+): boolean {
+  if (caller.role === "system_admin") return true;
+  if (subject.id === caller.id) return true;
+  return subject.role === "company_admin" || subject.role === "team_member";
+}
+
 // ---- Create a user (no email sent) ----------------------------
 export async function createUserAction(
   _prev: UserActionResult | undefined,
@@ -310,6 +326,7 @@ export async function updateUserAction(
   }
   if (
     session.profile.role !== "system_admin" &&
+    !(profileId === session.profile.id && role === session.profile.role) &&
     (role === "system_admin" ||
       role === "aims_guide" ||
       role === "portfolio_admin")
@@ -330,13 +347,27 @@ export async function updateUserAction(
   // confirmation for a no-op).
   const { data: current, error: fetchErr } = await admin
     .from("profiles")
-    .select("id, company_id")
+    .select("id, company_id, role")
     .eq("id", profileId)
-    .maybeSingle<Pick<Profile, "id" | "company_id">>();
+    .maybeSingle<Pick<Profile, "id" | "company_id" | "role">>();
   if (fetchErr || !current) return { ok: false, message: "User not found." };
 
   if (!canManageProfileIn(session.profile, current.company_id)) {
     return { ok: false, message: "Not your user to edit." };
+  }
+  if (!mayManageAccount(session.profile, current)) {
+    return { ok: false, message: "Only a system admin can edit a guide's account." };
+  }
+  // Editing yourself keeps your role, unless you are a system admin.
+  // A guide in their own company passes the company check above, and
+  // the form's role field must not be a way out of being a guide.
+  if (
+    session.profile.role !== "system_admin" &&
+    current.role !== "company_admin" &&
+    current.role !== "team_member" &&
+    role !== current.role
+  ) {
+    return { ok: false, message: "Only a system admin can change a guide's role." };
   }
 
   // reports_to is a free-form id from the form. A manager in another
@@ -677,13 +708,16 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, company_id")
+    .select("id, company_id, role")
     .eq("id", profileId)
-    .maybeSingle<Pick<Profile, "id" | "company_id">>();
+    .maybeSingle<Pick<Profile, "id" | "company_id" | "role">>();
   if (!profile) return { ok: false, message: "That user doesn't exist." };
 
   if (!canManageProfileIn(session.profile, profile.company_id)) {
     return { ok: false, message: "Not your user to delete." };
+  }
+  if (!mayManageAccount(session.profile, profile)) {
+    return { ok: false, message: "Only a system admin can delete a guide's account." };
   }
 
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());

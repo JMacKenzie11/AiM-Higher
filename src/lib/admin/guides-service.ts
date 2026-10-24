@@ -22,6 +22,9 @@ export type GuideOverviewRow = Pick<
 > & {
   role: "aims_guide" | "system_admin";
   email: string | null;
+  // A guide's own company, when a system admin gave them one: the
+  // coaching business they run as well as guiding clients.
+  company_id: string | null;
   assignments: Array<{ company_id: string; company_name: string }>;
   // Open commitments this guide owns, per company id. Shown beside
   // the checkbox so unticking a company with work in it looks
@@ -41,7 +44,7 @@ export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
     await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, status, invited_at, role")
+        .select("id, full_name, status, invited_at, role, company_id")
         .eq("role", "aims_guide")
         .order("full_name"),
       supabase
@@ -62,14 +65,14 @@ export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
     sysadminIds.length > 0
       ? await supabase
           .from("profiles")
-          .select("id, full_name, status, invited_at, role")
+          .select("id, full_name, status, invited_at, role, company_id")
           .in("id", sysadminIds)
           .order("full_name")
       : { data: [] as [] };
 
   type RawGuide = Pick<
     Profile,
-    "id" | "full_name" | "status" | "invited_at"
+    "id" | "full_name" | "status" | "invited_at" | "company_id"
   > & { role: "aims_guide" | "system_admin" };
   const guides = [
     ...((guideRows ?? []) as RawGuide[]),
@@ -134,6 +137,7 @@ export async function getGuidesOverview(): Promise<GuideOverviewRow[]> {
     invited_at: g.invited_at,
     role: g.role,
     email: null,
+    company_id: g.role === "aims_guide" ? g.company_id ?? null : null,
     assignments: assignmentsByGuide.get(g.id) ?? [],
     openCommitmentsByCompany: openByGuide.get(g.id) ?? {},
   }));

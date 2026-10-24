@@ -3,6 +3,7 @@ import type { GuideOverviewRow } from "@/lib/admin/guides-service";
 import { AssignSysadminForm } from "./AssignSysadminForm";
 import { CreateGuideForm } from "./CreateGuideForm";
 import { GuideRowActions } from "./GuideRowActions";
+import { GuideOwnCompany } from "./GuideOwnCompany";
 import styles from "./admin.module.css";
 import { CompanyAccessRows } from "@/components/access/CompanyAccessRows";
 import { setGuideCompanyAccessAction } from "@/lib/admin/guides-actions";
@@ -90,9 +91,12 @@ export function GuidesPanel({
         AiMS Guides
       </h2>
       <p className={styles.subtitleInline}>
-        Guides act as company admins on the companies they coach. System
-        admins can also carry a coaching caseload — their row appears
-        here once they&rsquo;re assigned to at least one company.
+        Guides act as company admins on the companies they coach. A
+        guide who runs their own coaching business can have it as their
+        own company: they join it as its admin and can be on its chart
+        and own its work. System admins can also carry a coaching
+        caseload. Their row appears here once they&rsquo;re assigned
+        to at least one company.
       </p>
 
       {/* THE SAME CARD THE PORTFOLIO ADMINS GET, and for the same
@@ -108,7 +112,13 @@ export function GuidesPanel({
           They were never dead — they are hidden for a system admin
           carrying a caseload, which is who the only visible row
           belonged to. */}
+      {/* Keyed on everyone's assignments, so the rows start again from
+          what the server holds when a save elsewhere on the card
+          changes them: giving a guide their own company ticks it. */}
       <CompanyAccessRows
+        key={guides
+          .map((g) => `${g.id}:${g.assignments.map((a) => a.company_id).sort().join(",")}`)
+          .join("|")}
         rows={guides.map((g) => {
           const isSysadmin = g.role === "system_admin";
           const pill = statusPill(g.status, g.invited_at);
@@ -118,12 +128,22 @@ export function GuidesPanel({
             companyIds: g.assignments.map((a) => a.company_id),
             openCommitmentsByCompany: g.openCommitmentsByCompany,
             detail: (
-              <span
-                className={isSysadmin ? styles.chipActive : pill.className}
-                title={isSysadmin ? "Active" : pill.title}
-              >
-                {isSysadmin ? "System admin · Active" : pill.label}
-              </span>
+              <>
+                <span
+                  className={isSysadmin ? styles.chipActive : pill.className}
+                  title={isSysadmin ? "Active" : pill.title}
+                >
+                  {isSysadmin ? "System admin · Active" : pill.label}
+                </span>
+                {isSysadmin ? null : (
+                  <GuideOwnCompany
+                    guideId={g.id}
+                    guideName={g.full_name}
+                    companyId={g.company_id}
+                    companies={companies.map((c) => ({ id: c.id, name: c.name }))}
+                  />
+                )}
+              </>
             ),
             actions: (
               <GuideRowActions guideId={g.id} canManageAccount={!isSysadmin} />

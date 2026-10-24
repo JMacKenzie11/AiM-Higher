@@ -17,11 +17,19 @@ export type QuarterResult =
   | { ok: true; quarter: Quarter }
   | { ok: false; message: string };
 
+// A guide works in the company the form names, when it is one of
+// theirs. Their own company_id is their coaching business, if they
+// have one, and is not where they are working just because it is set.
 function requireCompanyContext(session: {
-  profile: { role: string; company_id: string | null };
+  profile: { role: string; company_id: string | null; guide_company_ids?: readonly string[] };
 }, companyIdFromForm: string): string | null {
   if (session.profile.role === "system_admin") {
     return companyIdFromForm || null;
+  }
+  if (session.profile.role === "aims_guide") {
+    return companyIdFromForm && (session.profile.guide_company_ids ?? []).includes(companyIdFromForm)
+      ? companyIdFromForm
+      : null;
   }
   return session.profile.company_id;
 }

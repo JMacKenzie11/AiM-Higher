@@ -10,8 +10,10 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // Server actions for AiMS Guide management. System-admin only.
 //
 // Semantics:
-//   - Guides have no primary company_id. Their access derives from
-//     rows in guide_assignments.
+//   - A guide's access derives from rows in guide_assignments. Their
+//     company_id is null, unless a system admin gave them a company of
+//     their own (setGuideOwnCompanyAction): a coach who runs a
+//     coaching business and guides clients from the same login.
 //   - Invite requires at least one initial assignment — a guide with
 //     no companies has nothing to see on sign-in.
 //   - Assign / unassign is idempotent: re-assigning an existing pair
@@ -289,9 +291,9 @@ export async function setGuideCompanyAccessAction(
   const [{ data: profile }, { data: currentRows }] = await Promise.all([
     admin
       .from("profiles")
-      .select("role")
+      .select("role, company_id")
       .eq("id", guideId)
-      .maybeSingle<{ role: string }>(),
+      .maybeSingle<{ role: string; company_id: string | null }>(),
     admin
       .from("guide_assignments")
       .select("company_id")
@@ -321,6 +323,18 @@ export async function setGuideCompanyAccessAction(
       ok: false,
       message:
         "A guide needs at least one company. Delete the guide instead if they're no longer coaching.",
+    };
+  }
+
+  // THEIR OWN COMPANY STAYS TICKED. The assignment is what makes the
+  // guide its admin, and a guide who belongs to a company they cannot
+  // administer is not what anyone set up. Change or clear their own
+  // company first.
+  if (profile?.company_id && toRemove.includes(profile.company_id)) {
+    return {
+      ok: false,
+      message:
+        "That's the guide's own company. Change their own company first.",
     };
   }
 
@@ -366,4 +380,78 @@ export async function setGuideCompanyAccessAction(
 
   revalidatePath("/admin/companies", "layout");
   return { ok: true };
+}
+
+// ---- Give a guide a company of their own ---------------------
+//
+// For a coach who runs their own coaching business and guides their
+// clients from the same login (Jason, 2026-10-24). System admin only.
+//
+// Two writes, and both are needed:
+//   - profiles.company_id makes them a MEMBER: on its chart, owning
+//     its commitments, priorities and critical success factors, at
+//     its meetings. Their role stays aims_guide, which keeps their
+//     clients.
+//   - a guide_assignments row makes them its ADMIN, through the same
+//     rules that make a guide the admin of a client. No policy needed
+//     changing for that.
+//
+// Moving them to another company leaves the old one as a client
+// assignment, untickable in the access card like any other. Clearing
+// it (companyId null) makes them a guide with no company of their own
+// again, and leaves the assignment for the same reason.
+//
+// 0300 keeps the company's own admins and its other guides from
+// changing or deleting the guide's account once they belong to it.
+export async function setGuideOwnCompanyAction(
+  guideId: string,
+  companyId: string | null
+): Promise<GuideActionResult> {
+  const g = await guard();
+  if (!g.ok) return g;
+
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, role, company_id")
+    .eq("id", guideId)
+    .maybeSingle<{ id: string; role: string; company_id: string | null }>();
+  if (!profile || profile.role !== "aims_guide") {
+    return { ok: false, message: "That user isn't an AiMS Guide." };
+  }
+  if ((profile.company_id ?? null) === companyId) return { ok: true, guideId };
+
+  if (companyId) {
+    const { data: company } = await admin
+      .from("companies")
+      .select("id")
+      .eq("id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle<{ id: string }>();
+    if (!company) return { ok: false, message: "That company is no longer available." };
+
+    // The assignment first: a guide who belongs to a company and is
+    // not yet its admin is the state to never leave behind.
+    const { error: assignErr } = await admin
+      .from("guide_assignments")
+      .upsert({ guide_id: guideId, company_id: companyId }, { onConflict: "guide_id,company_id" });
+    if (assignErr) {
+      reportError("guides.ownCompany.assign", assignErr, { guideId, companyId });
+      return { ok: false, message: "Couldn't make them that company's admin, so nothing changed." };
+    }
+  }
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ company_id: companyId })
+    .eq("id", guideId);
+  if (error) {
+    reportError("guides.ownCompany.profile", error, { guideId, companyId });
+    return { ok: false, message: "Couldn't save their own company." };
+  }
+
+  revalidatePath("/admin/companies", "layout");
+  revalidatePath("/people");
+  revalidatePath("/chart");
+  return { ok: true, guideId };
 }

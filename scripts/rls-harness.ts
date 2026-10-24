@@ -12754,6 +12754,126 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- A guide's own company: its admins manage members only (0300) --
+//
+// A guide may belong to a company of their own: company_id on their
+// profile, and a guide assignment to it that makes them its admin.
+// Seeded inside the transaction on the company admin's company: the
+// coach (an aims_guide who belongs to it and is assigned to it), a
+// team member, and the harness's own guide assigned there too.
+//   granted   the company's admin and the other guide each edit the
+//             team member; the coach edits the team member, adds a
+//             function and edits their own profile
+//   withheld  the company's admin and the other guide each try to
+//             make the coach a team member, and to delete them
+// Red before 0300: both demotions and both deletes reach the coach.
+async function guideOwnCompanyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "a guide's own company · members only";
+  const ADMIN = ids.companyAdmin, CO = ids.companyAdminCompany, G = ids.guide;
+  const COACH = randomUUID(), PEER = randomUUID();
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${COACH}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-coach-0300@example.invalid', '', now(), now(), now()),
+       ('${PEER}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-peer-0300@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${COACH}', '${CO}', 'Harness Coach 0300', 'aims_guide', 'active'),
+  ('${PEER}', '${CO}', 'Harness Peer 0300', 'team_member', 'active');
+insert into public.guide_assignments (guide_id, company_id) values
+  ('${COACH}', '${CO}'), ('${G}', '${CO}')
+on conflict do nothing;
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ADMIN}","role":"authenticated"}', true);
+  begin
+    update public.profiles set position = 'harness 0300 admin' where id = '${PEER}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('admin_edits_peer', n::text);
+    when others then insert into _p values ('admin_edits_peer', 'error ' || sqlstate); end;
+  begin
+    update public.profiles set role = 'team_member' where id = '${COACH}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('admin_demotes_coach', n::text);
+    when others then insert into _p values ('admin_demotes_coach', 'error ' || sqlstate); end;
+  begin
+    delete from public.profiles where id = '${COACH}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('admin_deletes_coach', n::text);
+    when others then insert into _p values ('admin_deletes_coach', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', '{"sub":"${G}","role":"authenticated"}', true);
+  begin
+    update public.profiles set position = 'harness 0300 guide' where id = '${PEER}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('guide_edits_peer', n::text);
+    when others then insert into _p values ('guide_edits_peer', 'error ' || sqlstate); end;
+  begin
+    update public.profiles set role = 'team_member' where id = '${COACH}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('guide_demotes_coach', n::text);
+    when others then insert into _p values ('guide_demotes_coach', 'error ' || sqlstate); end;
+  begin
+    delete from public.profiles where id = '${COACH}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('guide_deletes_coach', n::text);
+    when others then insert into _p values ('guide_deletes_coach', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', '{"sub":"${COACH}","role":"authenticated"}', true);
+  begin
+    update public.profiles set position = 'harness 0300 coach' where id = '${PEER}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('coach_edits_peer', n::text);
+    when others then insert into _p values ('coach_edits_peer', 'error ' || sqlstate); end;
+  begin
+    insert into public.functions (company_id, title) values ('${CO}', 'harness 0300 coach');
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('coach_adds_function', n::text);
+    when others then insert into _p values ('coach_adds_function', 'error ' || sqlstate); end;
+  begin
+    update public.profiles set position = 'Coach' where id = '${COACH}';
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('coach_edits_self', n::text);
+    when others then insert into _p values ('coach_edits_self', 'error ' || sqlstate); end;
+end $$;
+reset role;
+insert into _p select 'coach_role', role from public.profiles where id = '${COACH}';
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const granted = ["admin_edits_peer", "guide_edits_peer", "coach_edits_peer", "coach_adds_function", "coach_edits_self"];
+  const withheld = ["admin_demotes_coach", "admin_deletes_coach", "guide_demotes_coach", "guide_deletes_coach"];
+  const ok = granted.every((k) => r[k] === "1") && withheld.every((k) => r[k] === "0") && r.coach_role === "aims_guide";
+  return [{
+    name,
+    granted: granted.map((k) => `${k} ${r[k]}`).join(", ") + " (want 1 each)",
+    withheld: withheld.map((k) => `${k} ${r[k]}`).join(", ") + `, coach still ${r.coach_role} (want 0 each, aims_guide)`,
+    ok,
+    detail: ok
+      ? "the company's admin and its other guide manage its members and cannot touch the coach's account; the coach administers their own company"
+      : withheld.some((k) => r[k] !== "0")
+        ? "A COMPANY'S ADMIN OR GUIDE CAN DEMOTE OR DELETE A GUIDE who belongs to it (is 0300 applied?)"
+        : "a member edit or the coach's own admin write is refused",
+  }];
+}
+
 // ---- Only the transcript marks a headline as its own (0292) ------
 //
 // meeting_headlines.source_meeting_id says a headline came from the
@@ -14977,6 +15097,7 @@ async function main(): Promise<void> {
   const headlines = await meetingHeadlinesProbes(run, ids, pendingSql);
   const headlinesSource = await meetingHeadlinesSourceProbes(run, ids, pendingSql);
   const checkins = await meetingCheckinsProbes(run, ids, pendingSql);
+  const guideOwn = await guideOwnCompanyProbes(run, ids, pendingSql);
   const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
   const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
@@ -15006,7 +15127,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
