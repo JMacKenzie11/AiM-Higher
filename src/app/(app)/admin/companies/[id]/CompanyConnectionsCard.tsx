@@ -47,7 +47,7 @@ export function CompanyConnectionsCard({
   if (!hubspot && hubspotOn) available.push({ id: "hubspot", label: "HubSpot" });
 
   return (
-    <section id="connections" className={styles.accentCard} aria-labelledby="connections-heading">
+    <section className={styles.accentCard} aria-labelledby="connections-heading">
       <h2 id="connections-heading" className={styles.h2}>
         External connections
       </h2>
