@@ -10,7 +10,7 @@ import { consentPathFor, isAuthorizationId } from "@/lib/mcp/consent-path";
 import { ConsentForm } from "./ConsentForm";
 import consentStyles from "./consent.module.css";
 import { isClientApproved } from "@/lib/mcp/client-approval";
-import { assistantLabel } from "@/lib/mcp/trusted-clients";
+import { assistantLabel, returnsToThisComputer } from "@/lib/mcp/trusted-clients";
 import { recordAction } from "@/lib/mcp/log";
 
 export const metadata = { title: "Allow access" };
@@ -80,7 +80,7 @@ export default async function ConsentPage({
         subtitle={`${label} asked to connect to your AiMS account.`}
       >
         <p className={formStyles.message}>
-          AiMS works with approved AI apps only, such as Claude and ChatGPT. Nothing has been shared.
+          AiMS works with approved AI apps only, such as Claude, ChatGPT and Grok Bot. Nothing has been shared.
         </p>
         <ConsentForm authorizationId={details.authorization_id} canApprove={false} />
       </AuthShell>
@@ -95,6 +95,9 @@ export default async function ConsentPage({
   } catch {
     // Not a URL Supabase would have accepted; show it as given.
   }
+
+  const local = returnsToThisComputer(details.redirect_uri);
+  if (local) returnsTo = "a program on this computer";
 
   return (
     <AuthShell
@@ -116,6 +119,14 @@ export default async function ConsentPage({
             AiMS never lets your data be used to train AI models. Once it reaches {details.client.name || "this AI app"}, {details.client.name || "this AI app"}&apos;s terms and privacy policy apply instead, along with your own settings there.
           </p>
           <p>It returns to {returnsTo}.</p>
+          {/* 0301: Grok Bot may return to a program on this computer,
+              and any program there could be the one listening. Said
+              plainly, so a request the person didn't start stops here. */}
+          {local ? (
+            <p className={consentStyles.localNote}>
+              Only allow it if you started connecting {details.client.name || "this AI app"} yourself, on this computer, just now.
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className={formStyles.message}>AI apps aren&apos;t open to your account yet.</p>
