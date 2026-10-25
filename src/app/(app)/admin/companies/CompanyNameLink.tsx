@@ -11,12 +11,14 @@ import styles from "./admin.module.css";
 export function CompanyNameLink({
   companyId,
   name,
+  className = styles.companyLink,
 }: {
   companyId: string;
   name: string;
+  className?: string;
 }) {
   return (
-    <ScopeIntoCompanyButton companyId={companyId} className={styles.companyLink}>
+    <ScopeIntoCompanyButton companyId={companyId} className={className}>
       {name}
     </ScopeIntoCompanyButton>
   );
