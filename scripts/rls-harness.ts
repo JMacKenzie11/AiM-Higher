@@ -11768,17 +11768,26 @@ select jsonb_object_agg(k, v)::text as r from _s;`, "rollback;"].join("\n"));
 //
 // Jason, 2026-10-14: with open registration, a client is approved only
 // if every redirect address it registered is on the allow-list.
-//   granted   Claude's and ChatGPT's real callback addresses; the gate
-//             passes an approved client; the token hook passes an app
-//             sign-in and an approved client unchanged
+//   granted   Claude's and ChatGPT's real callback addresses, and Grok
+//             Bot's registration of six (0301); the gate passes an
+//             approved client; the token hook passes an app sign-in and
+//             an approved client unchanged
 //   withheld  an unknown host, a mixed registration, a claude.ai
-//             lookalike, plain http; the gate refuses an unapproved
-//             client (42501); the token hook refuses to issue one (403)
-// Red before 0280: none of the three functions exists.
+//             lookalike, plain http, a localhost on another port and a
+//             cursor:// lookalike; the gate refuses an unapproved client
+//             (42501); the token hook refuses to issue one (403)
+// Red before 0280: none of the three functions exists. Red before
+// 0301: Grok Bot is refused.
 async function assistantTrustedClientProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "assistant clients · approved by where they return";
   const M = ids.member;
   const ok = randomUUID(), gpt = randomUUID(), evil = randomUUID(), mixed = randomUUID(), look = randomUUID(), http = randomUUID();
+  const grok = randomUUID(), port = randomUUID(), scheme = randomUUID();
+  const GROK = [
+    "https://www.cursor.com/agents/mcp/oauth/callback", "https://www.cursor.com/bot/mcp/oauth/callback",
+    "https://grok.com/connectors-oauth-exchange-code/", "cursor://anysphere.cursor-mcp/oauth/callback",
+    "http://localhost:8787/callback", "http://127.0.0.1:8787/callback",
+  ].join(",");
   let r: Record<string, string> = {};
   try {
     const [row] = await run<{ r: string }>(["begin;", pending, `
@@ -11790,12 +11799,15 @@ insert into auth.oauth_clients (id, client_name, registration_type, redirect_uri
   ('${evil}', 'Claude', 'dynamic', 'https://evil.example/cb', 'authorization_code', 'none'),
   ('${mixed}', 'Claude', 'dynamic', 'https://claude.ai/api/mcp/auth_callback,https://evil.example/cb', 'authorization_code', 'none'),
   ('${look}', 'Claude', 'dynamic', 'https://claude.ai.evil.example/api/mcp/auth_callback', 'authorization_code', 'none'),
-  ('${http}', 'Claude', 'dynamic', 'http://claude.ai/api/mcp/auth_callback', 'authorization_code', 'none');
+  ('${http}', 'Claude', 'dynamic', 'http://claude.ai/api/mcp/auth_callback', 'authorization_code', 'none'),
+  ('${grok}', 'Grok Bot', 'dynamic', '${GROK}', 'authorization_code', 'none'),
+  ('${port}', 'Grok Bot', 'dynamic', 'https://grok.com/connectors-oauth-exchange-code/,http://localhost:3000/callback', 'authorization_code', 'none'),
+  ('${scheme}', 'Grok Bot', 'dynamic', 'cursor://evil/oauth/callback', 'authorization_code', 'none');
 create temp table _t (k text, v text) on commit drop;
 do $$
 declare o text; c record;
 begin
-  for c in select * from (values ('claude', '${ok}'), ('chatgpt', '${gpt}'), ('evil', '${evil}'), ('mixed', '${mixed}'), ('lookalike', '${look}'), ('http', '${http}')) v(k, id) loop
+  for c in select * from (values ('claude', '${ok}'), ('chatgpt', '${gpt}'), ('evil', '${evil}'), ('mixed', '${mixed}'), ('lookalike', '${look}'), ('http', '${http}'), ('grok', '${grok}'), ('other_port', '${port}'), ('cursor_lookalike', '${scheme}')) v(k, id) loop
     insert into _t values ('trusted_' || c.k, public.assistant_client_trusted(c.id)::text);
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated","client_id":"%s"}', '${M}', c.id), true);
     perform set_config('request.method', 'GET', true);
@@ -11815,18 +11827,18 @@ select jsonb_object_agg(k, v)::text as r from _t;`, "rollback;"].join("\n"));
     return [{ name, granted: "not measured", withheld: "not measured", ok: false,
       detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
   }
-  const good = ["claude", "chatgpt"], bad = ["evil", "mixed", "lookalike", "http"];
+  const good = ["claude", "chatgpt", "grok"], bad = ["evil", "mixed", "lookalike", "http", "other_port", "cursor_lookalike"];
   const pass = good.every((k) => r[`trusted_${k}`] === "true" && r[`gate_${k}`] === "allowed" && r[`hook_${k}`] === "issued")
     && bad.every((k) => r[`trusted_${k}`] === "false" && r[`gate_${k}`] === "refused 42501" && r[`hook_${k}`] === "403")
     && r.hook_app === "issued";
   return [{
     name,
-    granted: `Claude's callbacks: gate ${r.gate_claude}, token ${r.hook_claude} | ChatGPT per-connector: gate ${r.gate_chatgpt}, token ${r.hook_chatgpt} | an app sign-in's token: ${r.hook_app}`,
+    granted: `Claude's callbacks: gate ${r.gate_claude}, token ${r.hook_claude} | ChatGPT per-connector: gate ${r.gate_chatgpt}, token ${r.hook_chatgpt} | Grok Bot's six: gate ${r.gate_grok}, token ${r.hook_grok} | an app sign-in's token: ${r.hook_app}`,
     withheld: bad.map((k) => `${k}: gate ${r[`gate_${k}`]}, token ${r[`hook_${k}`]}`).join(" | ") + " (want refused 42501 and 403 each)",
     ok: pass,
     detail: pass
       ? "only clients whose every redirect address is approved get a token or reach the database; app sign-ins are untouched"
-      : "AN UNAPPROVED ASSISTANT CLIENT GETS A TOKEN OR REACHES THE DATABASE (is 0280 applied?)",
+      : "AN APPROVED CLIENT IS REFUSED, OR AN UNAPPROVED ONE GETS A TOKEN OR REACHES THE DATABASE (are 0280 and 0301 applied?)",
   }];
 }
 

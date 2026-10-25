@@ -62,3 +62,13 @@
 .copy > p + p {
   margin-top: var(--space-3);
 }
+
+/* The return is a program on this computer (0301): set apart so it is
+   read before Allow. */
+.localNote {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--aims-chartreuse);
+  background: color-mix(in srgb, var(--aims-white) 8%, transparent);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}

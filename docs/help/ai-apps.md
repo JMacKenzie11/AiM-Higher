@@ -5,7 +5,7 @@ roles: [system_admin, company_admin, aims_guide, team_member]
 
 # Connect AI apps
 
-Use AiMS HQ inside an AI app such as Claude or ChatGPT, so it can read your AiMS work and add commitments, issues and measure values for you, as you.
+Use AiMS HQ inside an AI app such as Claude, ChatGPT or Grok Bot, so it can read your AiMS work and add commitments, issues and measure values for you, as you.
 
 Aimee is built into AiMS HQ and needs no setup. An AI app is a separate app you use outside AiMS. You connect it once, and from then on it can work with AiMS for you, seeing only what you can see. You can disconnect it at any time from your profile.
 
@@ -75,4 +75,31 @@ On your AiMS HQ profile, under **Your connected AI apps**, click **Disconnect** 
 - **There's no way to create an app.** Developer mode is off, or your plan doesn't include it. Turn it on in **Settings**, or ask your workspace admin.
 - **"This AI app isn't approved for AiMS".** Create the app from ChatGPT on the web at chatgpt.com, using the address above. Other apps and tools aren't approved.
 - **ChatGPT says AI apps are switched off for your company.** Ask your company admin to switch them on in your company's settings in AiMS HQ.
+
+## Grok Bot
+
+### Connect Grok Bot
+
+1. Copy your AiMS HQ server address: `{{mcp_address}}`
+2. In Grok, open **Connectors** (grok.com/connectors), click **New Connector**, then choose **Custom**.
+3. Paste the address as the server URL and continue.
+4. Sign in to AiMS HQ as you, read what Grok Bot will be able to do, and click **Allow**.
+
+On a Grok Business or Enterprise plan, a team admin may need to add the connector first.
+
+The AiMS page may say Grok Bot returns to **a program on this computer**. That's normal when you're connecting from the Grok Bot app. Only click **Allow** if you started connecting Grok Bot yourself, on that computer, just now. If you didn't, click **Decline**.
+
+### Try this first in Grok Bot
+
+Ask: *"What are my open commitments in AiMS?"* Then try: *"Add a commitment in AiMS to send the board pack by Friday."* If Grok Bot adds it without showing you first, check the new commitment in AiMS.
+
+### Disconnect Grok Bot
+
+On your AiMS HQ profile, under **Your connected AI apps**, click **Disconnect** beside Grok Bot. It stops reaching AiMS at once. To remove it from Grok too, delete the AiMS HQ connector there.
+
+### If Grok Bot doesn't connect
+
+- **"This AI app isn't approved for AiMS".** Add the connector from Grok itself, using the address above.
+- **The sign-in fails, or calls fail after connecting.** Grok Bot has some open sign-in problems of its own. Remove the connector, add it again, and if it still fails, tell AiMS what Grok showed.
+- **Grok Bot says AI apps are switched off for your company.** Ask your company admin to switch them on in your company's settings in AiMS HQ.
 :::
