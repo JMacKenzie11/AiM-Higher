@@ -28,7 +28,14 @@ export type AnalysisTab = {
   content: ReactNode;
 };
 
-export function AnalysisTabs({ tabs }: { tabs: AnalysisTab[] }) {
+// Also the tabs on Company settings, which pass their own label.
+export function AnalysisTabs({
+  tabs,
+  label = "Meeting analysis",
+}: {
+  tabs: AnalysisTab[];
+  label?: string;
+}) {
   const [active, setActive] = useState(tabs[0]?.hash ?? "");
 
   useEffect(() => {
@@ -43,7 +50,7 @@ export function AnalysisTabs({ tabs }: { tabs: AnalysisTab[] }) {
 
   return (
     <div>
-      <div className={styles.tabRow} role="tablist" aria-label="Meeting analysis">
+      <div className={styles.tabRow} role="tablist" aria-label={label}>
         {tabs.map((t) => (
           <a
             key={t.hash}

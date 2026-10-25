@@ -5,15 +5,14 @@ roles: [system_admin, company_admin, aims_guide, portfolio_admin]
 
 # Company settings
 
-Everything that sets up one company, grouped by what you came to do. The links under the company's name jump to each group:
+Everything that sets up one company, in tabs by what you came to do:
 
-- **Quarter**: roll to the next quarter.
+- **Planning**: roll to the next quarter, or start the strategy again after an annual planning session.
 - **Connections**: Google, HubSpot, meeting transcripts and AI apps.
 - **People**: the AiMS champion and who else administers the company.
 - **Company**: industry, and for AiMS, timezone, features and archiving.
-- **Start over**: start the strategy again after an annual planning session.
 
-You only see the groups and cards that are yours to use.
+You only see the tabs and cards that are yours to use.
 
 ::: role company_admin
 ## What you can do here
@@ -32,7 +31,7 @@ You only see the groups and cards that are yours to use.
 
 Everything on the page:
 
-- **Open this company** with the button beside the section links. **Archive or reactivate it** on the Archive card, under Company. Once a company is archived, *Delete* appears too.
+- **Open this company** with the button under the company's name. **Archive or reactivate it** on the Archive card, on the Company tab. Once a company is archived, *Delete* appears too.
 - **Set the industry, timezone and features**, and choose the AiMS champion.
 - **Connect Google and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* below.
@@ -43,7 +42,7 @@ Everything on the page:
 ::: role portfolio_admin
 ## What you can do here
 
-- **Open this company** with the button beside the section links. **Archive or reactivate it** on the Archive card, under Company. Deleting a company is for system admins.
+- **Open this company** with the button under the company's name. **Archive or reactivate it** on the Archive card, on the Company tab. Deleting a company is for system admins.
 - **Set the industry, timezone and features.**
 - **See who else administers the company** under Assigned access.
 - **See the meeting transcript folders.**
@@ -54,7 +53,7 @@ Choosing the AiMS champion, rolling the quarter and starting the strategy again 
 ::: role aims_guide
 ## What you can do here
 
-- **Open this company** with the button beside the section links, to work inside it.
+- **Open this company** with the button under the company's name, to work inside it.
 - **Connect Google and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* below.
 

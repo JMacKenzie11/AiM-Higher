@@ -39,8 +39,9 @@ async function hubspotRows(companyId: string): Promise<number> {
   return count ?? 0;
 }
 
+// Company settings is in tabs; the hash opens the Connections one.
 async function openConnections(page: Page, companyId: string) {
-  await page.goto(`/admin/companies/${companyId}`);
+  await page.goto(`/admin/companies/${companyId}#connections`);
   await expect(page.getByRole("heading", { name: "External connections" })).toBeVisible({ timeout: 30_000 });
 }
 
