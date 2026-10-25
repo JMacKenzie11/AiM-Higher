@@ -7,10 +7,10 @@ roles: [system_admin, company_admin, aims_guide, portfolio_admin]
 
 Everything that sets up one company, in tabs by what you came to do:
 
+- **Company**: industry, and for AiMS, timezone, features and archiving.
+- **People**: the AiMS champion and who else administers the company.
 - **Planning**: roll to the next quarter, or start the strategy again after an annual planning session.
 - **Connections**: Google, HubSpot, meeting transcripts and AI apps.
-- **People**: the AiMS champion and who else administers the company.
-- **Company**: industry, and for AiMS, timezone, features and archiving.
 
 You only see the tabs and cards that are yours to use.
 
