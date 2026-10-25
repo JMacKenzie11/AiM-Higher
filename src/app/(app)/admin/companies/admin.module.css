@@ -956,40 +956,10 @@
   text-transform: capitalize;
 }
 
-/* ---- Company settings, grouped by job (2026-10-25) ----------
-   Section labels in the left menu's style, jump links in the hero,
-   and the way into the company beside them. The grouped content
-   drops the -32px overlap: a section label sitting over the hero's
-   lower edge would read on neither background. */
-.settingsHeroRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3) var(--space-5);
-  margin-top: var(--space-2);
-}
-
-.settingsJump {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-}
-
-.settingsJump a {
-  color: var(--aims-white);
-  opacity: 0.85;
-  font: var(--text-body-sm);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.settingsJump a:hover {
-  opacity: 1;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
+/* ---- Company settings, in tabs by job (2026-10-25) ---------
+   The tabs are the meeting summary's (AnalysisTabs). The content
+   drops the -32px overlap so the tab row sits clear of the hero,
+   and the way into the company is an outlined button on the hero. */
 .heroOpen {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.6);
@@ -1014,27 +984,6 @@
 .settingsContent {
   margin-top: 0;
   padding-top: var(--space-6);
-  gap: var(--space-7);
-}
-
-.settingsGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  scroll-margin-top: var(--space-6);
-}
-
-/* Sentence case under calm visuals (globals.css), so the label
-   carries weight and a rule rather than relying on capitals. */
-.settingsGroupLabel {
-  margin: 0;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
-  font: var(--text-body);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .settingsActions {
