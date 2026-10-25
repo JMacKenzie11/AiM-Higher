@@ -201,8 +201,8 @@ export default async function CompanyDetailPage({
     0;
 
   // The page is in tabs by the job someone came to do (Jason,
-  // 2026-10-25): Planning (the quarter, and starting the strategy
-  // again), Connections, People and Company. Each card keeps its own
+  // 2026-10-25): Company, People, Planning (the quarter, and starting
+  // the strategy again) and Connections. Each card keeps its own
   // audience; a tab shows when any card in it does.
   const mcpCard =
     (await mcpEnabledHere()) &&
@@ -245,13 +245,163 @@ export default async function CompanyDetailPage({
 
       <div className={`${styles.content} ${styles.settingsContent}`}>
         {/* Tabs by job, as on a meeting summary (Jason, 2026-10-25):
-            Planning, Connections, People, Company. Each card keeps its
+            Company, People, Planning, Connections (Jason's order). The
+            first tab a caller has is where the page opens. Each card keeps its
             own audience and a tab shows when any card in it does. The
             hash opens a tab, so `#connections` (the Google sign-in
             return, and the old Connections address) opens Connections. */}
         <AnalysisTabs
           label="Company settings"
           tabs={[
+            ...(industryCard || managesContainer
+              ? [
+                  {
+                    hash: "company",
+                    label: "Company",
+                    content: (
+                      <>
+                        {/* Industry — system admins, portfolio admins and company
+                            admins, not guides (guides don't set brand-level
+                            metadata). */}
+                        {industryCard ? (
+                          <section className={styles.accentCard} aria-labelledby="industry-heading">
+                            <h2 id="industry-heading" className={styles.h2}>
+                              Industry
+                            </h2>
+                            <IndustryForm
+                              companyId={company.id}
+                              initial={company.industry}
+                            />
+                          </section>
+                        ) : null}
+
+                        {/* Timezone — the container roles only. Changing it
+                            re-dates every bucketed read in the app, so it does not
+                            sit with the roles that administer a single tenant.
+                            0176's column guard enforces that below the app. */}
+                        {managesContainer ? (
+                          <section className={styles.accentCard} aria-labelledby="timezone-heading">
+                            <h2 id="timezone-heading" className={styles.h2}>
+                              Timezone
+                            </h2>
+                            <TimezoneForm companyId={company.id} initial={company.timezone} />
+                            {timezoneHistory.length > 0 ? (
+                              <ul className={styles.historyList}>
+                                {timezoneHistory.map((change) => (
+                                  <li key={change.occurred_at} className={styles.subtitleInline}>
+                                    {change.old_value ?? "unset"} to{" "}
+                                    {change.new_value ?? "unset"} on{" "}
+                                    {new Date(change.occurred_at).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                    {change.actor ? `, by ${change.actor.full_name}` : ""}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </section>
+                        ) : null}
+
+                        {/* Features — the container roles only (module
+                            entitlements). */}
+                        {managesContainer ? (
+                          <section className={styles.accentCard} aria-labelledby="features-heading">
+                            <h2 id="features-heading" className={styles.h2}>
+                              Features
+                            </h2>
+                            <FeaturesForm companyId={company.id} initial={features} />
+                          </section>
+                        ) : null}
+
+                        {/* Archive is on the closed list; Delete is not, and they
+                            live in the same component. `canDelete` is what
+                            separates them here — RLS refuses the delete either way
+                            (companies_delete admits system_admin only, and
+                            `deleted_at` is absent from 0192's column allowlist),
+                            so this is the courtesy half of a boundary that is
+                            already enforced below it. */}
+                        {managesContainer ? (
+                          <section className={styles.accentCard} aria-labelledby="archive-heading">
+                            <h2 id="archive-heading" className={styles.h2}>
+                              Archive
+                            </h2>
+                            <p className={styles.subtitleInline}>
+                              Archiving hides the company from picker lists and stops its
+                              people signing in.
+                            </p>
+                            <div className={styles.settingsActions}>
+                              <CompanyRowActions
+                                companyId={company.id}
+                                status={company.status}
+                                canDelete={isSystemAdmin}
+                              />
+                            </div>
+                          </section>
+                        ) : null}
+                      </>
+                    ),
+                  },
+                ]
+              : []),
+            ...(championCard || assignedCard
+              ? [
+                  {
+                    hash: "people",
+                    label: "People",
+                    content: (
+                      <>
+                        {/* AiMS champion — the company's own admins, not the
+                            container roles. It is a decision about this team,
+                            made by this team. The column guard in 0235 draws the
+                            same line below the app. */}
+                        {championCard ? (
+                          <section className={styles.accentCard} aria-labelledby="champion-heading">
+                            <h2 id="champion-heading" className={styles.h2}>
+                              AiMS champion
+                            </h2>
+                            <ChampionForm
+                              companyId={company.id}
+                              initial={company.aims_champion_profile_id}
+                              candidates={championCandidates}
+                            />
+                          </section>
+                        ) : null}
+
+                        {/* Assigned access — who administers this company without
+                            being part of its team. Spec §1a, decision 9.
+
+                            NOT on /people, and that is the decision rather than an
+                            accident of where it was easy to put. /people is the
+                            team's page and everybody in the company reads it; two
+                            non-members in that list means explaining the
+                            discrepancy to all of them with a badge.
+
+                            Guides are excluded: their own assignments are already
+                            in Guide HQ, and assigned_access() returns empty for a
+                            guide, so the card would be empty anyway. */}
+                        {assignedCard ? (
+                          <section className={styles.accentCard} aria-labelledby="assigned-access">
+                            <h2 id="assigned-access" className={styles.h2}>
+                              Assigned access
+                            </h2>
+                            <p className={styles.subtitleInline}>
+                              People who administer this company without being part of its
+                              team.
+                            </p>
+                            <AssignedAccessList
+                              companyId={company.id}
+                              people={assignedAccess}
+                              canRemove={isSystemAdmin || isCompanyAdmin}
+                            />
+                          </section>
+                        ) : null}
+                      </>
+                    ),
+                  },
+                ]
+              : []),
             ...(quarterCard || startOverCard
               ? [
                   {
@@ -352,155 +502,6 @@ export default async function CompanyDetailPage({
                 </>
               ),
             },
-            ...(championCard || assignedCard
-              ? [
-                  {
-                    hash: "people",
-                    label: "People",
-                    content: (
-                      <>
-                        {/* AiMS champion — the company's own admins, not the
-                            container roles. It is a decision about this team,
-                            made by this team. The column guard in 0235 draws the
-                            same line below the app. */}
-                        {championCard ? (
-                          <section className={styles.accentCard} aria-labelledby="champion-heading">
-                            <h2 id="champion-heading" className={styles.h2}>
-                              AiMS champion
-                            </h2>
-                            <ChampionForm
-                              companyId={company.id}
-                              initial={company.aims_champion_profile_id}
-                              candidates={championCandidates}
-                            />
-                          </section>
-                        ) : null}
-
-                        {/* Assigned access — who administers this company without
-                            being part of its team. Spec §1a, decision 9.
-
-                            NOT on /people, and that is the decision rather than an
-                            accident of where it was easy to put. /people is the
-                            team's page and everybody in the company reads it; two
-                            non-members in that list means explaining the
-                            discrepancy to all of them with a badge.
-
-                            Guides are excluded: their own assignments are already
-                            in Guide HQ, and assigned_access() returns empty for a
-                            guide, so the card would be empty anyway. */}
-                        {assignedCard ? (
-                          <section className={styles.accentCard} aria-labelledby="assigned-access">
-                            <h2 id="assigned-access" className={styles.h2}>
-                              Assigned access
-                            </h2>
-                            <p className={styles.subtitleInline}>
-                              People who administer this company without being part of its
-                              team.
-                            </p>
-                            <AssignedAccessList
-                              companyId={company.id}
-                              people={assignedAccess}
-                              canRemove={isSystemAdmin || isCompanyAdmin}
-                            />
-                          </section>
-                        ) : null}
-                      </>
-                    ),
-                  },
-                ]
-              : []),
-            ...(industryCard || managesContainer
-              ? [
-                  {
-                    hash: "company",
-                    label: "Company",
-                    content: (
-                      <>
-                        {/* Industry — system admins, portfolio admins and company
-                            admins, not guides (guides don't set brand-level
-                            metadata). */}
-                        {industryCard ? (
-                          <section className={styles.accentCard} aria-labelledby="industry-heading">
-                            <h2 id="industry-heading" className={styles.h2}>
-                              Industry
-                            </h2>
-                            <IndustryForm
-                              companyId={company.id}
-                              initial={company.industry}
-                            />
-                          </section>
-                        ) : null}
-
-                        {/* Timezone — the container roles only. Changing it
-                            re-dates every bucketed read in the app, so it does not
-                            sit with the roles that administer a single tenant.
-                            0176's column guard enforces that below the app. */}
-                        {managesContainer ? (
-                          <section className={styles.accentCard} aria-labelledby="timezone-heading">
-                            <h2 id="timezone-heading" className={styles.h2}>
-                              Timezone
-                            </h2>
-                            <TimezoneForm companyId={company.id} initial={company.timezone} />
-                            {timezoneHistory.length > 0 ? (
-                              <ul className={styles.historyList}>
-                                {timezoneHistory.map((change) => (
-                                  <li key={change.occurred_at} className={styles.subtitleInline}>
-                                    {change.old_value ?? "unset"} to{" "}
-                                    {change.new_value ?? "unset"} on{" "}
-                                    {new Date(change.occurred_at).toLocaleDateString("en-US", {
-                                      year: "numeric",
-                                      month: "short",
-                                      day: "numeric",
-                                    })}
-                                    {change.actor ? `, by ${change.actor.full_name}` : ""}
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : null}
-                          </section>
-                        ) : null}
-
-                        {/* Features — the container roles only (module
-                            entitlements). */}
-                        {managesContainer ? (
-                          <section className={styles.accentCard} aria-labelledby="features-heading">
-                            <h2 id="features-heading" className={styles.h2}>
-                              Features
-                            </h2>
-                            <FeaturesForm companyId={company.id} initial={features} />
-                          </section>
-                        ) : null}
-
-                        {/* Archive is on the closed list; Delete is not, and they
-                            live in the same component. `canDelete` is what
-                            separates them here — RLS refuses the delete either way
-                            (companies_delete admits system_admin only, and
-                            `deleted_at` is absent from 0192's column allowlist),
-                            so this is the courtesy half of a boundary that is
-                            already enforced below it. */}
-                        {managesContainer ? (
-                          <section className={styles.accentCard} aria-labelledby="archive-heading">
-                            <h2 id="archive-heading" className={styles.h2}>
-                              Archive
-                            </h2>
-                            <p className={styles.subtitleInline}>
-                              Archiving hides the company from picker lists and stops its
-                              people signing in.
-                            </p>
-                            <div className={styles.settingsActions}>
-                              <CompanyRowActions
-                                companyId={company.id}
-                                status={company.status}
-                                canDelete={isSystemAdmin}
-                              />
-                            </div>
-                          </section>
-                        ) : null}
-                      </>
-                    ),
-                  },
-                ]
-              : []),
           ]}
         />
       </div>
