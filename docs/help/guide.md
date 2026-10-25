@@ -19,7 +19,7 @@ When she has something worth your attention, a number appears on her icon in the
 - **Pass on it.** Click **Not now** under the note. It goes away and nothing else happens.
 
 ::: role company_admin,system_admin
-- **Choose the champion.** Set or change the seat under *AiMS champion* on the company settings page. You can pick any active person at the company, or leave it empty. Aimee follows whoever holds it, and an invitation still waiting for the person before goes with the seat.
+- **Choose the champion.** Set or change the seat under *AiMS champion*, on the People tab of the company settings page. You can pick any active person at the company, or leave it empty. Aimee follows whoever holds it, and an invitation still waiting for the person before goes with the seat.
 :::
 
 ## What happens in the chat
@@ -51,5 +51,5 @@ She can't read anyone else's conversations, and nobody can read yours.
 :::
 
 ::: role company_admin,system_admin
-**What if I'd rather not be the champion?** Change the seat on the company settings page, or leave it empty. With nobody in the seat, nobody is contacted and nothing else changes.
+**What if I'd rather not be the champion?** Change the seat on the People tab of the company settings page, or leave it empty. With nobody in the seat, nobody is contacted and nothing else changes.
 :::

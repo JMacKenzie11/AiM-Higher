@@ -68,7 +68,7 @@ Skip the Goal when it would only repeat the Focus Area's name back to you. That'
 
 ## Starting the strategy again
 
-After an annual planning session, when the team is rewriting the strategy, use **Start the strategy again** on your company settings page. It archives every Focus Area, Goal and Priority so you can build from a clean page. Nothing is deleted. Open commitments become Operational: still open, no longer linked to a Priority. Closed ones keep their link, so past progress still shows.
+After an annual planning session, when the team is rewriting the strategy, use **Start the strategy again** on the Planning tab of your company settings page. It archives every Focus Area, Goal and Priority so you can build from a clean page. Nothing is deleted. Open commitments become Operational: still open, no longer linked to a Priority. Closed ones keep their link, so past progress still shows.
 
 This isn't how you move to the next quarter. For that, use *Roll the quarter* on the same page, which carries unfinished Priorities forward.
 :::

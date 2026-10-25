@@ -78,5 +78,5 @@ The **overall score** is an average of the disciplines that have a score. Strate
 :::
 
 ::: role system_admin,portfolio_admin
-**Why does a card say *Not enabled*?** Meeting Facilitation Review is off for this company. Turn it on under *Features* on the company settings page, and the cards start scoring the next time the page loads.
+**Why does a card say *Not enabled*?** Meeting Facilitation Review is off for this company. Turn it on under *Features*, on the Company tab of the company settings page, and the cards start scoring the next time the page loads.
 :::

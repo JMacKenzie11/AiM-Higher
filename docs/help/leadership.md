@@ -24,15 +24,15 @@ Your company's leadership meetings, newest first. Open one to read what was disc
 
 - **Read a meeting.** Click *View* on any meeting marked *complete* to see the summary and the commitments it created.
 - **See how each meeting was run.** When Meeting Facilitation Review is turned on, each finished meeting shows a facilitation score out of 10. It's there to help you run better meetings, so it's never shown in red.
-- **Find out why a meeting failed.** The reason shows on the meeting. Try it again with *Check now* on your company settings page.
+- **Find out why a meeting failed.** The reason shows on the meeting. Try it again with *Check now* on the Connections tab of your company settings page.
 
 ## Common questions
 
 **Who can see these?** Everyone at your company: the summaries, the facilitation scores, and each meeting's transcript (*Read the transcript* on the meeting page).
 
-**Why is nothing showing up?** Meetings come in from the Google Drive folders connected on your company settings page. Check a folder is connected and that the recording was saved into it.
+**Why is nothing showing up?** Meetings come in from the Google Drive folders connected on the Connections tab of your company settings page. Check a folder is connected and that the recording was saved into it.
 
-**A meeting has said *pending* for a while.** It usually takes a few minutes. If it hasn't moved, use *Check now* on your company settings page.
+**A meeting has said *pending* for a while.** It usually takes a few minutes. If it hasn't moved, use *Check now* on the Connections tab of your company settings page.
 :::
 
 ::: role portfolio_admin
