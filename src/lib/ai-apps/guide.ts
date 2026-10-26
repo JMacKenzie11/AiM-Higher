@@ -7,13 +7,14 @@
 // splits it into one part per app. No imports, so the client can use
 // the types.
 
-export type AiAppId = "claude" | "chatgpt";
+export type AiAppId = "claude" | "chatgpt" | "grok";
 
-// The apps on the approved list (0280), in the order the dropdown
+// The apps on the approved list (0280; Grok Bot 0301), in the order the dropdown
 // shows them, each matched to its "## " heading in the article.
 export const AI_APPS: ReadonlyArray<{ id: AiAppId; heading: string }> = [
   { id: "claude", heading: "Claude" },
   { id: "chatgpt", heading: "ChatGPT" },
+  { id: "grok", heading: "Grok Bot" },
 ];
 
 export function isAiAppId(v: unknown): v is AiAppId {

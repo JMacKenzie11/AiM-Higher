@@ -12,18 +12,20 @@ const on = { subdomain: "@", companyAssistantsOn: true, mcpAddress: ADDRESS };
 const off = { ...on, companyAssistantsOn: false };
 
 describe("the How to connect article, the one source", () => {
-  it("gives the drawer both approved apps, each with the instance's address", async () => {
+  it("gives the drawer all three approved apps, each with the instance's address", async () => {
     vi.stubEnv("MCP_ENABLED", "true");
     const doc = await loadHelpForRoute("/ai-apps", "team_member", on);
     const { apps, off: offText } = splitAiAppsGuide(doc!.markdown);
-    expect(apps.map((a) => a.id)).toEqual(["claude", "chatgpt"]);
+    expect(apps.map((a) => a.id)).toEqual(["claude", "chatgpt", "grok"]);
     expect(offText).toBeNull();
     for (const a of apps) {
       expect(a.markdown).toContain(ADDRESS);
       expect(a.markdown).not.toContain("{{mcp_address}}");
-      for (const part of [`### Connect`, `### Keep`, `### Try this first`, `### Disconnect`, `### If`]) {
+      for (const part of [`### Connect`, `### Try this first`, `### Disconnect`, `### If`]) {
         expect(a.markdown).toContain(part);
       }
+      // Claude and ChatGPT ask before adding; Grok Bot's help says to check instead.
+      if (a.id !== "grok") expect(a.markdown).toContain("### Keep");
     }
   });
 
@@ -55,6 +57,7 @@ describe("Aimee on AI apps", () => {
   it("has a card for the tag, and the card reads only an approved app", () => {
     expect(OUTPUT_CARD_BY_TAG[CONNECT_AI_APP_TAG]).toBe("ConnectAiAppCard");
     expect(parseConnectAiApp('{"app":"chatgpt"}')).toBe("chatgpt");
+    expect(parseConnectAiApp('{"app":"grok"}')).toBe("grok");
     expect(parseConnectAiApp('{"app":"cursor"}')).toBeNull();
     expect(parseConnectAiApp("{")).toBeNull();
   });

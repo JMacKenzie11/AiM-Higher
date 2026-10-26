@@ -33,7 +33,7 @@ export function parseConnectAiApp(raw: string): AiAppId | null {
   }
 }
 
-const NAMES: Record<AiAppId, string> = { claude: "Claude", chatgpt: "ChatGPT" };
+const NAMES: Record<AiAppId, string> = { claude: "Claude", chatgpt: "ChatGPT", grok: "Grok Bot" };
 
 export function ConnectAiAppCard({ raw, streaming }: { raw: string; streaming: boolean }) {
   const app = parseConnectAiApp(raw);
