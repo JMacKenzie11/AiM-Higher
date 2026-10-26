@@ -51,29 +51,31 @@ On your AiMS HQ profile, under **Your connected AI apps**, click **Disconnect** 
 ### Connect ChatGPT
 
 1. Copy your AiMS HQ server address: `{{mcp_address}}`
-2. In ChatGPT on the web, open **Settings** and turn on **Developer mode**. It's under **Apps**, then **Advanced settings** (on some accounts it's under **Security and login**).
-3. Create a new app: **Create** on the **Apps** page (some accounts call this page **Plugins**).
-4. Name it **AiMS HQ**, paste the address as the server URL, choose **OAuth** for authentication, and create it.
-5. Sign in to AiMS HQ as you, read what ChatGPT will be able to do, and click **Allow**.
+2. In ChatGPT on the web, click your profile picture, then **Settings**, then **Security and login**, and turn on **Developer mode**.
+3. Go to **Plugins** (chatgpt.com/plugins), click **Add**, then **Create MCP App**.
+4. Name it **AiMS HQ**. Under **Connection**, leave **Server URL** chosen and paste the address. Under **Authentication**, leave **OAuth** chosen.
+5. Tick **I understand and want to continue**, then click **Create**.
+6. Sign in to AiMS HQ as you, read what ChatGPT will be able to do, and click **Allow**.
 
-Developer mode is on the web only, for Plus, Pro, Business, Enterprise and Edu accounts. On a Business, Enterprise or Edu workspace, a workspace admin may need to allow it first.
+Developer mode is on the web only, for Plus, Pro, Business, Enterprise and Edu accounts. On a Business workspace, only an admin or owner can turn it on. On Enterprise or Edu, a workspace admin may need to give you access first.
 
 ### Keep ChatGPT asking before it adds anything
 
-ChatGPT asks before it adds a commitment, issue or measure value. Approve each one when you've checked it, rather than telling ChatGPT to remember your approval for the rest of the chat. Reading your work doesn't need asking.
+ChatGPT asks before it adds a commitment, issue or measure value. Check each one before you approve it. Reading your work doesn't need asking.
 
 ### Try this first in ChatGPT
 
-Start a new chat, choose **AiMS HQ** from the tools, and ask: *"What are my open commitments in AiMS?"* Then try: *"Add a commitment in AiMS to send the board pack by Friday."* ChatGPT shows you what it will add and asks first.
+Start a new chat, type **@** and choose **AiMS HQ**, then ask: *"What are my open commitments in AiMS?"* Then try: *"Add a commitment in AiMS to send the board pack by Friday."* ChatGPT shows you what it will add and asks first.
 
 ### Disconnect ChatGPT
 
-On your AiMS HQ profile, under **Your connected AI apps**, click **Disconnect** beside ChatGPT. It stops reaching AiMS at once. To remove it from ChatGPT too, delete the AiMS HQ app in ChatGPT's settings.
+On your AiMS HQ profile, under **Your connected AI apps**, click **Disconnect** beside ChatGPT. It stops reaching AiMS at once. To remove it from ChatGPT too, delete AiMS HQ on ChatGPT's **Plugins** page.
 
 ### If ChatGPT doesn't connect
 
-- **There's no way to create an app.** Developer mode is off, or your plan doesn't include it. Turn it on in **Settings**, or ask your workspace admin.
+- **There's no Create MCP App.** Developer mode is off, or your plan doesn't include it. Turn it on under **Settings**, then **Security and login**, or ask your workspace admin.
 - **"This AI app isn't approved for AiMS".** Create the app from ChatGPT on the web at chatgpt.com, using the address above. Other apps and tools aren't approved.
+- **ChatGPT doesn't use AiMS in a chat.** Type **@** and choose **AiMS HQ** first, then ask again.
 - **ChatGPT says AI apps are switched off for your company.** Ask your company admin to switch them on in your company's settings in AiMS HQ.
 
 ## Grok Bot
