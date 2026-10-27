@@ -13,7 +13,6 @@ import { createClient } from "@supabase/supabase-js";
 // document if it has not come after every step has had an answer.
 
 const ANSWERS = [
-  "Just me, the owner.",
   "Our superpower is turning messy projects into calm ones. We're at our best when a client trusts us with something hard. Customers choose us because we answer the phone. Last spring we rebuilt a client's warehouse in nine days after a flood.",
   "On a great day people make the call themselves and tell us after. Conflict is out in the open and short. We celebrate the save, not the hero.",
   "Now we move into the future: I'm most excited that we are the firm other builders call when it goes wrong, with three offices and a team that runs without me.",
@@ -32,7 +31,8 @@ function db() {
 async function sendIn(page: Page, text: string) {
   const bubbles = page.getByTestId("coach-bubble");
   const before = await bubbles.count();
-  const composer = page.getByPlaceholder(/Ask Aimee|Reply/i).first();
+  // An agent conversation's box carries no placeholder; it is the one textbox.
+  const composer = page.getByRole("textbox").first();
   await expect(async () => {
     if ((await bubbles.count()) === before) {
       await composer.fill(text);
