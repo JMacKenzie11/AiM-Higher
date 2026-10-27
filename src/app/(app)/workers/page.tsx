@@ -65,11 +65,6 @@ export default async function WorkersPage() {
       eyebrow="Prototype"
       title="Workers"
       subtitle={`${cost(spentToday)} spent today`}
-      heroExtras={
-        <Link href="/workers/new" className={styles.primary}>
-          New worker
-        </Link>
-      }
     >
       {activeIds.length > 0 ? <AutoRefresh everyMs={5_000} /> : null}
 
@@ -127,8 +122,11 @@ export default async function WorkersPage() {
 
       <section className={styles.card} aria-labelledby="workers-list">
         <div className={styles.cardHeader}>
-          <h2 id="workers-list" className={styles.cardTitle}>Your workers</h2>
-          <span className={styles.cardMeta}>{workers.length}</span>
+          <h2 id="workers-list" className={styles.cardTitle}>Your workers ({workers.length})</h2>
+          {/* Here, not in the hero: buttons sit on cards, never on the navy. */}
+          <Link href="/workers/new" className={styles.primary}>
+            New worker
+          </Link>
         </div>
         {workers.length === 0 ? (
           <p className={styles.empty}>

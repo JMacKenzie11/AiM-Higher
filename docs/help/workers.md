@@ -13,7 +13,7 @@ At the top is what your workers have spent today. **Needs you** lists every task
 
 ## Create a worker
 
-Press **New worker**, give it a name and fill in its instructions. The box starts with four headings to fill in: the **Job**, a **Checklist** of what must be true when it's done, the **Rules** it can't find out by itself (which website to use, what to skip), and the **Reply** you want. The worker reads them on every task. Then press **Create worker**.
+Press **New worker** on the **Your workers** card, give it a name and fill in its instructions. The box starts with four headings to fill in: the **Job**, a **Checklist** of what must be true when it's done, the **Rules** it can't find out by itself (which website to use, what to skip), and the **Reply** you want. The worker reads them on every task. Then press **Create worker**.
 
 ## Give it a task
 
