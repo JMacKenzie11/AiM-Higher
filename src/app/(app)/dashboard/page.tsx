@@ -126,7 +126,9 @@ export default async function DashboardPage({
   const today = new Date().toISOString().slice(0, 10);
   const quarterLapsed =
     data.openQuarter !== null && data.openQuarter.end_date < today;
-  const settingsHref = `/admin/companies/${companyId}`;
+  // The Planning tab, where the Quarter card is. Company settings
+  // opens on its first tab otherwise.
+  const settingsHref = `/admin/companies/${companyId}#planning`;
 
   const eyebrow = data.openQuarter ? (
     quarterLapsed ? (

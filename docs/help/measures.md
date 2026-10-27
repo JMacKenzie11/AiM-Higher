@@ -129,7 +129,7 @@ You name two column headings: the one holding dates and the one holding the numb
 
 ## Connecting a measure to HubSpot
 
-Choose *HubSpot* as the source. Your company's admin first adds a HubSpot key on the *External connections* card, in Company settings. The pipelines and stages come from your HubSpot, so you pick them from a list.
+Choose *HubSpot* as the source. Your company's admin first adds a HubSpot key on the *External connections* card, on the Connections tab of Company settings. The pipelines and stages come from your HubSpot, so you pick them from a list.
 
 - **Weekly** gives a total for each week: the deals' amounts added up, or the number of deals. Choose which date places a deal in a week: the date it entered a stage, or the date it was created. For "won this week", choose the date it entered your won stage. HubSpot records that date itself, so it can't be typed to suit a forecast the way Close date can.
 - **Snapshot** adds up the deals in the stages you tick, as they stand when the pull runs: at their full amount, or at their weighted amount (amount × probability). Add a second part to combine them, for example won deals at full amount plus quoted deals weighted. A snapshot can't be worked out for past weeks, so it starts the week it's first pulled.

@@ -54,7 +54,7 @@ Focus Areas are on *Goals & Priorities*, and the week's wins open the weekly mee
 Everything above, plus:
 
 - **Coach anyone** from the *Coach* link under *Where to lend support*.
-- **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to company settings to fix it.
+- **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to the Planning tab of company settings to fix it.
 :::
 
 ::: role aims_guide
@@ -63,7 +63,7 @@ Everything above, plus:
 - **See how the company is doing** this quarter and this week.
 - **Open a Focus Area** or a person's scorecard from the panels.
 - **Coach anyone** from the *Coach* link under *Where to lend support*.
-- **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to company settings to fix it.
+- **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to the Planning tab of company settings to fix it.
 :::
 
 ::: role portfolio_admin
