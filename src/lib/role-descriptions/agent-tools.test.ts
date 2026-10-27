@@ -71,6 +71,10 @@ const FULL_FOUNDATION = {
     { title: "Own it", body: null },
   ],
   differentiators: [{ title: "We answer the phone", body: "Always." }],
+  snippets: {
+    icp_best_fit: [{ content: "Family-owned builders, 20 to 80 staff" }],
+    icp_psychographic: [{ content: "Value craft over speed" }],
+  },
 };
 
 describe("get_foundation", () => {
@@ -87,6 +91,7 @@ describe("get_foundation", () => {
       vision: string;
       core_values: Array<{ title: string; body: string | null }>;
       differentiators: Array<{ title: string }>;
+      ideal_customer: { best_fit: string[]; psychographics: string[] };
     };
 
     expect(out.status).toBe("ok");
@@ -100,6 +105,11 @@ describe("get_foundation", () => {
       { title: "Own it", body: null },
     ]);
     expect(out.differentiators[0]?.title).toBe("We answer the phone");
+    // For the Vivid Vision Coach (2026-10-27).
+    expect(out.ideal_customer).toEqual({
+      best_fit: ["Family-owned builders, 20 to 80 staff"],
+      psychographics: ["Value craft over speed"],
+    });
   });
 
   // "Empty sections come back as empty arrays or null, never
@@ -109,7 +119,12 @@ describe("get_foundation", () => {
   it("returns every section even when the company has filled in none of them", async () => {
     reset();
     mocks.single = { companies: { name: "Empty Co", industry: null } };
-    mocks.foundation = { foundation: null, coreValues: [], differentiators: [] };
+    mocks.foundation = {
+      foundation: null,
+      coreValues: [],
+      differentiators: [],
+      snippets: { icp_best_fit: [], icp_psychographic: [] },
+    };
 
     const out = (await toolNamed("get_foundation").handler({})) as Record<
       string,
@@ -123,6 +138,7 @@ describe("get_foundation", () => {
       "vision",
       "core_values",
       "differentiators",
+      "ideal_customer",
     ]) {
       expect(Object.keys(out)).toContain(key);
     }
@@ -131,6 +147,7 @@ describe("get_foundation", () => {
     expect(out.purpose).toEqual({ statement: null, context: null });
     expect(out.core_values).toEqual([]);
     expect(out.differentiators).toEqual([]);
+    expect(out.ideal_customer).toEqual({ best_fit: [], psychographics: [] });
   });
 
   it("takes no input at all", () => {

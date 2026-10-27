@@ -32,7 +32,8 @@ export type OutputCardName =
   | "RoleDescriptionCard"
   | "CommitmentDraftCard"
   | "SessionOfferCard"
-  | "ConnectAiAppCard";
+  | "ConnectAiAppCard"
+  | "VividVisionCard";
 
 export const OUTPUT_CARD_BY_TAG: Readonly<Record<string, OutputCardName>> = {
   script: "ScriptCard",
@@ -49,6 +50,9 @@ export const OUTPUT_CARD_BY_TAG: Readonly<Record<string, OutputCardName>> = {
   // Aimee's button to the How to connect drawer, an AI app chosen
   // (lib/ai-apps/aimee.ts); only where the person can connect one.
   connect_ai_app: "ConnectAiAppCard",
+  // The Vivid Vision agent's finished document, saved by the leader to
+  // the One-Page Plan's Vision card (lib/foundation/vivid-vision.ts).
+  vivid_vision: "VividVisionCard",
 };
 
 // A card's fence only opens a code block at the start of a line, and

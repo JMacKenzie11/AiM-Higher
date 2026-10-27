@@ -18,6 +18,7 @@ export const PRACTICE_CATEGORIES = [
   "Communication",
   "Facilitation",
   "People",
+  "Strategy",
 ] as const;
 
 export type PracticeCategory = (typeof PRACTICE_CATEGORIES)[number];

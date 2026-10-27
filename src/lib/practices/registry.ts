@@ -316,6 +316,34 @@ export const PRACTICES: readonly Practice[] = [
     // which the nudge's open path always does.
     tools: ["get_meeting_debrief"],
   },
+  {
+    // Jeff Bouwman's AiMS Vivid Vision Coach, brought over from a
+    // custom GPT (Jason, 2026-10-27). His conversation and document,
+    // except that it reads the purpose, values, strengths and ideal
+    // customer from the One-Page Plan rather than asking for them, and
+    // carries on without a purpose or values instead of stopping.
+    id: "vivid-vision",
+    title: "Vivid Vision Coach",
+    description:
+      "Create a 10-year Vivid Vision: a vivid picture of the company you're building, written as if it's already happening, and saved to your One-Page Plan.",
+    category: "Strategy",
+    promptFile: "prompts/practices/vivid-vision.md",
+    chips: [
+      "Guide my leadership team through a 10-year vivid vision",
+      "I'm the owner. Help me create a vivid vision on my own",
+      "Turn our purpose and strengths into a vivid vision",
+    ],
+    // The prompt is the flow, as for the Role Description Creator.
+    basePromptMode: "voice_only",
+    skipSetup: true,
+    // The people who can edit the One-Page Plan, which is where the
+    // finished vision is saved (Jason, 2026-10-27).
+    allowedRoles: ["company_admin", "system_admin", "aims_guide"],
+    tools: ["get_foundation"],
+    // The finished document is 1,000 to 1,500 words, and a revision
+    // writes it all again.
+    maxTokens: 8000,
+  },
 ] as const;
 
 export function findPractice(id: string | null | undefined): Practice | null {

@@ -41,6 +41,7 @@ You'll also see:
 - **Functional Chart Builder.** Walks you through building your company's Functional Chart: the core functions, their top responsibilities and the two seats above them. It ends with a proposal and an *Apply to Chart* button.
 - **Role Description Creator.** Writes a role description for a seat on the chart, or for a role that isn't on it.
 - **Debrief a meeting.** Talks through what your last leadership meeting showed about how the team works.
+- **Vivid Vision Coach.** Under *Strategy*. Walks you, alone or with your leadership team, through a 10-year Vivid Vision: a picture of the company you're building, written as if it's already happening. It uses the purpose, values, strengths and ideal customer already on your One-Page Plan, and carries on without them if they're not there yet. It ends with the finished vision and a *Save to the One-Page Plan* button, which replaces what your Vision card holds.
 
 ## How *Apply to Chart* works
 

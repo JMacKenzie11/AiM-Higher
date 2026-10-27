@@ -135,8 +135,8 @@ function makeGetFoundationTool(args: { companyId: string }): CoachTool {
     definition: {
       name: "get_foundation",
       description:
-        "The company's Foundation: name, industry, purpose (statement and context), vision, core values and differentiators. " +
-        "Call this before the first question. Use it to anchor why this role exists, why it matters, and what excellence looks like against each value. " +
+        "The company's Foundation, from its One-Page Plan: name, industry, purpose (statement and context), vision, core values, strengths and differentiators, and ideal customer profile (best-fit clients and psychographics). " +
+        "Call this before the first question. " +
         "Every section is always present: a section the company has not filled in comes back as null or an empty array, never missing. An empty Foundation is not an error — say so in one sentence, point at /foundation, and carry on from what the leader tells you.",
       input_schema: { type: "object", properties: {}, required: [] },
     },
@@ -146,7 +146,8 @@ function makeGetFoundationTool(args: { companyId: string }): CoachTool {
       // Reused rather than re-queried: getFoundation is what
       // /foundation renders from, so the values this agent writes
       // against cannot drift from the ones the leader is looking at.
-      // It fetches the marketing tables too, which this tool drops.
+      // It fetches the marketing tables too; this tool keeps only the
+      // ideal customer profile, which the One-Page Plan shows.
       const [{ data: company }, foundation] = await Promise.all([
         db
           .from("companies")
@@ -173,6 +174,10 @@ function makeGetFoundationTool(args: { companyId: string }): CoachTool {
           title: d.title,
           body: d.body ?? null,
         })),
+        ideal_customer: {
+          best_fit: foundation.snippets.icp_best_fit.map((s) => s.content),
+          psychographics: foundation.snippets.icp_psychographic.map((s) => s.content),
+        },
       };
     },
   };
