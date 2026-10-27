@@ -995,6 +995,13 @@ The three-week paid engagement (Jason's Capacity Diagnostic: Draft Assessment an
   - **Win patterns** gain a sixth, `retyping_removed`: an import file or form from where information arrives into the system it needs to reach, measured in minutes per record retyped.
 - **Not built:** a self-serve survey link, held until entering surveys by hand proves too slow (Jason chose hand entry, 2026-10-22).
 
+### 11c. Workers prototype: tables only (0303, 2026-10-27)
+
+Jason is prototyping **workers** (a job given in plain words, done by a worker in a cloud browser while its owner watches) on its own branch, `feat/workers-browser` (draft PR #514), which carries the pages, the runner and this section in full. **Only the tables are on main**, so the shared dev clone matches main while the prototype is built (Jason, 2026-10-27). Nothing on main reads or writes them, and no page shows them. The fleet gets 0303 only on his go. If the prototype is dropped, a later migration drops the tables.
+
+- **Tables.** `workers` (name, instructions, `allow_presses`, `browser_context_id`, `archived_at`), `worker_runs` (one task: status queued, running, needs_you, done, failed, stopped or expired; the reply or error; steps, tokens, cost; while waiting on its owner, the conversation so far, the page it was on and the open question or approval), `worker_steps` (written once), `worker_rules` ("Allow always": press buttons on a site without asking), `worker_memories`, `worker_skills` (a task taught from a finished run) and `worker_secrets` (a password's label; its value in Vault).
+- **Access.** Every table: system_admin **and** the row's creator, children only on a worker the caller owns, and a restrictive rule limiting all of it to the primary instance (as 0295). Steps are insert only; workers, runs and steps are never deleted. A password is saved through `worker_secret_save` (the owner, as themselves) and read only through `worker_secret_value`, which only the service role may call, as `connection_secret` (0257) is; deleting its row deletes the Vault entry. Cost purposes `worker_step` and `worker_teach`. Harness probes `workers · own, system admin, primary only` and `workers · secrets never read back`.
+
 ## 12. Meeting Facilitation Review
 
 Feature-gated (`meeting_facilitation_review`) opt-in second LLM pass on every ingested meeting. Scores how the meeting was run against the AiMS Weekly Leadership Meeting framework + the 4Ws Solution Framework.

@@ -13092,6 +13092,272 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Workers are their owner's, a system admin's, HQ's (0303) -----
+//
+// One worker, one run and one step are seeded as postgres inside the
+// transaction, owned by the harness system admin, so an empty clone
+// cannot pass for the wrong reason. Then:
+//   granted   the owner reads all three, adds a worker, adds a run to
+//             their worker and a step to their run (1 each), renames
+//             their worker (1 row)
+//   withheld  another system admin reads 0, adds a run to the owner's
+//             worker or a step to the owner's run (42501 each) and
+//             renames it 0 rows; a company admin, an assigned guide, a
+//             portfolio admin and a team member read 0 and add no worker
+//             (42501); the owner's change to a step is refused (42501:
+//             steps are insert only) and a run on an archived worker is
+//             refused (42501)
+//   canary    a planted permissive read rule on worker_steps must let the
+//             member read the step, or a clean result is a broken probe
+//   withheld  with instance_settings.is_primary off, the owner reads 0
+//             and adds nothing (42501)
+// Red before 0303: the tables do not exist.
+async function workersOwnSystemAdminProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "workers · own, system admin, primary only";
+  const W = randomUUID(), WA = randomUUID(), R = randomUUID(), S = randomUUID();
+  const reads = `(select count(*) from public.workers where id = '${W}')
+    + (select count(*) from public.worker_runs where id = '${R}')
+    + (select count(*) from public.worker_steps where id = '${S}')
+    + (select count(*) from public.worker_rules where worker_id = '${W}')
+    + (select count(*) from public.worker_memories where worker_id = '${W}')
+    + (select count(*) from public.worker_skills where worker_id = '${W}')`;
+  const asOther = (key: string, sub: string) => `
+  perform set_config('request.jwt.claims', '{"sub":"${sub}","role":"authenticated"}', true);
+  select ${reads} into n; insert into _p values ('${key}_reads', n::text);
+  begin
+    insert into public.workers (name) values ('Harness 0303 by ${key}');
+    get diagnostics n = row_count; insert into _p values ('${key}_insert', n::text);
+  exception when others then insert into _p values ('${key}_insert', 'error ' || sqlstate); end;`;
+  let row: Record<string, string> | undefined;
+  try {
+    const [pick] = await run<{ pa: string | null; sa2: string | null }>(
+      `select (select id::text from public.profiles where role = 'portfolio_admin' and status = 'active' order by id limit 1) as pa,
+              (select id::text from public.profiles where role = 'system_admin' and status = 'active' and id <> '${ids.systemAdmin}' order by id limit 1) as sa2;`
+    );
+    if (!pick?.pa || !pick?.sa2) {
+      return [{ name, granted: "not attempted", withheld: "no active portfolio admin, or no second system admin, on the clone", ok: false, detail: "NOT PROVEN: a role could not be tried" }];
+    }
+    [row] = await run(["begin;", pending, `
+insert into public.workers (id, name, created_by) values ('${W}', 'Harness 0303 worker', '${ids.systemAdmin}');
+insert into public.workers (id, name, created_by, archived_at) values ('${WA}', 'Harness 0303 archived', '${ids.systemAdmin}', now());
+insert into public.worker_runs (id, worker_id, task, created_by) values ('${R}', '${W}', 'Harness task', '${ids.systemAdmin}');
+insert into public.worker_steps (id, run_id, seq, kind, summary, created_by) values ('${S}', '${R}', 1, 'note', 'seeded', '${ids.systemAdmin}');
+insert into public.worker_rules (worker_id, kind, domain, created_by) values ('${W}', 'press', 'example.com', '${ids.systemAdmin}');
+insert into public.worker_memories (worker_id, title, body, created_by) values ('${W}', 'Harness', 'seeded', '${ids.systemAdmin}');
+insert into public.worker_skills (worker_id, title, body, created_by) values ('${W}', 'Harness', 'seeded', '${ids.systemAdmin}');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  select ${reads} into n; insert into _p values ('owner_reads', n::text);
+  begin
+    insert into public.worker_memories (worker_id, title, body) values ('${W}', 'Owner note', 'by the owner');
+    get diagnostics n = row_count; insert into _p values ('owner_memory', n::text);
+  exception when others then insert into _p values ('owner_memory', 'error ' || sqlstate); end;
+  begin
+    insert into public.workers (name) values ('Harness 0303 by the owner');
+    get diagnostics n = row_count; insert into _p values ('owner_insert', n::text);
+  exception when others then insert into _p values ('owner_insert', 'error ' || sqlstate); end;
+  begin
+    insert into public.worker_runs (worker_id, task) values ('${W}', 'Harness run by the owner');
+    get diagnostics n = row_count; insert into _p values ('owner_run', n::text);
+  exception when others then insert into _p values ('owner_run', 'error ' || sqlstate); end;
+  begin
+    insert into public.worker_steps (run_id, seq, kind, summary) values ('${R}', 2, 'action', 'harness');
+    get diagnostics n = row_count; insert into _p values ('owner_step', n::text);
+  exception when others then insert into _p values ('owner_step', 'error ' || sqlstate); end;
+  update public.workers set name = 'Harness 0303 renamed' where id = '${W}';
+  get diagnostics n = row_count; insert into _p values ('owner_update', n::text);
+  begin
+    update public.worker_steps set summary = 'changed' where id = '${S}';
+    get diagnostics n = row_count; insert into _p values ('owner_step_update', n::text);
+  exception when others then insert into _p values ('owner_step_update', 'error ' || sqlstate); end;
+  begin
+    insert into public.worker_runs (worker_id, task) values ('${WA}', 'Harness run on an archived worker');
+    get diagnostics n = row_count; insert into _p values ('archived_run', n::text);
+  exception when others then insert into _p values ('archived_run', 'error ' || sqlstate); end;
+
+  perform set_config('request.jwt.claims', '{"sub":"${pick.sa2}","role":"authenticated"}', true);
+  select ${reads} into n; insert into _p values ('sa2_reads', n::text);
+  begin
+    insert into public.worker_runs (worker_id, task) values ('${W}', 'Harness run by another system admin');
+    get diagnostics n = row_count; insert into _p values ('sa2_run', n::text);
+  exception when others then insert into _p values ('sa2_run', 'error ' || sqlstate); end;
+  begin
+    insert into public.worker_steps (run_id, seq, kind, summary) values ('${R}', 3, 'action', 'harness');
+    get diagnostics n = row_count; insert into _p values ('sa2_step', n::text);
+  exception when others then insert into _p values ('sa2_step', 'error ' || sqlstate); end;
+  update public.workers set name = 'Harness 0303 taken' where id = '${W}';
+  get diagnostics n = row_count; insert into _p values ('sa2_update', n::text);
+  begin
+    insert into public.worker_memories (worker_id, title, body) values ('${W}', 'Planted', 'by another system admin');
+    get diagnostics n = row_count; insert into _p values ('sa2_memory', n::text);
+  exception when others then insert into _p values ('sa2_memory', 'error ' || sqlstate); end;
+
+  ${asOther("company_admin", ids.companyAdmin)}
+  ${asOther("guide", ids.guide)}
+  ${asOther("portfolio_admin", pick.pa)}
+  ${asOther("member", ids.member)}
+end $$;
+reset role;
+create policy harness_planted_leak on public.worker_steps for select to authenticated using (true);
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.member}","role":"authenticated"}', true);
+  select count(*) into n from public.worker_steps where id = '${S}';
+  insert into _p values ('canary', n::text);
+end $$;
+reset role;
+drop policy harness_planted_leak on public.worker_steps;
+update public.instance_settings set is_primary = false;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  select ${reads} into n; insert into _p values ('not_primary_reads', n::text);
+  begin
+    insert into public.workers (name) values ('Harness 0303 off the primary');
+    get diagnostics n = row_count; insert into _p values ('not_primary_insert', n::text);
+  exception when others then insert into _p values ('not_primary_insert', 'error ' || sqlstate); end;
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0303 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const others = ["company_admin", "guide", "portfolio_admin", "member"];
+  const ownerOk = r.owner_reads === "6" && r.owner_memory === "1" && r.owner_insert === "1" && r.owner_run === "1" && r.owner_step === "1" && r.owner_update === "1";
+  const ownerLimitsOk = r.owner_step_update === "error 42501" && r.archived_run === "error 42501";
+  const sa2Ok = r.sa2_reads === "0" && r.sa2_memory === "error 42501" && r.sa2_run === "error 42501" && r.sa2_step === "error 42501" && r.sa2_update === "0";
+  const othersOk = others.every((k) => r[`${k}_reads`] === "0" && r[`${k}_insert`] === "error 42501");
+  const offPrimaryOk = r.not_primary_reads === "0" && r.not_primary_insert === "error 42501";
+  const ok = ownerOk && ownerLimitsOk && sa2Ok && othersOk && r.canary === "1" && offPrimaryOk;
+  return [{
+    name,
+    granted:
+      `owner reads ${r.owner_reads} of 6, adds a worker ${r.owner_insert}, a run ${r.owner_run}, a step ${r.owner_step}, a memory ${r.owner_memory}, renames ${r.owner_update} (want 6, 1, 1, 1, 1, 1)`,
+    withheld:
+      `another system admin reads ${r.sa2_reads}, adds a run ${r.sa2_run}, a step ${r.sa2_step} and a memory ${r.sa2_memory}, renames ${r.sa2_update} (want 0, error 42501 three times, 0) | ` +
+      others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]}`).join(" | ") +
+      ` (want 0, error 42501) | owner changes a step ${r.owner_step_update}, runs an archived worker ${r.archived_run} (want error 42501 each) | ` +
+      `planted permissive rule on worker_steps: ${r.canary === "1" ? "caught" : `missed (${r.canary})`} | ` +
+      `off the primary instance, owner reads ${r.not_primary_reads}, adds ${r.not_primary_insert} (want 0, error 42501)`,
+    ok,
+    detail: ok
+      ? "a worker, its runs and steps answer only their owner, a system admin, on the primary instance; steps are written once"
+      : !ownerOk
+        ? "THE OWNER CANNOT USE THEIR WORKER (is 0303 applied? is the clone marked primary?)"
+        : !sa2Ok
+          ? "ANOTHER SYSTEM ADMIN REACHES SOMEONE'S WORKER"
+          : !offPrimaryOk
+            ? "A WORKER OPENS OFF THE PRIMARY INSTANCE"
+            : !ownerLimitsOk
+              ? "A STEP CAN CHANGE, or an archived worker takes a run"
+              : "SOMEONE OTHER THAN A SYSTEM ADMIN REACHES A WORKER, or the planted leak went unseen",
+  }];
+}
+
+// ---- A worker's passwords are never read back (0303) -------------
+//
+// worker_secret_save puts the value in Vault; worker_secret_value reads
+// it and only the service role may call it. As the owner (system admin):
+//   granted   saving a password for their worker returns its row, and
+//             they read its label (1)
+//   withheld  calling worker_secret_value is refused (42501); reading
+//             vault.decrypted_secrets is refused (42501)
+// As another system admin: saving one for the owner's worker is refused
+// (42501) and the label reads 0. As the service role the value comes
+// back as saved, and deleting the label row as the owner takes the
+// Vault entry with it.
+// Red before 0303: the function does not exist.
+async function workersSecretsProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "workers · secrets never read back";
+  const W = randomUUID();
+  let row: Record<string, string> | undefined;
+  try {
+    const [pick] = await run<{ sa2: string | null }>(
+      `select (select id::text from public.profiles where role = 'system_admin' and status = 'active' and id <> '${ids.systemAdmin}' order by id limit 1) as sa2;`
+    );
+    if (!pick?.sa2) {
+      return [{ name, granted: "not attempted", withheld: "no second system admin on the clone", ok: false, detail: "NOT PROVEN: a role could not be tried" }];
+    }
+    [row] = await run(["begin;", pending, `
+insert into public.workers (id, name, created_by) values ('${W}', 'Harness 0303 secrets', '${ids.systemAdmin}');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated, service_role;
+set local role authenticated;
+do $$
+declare n int; v text;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  begin
+    perform public.worker_secret_save('${W}', 'Portal', 'harness-pw-0303');
+    insert into _p values ('owner_save', 'ok');
+  exception when others then insert into _p values ('owner_save', 'error ' || sqlstate); end;
+  select count(*) into n from public.worker_secrets where worker_id = '${W}';
+  insert into _p values ('owner_label', n::text);
+  begin
+    select public.worker_secret_value('${W}', 'Portal') into v;
+    insert into _p values ('owner_value', coalesce(v, 'null'));
+  exception when others then insert into _p values ('owner_value', 'error ' || sqlstate); end;
+  begin
+    select count(*) into n from vault.decrypted_secrets;
+    insert into _p values ('owner_vault', n::text);
+  exception when others then insert into _p values ('owner_vault', 'error ' || sqlstate); end;
+
+  perform set_config('request.jwt.claims', '{"sub":"${pick.sa2}","role":"authenticated"}', true);
+  begin
+    perform public.worker_secret_save('${W}', 'Planted', 'x');
+    insert into _p values ('sa2_save', 'ok');
+  exception when others then insert into _p values ('sa2_save', 'error ' || sqlstate); end;
+  select count(*) into n from public.worker_secrets where worker_id = '${W}';
+  insert into _p values ('sa2_label', n::text);
+end $$;
+reset role;
+set local role service_role;
+insert into _p select 'service_value', coalesce(public.worker_secret_value('${W}', 'Portal'), 'null');
+reset role;
+insert into _p select 'vault_id', secret_id::text from public.worker_secrets where worker_id = '${W}';
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  delete from public.worker_secrets where worker_id = '${W}';
+  get diagnostics n = row_count; insert into _p values ('owner_delete', n::text);
+end $$;
+reset role;
+insert into _p select 'vault_left', count(*)::text from vault.secrets where id = (select v::uuid from _p where k = 'vault_id');
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 160);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0303 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const ok =
+    r.owner_save === "ok" && r.owner_label === "1" && r.owner_value === "error 42501" && r.owner_vault === "error 42501" &&
+    r.sa2_save === "error 42501" && r.sa2_label === "0" && r.service_value === "harness-pw-0303" && r.owner_delete === "1" && r.vault_left === "0";
+  return [{
+    name,
+    granted: `owner saves ${r.owner_save}, reads the label ${r.owner_label} (want ok, 1) | service role reads the value ${r.service_value === "harness-pw-0303" ? "as saved" : r.service_value} | owner removes it ${r.owner_delete}, Vault entries left ${r.vault_left} (want 1, 0)`,
+    withheld: `owner reads the value ${r.owner_value}, reads the vault ${r.owner_vault} (want error 42501 each) | another system admin saves ${r.sa2_save}, reads the label ${r.sa2_label} (want error 42501, 0)`,
+    ok,
+    detail: ok
+      ? "a worker's password is saved by its owner, typed by the server, and never read back by anyone's client"
+      : r.owner_value !== "error 42501" || r.owner_vault !== "error 42501"
+        ? "A SAVED PASSWORD CAN BE READ BACK AS THE PERSON"
+        : "saving, reading or removing a worker's password does not work as designed",
+  }];
+}
+
 // ---- A commitment for a colleague (0293) -------------------------
 //
 // commitments_insert_for_colleague: anyone in a company may add a
@@ -15252,6 +15518,7 @@ async function main(): Promise<void> {
   const sysadminOwn = await sysadminOwnCompanyProbes(run, ids, pendingSql);
   const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
   const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
+  const workers = [...(await workersOwnSystemAdminProbes(run, ids, pendingSql)), ...(await workersSecretsProbes(run, ids, pendingSql))];
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -15279,7 +15546,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...workers, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
