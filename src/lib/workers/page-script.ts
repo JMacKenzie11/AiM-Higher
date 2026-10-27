@@ -163,3 +163,38 @@ export const LIST_PAGE_SCRIPT = String.raw`(function (args) {
   walk(root, 0);
   return { lines: lines, next: next, truncated: truncated };
 })`;
+
+// What a press would hit (step 2): the element by ref, at a point, or
+// the field that has focus (for Enter), described for press.ts.
+// Arguments: { ref?, x?, y?, focused? }. Returns a PressTarget plus the
+// text of the form's submit button, or null.
+export const PRESS_TARGET_SCRIPT = String.raw`(function (args) {
+  var el = null;
+  if (args.ref) el = document.querySelector('[data-aims-ref="' + args.ref + '"]');
+  else if (args.focused) el = document.activeElement;
+  else el = document.elementFromPoint(args.x, args.y);
+  if (!el || el === document.body) return null;
+  var hit = el.closest("button, a[href], input, [role=button], select, textarea, summary") || el;
+  function words(e) {
+    if (!e) return "";
+    return (e.getAttribute("aria-label") || e.innerText || e.value || e.getAttribute("title") || e.getAttribute("alt") || "").replace(/\s+/g, " ").trim();
+  }
+  var form = hit.form || hit.closest("form");
+  var searchy = function (e) {
+    if (!e) return false;
+    var s = ((e.getAttribute("role") || "") + " " + (e.getAttribute("type") || "") + " " + (e.getAttribute("name") || "") + " " + (e.getAttribute("placeholder") || "") + " " + (e.getAttribute("aria-label") || "") + " " + (e.getAttribute("action") || "") + " " + (e.id || "") + " " + (e.className && e.className.baseVal === undefined ? e.className : "")).toLowerCase();
+    return /search|(^|[^a-z])q([^a-z]|$)/.test(s);
+  };
+  var searchForm = searchy(form) || searchy(hit) || (form ? !!form.querySelector("input[type=search]") : false);
+  var submit = form ? form.querySelector("button[type=submit], input[type=submit], button:not([type])") : null;
+  return {
+    tag: hit.tagName.toLowerCase(),
+    type: (hit.getAttribute("type") || "").toLowerCase(),
+    role: (hit.getAttribute("role") || "").toLowerCase(),
+    text: words(hit).slice(0, 160),
+    href: hit.getAttribute("href"),
+    inForm: !!form,
+    searchForm: searchForm,
+    submitText: submit ? words(submit).slice(0, 160) || null : null
+  };
+})`;

@@ -1,6 +1,7 @@
 import type { BrowserContext, Locator, Page } from "playwright-core";
 import { checkUrl, keySequence, rankLines, toModifiers, toPlaywrightChord } from "./browser-keys";
-import { LIST_PAGE_SCRIPT } from "./page-script";
+import { LIST_PAGE_SCRIPT, PRESS_TARGET_SCRIPT } from "./page-script";
+import { checkEnter, checkPress, domainOf, type PressCheck, type PressTarget } from "./press";
 
 // THE WORKER'S HANDS (0303). Claude's browser tool
 // (browser_toolset_20260801) decides each step; it never touches the
@@ -24,7 +25,14 @@ type BrowserStateBlock = {
   state_changes?: Array<{ type: "tab_opened"; tab_id: string }>;
 };
 export type ResultBlock = TextBlock | ImageBlock | BrowserStateBlock;
-export type MemberResult = { content: ResultBlock[]; is_error?: boolean };
+export type MemberResult = { content: ResultBlock[]; is_error?: boolean; needsApproval?: Approval };
+
+// A press the worker must ask its owner about first (press.ts).
+export type Approval = { action: string; domain: string; alwaysAsks: boolean };
+// Says whether a press may go ahead without asking: the worker's
+// "Edit records in websites" switch and its Allow always rules. Never
+// asked about a press that always asks.
+export type PressGate = (domain: string) => boolean;
 
 type CoordinateTarget = { type: "coordinate"; x: number; y: number };
 type RefTarget = { type: "ref"; ref: string };
@@ -46,7 +54,16 @@ export class WorkerBrowser {
   private current: Page;
   private opened: string[] = [];
 
-  constructor(private context: BrowserContext, first: Page) {
+  private approvedOnce = false;
+  private oneFree: { action: string; domain: string } | null = null;
+
+  // The owner approved this press on this site while the browser was
+  // closed: the next press that matches it goes through once.
+  allowOnce(action: string, domain: string) {
+    this.oneFree = { action, domain };
+  }
+
+  constructor(private context: BrowserContext, first: Page, private gate: PressGate = () => false) {
     this.current = first;
     this.idFor(first);
     context.on("page", (p) => {
@@ -128,26 +145,72 @@ export class WorkerBrowser {
     return out;
   }
 
+  // Hold a press that changes something until the owner says yes.
+  private async held(page: Page, check: PressCheck): Promise<MemberResult | null> {
+    if (!check || this.approvedOnce) return null;
+    const domain = domainOf(page.url());
+    if (this.oneFree && this.oneFree.action === check.action && this.oneFree.domain === domain) {
+      this.oneFree = null;
+      return null;
+    }
+    if (!check.alwaysAsks && this.gate(domain)) return null;
+    return {
+      content: [{ type: "text", text: `Waiting for the owner to approve: ${check.action} on ${domain || "this page"}.` }],
+      needsApproval: { action: check.action, domain, alwaysAsks: check.alwaysAsks },
+    };
+  }
+
+  private async pressTarget(page: Page, where: { ref?: string; x?: number; y?: number; focused?: boolean }) {
+    return (await page.evaluate(`${PRESS_TARGET_SCRIPT}(${JSON.stringify(where)})`)) as (PressTarget & { submitText: string | null }) | null;
+  }
+
   private async click(page: Page, target: Target, opts: { button?: "left" | "right" | "middle"; clickCount?: number; modifiers?: string }) {
     const modifiers = toModifiers(opts.modifiers);
     if (target?.type === "ref") {
       if (await this.stale(page, target.ref)) return this.staleError(target.ref);
+      const t = await this.pressTarget(page, { ref: target.ref });
+      if (opts.button !== "right") {
+        const hold = t ? await this.held(page, checkPress(t)) : null;
+        if (hold) return hold;
+      }
       await this.locate(page, target.ref).click({ button: opts.button, clickCount: opts.clickCount, modifiers, timeout: ACTION_TIMEOUT });
       await this.settle(page);
-      return text(`Clicked ${target.ref}.`);
+      return text(`Clicked ${t?.text ? `"${t.text.slice(0, 80)}" ` : ""}(${target.ref}).`);
     }
     if (target?.type === "coordinate") {
+      const t = await this.pressTarget(page, { x: target.x, y: target.y });
+      if (opts.button !== "right") {
+        const hold = t ? await this.held(page, checkPress(t)) : null;
+        if (hold) return hold;
+      }
       for (const m of modifiers) await page.keyboard.down(m);
       await page.mouse.click(target.x, target.y, { button: opts.button, clickCount: opts.clickCount });
       for (const m of modifiers.reverse()) await page.keyboard.up(m);
       await this.settle(page);
-      return text(`Clicked at (${target.x}, ${target.y}).`);
+      return text(`Clicked ${t?.text ? `"${t.text.slice(0, 80)}" ` : ""}at (${target.x}, ${target.y}).`);
     }
     return fail("Error: a click needs a target.");
   }
 
   // One member call. Never throws: a failure is an error result.
-  async run(name: string, input: Record<string, unknown>): Promise<MemberResult> {
+  // Types a saved password into the field that has focus. The value is
+  // never returned, logged or described.
+  async typeSecret(value: string): Promise<MemberResult> {
+    try {
+      const page = this.pageFor(undefined);
+      if (!page) return fail("Error: no tab is open.");
+      const focused = await page.evaluate(`(function(){var e=document.activeElement;return !!e && (e.tagName==="INPUT"||e.tagName==="TEXTAREA"||e.isContentEditable);})()`);
+      if (!focused) return fail("Error: click the password field first, then type the saved password.");
+      await page.keyboard.type(value, { delay: 15 });
+      return text("Typed the saved password.");
+    } catch {
+      return fail("Error: the saved password could not be typed.");
+    }
+  }
+
+  // `approved` is the owner's yes to this one call, after it was held.
+  async run(name: string, input: Record<string, unknown>, approved = false): Promise<MemberResult> {
+    this.approvedOnce = approved;
     try {
       return await this.member(name, input ?? {});
     } catch (err) {
@@ -268,13 +331,20 @@ export class WorkerBrowser {
         return text(`Scrolled to ${t.ref}.`);
       }
       case "type": {
-        await page.keyboard.type(String(input.text ?? ""), { delay: 15 });
-        return text("Typed.");
+        const typed = String(input.text ?? "");
+        const secret = await page.evaluate(`(function(){var e=document.activeElement;return !!e && (e.getAttribute("type")||"").toLowerCase()==="password";})()`).catch(() => false);
+        await page.keyboard.type(typed, { delay: 15 });
+        return text(secret ? "Typed into a password field." : `Typed "${typed.slice(0, 80)}".`);
       }
       case "key": {
         const repeat = Math.min(100, Math.max(1, Number(input.repeat ?? 1)));
         const keys = keySequence(String(input.text ?? ""));
         if (keys.length === 0) return fail("Error: key needs a key name.");
+        if (keys.some((k) => k === "Enter")) {
+          const t = await this.pressTarget(page, { focused: true });
+          const hold = t ? await this.held(page, checkEnter(t)) : null;
+          if (hold) return hold;
+        }
         for (let i = 0; i < repeat; i++) for (const k of keys) await page.keyboard.press(k);
         await this.settle(page);
         return text(`Pressed ${String(input.text)}${repeat > 1 ? ` ${repeat} times` : ""}.`);
@@ -328,7 +398,9 @@ export class WorkerBrowser {
         if (kind === "select") await loc.selectOption({ label: String(value) }, { timeout: ACTION_TIMEOUT }).catch(() => loc.selectOption(String(value), { timeout: ACTION_TIMEOUT }));
         else if (kind === "check") await loc.setChecked(value === true || value === "true", { timeout: ACTION_TIMEOUT });
         else await loc.fill(String(value ?? ""), { timeout: ACTION_TIMEOUT });
-        return text(`Set ${t.ref}.`);
+        const named = await this.pressTarget(page, { ref: t.ref }).catch(() => null);
+        const kindOfValue = kind === "fill" && /password/i.test(named?.type ?? "") ? "" : ` to "${String(value ?? "").slice(0, 60)}"`;
+        return text(`Set ${named?.text && kind !== "fill" ? `"${named.text.slice(0, 60)}"` : t.ref}${kindOfValue}.`);
       }
       case "javascript_exec":
       case "file_upload":

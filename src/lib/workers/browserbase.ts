@@ -33,12 +33,27 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type BrowserSession = { id: string; connectUrl: string };
 
-// One browser for one task. The timeout is a backstop for a run that
-// dies without closing it; a run closes its own browser when it ends.
-export async function createBrowserSession(): Promise<BrowserSession> {
+// A worker's saved logins (step 2): a Browserbase context keeps the
+// browser's cookies between tasks, so a site it signed in to stays
+// signed in. One per worker, made on its first task.
+export async function createBrowserContext(): Promise<string> {
+  const c = await call<{ id: string }>("/contexts", { method: "POST", body: "{}" });
+  return c.id;
+}
+
+// One browser for one stretch of a task. The timeout is a backstop for
+// a run that dies without closing it; a run closes its own browser when
+// it ends or stops to wait for its owner.
+export async function createBrowserSession(contextId: string | null): Promise<BrowserSession> {
   const s = await call<{ id: string; connectUrl: string }>("/sessions", {
     method: "POST",
-    body: JSON.stringify({ timeout: 360, browserSettings: { viewport: { width: 1280, height: 800 } } }),
+    body: JSON.stringify({
+      timeout: 360,
+      browserSettings: {
+        viewport: { width: 1280, height: 800 },
+        ...(contextId ? { context: { id: contextId, persist: true } } : {}),
+      },
+    }),
   });
   return { id: s.id, connectUrl: s.connectUrl };
 }

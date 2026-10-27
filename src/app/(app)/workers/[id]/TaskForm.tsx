@@ -23,7 +23,7 @@ export function TaskForm({ workerId, busy }: { workerId: string; busy: boolean }
         <button type="submit" className={styles.primary} disabled={pending || busy}>
           {pending ? "Starting…" : "Start"}
         </button>
-        {busy ? <p className={styles.hint}>It&apos;s working on a task now. You can give it another when that one finishes.</p> : null}
+        {busy ? <p className={styles.hint}>It&apos;s on a task now, or waiting on you. You can give it another when that one finishes.</p> : null}
         {state && !state.ok ? <p className={styles.error} role="alert">{state.message}</p> : null}
       </div>
     </form>

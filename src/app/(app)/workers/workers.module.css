@@ -311,3 +311,89 @@
 .row {
   align-items: center;
 }
+
+/* Needs you (step 2): a task waiting on its owner. */
+.needs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.needsCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--aims-cobalt);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.needsHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.needsBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.needsText {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text-heading);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.answerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.answerRow .input {
+  flex: 1 1 14rem;
+  width: auto;
+}
+
+/* The worker's settings sections. */
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.toggleRow input {
+  margin-top: 0.3rem;
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.linkButton {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--aims-cobalt);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.skillBody {
+  min-height: 12rem;
+}

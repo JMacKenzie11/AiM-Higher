@@ -3,15 +3,22 @@ import { requireWorkers } from "@/lib/workers/access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { liveViewUrl, replayUrl } from "@/lib/workers/browserbase";
-import { isActive, RUN_COLUMNS, STEP_COLUMNS, WORKER_COLUMNS, type Worker, type WorkerRun, type WorkerStep } from "@/lib/workers/types";
+import { isActive, QUESTION_HOURS, questionExpired, RUN_COLUMNS, STEP_COLUMNS, WORKER_COLUMNS, type Worker, type WorkerRun, type WorkerStep } from "@/lib/workers/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { AutoRefresh } from "../../../../meetinganalysis/AutoRefresh";
 import { RunStatusChip } from "../../../RunStatusChip";
-import { cost, duration, when } from "../../../format";
+import { ago, cost, duration, expiresIn, when } from "../../../format";
+import { initials } from "../../../activity";
+import { NeedsYouCard } from "../../../NeedsYouCard";
+import { TeachButton } from "./TeachButton";
 import { StopButton } from "./StopButton";
 import styles from "../../../workers.module.css";
 
 export const metadata = { title: "Worker task" };
+
+// An answer here starts the task again after the response, and Teach
+// this task waits for its write-up, both inside this route's function.
+export const maxDuration = 300;
 
 // One task (0303): the browser live while it works, every step as it
 // happens, then the worker's reply and what the task cost. The page
@@ -26,6 +33,7 @@ export default async function WorkerRunPage({ params }: { params: Promise<{ id: 
     db.from("worker_steps").select(STEP_COLUMNS).eq("run_id", runId).order("seq", { ascending: true }).limit(500),
   ]);
   if (!worker || !run) notFound();
+  if (run.status === "needs_you" && questionExpired(run.asked_at)) run.status = "expired";
   const steps = (stepRows ?? []) as WorkerStep[];
   const active = isActive(run.status);
   const live = active && run.browser_session_id ? await liveViewUrl(run.browser_session_id) : null;
@@ -59,6 +67,42 @@ export default async function WorkerRunPage({ params }: { params: Promise<{ id: 
         </section>
       ) : null}
 
+      {run.status === "needs_you" && run.pending && run.asked_at ? (
+        <section className={styles.card} aria-labelledby="run-needs">
+          <div className={styles.cardHeader}>
+            <h2 id="run-needs" className={styles.cardTitle}>Needs you</h2>
+            <StopButton workerId={worker.id} runId={run.id} />
+          </div>
+          <div className={styles.needs}>
+            <NeedsYouCard
+              runId={run.id}
+              workerId={worker.id}
+              workerName={worker.name}
+              initialsText={initials(worker.name)}
+              pending={run.pending}
+              ago={ago(run.asked_at)}
+              expiresIn={expiresIn(run.asked_at, QUESTION_HOURS)}
+              showOpen={false}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {run.status === "expired" ? (
+        <section className={styles.card} aria-labelledby="run-expired">
+          <div className={styles.cardHeader}>
+            <h2 id="run-expired" className={styles.cardTitle}>Its question expired</h2>
+          </div>
+          <div className={styles.body}>
+            <p className={styles.result}>
+              {run.pending?.kind === "question" ? `It asked: ${run.pending.text}
+
+` : ""}Nobody answered within a day, so the task stopped. Give the worker the task again.
+            </p>
+          </div>
+        </section>
+      ) : null}
+
       {run.status === "done" && run.result ? (
         <section className={styles.card} aria-labelledby="run-result">
           <div className={styles.cardHeader}>
@@ -66,6 +110,7 @@ export default async function WorkerRunPage({ params }: { params: Promise<{ id: 
           </div>
           <div className={styles.body}>
             <p className={styles.result}>{run.result}</p>
+            <TeachButton workerId={worker.id} runId={run.id} />
           </div>
         </section>
       ) : null}

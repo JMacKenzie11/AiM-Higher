@@ -17,9 +17,11 @@ export type ActivityItem = {
 const EVENT: Record<RunStatus, string> = {
   queued: "Started",
   running: "Working",
+  needs_you: "Needs you",
   done: "Finished",
   failed: "Stopped with a problem",
   stopped: "Stopped",
+  expired: "Question expired",
 };
 
 function firstLine(text: string | null): string {
@@ -35,14 +37,18 @@ export function activityItem(run: WorkerRun, workerName: string, latestStep: str
         ? firstLine(run.error)
         : run.status === "stopped"
           ? "You stopped it."
-          : firstLine(latestStep) || "Getting started";
+          : run.status === "expired"
+            ? "Nobody answered its question within a day."
+            : run.status === "needs_you" && run.pending
+              ? firstLine(run.pending.kind === "question" ? run.pending.text : `Asks before: ${run.pending.action}`)
+              : firstLine(latestStep) || "Getting started";
   return {
     runId: run.id,
     workerId: run.worker_id,
     workerName,
     event: EVENT[run.status],
     detail,
-    at: run.finished_at ?? run.started_at ?? run.created_at,
+    at: run.finished_at ?? (run.status === "needs_you" ? run.asked_at : null) ?? run.started_at ?? run.created_at,
     status: run.status,
   };
 }
