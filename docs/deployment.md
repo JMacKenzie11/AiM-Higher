@@ -119,6 +119,14 @@ set, by name. It reports `MCP_ENABLED` and never sets it: that switch
 is global. As of 2026-10-14: dev, production and PromiseOne have all of
 it.
 
+`BROWSERBASE_API_KEY` — the cloud browsers workers use (`/workers`,
+0303, spec §11c). With it unset, a worker's **Start** says workers
+aren't set up and nothing else changes. The key alone names the
+Browserbase project; there is no project id variable. Sensitive,
+Production only, set by Jason. `ANTHROPIC_WORKER_MODEL` (optional)
+changes the model a worker thinks with; it defaults to
+`claude-sonnet-5-5`.
+
 `PROD_*` has a second job. The cron routes are excluded from instance
 resolution entirely, because a scheduled invocation has no visitor and
 no meaningful hostname. They read `PROD_*` through

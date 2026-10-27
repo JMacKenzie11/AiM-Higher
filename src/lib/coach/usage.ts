@@ -128,6 +128,7 @@ export type CoachUsagePurpose =
   | "diagnostic_readout" // Capacity Diagnostic: the readout narrative (0296)
   | "diagnostic_pledge" // Capacity Diagnostic: the owner's pledge draft (0297)
   | "diagnostic_conversation" // Capacity Diagnostic: one conversation helper turn (0297)
+  | "worker_step" // a worker deciding its next browser step (0303)
   | "other";
 
 // Fire-and-forget log. Callers should NOT await this in the
