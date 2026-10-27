@@ -35,6 +35,7 @@ import { ChartProposalCard } from "@/components/practices/ChartProposalCard";
 import { SessionOfferCard } from "@/components/aimee/SessionOfferCard";
 import { ConnectAiAppCard } from "@/components/ai-apps/ConnectAiAppCard";
 import { RoleDescriptionCard } from "@/components/practices/RoleDescriptionCard";
+import { VividVisionCard } from "@/components/practices/VividVisionCard";
 import {
   AgentPicker,
   type AgentAttachedInfo,
@@ -1175,6 +1176,15 @@ function renderCard(
       );
     case "ConnectAiAppCard":
       return <ConnectAiAppCard raw={raw} streaming={streaming} />;
+    case "VividVisionCard":
+      return (
+        <VividVisionCard
+          raw={raw}
+          streaming={streaming}
+          conversationId={conversationId}
+          messageId={messageId}
+        />
+      );
     case "ScriptCard":
       return <ScriptCard raw={raw} streaming={streaming} />;
     case "ChartProposalCard":

@@ -112,3 +112,22 @@ describe("the meeting debrief agent", () => {
     expect(debrief.feature).toBeUndefined();
   });
 });
+
+describe("the Vivid Vision Coach", () => {
+  const vv = PRACTICES.find((p) => p.id === "vivid-vision")!;
+
+  // The finished vision is saved to the One-Page Plan, so the agent is
+  // for the people who can edit it (Jason, 2026-10-27).
+  it("admits the three roles that edit the One-Page Plan, and no others", () => {
+    expect([...(vv.allowedRoles ?? [])].sort()).toEqual([...PEOPLE_AGENT_ROLES].sort());
+    expect(vv.alsoFunctionLeads).toBeUndefined();
+  });
+
+  it("reads the One-Page Plan, and nothing else", () => {
+    expect([...(vv.tools ?? [])]).toEqual(["get_foundation"]);
+  });
+
+  it("is not gated on a company feature", () => {
+    expect(vv.feature).toBeUndefined();
+  });
+});

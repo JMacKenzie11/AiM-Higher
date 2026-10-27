@@ -1,0 +1,85 @@
+/* VividVisionCard: the Vivid Vision agent's finished document, saved
+   to the One-Page Plan by the leader. Same frame as the other cards in
+   a conversation. */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-3) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.eyebrow {
+  margin: 0;
+  font: var(--text-eyebrow);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.title {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--text-heading);
+}
+
+/* As the Vision card shows it: the text as written. */
+.body {
+  margin: 0;
+  font: var(--text-body);
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.primaryButton {
+  composes: btnPrimary from "../ui/ui.module.css";
+}
+
+.secondaryButton {
+  composes: btnSecondary from "../ui/ui.module.css";
+}
+
+.muted,
+.saved {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.saved strong {
+  color: var(--text-heading);
+}
+
+.error {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--aims-danger);
+}
+
+.pending {
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
