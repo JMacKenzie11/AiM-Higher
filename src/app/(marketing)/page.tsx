@@ -23,10 +23,10 @@ export default function LandingPage() {
         <div className={styles.heroInner}>
           <div className={styles.heroCopy}>
             <p className={styles.heroEyebrow}>
-              FOR OWNER-LED COMPANIES, $2M TO $50M
+              The capacity-building management system
             </p>
             <h1 className={styles.heroHeadline}>
-              Stop being the bottleneck. Start being the CEO.
+              Plans your people own. Results that hold.
             </h1>
             <span className={styles.heroRule} aria-hidden="true" />
             <p className={styles.heroSubhead}>
@@ -122,51 +122,52 @@ export default function LandingPage() {
       <section className={styles.investment}>
         <div className={styles.sectionInner}>
           <h2 className={styles.sectionHeadline}>
-            You&rsquo;re already paying for a management system. In pieces.
+            You already have the pieces. Nothing connects them.
           </h2>
           <span className={styles.sectionRule} aria-hidden="true" />
           <p className={styles.investmentIntro}>
-            Growing companies spend $63K to $228K a year on fragments that
-            each solve one piece and leave you holding it together.
+            Most growing companies invest in AI tools, a tech stack and
+            outside coaching. Each one helps. None of them builds lasting
+            capacity in your people - so the gains fade between investments.
           </p>
           <div className={styles.investmentGrid}>
             <div className={styles.investmentCard}>
               <h3 className={styles.investmentCardTitle}>
-                AI subscriptions and tools, $12K to $60K a year
+                AI tools and subscriptions
               </h3>
               <p className={styles.investmentCardBody}>
-                Individual productivity goes up. Insights live in personal
-                chat threads. The organization stays exactly as dependent on
-                you as before.
+                Smart help, scattered. People get faster on their own, but the
+                best thinking stays in private chats. The team doesn&rsquo;t
+                learn together.
               </p>
             </div>
             <div className={styles.investmentCard}>
               <h3 className={styles.investmentCardTitle}>
-                The tech stack, $19K to $48K a year
+                The tech stack
               </h3>
               <p className={styles.investmentCardBody}>
-                Project management, communications, documentation. You get
-                task visibility, but you stay the escalation point, and the
-                documentation decays the day someone stops maintaining it.
+                Visibility, not ownership. You can see the tasks. You
+                can&rsquo;t see whether people believe in the plan - and the
+                documents go stale.
               </p>
             </div>
             <div className={styles.investmentCard}>
               <h3 className={styles.investmentCardTitle}>
-                Implementers and coaches, $30K to $120K a year
+                Coaches and implementers
               </h3>
               <p className={styles.investmentCardBody}>
-                Strong sessions. Then the knowledge drives away with the
-                implementer, and nothing reinforces the work between visits.
+                Great sessions, then a gap. Energy is high on the day. Between
+                visits nothing reinforces it, and the know-how walks out the
+                door.
               </p>
             </div>
           </div>
           <p className={styles.investmentClose}>
-            None of these hold it together. Every consultant goes home.
-            Every AI subscription is one person&rsquo;s edge, not your
-            company&rsquo;s system. AiMS HQ&trade; is the management
-            system that doesn&rsquo;t leave. One always-on operating
-            rhythm that replaces the pile for a fraction of what the
-            fragments cost. Pricing is part of the first conversation.
+            AiMS brings it together. It&rsquo;s a strengths-based
+            management system your people help build, so they own the plan
+            and are aligned from the start. AiMS-HQ with AiMEE keeps
+            everyone moving between sessions - every day, not just workshop
+            day.
           </p>
         </div>
       </section>
@@ -354,7 +355,7 @@ export default function LandingPage() {
               <h3 className={styles.howCardTitle}>Talk with us</h3>
               <p className={styles.howCardBody}>
                 A conversation about your business and whether the AiMS
-                method fits. Thirty minutes, no obligation, and if it&rsquo;s
+                method fits. 45 minutes, no obligation, and if it&rsquo;s
                 not a fit, we&rsquo;ll tell you first.
               </p>
             </li>
