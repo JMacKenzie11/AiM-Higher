@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   isUntouchedSeed,
+  matchUserByEmail,
   seedAdoptionWarning,
   type TargetState,
 } from "./distribution";
@@ -72,5 +73,27 @@ describe("seedAdoptionWarning", () => {
     // A plan is read to decide whether to press Apply, so it has to
     // describe what Apply does, not what the schema already did.
     expect(warning).not.toMatch(/admin/i);
+  });
+});
+
+describe("matchUserByEmail", () => {
+  // The push used to send this instance's profile id, which names
+  // nobody on the target, and published_by's foreign key refused it.
+  const users = [
+    { id: "u1", email: "someone@example.com" },
+    { id: "u2", email: "Jason@Example.com" },
+    { id: "u3", email: null },
+  ];
+
+  it("finds the same person by email, ignoring case and spaces", () => {
+    expect(matchUserByEmail(users, " jason@example.com ")).toBe("u2");
+  });
+
+  it("finds nobody when the email is not there", () => {
+    expect(matchUserByEmail(users, "missing@example.com")).toBeNull();
+  });
+
+  it("never matches an empty email to a user without one", () => {
+    expect(matchUserByEmail(users, "")).toBeNull();
   });
 });

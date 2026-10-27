@@ -269,12 +269,43 @@ async function featureWarning(
   );
 }
 
+// The person who pushed, as the TARGET knows them. Profile ids are per
+// instance: each one is its own project, so the id of whoever is
+// signed in here names nobody there, and published_by's foreign key
+// refused every push that carried it. The same person is matched by
+// email instead. Exported for the test.
+export function matchUserByEmail(
+  users: ReadonlyArray<{ id: string; email?: string | null }>,
+  email: string
+): string | null {
+  const wanted = email.trim().toLowerCase();
+  if (!wanted) return null;
+  return users.find((u) => (u.email ?? "").trim().toLowerCase() === wanted)?.id ?? null;
+}
+
+// Paginated listUsers is the only email→user lookup the auth admin API
+// has, as in lib/auth/users.ts. The profile is checked too: an auth
+// user without one would fail the same foreign key.
+async function targetActorId(db: SupabaseClient, email: string): Promise<string | null> {
+  for (let page = 1; page <= 10; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) return null;
+    const id = matchUserByEmail(data.users, email);
+    if (id) {
+      const { data: profile } = await db.from("profiles").select("id").eq("id", id).maybeSingle<{ id: string }>();
+      return profile?.id ?? null;
+    }
+    if (data.users.length < 200) return null;
+  }
+  return null;
+}
+
 // One target. `apply: false` is the dry run — the same walk, the same
 // refusals, the same order, and no writes.
 export async function distributeToTarget(
   source: DistributionSource,
   target: Target,
-  actorProfileId: string,
+  actorEmail: string,
   sourceSubdomain: string,
   apply: boolean
 ): Promise<DistributionStep> {
@@ -363,6 +394,20 @@ export async function distributeToTarget(
       ...base,
       outcome: "already_current",
       detail: `Already running version ${source.versionNumber}.`,
+    };
+  }
+
+  // Before the dry run returns, so the plan shows it rather than the
+  // apply failing part way.
+  const actorId = await targetActorId(db, actorEmail);
+  if (!actorId) {
+    return {
+      ...base,
+      outcome: "refused",
+      detail:
+        `You have no account on this instance under ${actorEmail}, and ` +
+        "every version records who published it. Add yourself there as a " +
+        "system admin, then push again.",
     };
   }
 
@@ -462,7 +507,7 @@ export async function distributeToTarget(
         v_max_tokens: source.maxTokens,
         v_model: source.model,
         v_publish_notes: source.publishNotes,
-        v_actor: actorProfileId,
+        v_actor: actorId,
       }
     );
     if (versionErr || !versionId) {
