@@ -174,7 +174,7 @@ export async function dryRunDistributionAction(
       await distributeToTarget(
         loaded.source,
         target,
-        session.profile.id,
+        session.email,
         here.subdomain,
         false
       )
@@ -218,7 +218,7 @@ export async function applyDistributionAction(
     const step = await distributeToTarget(
       loaded.source,
       target,
-      session.profile.id,
+      session.email,
       here.subdomain,
       true
     );

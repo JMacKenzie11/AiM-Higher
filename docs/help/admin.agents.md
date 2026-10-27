@@ -61,6 +61,8 @@ The agent needs a published version first. If it's still on its built-in version
 
 Sending is always two steps. **Dry run** shows exactly what would happen on each instance you picked, including anything to know first, like an agent going live where no company has the feature it needs. **Apply this plan** then does exactly that. Changing which instances you picked throws the plan away, so you always apply a plan you've read.
 
+You need an account on each instance you send to, under the same email you sign in with here: every version records who published it. If you don't have one, the dry run says so for that instance.
+
 If the drawer says **Pushing is switched off**, the apply button is disabled. The dry run still works and changes nothing.
 
 **Retract from this instance** takes the agent out of that instance's pickers. Conversations already running there keep going on the version they started with.
