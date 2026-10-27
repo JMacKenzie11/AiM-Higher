@@ -80,6 +80,7 @@ export type Pending =
       done: unknown[];
       rest: ToolCall[];
       answer?: { text: string } | { saved_password: string };
+      answered_at?: string;
     }
   | {
       kind: "approval";
@@ -90,11 +91,31 @@ export type Pending =
       done: unknown[];
       rest: ToolCall[];
       decision?: "once" | "always" | "deny";
+      answered_at?: string;
     };
 
 export function questionExpired(askedAt: string | null, now = Date.now()): boolean {
   if (!askedAt) return false;
   return now - new Date(askedAt).getTime() > QUESTION_HOURS * 3_600_000;
+}
+
+// A task that stopped without finishing: queued or running, and nothing
+// has happened for longer than any stretch of it can last (the pages'
+// 300-second ceiling, with room). The function it ran in was cut off: a
+// deploy, a crash, a dev server restarting. Nothing will move it again,
+// so it reads as stopped and its worker is free.
+export const STALLED_MS = 6 * 60_000;
+export const STALLED_ERROR = "It stopped without finishing, most likely because the server restarted. Give it the task again.";
+
+export function stalled(
+  run: { status: RunStatus; created_at: string; started_at: string | null; pending: Pending | null },
+  lastStepAt: string | null,
+  now = Date.now()
+): boolean {
+  if (run.status !== "queued" && run.status !== "running") return false;
+  const times = [run.created_at, run.started_at, lastStepAt, run.pending?.answered_at].filter((t): t is string => Boolean(t));
+  const latest = Math.max(...times.map((t) => new Date(t).getTime()));
+  return now - latest > STALLED_MS;
 }
 
 export type WorkerRule = { id: string; worker_id: string; kind: "press"; domain: string; decision: "allow" | "ask"; created_at: string };

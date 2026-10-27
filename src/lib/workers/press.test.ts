@@ -71,3 +71,26 @@ describe("domains", () => {
     expect(ruleCovers("example.com", "badexample.com")).toBe(false);
   });
 });
+
+import { stalled } from "./types";
+
+describe("stalled", () => {
+  const now = new Date("2026-10-27T17:10:00Z").getTime();
+  const run = { status: "queued" as const, created_at: "2026-10-27T17:00:00Z", started_at: "2026-10-27T17:00:03Z", pending: null };
+
+  it("is a task with nothing happening for over six minutes", () => {
+    expect(stalled(run, "2026-10-27T17:00:29Z", now)).toBe(true);
+    expect(stalled(run, "2026-10-27T17:05:00Z", now)).toBe(false);
+  });
+
+  it("counts an answer as something happening", () => {
+    const answered = { ...run, pending: { kind: "question" as const, text: "?", password_for: null, tool_use_id: "t", done: [], rest: [], answered_at: "2026-10-27T17:08:00Z" } };
+    expect(stalled(answered, "2026-10-27T17:00:29Z", now)).toBe(false);
+  });
+
+  it("never touches a task that is waiting, finished or stopped", () => {
+    for (const status of ["needs_you", "done", "failed", "stopped", "expired"] as const) {
+      expect(stalled({ ...run, status }, null, now)).toBe(false);
+    }
+  });
+});

@@ -10,6 +10,7 @@ import { requireWorkers } from "./access";
 import { browserbaseConfigured } from "./browserbase";
 import { runWorker, type RunContext } from "./runner";
 import { teachSkill } from "./teach";
+import { settleStalled } from "./stalled";
 import { INSTRUCTIONS_MAX, NAME_MAX, questionExpired, TASK_MAX, type Pending } from "./types";
 
 // Workers (0303). Every action is the signed-in system admin's own, on
@@ -122,6 +123,7 @@ export async function startRunAction(workerId: string, _prev: WorkerFormState, f
   const notReady = ready();
   if (notReady) return { ok: false, message: notReady };
   const db = await ownerDb();
+  await settleStalled(db, workerId);
   const { data: busy } = await db
     .from("worker_runs")
     .select("id")
@@ -177,7 +179,7 @@ async function resume(runId: string, workerId: string, pending: Pending): Promis
   const db = await ownerDb();
   const { data } = await db
     .from("worker_runs")
-    .update({ status: "queued", pending })
+    .update({ status: "queued", pending: { ...pending, answered_at: new Date().toISOString() } })
     .eq("id", runId)
     .eq("status", "needs_you")
     .select("id");

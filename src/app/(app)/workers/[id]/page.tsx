@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireWorkers } from "@/lib/workers/access";
+import { settleStalled } from "@/lib/workers/stalled";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
@@ -38,6 +39,7 @@ export default async function WorkerPage({ params }: { params: Promise<{ id: str
   await requireWorkers();
   const { id } = await params;
   const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+  await settleStalled(db, id);
   const { data: worker } = await db.from("workers").select(WORKER_COLUMNS).eq("id", id).is("archived_at", null).maybeSingle<Worker>();
   if (!worker) notFound();
   const [{ data }, { data: ruleRows }, { data: memoryRows }, { data: skillRows }, { data: secretRows }] = await Promise.all([

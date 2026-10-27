@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireWorkers } from "@/lib/workers/access";
+import { settleStalled } from "@/lib/workers/stalled";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { isActive, QUESTION_HOURS, questionExpired, RUN_COLUMNS, WORKER_COLUMNS, type Worker, type WorkerRun } from "@/lib/workers/types";
@@ -27,6 +28,7 @@ export const maxDuration = 300;
 export default async function WorkersPage() {
   await requireWorkers();
   const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+  await settleStalled(db);
   const [{ data: workerRows }, { data: runRows }, { data: todayRows }] = await Promise.all([
     db.from("workers").select(WORKER_COLUMNS).is("archived_at", null).order("created_at", { ascending: false }).limit(100),
     db.from("worker_runs").select(RUN_COLUMNS).order("created_at", { ascending: false }).limit(50),

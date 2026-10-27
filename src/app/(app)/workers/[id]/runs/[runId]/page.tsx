@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireWorkers } from "@/lib/workers/access";
+import { settleStalled } from "@/lib/workers/stalled";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { liveViewUrl, replayUrl } from "@/lib/workers/browserbase";
@@ -27,6 +28,7 @@ export default async function WorkerRunPage({ params }: { params: Promise<{ id: 
   await requireWorkers();
   const { id, runId } = await params;
   const db = await createSupabaseServerClient(getCurrentInstanceConfig());
+  await settleStalled(db, id);
   const [{ data: worker }, { data: run }, { data: stepRows }] = await Promise.all([
     db.from("workers").select(WORKER_COLUMNS).eq("id", id).maybeSingle<Worker>(),
     db.from("worker_runs").select(RUN_COLUMNS).eq("id", runId).eq("worker_id", id).maybeSingle<WorkerRun>(),
