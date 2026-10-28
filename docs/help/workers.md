@@ -19,6 +19,8 @@ Press **New worker** on the **Your workers** card, give it a name and fill in it
 
 On the worker's page, type what you want under **Give it a task** and press **Start**. For example: "Search holabirdsports.com for running shoes and give me the name, price and rating of the first 3 results."
 
+A worker does one task at a time. While it's working or waiting on you, **Start** is off. Answer it, or press **Stop** on that task, to give it another.
+
 The task's page opens at once. While the worker works:
 
 - **The browser, live** shows the page it has open, as it clicks and types.
@@ -52,4 +54,4 @@ On the worker's page:
 
 ## Change or archive a worker
 
-Under **Name and instructions** on the worker's page, change either and press **Save**. The next task uses the new instructions. **Archive worker** takes it off your list. Its tasks are kept.
+Under **Name and instructions** on the worker's page, change either and press **Save**. The next task uses the new instructions. **Archive worker** takes it off your list, and its tasks leave **Activity** and **Needs you**. You can't bring it back, so archive only a worker you are done with.
