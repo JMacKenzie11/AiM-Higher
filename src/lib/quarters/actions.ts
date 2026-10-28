@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
+import { isAdminForCompany, type SessionProfileLike } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Quarter } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -17,17 +18,37 @@ export type QuarterResult =
   | { ok: true; quarter: Quarter }
   | { ok: false; message: string };
 
-// A guide works in the company the form names, when it is one of
-// theirs. Their own company_id is their coaching business, if they
-// have one, and is not where they are working just because it is set.
-function requireCompanyContext(session: {
-  profile: { role: string; company_id: string | null; guide_company_ids?: readonly string[] };
-}, companyIdFromForm: string): string | null {
+// Who runs a company's quarters: system_admin, the company's own
+// company_admin, an assigned aims_guide, and a portfolio_admin a system
+// admin switched on as that company's admin. The same set
+// isAdminForCompany admits, and the same set the database admits:
+// quarters_*_guide and roll_quarter call is_content_admin_for (0245).
+// An unswitched portfolio admin passes requireRole and is refused by
+// requireCompanyContext / isAdminForCompany below.
+const QUARTER_ROLES = [
+  "system_admin",
+  "company_admin",
+  "aims_guide",
+  "portfolio_admin",
+] as const;
+
+// A guide or a switched-on portfolio admin works in the company the
+// form names, when it is one of theirs. Their own company_id is their
+// own business, if they have one, and is not where they are working
+// just because it is set.
+function requireCompanyContext(
+  session: { profile: SessionProfileLike },
+  companyIdFromForm: string
+): string | null {
   if (session.profile.role === "system_admin") {
     return companyIdFromForm || null;
   }
-  if (session.profile.role === "aims_guide") {
-    return companyIdFromForm && (session.profile.guide_company_ids ?? []).includes(companyIdFromForm)
+  if (
+    session.profile.role === "aims_guide" ||
+    session.profile.role === "portfolio_admin"
+  ) {
+    return companyIdFromForm &&
+      isAdminForCompany(session.profile, companyIdFromForm)
       ? companyIdFromForm
       : null;
   }
@@ -38,7 +59,7 @@ export async function openQuarterAction(
   _prev: QuarterResult | undefined,
   formData: FormData
 ): Promise<QuarterResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole([...QUARTER_ROLES]);
 
   const label = String(formData.get("label") ?? "").trim();
   const startDate = String(formData.get("start_date") ?? "").trim();
@@ -100,7 +121,7 @@ export async function updateQuarterAction(
   _prev: QuarterResult | undefined,
   formData: FormData
 ): Promise<QuarterResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole([...QUARTER_ROLES]);
 
   const id = String(formData.get("quarter_id") ?? "").trim();
   const label = String(formData.get("label") ?? "").trim();
@@ -150,7 +171,7 @@ export async function updateQuarterAction(
 export async function closeQuarterAction(
   quarterId: string
 ): Promise<QuarterResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole([...QUARTER_ROLES]);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
@@ -161,10 +182,7 @@ export async function closeQuarterAction(
     .eq("id", quarterId)
     .maybeSingle<Quarter>();
   if (!existing) return { ok: false, message: "Quarter not found." };
-  if (
-    session.profile.role === "company_admin" &&
-    existing.company_id !== session.profile.company_id
-  ) {
+  if (!isAdminForCompany(session.profile, existing.company_id)) {
     return { ok: false, message: "Not your quarter to close." };
   }
   if (existing.status === "closed") {
@@ -189,7 +207,7 @@ export async function closeQuarterAction(
 export async function reopenQuarterAction(
   quarterId: string
 ): Promise<QuarterResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole([...QUARTER_ROLES]);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: existing } = await supabase
@@ -198,10 +216,7 @@ export async function reopenQuarterAction(
     .eq("id", quarterId)
     .maybeSingle<Quarter>();
   if (!existing) return { ok: false, message: "Quarter not found." };
-  if (
-    session.profile.role === "company_admin" &&
-    existing.company_id !== session.profile.company_id
-  ) {
+  if (!isAdminForCompany(session.profile, existing.company_id)) {
     return { ok: false, message: "Not your quarter to reopen." };
   }
 
@@ -248,11 +263,7 @@ export async function rollQuarterAction(
   _prev: RollResult | undefined,
   formData: FormData
 ): Promise<RollResult> {
-  const session = await requireRole([
-    "system_admin",
-    "company_admin",
-    "aims_guide",
-  ]);
+  const session = await requireRole([...QUARTER_ROLES]);
 
   const label = String(formData.get("label") ?? "").trim();
   const startDate = String(formData.get("start_date") ?? "").trim();
