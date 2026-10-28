@@ -15,15 +15,22 @@ Every quarter for your company, with its label (for example "Q1 2026"), its star
 ::: role company_admin,aims_guide,system_admin
 ## What you can do here
 
-- **Open the next quarter.** The *Open next quarter* card suggests a label and dates following on from the latest quarter. It's only available when no quarter is open.
+- **Roll to the next quarter** in Company settings. See *How to roll the quarter* below.
+- **Open the next quarter** with the *Open next quarter* card, when no quarter is open. It suggests a label and dates following on from the latest quarter.
 - **Close the open quarter** with *Close* on its row in *All quarters*. You'll be asked to confirm.
 - **Reopen a closed quarter** with *Reopen* on its row, for example to correct end-of-quarter numbers.
 
-## How to open the next quarter
+## How to roll the quarter
 
-1. If a quarter is open, close it first.
-2. In *Open next quarter*, check the suggested label and dates. Change them if your company doesn't follow calendar quarters.
-3. Save. The new quarter is now the open one, and Goals & Priorities and the Dashboard show it.
+Rolling is how you move to the next quarter. It closes this quarter, opens the next one, and moves every Priority that isn't complete into it, all in one step.
+
+1. Go to **Company settings** and open the **Planning** tab. When the quarter has ended, the *Roll the quarter* link at the top of the Dashboard takes you there.
+2. On the **Quarter** card, under *Next quarter*, check the label and dates. Change them if your company doesn't follow calendar quarters.
+3. Press **Roll the quarter**. The new quarter is now the open one, and the card says how many Priorities moved.
+
+Completed Priorities stay in the quarter they were finished in. Rolling late costs nothing: commitments, measures and the weekly rhythm carry on regardless.
+
+Closing the open quarter here and then using *Open next quarter* doesn't move any Priorities. Use it only when no quarter is open, for example a company's first quarter.
 :::
 
 ::: role portfolio_admin
@@ -33,6 +40,8 @@ See every quarter in the *All quarters* table. Changes are made by the company's
 :::
 
 ## Common questions
+
+**What happens to unfinished Priorities at the end of a quarter?** Rolling the quarter moves them into the next one, with their owner and title. Closing a quarter on its own leaves them where they are.
 
 **What happens to a quarter when it's closed?** It's frozen. Its actions and commitments stay visible in history, but it no longer appears in the current quarter picker.
 
