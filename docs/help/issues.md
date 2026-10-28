@@ -21,7 +21,7 @@ Changes in the panel are kept when you press *Save*. If you close the panel, or 
 
 A commitment made here also shows on Commitments, tagged *From issue*, and counts toward the owner's follow-through and the scorecard like any other.
 
-The counts at the top (*Open*, *No commitment yet*, *Resolved this quarter*) always cover the whole list, so they don't change when you filter.
+The number beside *Open issues* counts what the filters leave showing.
 
 ::: role team_member
 ## What you can do here
@@ -56,6 +56,8 @@ Where a system admin has made you this company's admin, you can add, rename, reo
 
 ## How to add a commitment to an issue
 
+Team members can add commitments only to issues they added. On someone else's issue, ask them or your company admin.
+
 1. Open the issue.
 2. Type the next step into *New commitment*, under its commitments.
 3. Add notes under it if you like.
@@ -80,7 +82,7 @@ Some have no commitments. *Resolved in meeting* means the team talked it through
 
 ## Filtering
 
-- **Assigned to** shows issues where that person has an open commitment. Issues with no commitment drop out; the *No commitment yet* count covers those.
+- **Assigned to** shows issues where that person has any commitment: open, finished or parked. Issues with no commitment drop out.
 - **Status** shows open issues, resolved ones, or both.
 - **Source** shows issues that came from a meeting, or ones added here by hand.
 
