@@ -19,6 +19,7 @@ Every quarter for your company, with its label (for example "Q1 2026"), its star
 - **Open the next quarter** with the *Open next quarter* card, when no quarter is open. It suggests a label and dates following on from the latest quarter.
 - **Close the open quarter** with *Close* on its row in *All quarters*. You'll be asked to confirm.
 - **Reopen a closed quarter** with *Reopen* on its row, for example to correct end-of-quarter numbers.
+- **Change the open quarter's dates.** In **Company settings**, open the **Planning** tab. The **Quarter** card shows *This quarter* with its label and dates. Change them and press **Save changes**.
 
 ## How to roll the quarter
 
@@ -37,6 +38,8 @@ Closing the open quarter here and then using *Open next quarter* doesn't move an
 ## What you can do here
 
 See every quarter in the *All quarters* table. Changes are made by the company's own people.
+
+Where a system admin has made you the company's admin, you run its quarters as a company admin does. You can roll the quarter and change the open quarter's dates in **Company settings**, on the **Planning** tab. Here you can open, close and reopen quarters.
 :::
 
 ## Common questions

@@ -28,7 +28,8 @@ export default async function QuartersPage() {
 
   const [quarters] = await Promise.all([getQuartersForCompany(companyId)]);
   // isAdminForCompany admits system_admin, company_admin (matching
-  // this company), and aims_guide (assigned to this company). The
+  // this company), aims_guide (assigned to this company) and a
+  // portfolio admin switched on as its admin (0245). The
   // action layer (openQuarter/closeQuarter/reopenQuarter) already
   // admits guides — this brings the UI in line with the actions and
   // the memory rule (aims_guide = company_admin on assigned
@@ -75,9 +76,13 @@ export default async function QuartersPage() {
               defaultLabel={suggested.label}
               defaultStart={suggested.startDate}
               defaultEnd={suggested.endDate}
-              companyId={
-                session.profile.role === "system_admin" ? companyId : undefined
-              }
+              // Always the company on screen. The action takes it from
+              // the form for a system admin, a guide and a switched-on
+              // portfolio admin, and checks it is one of theirs; a
+              // company admin's own company wins regardless. Sent to
+              // system admins only, a guide's open came back "Pick a
+              // company for this quarter first."
+              companyId={companyId}
             />
           )}
         </section>

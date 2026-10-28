@@ -45,7 +45,7 @@ Focus Areas are on *Goals & Priorities*, and the week's wins open the weekly mee
 - **See how the company is doing** this quarter and this week.
 - **Open a Focus Area** or a person's scorecard from the panels.
 - **Coach about anyone else at the company.** A *Coach* link sits beside each name but yours under *Where to lend support*.
-- **Keep up with what you owe.** The bell at the top counts commitments due today. On Fridays it also reminds you about numbers you haven't logged for functions you lead. Log them on **Critical Success Factors**, under Workspace.
+- **Keep up with what you owe.** The bell at the top lists commitments that are due today or past due. If your company has Success Tracking on, on Fridays it also reminds you about numbers you haven't logged for functions you lead. Log them on **Critical Success Factors**, under Workspace.
 :::
 
 ::: role company_admin,system_admin
@@ -54,7 +54,7 @@ Focus Areas are on *Goals & Priorities*, and the week's wins open the weekly mee
 Everything above, plus:
 
 - **Coach anyone** from the *Coach* link under *Where to lend support*.
-- **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to company settings to fix it.
+- **Open or roll the quarter.** When no quarter is open, or the current one has ended, the line above the company name says so, with a link. It opens the **Planning** tab in **Company settings**, where the **Quarter** card rolls the quarter or opens one.
 :::
 
 ::: role aims_guide
@@ -63,15 +63,15 @@ Everything above, plus:
 - **See how the company is doing** this quarter and this week.
 - **Open a Focus Area** or a person's scorecard from the panels.
 - **Coach anyone** from the *Coach* link under *Where to lend support*.
-- **Open or roll the quarter.** When no quarter is open, or the current one has ended, a link beside the quarter name at the top takes you to company settings to fix it.
+- **Open or roll the quarter.** When no quarter is open, or the current one has ended, the line above the company name says so, with a link. It opens the **Planning** tab in **Company settings**, where the **Quarter** card rolls the quarter or opens one.
 :::
 
 ::: role portfolio_admin
 ## What you can do here
 
-Read every number and panel, the same view the company sees.
+Read every number and panel, the same view the company sees. If Home opens on **Your week**, press *How the company's week is going* at the foot of the page to reach it.
 
-Where a system admin has made you the company's admin, a *Coach* link also sits beside each name under *Where to lend support*.
+Where a system admin has made you the company's admin, Home opens on the company view, and a *Coach* link also sits beside each name under *Where to lend support*. When no quarter is open, or the current one has ended, the line above the company name links to the **Planning** tab in **Company settings**, where you roll the quarter or open one.
 :::
 
 ## Reading the Critical Success Factors board

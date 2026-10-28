@@ -149,12 +149,17 @@ export default async function CompanyDetailPage({
     isSystemAdmin || isCompanyAdmin
       ? await getBulkResetImpact(company.id)
       : { sfaCount: 0, goalCount: 0, priorityCount: 0 };
-  // Same audience as the Planning cycle card above it, so the same
-  // guard: a guide never sees either and skips both queries.
-  const quarterCard =
-    isSystemAdmin || isCompanyAdmin
-      ? await getQuarterCardData(company.id)
-      : null;
+  // The Quarter card goes to whoever may roll the quarter, which is
+  // whoever isAdminForCompany admits: a system admin, the company's
+  // admin, an assigned guide, a portfolio admin switched on as this
+  // company's admin. roll_quarter and the quarters update rule admit
+  // the same set (is_content_admin_for, 0245). It used to follow the
+  // Planning cycle card's guard, which left a guide with no Planning
+  // tab and only Close then Open on /quarters, a path that moves no
+  // priorities.
+  const quarterCard = isAdminForCompany(session.profile, company.id)
+    ? await getQuarterCardData(company.id)
+    : null;
   // The last few times this company's clock moved, and who moved it.
   //
   // The record exists so a scorecard that reads differently this week
