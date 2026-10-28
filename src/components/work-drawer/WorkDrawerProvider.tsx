@@ -1068,8 +1068,8 @@ function CommitmentPanel({
   const router = useRouter();
   // The same rights the row uses (CommitmentRow): the description and
   // notes are the owner's or an admin's; reassigning and rescheduling
-  // follow canReassign and canResolve.
-  const canEdit = ctx.isAdmin || c.owner_id === ctx.currentUserId;
+  // follow canReassign and canResolve. A look-only row edits nothing.
+  const canEdit = !ctx.readOnly && (ctx.isAdmin || c.owner_id === ctx.currentUserId);
   const isOpen = c.status === "open";
   const isParked = c.parked_at !== null;
   const canMove = ctx.canResolve && isOpen && !isParked;

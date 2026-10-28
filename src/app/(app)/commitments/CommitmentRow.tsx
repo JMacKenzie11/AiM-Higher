@@ -85,6 +85,13 @@ export type CommitmentRowProps = {
   // layout, since the drawer is narrow, and no clarity editor, since
   // that is a drawer of its own and drawers never stack.
   inDrawer?: boolean;
+  // Look-only: no resolve, delete, rewording, linking or reassigning,
+  // whatever isAdmin says. The sysadmin's view of another guide's HQ
+  // (/admin/guides/[id]/hq) passes it with isAdmin on, and isAdmin
+  // alone would hand it delete and rewording on someone else's rows.
+  // The drawer this row opens gets it too. App-level only: RLS is
+  // unchanged.
+  readOnly?: boolean;
 };
 
 export function CommitmentRow({
@@ -93,15 +100,19 @@ export function CommitmentRow({
   functionalAreaOptions = [],
   roster,
   todayIso,
-  canResolve,
-  canLink,
-  canReassign,
+  canResolve: canResolveProp,
+  canLink: canLinkProp,
+  canReassign: canReassignProp,
   currentUserId,
   isAdmin,
   companyLabel,
   hidePriority,
   inDrawer = false,
+  readOnly = false,
 }: CommitmentRowProps) {
+  const canResolve = canResolveProp && !readOnly;
+  const canLink = canLinkProp && !readOnly;
+  const canReassign = canReassignProp && !readOnly;
   // The work drawer reads this row's data from here, so a drawer open
   // on it shows the same commitment the row does, refreshed with it.
   const workDrawer = useWorkDrawer();
@@ -115,6 +126,7 @@ export function CommitmentRow({
     canReassign,
     currentUserId,
     isAdmin,
+    readOnly,
   });
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
@@ -276,10 +288,11 @@ export function CommitmentRow({
   }
 
   const canDelete =
-    isAdmin || (commitment.owner_id === currentUserId && isOpen);
+    !readOnly &&
+    (isAdmin || (commitment.owner_id === currentUserId && isOpen));
 
   const canEditDescription =
-    isAdmin || commitment.owner_id === currentUserId;
+    !readOnly && (isAdmin || commitment.owner_id === currentUserId);
 
   // No confirmation box: the delete happens, and the undo chip brings
   // it back for 30 seconds. Delete is soft (deleted_at), so undo is a
@@ -650,6 +663,7 @@ export function CommitmentRow({
         canReassign={canReassign}
         currentUserId={currentUserId}
         isAdmin={isAdmin}
+        readOnly={readOnly}
         pickingOwner={pickingOwner}
         setPickingOwner={setPickingOwner}
         reassignTo={reassignTo}
@@ -1082,6 +1096,7 @@ function OwnerCell({
   canReassign,
   currentUserId,
   isAdmin,
+  readOnly,
   pickingOwner,
   setPickingOwner,
   reassignTo,
@@ -1092,13 +1107,14 @@ function OwnerCell({
   canReassign: boolean;
   currentUserId: string;
   isAdmin: boolean;
+  readOnly: boolean;
   pickingOwner: boolean;
   setPickingOwner: (b: boolean) => void;
   reassignTo: (id: string) => void;
   pending: boolean;
 }) {
   const canClaim =
-    commitment.owner_id === null && !isAdmin && !canReassign;
+    commitment.owner_id === null && !isAdmin && !canReassign && !readOnly;
   const pickerRoster = useMemo(
     () =>
       canReassign

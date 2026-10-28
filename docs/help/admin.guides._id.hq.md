@@ -13,11 +13,11 @@ A read-only view of one guide's Guide HQ, exactly as they see it: their commitme
 - **Open a company** by clicking its name. Anything you change there is done as you, not as the guide.
 - **Prepare a Session Brief** for a company with *Prepare for*. The brief is recorded as yours.
 
-You can't resolve, reschedule, park or reassign commitments here. Those controls are switched off on this view.
+You can't change the guide's commitments here. There is no way to resolve, reschedule, park, reassign, reword or delete one, and opening a commitment shows it without a Save button.
 
 ## Common questions
 
-**Why can't I act on a commitment I can see?** This view is for looking only. Open the company and act there as yourself.
+**Why can't I act on a commitment I can see?** This view is for looking. Open the company and act there as yourself.
 
 **Whose HQ am I looking at?** The banner at the top names the guide. *All companies* at the top takes you back to the companies list.
 
