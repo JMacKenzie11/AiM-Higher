@@ -25,9 +25,15 @@ export const metadata = { title: "Guide HQ" };
 
 // Sysadmin oversight view of another guide's Guide HQ. Sourced by
 // guideId instead of the caller's own id, and rendered read-only:
-// every mutation control (resolve, reschedule, park, reassign) is
-// disabled. Navigational affordances (click a company to scope in,
-// open a meeting analysis) stay live.
+// every mutation control (resolve, reschedule, park, reassign, delete,
+// reword, notes) is off, in the rows and in the drawer they open.
+// Navigational affordances (click a company to scope in, open a
+// meeting analysis) stay live.
+//
+// isAdmin stays true for the navigation it unlocks (the From meeting
+// link); readOnly is what switches the edits off. Before it reached
+// the row, isAdmin alone left delete and rewording live here. The
+// system admin's database rights are unchanged: this is app-level.
 //
 // Works identically whether guideId points to an aims_guide or a
 // system_admin profile.
@@ -89,9 +95,8 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
             Read-only oversight of {guide.full_name}&rsquo;s coaching
-            board. Resolve, reschedule, park, and reassign controls
-            are disabled on this view — jump into a company to act on
-            anything you see here.
+            board. You can&rsquo;t change their commitments on this
+            view. Open a company to act on anything you see here.
           </p>
         </div>
       </section>
@@ -99,8 +104,8 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
       <div className={styles.content}>
         <div className={styles.readOnlyBanner} role="status">
           You&rsquo;re viewing {guide.full_name}&rsquo;s Guide HQ.
-          Mutations are disabled here; navigation still works. Session
-          Brief generation is available since it has no side effects.
+          Nothing here can be changed. Links still work, and a Session
+          Brief you prepare is saved as yours.
         </div>
 
         {zeroCaseload ? (

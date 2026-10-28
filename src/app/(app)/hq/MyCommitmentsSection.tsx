@@ -13,7 +13,10 @@ import commitmentStyles from "@/app/(app)/commitments/commitments.module.css";
 // surface. Resolve, reschedule, and park are all available.
 //
 // On the read-only oversight view (/admin/guides/[id]/hq), the page
-// passes readOnly=true which forces canResolve off.
+// passes readOnly=true, which the row takes as look-only: no resolve,
+// delete or rewording, in the row or its drawer. canResolve alone was
+// not enough, since that page also passes isAdmin and the row gives
+// an admin delete and rewording on any row.
 
 export function MyCommitmentsSection({
   rows,
@@ -57,6 +60,7 @@ export function MyCommitmentsSection({
               currentUserId={currentUserId}
               isAdmin={isAdmin}
               companyLabel={row.companyName}
+              readOnly={readOnly}
             />
           ))}
         </ul>

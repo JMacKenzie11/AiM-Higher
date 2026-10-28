@@ -29,6 +29,9 @@ export type CommitmentContext = {
   canReassign: boolean;
   currentUserId: string;
   isAdmin: boolean;
+  // The row is look-only (CommitmentRow's readOnly), so the drawer
+  // offers no edits either.
+  readOnly?: boolean;
 };
 
 export type IssueContext = {
