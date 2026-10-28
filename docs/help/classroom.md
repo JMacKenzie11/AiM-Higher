@@ -30,6 +30,10 @@ A shared library of lessons and trainings from AiMS, grouped into phases. Open a
 **Why can't I see Classroom in the menu?** Classroom has to be turned on for your company. Ask your company admin.
 :::
 
-::: role company_admin,aims_guide,system_admin,portfolio_admin
-**Why can't I see Classroom in the menu?** Classroom has to be turned on for your company. It's turned on from the company's settings page.
+::: role company_admin,aims_guide
+**Why can't I see Classroom in the menu?** Classroom has to be turned on for your company. Ask a system admin to turn it on.
+:::
+
+::: role system_admin,portfolio_admin
+**Why can't I see Classroom in the menu?** Classroom has to be turned on for the company. Open the company from *Companies*, tick *Classroom* on the *Features* card and click *Save features*.
 :::
