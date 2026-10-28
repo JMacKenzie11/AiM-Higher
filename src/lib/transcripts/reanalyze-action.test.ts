@@ -25,9 +25,16 @@ const mocks = vi.hoisted(() => {
   // Typed with a `_patch` arg so the mock signature matches the
   // adapter below and `.mock.calls[N][0]` is well-typed at the
   // assertion sites.
-  const meetingsUpdate = vi.fn(async (_patch: unknown) => ({
-    error: null,
-  }));
+  // The reset is a compare-and-set: update().eq(id).in(status, from)
+  // .select("id"). The statuses it was allowed to move from are
+  // recorded so a test can assert them; an empty data array is a lost
+  // claim (somebody else already started a run).
+  const meetingsUpdate = vi.fn(
+    async (_patch: unknown, _from?: string[]) => ({
+      data: [{ id: "m_1" }] as Array<{ id: string }>,
+      error: null as { message: string } | null,
+    })
+  );
 
   // Admin from() router mirrors the RLS-scoped one; the admin
   // client is used for the destructive path.
@@ -62,7 +69,11 @@ const mocks = vi.hoisted(() => {
     if (table === "meetings") {
       return {
         update: (patch: unknown) => ({
-          eq: () => meetingsUpdate(patch),
+          eq: () => ({
+            in: (_col: string, from: string[]) => ({
+              select: () => meetingsUpdate(patch, from),
+            }),
+          }),
         }),
       };
     }
@@ -84,6 +95,12 @@ const mocks = vi.hoisted(() => {
   const adminClient = { from: adminFrom };
   const requireProfile = vi.fn();
   const isAdminForCompany = vi.fn();
+  const transcriptSourcesAllowed = vi.fn(
+    (profile: { role: string }) =>
+      profile.role === "system_admin" ||
+      profile.role === "aims_guide" ||
+      profile.role === "company_admin"
+  );
   const processPendingMeetings = vi.fn(async () => ({
     processed: 1,
     recovered: 0,
@@ -109,6 +126,7 @@ const mocks = vi.hoisted(() => {
     adminClient,
     requireProfile,
     isAdminForCompany,
+    transcriptSourcesAllowed,
     processPendingMeetings,
     revalidatePath,
     after,
@@ -129,6 +147,7 @@ vi.mock("@/lib/auth/current-user", () => ({
 
 vi.mock("@/lib/auth/permissions", () => ({
   isAdminForCompany: mocks.isAdminForCompany,
+  transcriptSourcesAllowed: mocks.transcriptSourcesAllowed,
 }));
 
 vi.mock("./ingest", () => ({
@@ -143,7 +162,10 @@ vi.mock("next/server", () => ({
   after: mocks.after,
 }));
 
-import { reanalyzeMeetingAction } from "./reanalyze-action";
+import {
+  reanalyzeMeetingAction,
+  retryFailedMeetingAction,
+} from "./reanalyze-action";
 
 const ADMIN = {
   id: "u_admin",
@@ -155,6 +177,21 @@ const COMPANY_ADMIN = {
   role: "company_admin" as const,
   company_id: "co_acme",
 };
+const GUIDE = {
+  id: "u_guide",
+  role: "aims_guide" as const,
+  company_id: null,
+};
+const OTHER_COMPANY_ADMIN = {
+  id: "u_other_admin",
+  role: "company_admin" as const,
+  company_id: "co_other",
+};
+const PORTFOLIO_ADMIN = {
+  id: "u_portfolio",
+  role: "portfolio_admin" as const,
+  company_id: null,
+};
 const MEMBER = {
   id: "u_member",
   role: "team_member" as const,
@@ -163,18 +200,25 @@ const MEMBER = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.isAdminForCompany.mockImplementation((profile: { id: string }) =>
-    profile.id === ADMIN.id || profile.id === COMPANY_ADMIN.id
+  // Who admins co_acme: the system admin, its own company admin, the
+  // assigned guide, and (switched on) the portfolio admin. The other
+  // company's admin does not.
+  mocks.isAdminForCompany.mockImplementation(
+    (profile: { id: string }, companyId: string) =>
+      companyId === "co_acme" &&
+      [ADMIN.id, COMPANY_ADMIN.id, GUIDE.id, PORTFOLIO_ADMIN.id].includes(
+        profile.id
+      )
   );
   mocks.commitmentsCount.mockResolvedValue({ count: 0, error: null });
   mocks.issuesCount.mockResolvedValue({ count: 0, error: null });
   mocks.meetingsSelectMaybeSingle.mockResolvedValue({
-    data: { id: "m_1", company_id: "co_acme" },
+    data: { id: "m_1", company_id: "co_acme", status: "complete", error: null },
   });
   mocks.commitmentsDelete.mockResolvedValue({ data: [] });
   mocks.issuesDelete.mockResolvedValue({ data: [] });
   mocks.analysesDelete.mockResolvedValue({ error: null });
-  mocks.meetingsUpdate.mockResolvedValue({ error: null });
+  mocks.meetingsUpdate.mockResolvedValue({ data: [{ id: "m_1" }], error: null });
 });
 
 describe("reanalyzeMeetingAction", () => {
@@ -286,5 +330,101 @@ describe("reanalyzeMeetingAction", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith(
       "/leadership/meetings/m_1"
     );
+  });
+
+  it("moves only from complete or failed, never from a run in progress", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    await reanalyzeMeetingAction("m_1");
+    expect(mocks.meetingsUpdate.mock.calls[0]?.[1]).toEqual(["complete", "failed"]);
+  });
+
+  it("a second click loses the claim and starts nothing", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: ADMIN });
+    mocks.meetingsUpdate.mockResolvedValueOnce({ data: [], error: null });
+    const result = await reanalyzeMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/already being analyzed/i);
+    // The analysis is untouched and no model run is scheduled.
+    expect(mocks.analysesDelete).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+    expect(mocks.processPendingMeetings).not.toHaveBeenCalled();
+  });
+});
+
+describe("retryFailedMeetingAction", () => {
+  const failed = (error: string | null = "overloaded", company_id = "co_acme") => ({
+    data: { id: "m_1", company_id, status: "failed", error },
+  });
+
+  beforeEach(() => {
+    mocks.meetingsSelectMaybeSingle.mockResolvedValue(failed());
+  });
+
+  it.each([
+    ["a system admin", ADMIN],
+    ["the company's own admin", COMPANY_ADMIN],
+    ["an assigned guide", GUIDE],
+  ])("lets %s run a failed meeting again", async (_label, profile) => {
+    mocks.requireProfile.mockResolvedValue({ profile });
+    const result = await retryFailedMeetingAction("m_1");
+    expect(result).toEqual({ ok: true });
+    expect(mocks.meetingsUpdate.mock.calls[0]?.[0]).toEqual({ status: "pending", error: null });
+    // Failed only: a retry can never reset a complete meeting.
+    expect(mocks.meetingsUpdate.mock.calls[0]?.[1]).toEqual(["failed"]);
+    expect(mocks.processPendingMeetings).toHaveBeenCalledWith({ meetingId: "m_1" });
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/leadership");
+  });
+
+  it.each([
+    ["another company's admin", OTHER_COMPANY_ADMIN],
+    ["a team member", MEMBER],
+    ["a portfolio admin", PORTFOLIO_ADMIN],
+  ])("refuses %s and writes nothing", async (_label, profile) => {
+    mocks.requireProfile.mockResolvedValue({ profile });
+    const result = await retryFailedMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.meetingsUpdate).not.toHaveBeenCalled();
+    expect(mocks.analysesDelete).not.toHaveBeenCalled();
+    expect(mocks.processPendingMeetings).not.toHaveBeenCalled();
+  });
+
+  it("refuses a meeting that is not failed", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: COMPANY_ADMIN });
+    mocks.meetingsSelectMaybeSingle.mockResolvedValue({
+      data: { id: "m_1", company_id: "co_acme", status: "complete", error: null },
+    });
+    const result = await retryFailedMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.meetingsUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a dismissed meeting", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: COMPANY_ADMIN });
+    mocks.meetingsSelectMaybeSingle.mockResolvedValue(failed("dismissed"));
+    const result = await retryFailedMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.meetingsUpdate).not.toHaveBeenCalled();
+  });
+
+  it("a double click starts one run: the second loses the claim", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: COMPANY_ADMIN });
+    mocks.meetingsUpdate
+      .mockResolvedValueOnce({ data: [{ id: "m_1" }], error: null })
+      .mockResolvedValueOnce({ data: [], error: null });
+    const [first, second] = await Promise.all([
+      retryFailedMeetingAction("m_1"),
+      retryFailedMeetingAction("m_1"),
+    ]);
+    expect([first.ok, second.ok].sort()).toEqual([false, true]);
+    expect(mocks.analysesDelete).toHaveBeenCalledTimes(1);
+    expect(mocks.processPendingMeetings).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a failed meeting with commitments from it", async () => {
+    mocks.requireProfile.mockResolvedValue({ profile: COMPANY_ADMIN });
+    mocks.commitmentsCount.mockResolvedValue({ count: 2, error: null });
+    const result = await retryFailedMeetingAction("m_1");
+    expect(result.ok).toBe(false);
+    expect(mocks.meetingsUpdate).not.toHaveBeenCalled();
   });
 });
