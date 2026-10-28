@@ -96,8 +96,13 @@ export default async function GuideHqPage() {
               <Link className={styles.zeroLink} href="/admin/companies">
                 the Companies page
               </Link>
-              . Your own commitments (below) still appear here so you
-              can act on them.
+              .
+              {/* True only with "short-intros" off. With it on, My
+                  commitments renders only beside a caseload (below),
+                  so a guide with none sees no commitments here. */}
+              {shortHq
+                ? null
+                : " Your own commitments (below) still appear here so you can act on them."}
             </p>
           </section>
         ) : null}
