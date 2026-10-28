@@ -37,7 +37,7 @@ This is the quickest read of how every company is doing. Your home is still Guid
 
 As a portfolio admin you can always read everything in every company on this instance. Ticking a company puts you on its team: you can own commitments and priorities there and close them out, and you show up on its Team list as *team member*.
 
-A system admin can also make you a company's admin. Then, in that company, you can do everything its company admin can, and you show up on its Team list as *company admin*. The card shows **Company admin** beside those companies. Only a system admin can turn it on or off, and who did it and when is recorded.
+A system admin can also make you a company's admin. Then, in that company, you can change its work the way its admins do, and you show up on its Team list as *company admin*. The card shows **Company admin** beside those companies. Editing or removing people, choosing the AiMS champion and rolling the quarter stay with the company's own admins. Only a system admin can turn it on or off, and who did it and when is recorded.
 
 Unticking a company takes you off its team. If you own open commitments there, they go to **Unassigned** so someone else can pick them up. The card shows how many beside each company and asks you to confirm first. Commitments you've already closed keep your name.
 
