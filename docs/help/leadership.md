@@ -24,7 +24,7 @@ Your company's leadership meetings, newest first. Open one to read what was disc
 
 - **Read a meeting.** Click *View* on any meeting marked *complete* to see the summary and the commitments it created.
 - **See how each meeting was run.** When Meeting Facilitation Review is turned on, each finished meeting shows a facilitation score out of 10. It's there to help you run better meetings, so it's never shown in red.
-- **Find out why a meeting failed.** The reason shows on the meeting. Try it again with *Check now* on your company settings page.
+- **Run a failed meeting again.** The reason a meeting failed shows beside *failed* in the Status column. Click *Try again* on that row. The meeting goes back to *pending* and is usually ready in a few minutes.
 
 ## Common questions
 
@@ -33,6 +33,8 @@ Your company's leadership meetings, newest first. Open one to read what was disc
 **Why is nothing showing up?** Meetings come in from the Google Drive folders connected on your company settings page. Check a folder is connected and that the recording was saved into it.
 
 **A meeting has said *pending* for a while.** It usually takes a few minutes. If it hasn't moved, use *Check now* on your company settings page.
+
+**Why is there no *Try again* on a failed meeting?** It says *failed (dismissed)*. Someone set that meeting aside on purpose, so it isn't run again.
 :::
 
 ::: role portfolio_admin

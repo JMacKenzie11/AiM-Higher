@@ -13,6 +13,11 @@ import type { MeetingListRow } from "@/lib/types";
 import styles from "../admin/companies/admin.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { simplifyOn } from "@/lib/ui/simplify";
+import {
+  canManageCompanyMeetings,
+  canRetryFailedMeeting,
+} from "@/lib/transcripts/retry";
+import { RetryFailedMeetingButton } from "./RetryFailedMeetingButton";
 
 export const metadata = { title: "Meeting Summaries" };
 
@@ -44,6 +49,10 @@ export default async function LeadershipPage() {
     .order("created_at", { ascending: false })
     .limit(100);
   const meetings = (rows ?? []) as MeetingListRow[];
+  // Try again on a failed row: the people who manage this company's
+  // meetings (system admin, its company admin, an assigned guide).
+  // retryFailedMeetingAction checks the same rule.
+  const canRetry = canManageCompanyMeetings(session.profile, companyId);
 
   // Facilitation column is fetched and rendered when the feature is
   // on, for everyone in the company (Jason, 2026-10-01: company content
@@ -173,6 +182,8 @@ export default async function LeadershipPage() {
                           >
                             View
                           </Link>
+                        ) : canRetry && canRetryFailedMeeting(m) ? (
+                          <RetryFailedMeetingButton meetingId={m.id} />
                         ) : (
                           <span className={styles.mutedCell}>—</span>
                         )}

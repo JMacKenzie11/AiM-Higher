@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { processPendingMeetings } from "@/lib/transcripts/ingest";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { canManageCompanyMeetings, canRetryFailedMeeting } from "./retry";
 
 // Reanalyze: regenerate a meeting's analysis from scratch.
 //
@@ -29,7 +30,28 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // analysis failed or produced nothing. Regenerating the summary of a
 // meeting with live work is scripts/resummarize-once.ts, on a go.
 //
-// system_admin only. A company admin or guide can no longer run it.
+// Two doors into the same path:
+//
+// - reanalyzeMeetingAction, the meeting page's Reanalyze meeting:
+//   system_admin only, on a meeting that is complete or failed.
+// - retryFailedMeetingAction, Meeting Summaries' Try again: the people
+//   who manage the company's meetings (system_admin, the company's own
+//   company_admin, an assigned aims_guide; the same set as every other
+//   transcript action, canManageCompanyMeetings in ./retry),
+//   and only on a FAILED meeting. A meeting someone dismissed is not
+//   offered again: dismissing was a decision, not a failure.
+//
+// Both write through the service-role client, so the checks here ARE
+// the boundary, not a courtesy (no RLS sits behind them). Each passes
+// the meeting's own company_id, so a company admin or guide can retry
+// a meeting in a company they admin and no other.
+//
+// ONE RUN AT A TIME. The reset to pending is a compare-and-set on the
+// status the caller saw allowed (failed, or complete/failed), so a
+// double click, a second tab or a retry while the first is still
+// analyzing matches no row and is refused before the analysis is
+// touched or a model call is started. analyzeMeeting itself also
+// refuses anything not pending.
 //
 // after() lets the serverless function continue past the response;
 // if it is unavailable the transcripts cron picks the pending meeting
@@ -39,17 +61,18 @@ export type ReanalyzeResult =
   | { ok: true }
   | { ok: false; message: string };
 
+type RerunMeeting = {
+  id: string;
+  company_id: string;
+  status: string;
+  error: string | null;
+};
+
 export async function reanalyzeMeetingAction(
   meetingId: string
 ): Promise<ReanalyzeResult> {
   const session = await requireProfile();
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-
-  const { data: meeting } = await supabase
-    .from("meetings")
-    .select("id, company_id")
-    .eq("id", meetingId)
-    .maybeSingle<{ id: string; company_id: string }>();
+  const meeting = await loadMeeting(meetingId);
   if (!meeting) return { ok: false, message: "Meeting not found." };
   if (
     session.profile.role !== "system_admin" ||
@@ -57,7 +80,43 @@ export async function reanalyzeMeetingAction(
   ) {
     return { ok: false, message: "Only a system admin can reanalyze a meeting." };
   }
+  return rerunMeeting(meeting, ["complete", "failed"]);
+}
 
+export async function retryFailedMeetingAction(
+  meetingId: string
+): Promise<ReanalyzeResult> {
+  const session = await requireProfile();
+  const meeting = await loadMeeting(meetingId);
+  if (!meeting) return { ok: false, message: "Meeting not found." };
+  if (!canManageCompanyMeetings(session.profile, meeting.company_id)) {
+    return { ok: false, message: "Not your meeting to manage." };
+  }
+  if (!canRetryFailedMeeting(meeting)) {
+    return { ok: false, message: "Only a failed meeting can be tried again." };
+  }
+  const result = await rerunMeeting(meeting, ["failed"]);
+  if (result.ok) revalidatePath("/leadership");
+  return result;
+}
+
+// Read through the caller's own client: a meeting RLS hides from them
+// reads as not found.
+async function loadMeeting(meetingId: string): Promise<RerunMeeting | null> {
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data } = await supabase
+    .from("meetings")
+    .select("id, company_id, status, error")
+    .eq("id", meetingId)
+    .maybeSingle<RerunMeeting>();
+  return data ?? null;
+}
+
+async function rerunMeeting(
+  meeting: RerunMeeting,
+  fromStatuses: string[]
+): Promise<ReanalyzeResult> {
+  const meetingId = meeting.id;
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
 
   // Counted with the admin client, so RLS cannot hide a row and let
@@ -85,15 +144,24 @@ export async function reanalyzeMeetingAction(
     };
   }
 
+  // Claim first: only one caller gets the row back. Everyone else
+  // (a double click, a run already pending or analyzing) stops here,
+  // before the analysis row is touched or a model call is made.
+  const { data: claimed, error: claimErr } = await admin
+    .from("meetings")
+    .update({ status: "pending", error: null })
+    .eq("id", meetingId)
+    .in("status", fromStatuses)
+    .select("id");
+  if (claimErr) return { ok: false, message: "Couldn't start the analysis." };
+  if ((claimed?.length ?? 0) === 0) {
+    return { ok: false, message: "This meeting is already being analyzed." };
+  }
+
   await admin
     .from("meeting_analyses")
     .delete()
     .eq("meeting_id", meetingId);
-
-  await admin
-    .from("meetings")
-    .update({ status: "pending", error: null })
-    .eq("id", meetingId);
 
   try {
     after(async () => {
