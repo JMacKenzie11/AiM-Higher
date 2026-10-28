@@ -12,9 +12,9 @@ Aimee is built into AiMS HQ and needs no setup. An AI app is a separate app you 
 ::: feature ai_apps_off
 ## AI apps are switched off for your company
 
-Your company has AI apps switched off, so you can't connect one yet. A company admin or your AiMS Guide can switch them on. Open your company's settings: **Company settings** in the sidebar for a company admin, or the company under **Companies** for a guide. On the **Connections** tab, under **Connect AI apps**, tick **Let people at** *(your company)* **use AiMS HQ in AI apps like Claude and ChatGPT** and click **Save**.
+Your company has AI apps switched off, so you can't connect one yet. Ask your company admin to switch them on.
 
-If that isn't you, ask your company admin.
+If you are the company admin or the company's AiMS Guide, you can switch them on yourself. Open the company's settings: **Company settings** in the sidebar for a company admin, or the company under **Companies** for a guide. On the **Connections** tab, under **Connect AI apps**, tick **Let people at** *(your company)* **use AiMS HQ in AI apps like Claude and ChatGPT** and click **Save**.
 :::
 
 ::: feature outside_assistants
