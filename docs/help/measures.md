@@ -34,7 +34,9 @@ Everything a function's lead can do, on every function:
 ::: role portfolio_admin
 ## What you can do here
 
-Read every function's critical success factors, targets and weekly numbers. Changes are made by the company's own people.
+Read every function's critical success factors, targets and weekly numbers.
+
+Where a system admin has made you the company's admin, you can also do everything a company admin does here: log a value for anyone, and add, edit, archive and reorder critical success factors.
 :::
 
 ## Reading the table

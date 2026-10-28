@@ -11,7 +11,7 @@ How consistently your company is practising the AiMS disciplines, scored out of 
 
 - **Read the overall score** and the line under it showing the last 26 weeks.
 - **Read each discipline's card.** You'll see its score, an arrow comparing it with 90 days ago, a small trend line, and the evidence the score came from.
-- **See how a card is scored.** Hover the *?* beside its name.
+- **See how a card is scored.** Hover the *i* beside its name.
 - **Go and improve it.** Each card links to the page where that work happens.
 :::
 
@@ -28,7 +28,7 @@ How consistently your company is practising the AiMS disciplines, scored out of 
   The card stays up once everything's ticked, so it works as a map of the disciplines. Team members don't see it.
 - **Read the overall score** and each discipline's card: its score, an arrow comparing it with 90 days ago, a small trend line, and the evidence behind it.
 - **Find what to fix.** The Accountability chart card names the functions that are missing a Lead or a critical success factor.
-- **See how a card is scored.** Hover the *?* beside its name.
+- **See how a card is scored.** Hover the *i* beside its name.
 - **Go and improve it.** Each card links to the page where that work happens.
 :::
 
@@ -70,13 +70,13 @@ The **overall score** is an average of the disciplines that have a score. Strate
 **Why doesn't a card have a trend arrow?** There isn't enough history yet to compare with 90 days ago. It appears once there is.
 
 ::: role team_member
-**Why does a card say *Not enabled*?** That part of AiMS isn't turned on for your company. Ask your company admin if you think it should be.
+**Why does a card say *Not enabled*?** That part of AiMS isn't turned on for your company, or there is nothing to score yet. Ask your company admin if you think it should be on.
 :::
 
 ::: role company_admin,aims_guide
-**Why does a card say *Not enabled*?** Meeting Facilitation Review is off for this company. A system admin can turn it on.
+**Why does a card say *Not enabled*?** Either Meeting Facilitation Review is off for this company, or there is nothing to score yet. *Solution seeking* needs an issue raised in a reviewed meeting in the last 8 weeks. *Appreciative practice* needs a reviewed meeting. If the *Weekly leadership meeting* card also says *Not enabled*, the feature is off, and a system admin can turn it on.
 :::
 
 ::: role system_admin,portfolio_admin
-**Why does a card say *Not enabled*?** Meeting Facilitation Review is off for this company. Turn it on under *Features* on the company settings page, and the cards start scoring the next time the page loads.
+**Why does a card say *Not enabled*?** Either Meeting Facilitation Review is off for this company, or there is nothing to score yet. *Solution seeking* needs an issue raised in a reviewed meeting in the last 8 weeks. *Appreciative practice* needs a reviewed meeting. If the *Weekly leadership meeting* card also says *Not enabled*, the feature is off. Turn it on under *Features* on the company settings page, and the cards start scoring the next time the page loads.
 :::
