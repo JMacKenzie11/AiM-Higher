@@ -19,9 +19,10 @@ Your home base as an AiMS Guide: your own commitments, the companies that need y
 
 1. Find the company in *Your companies*.
 2. Click *Prepare for {company}*.
-3. Read the brief. It pulls together the last meeting and what it showed, commitments since, how the scorecard has moved, and anything needing attention. Click *Copy* to put it on your clipboard.
+3. Click *Generate a new brief*.
+4. Read the brief. It pulls together the last meeting and what it showed, commitments since, how the scorecard has moved, and anything needing attention. Click *Copy* to put it on your clipboard.
 
-Every brief is kept, so you can scroll back to earlier ones for the same company and compare.
+The dialog shows your two most recent briefs for that company, so you can compare this week with last.
 
 ## How to work inside a company
 
@@ -38,5 +39,5 @@ To step back out, use *Exit {company}* in the user menu.
 **Why can't I reassign a commitment or link it to a priority from My commitments?** Those need the company's own page. Open Commitments inside that company.
 
 ::: role system_admin
-**I have no companies assigned. Why the notice?** Guide HQ only shows companies you're assigned to guide, even for a system admin. Your own commitments still show, and your access to every company is unchanged.
+**I have no companies assigned. Why the notice?** Guide HQ only shows companies you're assigned to guide, even for a system admin. Your access to every company is unchanged. To see your own commitments, open Commitments inside a company.
 :::

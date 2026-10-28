@@ -13,7 +13,7 @@ Where you write and update the shared Classroom library. Every lesson you publis
 - **Rename a category.** Click its name, type the new one and press Enter. Escape cancels. The lesson links underneath don't change, so anything already shared keeps working.
 - **Add a lesson.** Click *New lesson* in a category, give it a title, and you're taken straight to its edit page. It starts as a draft. Add a description, which shows on the lesson's card in Classroom.
 - **Add a section.** On the lesson's edit page, click *New section* and give it a short title. That title is the tab readers see.
-- **Write the section.** The editor has headings, bold, italic, lists, quotes and links. The left rail shows the same tabs your readers will see, so click any section there to jump to it.
+- **Write the section.** The editor has headings, bold, italic, lists, quotes and links. The left rail shows the same tabs your readers will see, so click any section there to jump to it. Press *Save section* first: moving to another section does not save what you wrote.
 - **Reorder** lessons and sections with the up and down arrows on their rows.
 - **Delete** a lesson or a section. You're asked to confirm first.
 
@@ -46,7 +46,7 @@ Add PDFs, slides or worksheets to a section, up to 25 MB each. Readers download 
 
 1. Create the lesson in the right category.
 2. Add each section: title, text, any videos and attachments.
-3. Tick *Published* on the lesson and on each section. Anything left as a draft stays hidden from every company.
+3. Tick *Published* on the lesson and on each section, then press *Save lesson* or *Save section*. Anything left as a draft stays hidden from every company.
 4. Open Classroom inside a company that has it turned on to check the lesson the way readers see it.
 
 ## Common questions
