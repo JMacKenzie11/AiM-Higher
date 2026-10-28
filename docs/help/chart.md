@@ -18,11 +18,12 @@ Your company's structure in one view: every function, who's in the seat, and wha
 
 - **Add a function**, responsibilities and all, without leaving the chart.
 - **Edit a function in place.** Click its box and its detail opens in a panel on the right.
+- **Reorder functions.** Drag a box left or right to change its place among the functions beside it.
 - **Choose who's in the seat.** One person per function.
 - **Add and edit responsibilities**, and with Role Descriptions on, decision rights and competency indicators.
 - **Delete a function**, along with everything under it.
 - **Write a role description with Aimee.** Open the *Role Description Creator* under *People* in Ask Aimee. It works from this chart and your One-Page Plan and asks you the rest.
-- **Publish a role description.** Open it from the *Role Description* card at the bottom of a function, then click *Publish version* on the role description page. Published ones are listed on Team, below *Add a person*.
+- **Find saved role descriptions on Team.** The *Role Descriptions* card on Team lists every role description saved from the *Role Description Creator*.
 
 ## How to add a function
 
@@ -48,14 +49,6 @@ New companies start with **Visionary** and **Integrator** boxes at the top. Buil
 
 Open the function, then pick someone under *In the seat*. The seat holder is the one person accountable for the function: Lead, Track and Decide are all theirs.
 
-## How to publish a role description
-
-1. Open the function and scroll to the *Role Description* card at the bottom.
-2. Check the readiness list: Title, Responsibilities, Critical Success Factors with targets, Decision Rights and Competency Indicators. Fill any gaps.
-3. Click *Create role description* the first time. After that it reads *View role description*.
-4. On the role description page, click *Publish version*, add a note if you like, and click *Publish*.
-
-The role description page has its own help.
 :::
 
 ::: role portfolio_admin
