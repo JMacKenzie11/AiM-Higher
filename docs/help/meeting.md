@@ -21,7 +21,7 @@ Press *Next* at the foot of the card to move on (under Numbers, Strategy, Commit
 
 ## Common questions
 
-**Does this record the meeting?** No. It shows your company's work and lets you act on it. To get a summary, upload the meeting's transcript; it shows on *Meeting Summaries*.
+**Does this record the meeting?** No. It shows your company's work and lets you act on it. To get a summary, save the meeting's transcript into your company's connected Google Drive folder. Once it is analysed, it shows on *Meeting Summaries*.
 
 **Is attendance kept from week to week?** Yes, one meeting a week. If you open the meeting again later that week, the ticks you made are still there. Next week starts with nobody marked.
 

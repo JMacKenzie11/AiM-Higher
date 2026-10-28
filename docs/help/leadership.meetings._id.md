@@ -76,6 +76,7 @@ While it runs, an *Analyzing this meeting* banner shows above the write-up and t
 
 - **Read the meeting** on the Meeting Analysis tab, the coaching notes and the transcript.
 - **See the commitments and issues** it produced on the Issues and commitments tab.
+- **Send commitments and issues where they belong**, in a company where a system admin has made you its admin. You get the same *Commitments identified* and *Issues identified* controls as the company's admins. *Commitments identified* shows only when Automated Commitment Tracking is off.
 :::
 
 ## Common questions
@@ -87,7 +88,7 @@ While it runs, an *Analyzing this meeting* banner shows above the write-up and t
 **The summary says "an unidentified speaker".** The recording labels people by number, and Aimee only names someone when she's confident who it was.
 
 ::: role team_member,company_admin,aims_guide,system_admin
-**Who sees this page?** Everyone at your company can read the write-up and the commitments. Commitments from the meeting show on each owner's Commitments list and scorecard, like any other commitment. The review of how the meeting was run is for admins, guides and the AiMS champion.
+**Who sees this page?** Everyone at your company can read the write-up, the commitments, the coaching notes and the score. Commitments from the meeting show on each owner's Commitments list and scorecard, like any other commitment.
 :::
 
 ::: role company_admin,aims_guide,system_admin
