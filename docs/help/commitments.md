@@ -39,22 +39,19 @@ Anyone who can see the commitment can read its notes. Whoever can change the com
 - **Change your mind.** After you close one out or delete one, *Undo* stays on screen for 30 seconds.
 :::
 
-::: role company_admin,system_admin
+::: role company_admin,aims_guide,system_admin
 ## What you can do here
 
 Everything a team member can do with their own commitments, for anyone's:
 
 - **Close out, reschedule or reassign any commitment** in one click, without giving a reason.
-- **Give a commitment to your AiMS Guide.** When you add a commitment, guides assigned to your company are in the owner list.
+- **Change the wording or notes of any commitment.** Open it and press *Save*.
+- **Delete any commitment**, including one already closed out. *Undo* stays on screen for 30 seconds.
 - **Correct a late one to on time** from the circle's menu, when it really was done on time.
-:::
+- **Add a commitment for anyone on the team.** The owner list includes the AiMS Guides assigned to the company.
+- **Open the source meeting.** *From meeting* on a commitment opens the meeting it came from.
 
-::: role aims_guide
-## What you can do here
-
-- **Close out, reschedule or reassign anyone's commitment.** Click the circle to close one out or reschedule it, and click the owner's name to hand it to someone else.
-- Rescheduling asks you for a short reason. Closing out a late one offers a reason too, and you can skip it.
-- To change the wording or notes of someone else's commitment, delete it, or correct a late one to on time, ask the company admin.
+Everyone's commitments for the week are in one list under *This week*, so you can go through them together in the meeting. With no open quarter, *Open this quarter* takes you to Quarters.
 :::
 
 ::: role portfolio_admin
@@ -62,7 +59,9 @@ Everything a team member can do with their own commitments, for anyone's:
 
 Read every commitment and filter the list.
 
-If you're assigned to this company, you can also add commitments of your own, and close out, reschedule or park the ones you own. Where a system admin has made you this company's admin, you can also reassign or park anyone's commitment. Closing out or rescheduling someone else's is done by them or the company's admin.
+If you're assigned to this company, you can also add commitments of your own, and close out, reschedule or park the ones you own.
+
+If a system admin has made you this company's admin, you can do everything its admin can here: close out, reschedule, reassign, reword or delete anyone's commitment without a reason, correct a late one to on time, and add one for anyone on the team.
 
 Without an assignment the page is read only, and changes are made by the company's own people.
 :::

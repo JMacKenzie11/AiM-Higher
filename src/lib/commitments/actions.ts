@@ -78,6 +78,13 @@ async function getCompanyTimezone(
 // reason prompt (they typically resolve during the weekly meeting on
 // someone else's behalf and there's nothing more to say). Owner acts
 // on their own commitment.
+//
+// The admin and guide branches are exactly isAdminForCompany's set,
+// which is what the page uses to show the admin controls. A portfolio
+// admin a system admin switched on as this company's admin (0245)
+// resolves as "admin": RLS already admits it (commitments_update_guide
+// and commitment_occurrences_write_admin call is_content_admin_for()).
+// One who is only assigned falls through to "owner" on its own rows.
 function resolverRoleFor(
   profile: SessionProfileLike,
   commitment: Pick<Commitment, "company_id" | "owner_id">
@@ -94,6 +101,12 @@ function resolverRoleFor(
     (profile.guide_company_ids ?? []).includes(commitment.company_id)
   ) {
     return "guide";
+  }
+  if (
+    profile.role === "portfolio_admin" &&
+    (profile.portfolio_admin_company_ids ?? []).includes(commitment.company_id)
+  ) {
+    return "admin";
   }
   if (commitment.owner_id === profile.id) return "owner";
   return null;

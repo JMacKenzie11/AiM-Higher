@@ -1,6 +1,10 @@
 import Link from "next/link";
 import type { requireProfile } from "@/lib/auth/current-user";
-import { canOwnWorkIn, canWriteOwnedRow } from "@/lib/auth/permissions";
+import {
+  canOwnWorkIn,
+  canWriteOwnedRow,
+  isAdminForCompany,
+} from "@/lib/auth/permissions";
 import {
   getCommitmentsPageData,
   type CommitmentFilters,
@@ -51,9 +55,14 @@ export async function CommitmentsView({
     filters
   );
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // isAdminForCompany, not a role check: an assigned aims_guide is the
+  // company's admin here (and so is a portfolio admin a system admin
+  // switched on as its admin, 0245). The role check left guides with
+  // the team member's view: no delete or rewording on others' rows,
+  // no Mark kept (on time), a reason asked on every reschedule, no
+  // owner picker on a new commitment, and no Open this quarter link,
+  // though every action behind them already admitted the guide.
+  const isAdmin = isAdminForCompany(session.profile, companyId);
 
   return (
     <>

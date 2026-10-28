@@ -679,3 +679,89 @@ describe("deleteCommitmentAction (soft)", () => {
     expect(revalidatedPaths).not.toContain("/issues");
   });
 });
+
+// ---- Who resolves for the company -------------------------------
+// The Commitments page shows the admin's controls to whoever
+// isAdminForCompany admits. The resolve actions must take the same
+// people as admins, and RLS already does (commitments_update_guide and
+// commitment_occurrences_write_admin call is_content_admin_for(), 0245).
+describe("resolving someone else's commitment for the company", () => {
+  const GUIDE = {
+    id: "u_guide",
+    role: "aims_guide" as const,
+    company_id: null,
+    guide_company_ids: ["co_acme"],
+  };
+  const PORTFOLIO_SWITCHED_ON = {
+    id: "u_portfolio",
+    role: "portfolio_admin" as const,
+    company_id: null,
+    portfolio_company_ids: ["co_acme"],
+    portfolio_admin_company_ids: ["co_acme"],
+  };
+  const PORTFOLIO_ASSIGNED_ONLY = {
+    ...PORTFOLIO_SWITCHED_ON,
+    portfolio_admin_company_ids: [],
+  };
+
+  it("an assigned guide can force kept on time on a past-due row", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: GUIDE });
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+
+    const result = await markKeptAction("c_1", { resolveAs: "on_time" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "kept_on_time",
+        resolved_by_role: "guide",
+      })
+    );
+  });
+
+  it("a portfolio admin switched on as the company's admin resolves as its admin", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: PORTFOLIO_SWITCHED_ON });
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+
+    const result = await markKeptAction("c_1", { resolveAs: "on_time" });
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "kept_on_time",
+        resolved_by_role: "admin",
+      })
+    );
+  });
+
+  it("a switched-on portfolio admin reschedules with no reason", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: PORTFOLIO_SWITCHED_ON });
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+
+    const result = await rescheduleCommitmentAction("c_1", "2026-09-04", null);
+
+    expect(result.ok).toBe(true);
+    expect(mocks.commitmentsUpdatePatch).toHaveBeenCalledWith(
+      expect.objectContaining({ due_date: "2026-09-04" })
+    );
+  });
+
+  it("a portfolio admin only assigned to the company is still refused", async () => {
+    mocks.requireProfile.mockResolvedValueOnce({ profile: PORTFOLIO_ASSIGNED_ONLY });
+    mocks.commitmentsSelectMaybeSingle.mockResolvedValue({
+      data: baseCommitment({ due_date: "2026-08-10" }),
+    });
+
+    const result = await markKeptAction("c_1");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toMatch(/not yours/i);
+    expect(mocks.commitmentsUpdatePatch).not.toHaveBeenCalled();
+  });
+});
