@@ -17,7 +17,7 @@ Changes here apply to every company as soon as you save or publish them. There's
     - **Roles.** Tick nothing and every role can use it. Tick one or more and only those roles can. Guides also need to be assigned to the company.
     - **Functional Leads.** Anyone who leads a function on the Functional Chart, even if their role isn't ticked. Useful for an agent about a function, where the lead is usually a team member.
     - **Feature.** Pick a feature and only companies that have it switched on can use the agent. Leave it on *No feature needed* for an agent everyone should reach.
-- **Change the order.** The up and down arrows on each row set the order the cards appear in.
+- **Change the order.** Open an agent's row menu and choose *Move up* or *Move down*. That sets the order the cards appear in.
 - **Hide an agent.** It comes off the list people pick from. Conversations already using it keep working and keep its name. *Show again* brings it back.
 - **Manage categories.** Add, rename, reorder and hide the headings agents are grouped under, in the lower card.
 - **Change what an agent says and does.** Open *Config* to change its wording, its conversation starters, what it can look up, its token ceiling and its other settings.
@@ -26,8 +26,8 @@ Changes here apply to every company as soon as you save or publish them. There's
 
 An agent starts out on its built-in version. **Edit in Hub** copies that into a draft. Nothing changes for anyone until you publish.
 
-- **Save** keeps working on the draft. Every save becomes a new version number.
-- **Preview this draft** opens a real conversation running the draft. Only you can see it, and it's left out of every usage report. Save and Preview both save what's on screen first, so they always use what you're looking at.
+- **Save draft** keeps working on the draft. Every save becomes a new version number.
+- **Preview this draft** opens a real conversation running the draft. Only you can see it, and it's left out of every usage report. Save draft and Preview both save what's on screen first, so they always use what you're looking at.
 - **Review and publish** shows what changed against the live version (or against the built-in one if nothing has been published). Publish notes are required: they're the record of why every company's agent changed.
 - **Checked against the AiMS coaching principles.** Review and publish also checks the prompt against the coaching principles and lists any instruction that pulls against one, quoting the prompt and saying how. It takes a few seconds. It never stops you publishing: when it finds something, or can't run, tell it why you're publishing anyway, and the reason is kept with the version. Some agents work with problems on purpose, and that is a fine reason. *Make live* from History checks the older version the same way.
 - **History** lists every version with its notes, who published it, and any principles warnings with the reason given. *Make live* puts an older one back and asks for its own note.
@@ -49,9 +49,11 @@ The short name under an agent's title is made from the name you first give it, a
 
 ## Unpublishing, hiding and deleting
 
+*Unpublish* and *Delete* are in *Config*, for agents built in the Hub. They show only when no draft is open, so publish or discard the draft first. A built-in agent has *Revert to code default* instead.
+
 **Unpublish** takes the agent out of every picker. No new conversation can start on it, and conversations already running carry on as they are. You can publish it again whenever you like. Use this for an agent that isn't working out.
 
-**Delete** removes the agent and its drafts for good. It's only offered while the agent has never been published. Once it's been published, it can be unpublished or hidden, but not deleted, so the conversations that ran on it keep their name and wording.
+**Delete** removes the agent and its drafts for good. It's only offered while the agent has never been published, and you confirm with *Delete for good*. Once it's been published, it can be unpublished or hidden, but not deleted, so the conversations that ran on it keep their name and wording.
 
 ## Sending an agent to other instances
 
@@ -63,7 +65,7 @@ Sending is always two steps. **Dry run** shows exactly what would happen on each
 
 You need an account on each instance you send to, under the same email you sign in with here: every version records who published it. If you don't have one, the dry run says so for that instance.
 
-If the drawer says **Pushing is switched off**, the apply button is disabled. The dry run still works and changes nothing.
+If the drawer says **Pushing is switched off**, *Apply this plan* and *Retract from this instance* are both disabled. The dry run still works and changes nothing.
 
 **Retract from this instance** takes the agent out of that instance's pickers. Conversations already running there keep going on the version they started with.
 
