@@ -44,7 +44,7 @@ She can't read anyone else's conversations, and nobody can read yours.
 
 **Who else gets these?** Nobody. It's one person per company. If a commitment in the summary belongs to someone else, they aren't told Aimee mentioned it to you.
 
-**What if I missed one?** Only the latest invitation stays open. If two meetings are summarised before you get to either, you're invited about the newer one. You can always read any meeting summary yourself from **Meetings**.
+**What if I missed one?** Only the latest invitation stays open. If two meetings are summarised before you get to either, you're invited about the newer one. You can always read any meeting summary yourself on **Meeting Summaries**.
 
 ::: role team_member,aims_guide
 **What if I'd rather not be the champion?** Ask a company admin to change the seat. Leaving it empty is fine: nobody is contacted and nothing else changes. Any invitation still waiting for you goes with the seat, so once it moves you won't see it any more.
