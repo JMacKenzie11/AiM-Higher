@@ -10,7 +10,7 @@ Every commitment your team has made, week by week: who owns it, when it's due, a
 
 Each commitment has an owner, a due date and a status: *open*, *kept on time*, *kept, but late*, or *missed*. Late still means the work got done, after the due date, and it shows with a small clock.
 
-The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**, and the *Needs attention* number at the top of the page counts the same commitments. A commitment due earlier this week stays under this week. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
+The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**, with a count of how many are overdue beside the heading. A commitment due earlier this week stays under this week. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
 
 ## Opening a commitment
 
@@ -39,14 +39,22 @@ Anyone who can see the commitment can read its notes. Whoever can change the com
 - **Change your mind.** After you close one out or delete one, *Undo* stays on screen for 30 seconds.
 :::
 
-::: role company_admin,aims_guide,system_admin
+::: role company_admin,system_admin
 ## What you can do here
 
 Everything a team member can do with their own commitments, for anyone's:
 
 - **Close out, reschedule or reassign any commitment** in one click, without giving a reason.
-- **Give a commitment to your AiMS Guide.** Guides assigned to your company are in the owner list.
+- **Give a commitment to your AiMS Guide.** When you add a commitment, guides assigned to your company are in the owner list.
 - **Correct a late one to on time** from the circle's menu, when it really was done on time.
+:::
+
+::: role aims_guide
+## What you can do here
+
+- **Close out, reschedule or reassign anyone's commitment.** Click the circle to close one out or reschedule it, and click the owner's name to hand it to someone else.
+- Rescheduling asks you for a short reason. Closing out a late one offers a reason too, and you can skip it.
+- To change the wording or notes of someone else's commitment, delete it, or correct a late one to on time, ask the company admin.
 :::
 
 ::: role portfolio_admin
@@ -54,7 +62,7 @@ Everything a team member can do with their own commitments, for anyone's:
 
 Read every commitment and filter the list.
 
-If you're assigned to this company, you can also add commitments of your own, and close out, reschedule or park the ones you own. Where a system admin has made you this company's admin, you can close out, reschedule or reassign anyone's.
+If you're assigned to this company, you can also add commitments of your own, and close out, reschedule or park the ones you own. Where a system admin has made you this company's admin, you can also reassign or park anyone's commitment. Closing out or rescheduling someone else's is done by them or the company's admin.
 
 Without an assignment the page is read only, and changes are made by the company's own people.
 :::
