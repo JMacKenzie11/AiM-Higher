@@ -73,7 +73,7 @@ Only you can invite people, change their access, remove them, rename the convers
 
 Aimee's icon sits in the bottom-right corner of every page. Click it, or press **Ctrl + .** (Ctrl and the full stop, on a Mac too), to open her panel beside the page you're on. On a computer you can keep working in the page. On a phone the panel fills the screen until you close it.
 
-- **For you.** When someone shares a conversation with you, it's listed here with their name, and a number shows on Aimee's icon. *Open the chat* opens it in the panel. A conversation about a person opens on their coaching page instead.
+- **For you.** When someone shares a conversation with you, it's listed here with their name, and a number shows on Aimee's icon. *Open the chat* opens it in the panel. A conversation about a person can't open there. A note appears under it instead: click *Open it* to go to it on their coaching page.
 - **A conversation.** Aimee greets you and suggests a few questions about the page you're on. Click one, or ask anything. The panel picks up your last panel conversation, and *New conversation* starts another. It stays with you as you move between pages.
 - **She can read your meeting summaries.** Ask what came out of last week's leadership meeting, or what was committed to, and she reads the summaries your company has on Meeting Summaries, with a link to the meeting. She sees only the meetings you can open.
 - **She knows the page you're on.** On a page about one thing (a person, a function, a goal, a priority, a meeting) she can read its name and description, so you can ask "what is this for?" On the Functional Chart that includes the function open beside it. She only sees what you could open yourself.
