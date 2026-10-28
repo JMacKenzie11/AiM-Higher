@@ -438,7 +438,7 @@ export default async function AdminDashboardPage() {
         <div className={styles.cardHeader}>
           <h2 className={`${styles.cardTitle} ${styles.tipLabel}`}>
             System admins
-            <InfoTip text="System admins see every company on this instance and belong to none, which is why they appear here rather than on any company's People page. They receive the same invitation as any other user and set their own password. Company admins are invited from that company's page under Companies instead." />
+            <InfoTip text="System admins see every company on this instance and belong to none, which is why they appear here rather than on any company's Team page. They receive the same invitation as any other user and set their own password. Company admins are invited from that company's Team page instead, with Add a person." />
           </h2>
         </div>
         <SystemAdminList

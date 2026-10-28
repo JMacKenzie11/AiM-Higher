@@ -378,6 +378,31 @@ describe("createFunctionAction", () => {
 // ==============================================================
 // reorderFunctionsAction — drag-drop consistency
 // ==============================================================
+describe("who reaches the chart writes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    primeHappyPath();
+  });
+
+  // The chart shows its edit controls by isAdminForCompany, which
+  // admits a portfolio admin switched on as the company's admin.
+  // RLS (is_content_admin_for, 0245) admits them too, so the action
+  // must not send them home first.
+  it("admits a portfolio admin, leaving the company to RLS", async () => {
+    const { createFunctionAction } = await import("./actions");
+    await createFunctionAction(
+      undefined,
+      formDataFrom({ company_id: "co_acme", title: "Sales" })
+    );
+    expect(mocks.requireRole).toHaveBeenCalledWith([
+      "system_admin",
+      "company_admin",
+      "aims_guide",
+      "portfolio_admin",
+    ]);
+  });
+});
+
 describe("reorderFunctionsAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();

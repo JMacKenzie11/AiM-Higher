@@ -20,6 +20,7 @@ import type {
   FunctionOutcome,
   FunctionRole,
   MetricValueType,
+  Role,
   SuccessMeasure,
   TargetDirection,
   UpdateFrequency,
@@ -33,6 +34,22 @@ import {
 // Chart write actions. RLS gates access (admin OR the function's
 // leader for measure entries); the checks here surface friendly
 // error messages rather than raw 403s.
+
+// Who may reach the chart's structural writes (functions, seats,
+// responsibilities, decision rights, competencies). The roles are a
+// first door only; RLS decides per company. The *_guide policies on
+// each table go through is_content_admin_for() (0245), which admits
+// an assigned aims_guide and a portfolio_admin a system admin has
+// switched on as that company's admin, and nobody else of either
+// role. The chart page shows the controls by the same rule
+// (isAdminForCompany), so a portfolio admin who saw them used to be
+// sent home by this check on save.
+const CHART_EDITORS: Role[] = [
+  "system_admin",
+  "company_admin",
+  "aims_guide",
+  "portfolio_admin",
+];
 
 export type ChartResult<T> =
   | { ok: true; item: T }
@@ -67,7 +84,7 @@ export async function createFunctionAction(
   _prev: ChartResult<FunctionNode> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionNode>> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(CHART_EDITORS);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -172,7 +189,7 @@ export async function renameFunctionAction(
   functionId: string,
   newTitle: string
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const title = newTitle.trim();
   if (!functionId || !title) {
     return { ok: false, message: "Title can't be empty." };
@@ -221,7 +238,7 @@ export async function updateFunctionDetailsAction(
     leadId: string | null;
   }
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   if (!functionId) return { ok: false, message: "Missing function." };
 
   const title = fields.title.trim();
@@ -312,7 +329,7 @@ export async function setFunctionParentAction(
   functionId: string,
   parentFunctionId: string | null
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   if (!functionId) return { ok: false, message: "Missing function." };
   if (parentFunctionId === functionId) {
     return { ok: false, message: "A function can't sit under itself." };
@@ -355,7 +372,7 @@ export async function updateFunctionAction(
   _prev: ChartResult<FunctionNode> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing function id." };
 
@@ -393,7 +410,7 @@ export async function updateFunctionAction(
 export async function reorderFunctionsAction(
   updates: Array<{ id: string; sort_order: number }>
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   if (updates.length === 0) return { ok: true };
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
@@ -421,7 +438,7 @@ export async function archiveFunctionAction(
   functionId: string,
   archived: boolean
 ): Promise<ChartResult<FunctionNode>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("functions")
@@ -443,7 +460,7 @@ export async function createFunctionRoleAction(
   _prev: ChartResult<FunctionRole> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionRole>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const functionId = String(formData.get("function_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -482,7 +499,7 @@ export async function updateFunctionRoleAction(
   _prev: ChartResult<FunctionRole> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionRole>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -511,7 +528,7 @@ export async function renameFunctionRoleAction(
   roleId: string,
   newTitle: string
 ): Promise<ChartResult<FunctionRole>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const title = newTitle.trim();
   if (!roleId || !title) return { ok: false, message: "Title can't be empty." };
 
@@ -534,7 +551,7 @@ export async function renameFunctionRoleAction(
 export async function deleteFunctionRoleAction(
   roleId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   // Grab function_id first so we can revalidate the detail path even
@@ -567,7 +584,7 @@ export async function deleteFunctionRoleAction(
 export async function deleteFunctionAction(
   functionId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("functions")
@@ -1099,7 +1116,7 @@ export async function createFunctionDecisionRightAction(
   _prev: ChartResult<FunctionDecisionRight> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionDecisionRight>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const functionId = String(formData.get("function_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -1131,7 +1148,7 @@ export async function renameFunctionDecisionRightAction(
   id: string,
   newTitle: string
 ): Promise<ChartResult<FunctionDecisionRight>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const title = newTitle.trim();
   if (!id || !title) return { ok: false, message: "Title can't be empty." };
 
@@ -1150,7 +1167,7 @@ export async function renameFunctionDecisionRightAction(
 export async function deleteFunctionDecisionRightAction(
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: row } = await supabase
@@ -1173,7 +1190,7 @@ export async function createFunctionCompetencyAction(
   _prev: ChartResult<FunctionCompetency> | undefined,
   formData: FormData
 ): Promise<ChartResult<FunctionCompetency>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const functionId = String(formData.get("function_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -1205,7 +1222,7 @@ export async function renameFunctionCompetencyAction(
   id: string,
   newTitle: string
 ): Promise<ChartResult<FunctionCompetency>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const title = newTitle.trim();
   if (!id || !title) return { ok: false, message: "Title can't be empty." };
 
@@ -1224,7 +1241,7 @@ export async function renameFunctionCompetencyAction(
 export async function deleteFunctionCompetencyAction(
   id: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(CHART_EDITORS);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: row } = await supabase

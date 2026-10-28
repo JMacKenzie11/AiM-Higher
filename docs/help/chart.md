@@ -4,13 +4,13 @@ title: Functional Chart
 
 # Functional Chart
 
-Your company's structure in one view: every function, who's in the seat, and what they're responsible for. When Role Descriptions is on for your company, each function also has Decision Rights, Competency Indicators and a role description built from them.
+Your company's structure in one view: every function, who's in the seat, and what they're responsible for.
 
 ::: role team_member
 ## What you can do here
 
 - **See the chart.** Every function, who leads it, and its roles and responsibilities.
-- **Open a function.** Click its box to see everything it owns, including decision rights and competency indicators where your company has them.
+- **Open a function.** Click its box to see everything it owns.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -20,7 +20,7 @@ Your company's structure in one view: every function, who's in the seat, and wha
 - **Edit a function in place.** Click its box and its detail opens in a panel on the right.
 - **Reorder functions.** Drag a box left or right to change its place among the functions beside it.
 - **Choose who's in the seat.** One person per function.
-- **Add and edit responsibilities**, and with Role Descriptions on, decision rights and competency indicators.
+- **Add and edit responsibilities.**
 - **Delete a function**, along with everything under it.
 - **Write a role description with Aimee.** Open the *Role Description Creator* under *People* in Ask Aimee. It works from this chart and your One-Page Plan and asks you the rest.
 - **Find saved role descriptions on Team.** The *Role Descriptions* card on Team lists every role description saved from the *Role Description Creator*.
@@ -54,7 +54,9 @@ Open the function, then pick someone under *In the seat*. The seat holder is the
 ::: role portfolio_admin
 ## What you can do here
 
-See the chart and open any function to read what it owns. Changes are made by the company's own people.
+See the chart and open any function to read what it owns. The company's admins and its AiMS Guide make the changes.
+
+If a system admin has made you this company's admin, you can change the chart the same as they can: add, edit, reorder and delete functions, choose who's in each seat, and edit responsibilities.
 :::
 
 ## Common questions
@@ -64,7 +66,7 @@ See the chart and open any function to read what it owns. Changes are made by th
 ::: role company_admin,aims_guide,system_admin
 **What happens when I delete a function?** It's gone for good, with its sub-functions, outcomes, measures and recorded values. A confirmation spells out what goes with it before anything happens. If you delete from the panel, it closes onto the chart with the box gone.
 
-**Can AiMS Guides edit the chart?** Yes. On the companies they're assigned to, guides can change anything an admin can: seats, responsibilities, decision rights, competency indicators and the role description.
+**Can AiMS Guides edit the chart?** Yes. On the companies they're assigned to, guides can change anything an admin can: functions, seats and responsibilities. Role descriptions are written in the *Role Description Creator* and saved to the *Role Descriptions* card on Team.
 
 **Where did the Suggest buttons go?** The *Role Description Creator* in Ask Aimee does that job now. It can see your whole chart and plan, and asks about the seat.
 :::
