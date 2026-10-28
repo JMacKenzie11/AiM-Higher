@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   DIMENSION_LABELS,
   FLAG_LABELS,
@@ -12,13 +11,9 @@ import styles from "@/app/(app)/strengths/strengths.module.css";
 export default function ResultsView({
   firstName,
   results,
-  showCoachingLink,
-  banner,
 }: {
   firstName: string;
   results: { profile: ResultsProfile; summary: string };
-  showCoachingLink: boolean;
-  banner?: React.ReactNode;
 }) {
   const { profile, summary } = results;
   const dimensionOrder: Dimension[] = [
@@ -65,17 +60,10 @@ export default function ResultsView({
               </div>
             </div>
           ) : null}
-          {showCoachingLink ? (
-            <Link href="/coach" className={styles.primaryButton}>
-              Talk through your results
-            </Link>
-          ) : null}
         </div>
       </section>
 
       <div className={styles.content}>
-        {banner}
-
         <section className={styles.card} aria-labelledby="at-a-glance">
           <h2 id="at-a-glance" className={styles.h2}>
             {firstName}, at a glance
