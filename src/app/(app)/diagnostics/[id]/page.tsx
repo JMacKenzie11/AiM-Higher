@@ -60,7 +60,7 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
   const win = toWin(bundle.firstWin);
 
   let content: ReactNode = null;
-  if (step === "preflight") content = <PreflightStep diagnostic={diagnostic} systems={bundle.systems} links={bundle.links} footer={footer} />;
+  if (step === "preflight") content = <PreflightStep diagnostic={diagnostic} systems={bundle.systems} links={bundle.links} tasks={bundle.tasks} footer={footer} />;
   if (step === "kickoff") {
     content = (
       <KickoffStep

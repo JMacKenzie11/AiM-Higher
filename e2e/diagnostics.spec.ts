@@ -1,24 +1,21 @@
 import { test, expect, signIn, users } from "./fixtures";
 
 // The Capacity Diagnostic, end to end, as the system admin who runs it
-// (0294): add a client, start a diagnostic, tick pre-flight access,
-// add one person, enter their survey, and see their tasks as dots on
-// the Capacity Map; choose the first win and its measured week, publish
+// (0294), with the people interviews hidden (0305): add a client,
+// start a diagnostic, tick pre-flight access, add two systems and a
+// retyped link, enter one task in the walkthrough copying along that
+// link and the team's AI tools; see the arrow labelled with the task's
+// hours on Build; choose the first win and its measured week, publish
 // the readout, fetch its PDF and Markdown, and record the decision
-// (0296); run one conversation with the helper and see the Across
-// clients tab (phase 3); add two systems and a retyped link on
-// Pre-flight, mark the survey's task as copying between them, see the
-// arrow labelled with its hours on Build and the Systems and AI
-// Snapshot in the readout (phase 4). Then archive the client, since nothing in the
-// module is ever deleted. Of the model calls only the conversation
-// helper's runs here, and only what it saves is checked: the person's
-// words in their notes.
+// (0296); see the Across clients tab (phase 3) and the Systems and AI
+// Snapshot in the readout (phase 4). Then archive the client, since
+// nothing in the module is ever deleted. No model call runs here.
 //
 // The client's name is unique per run so a failed run leaves nothing
 // the next one trips on.
 
 test.describe("Capacity Diagnostic", () => {
-  test("a client, a diagnostic, one survey, dots on the map", async ({ page }) => {
+  test("a client, a diagnostic, one task from the walkthrough, the readout", async ({ page }) => {
     test.setTimeout(180_000);
     const name = `E2E Diagnostic Client ${Date.now()}`;
 
@@ -59,50 +56,31 @@ test.describe("Capacity Diagnostic", () => {
     await lk.getByLabel("How it gets there").selectOption("retyped");
     await lk.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("cell", { name: "Typed in again" })).toBeVisible({ timeout: 15_000 });
+
+    // ---- the work done in them ----
+    await page.getByLabel("New task", { exact: true }).fill("Quotes");
+    await page.getByLabel("Who does the new task").fill("Estimator");
+    await page.getByLabel("Where the new task happens").selectOption({ label: "Outlook" });
+    await page.getByLabel("Hours a week for the new task").fill("8");
+    await page.getByRole("button", { name: "Add a task" }).click();
+    await expect(page.getByLabel("Task title for Quotes")).toBeVisible({ timeout: 15_000 });
+    await page.getByLabel("Information Quotes copies").selectOption({ label: "Outlook to Epicor" });
+    await expect(page.getByLabel("Information Quotes copies")).toHaveValue(/>/, { timeout: 15_000 });
+    const ai = page.getByLabel("AI tools the team uses for work");
+    await ai.fill("ChatGPT");
+    await ai.blur();
+    // Server actions run one at a time: let the save land before Next.
+    await expect(page.getByText("Saving", { exact: true })).toHaveCount(0, { timeout: 30_000 });
     await next.click();
     await expect(page).toHaveURL(/step=kickoff$/, { timeout: 15_000 });
+    await expect(page.getByText("People in scope")).toHaveCount(0);
 
-    // ---- one person in scope ----
-    await page.getByLabel("Add people").fill("Dana Ruiz, Estimator, dana@example.com");
-    await page.getByRole("button", { name: "Add these people" }).click();
-    await expect(page.getByText("Survey not entered yet")).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: "Next: Survey" }).click();
-    await expect(page).toHaveURL(/step=survey$/, { timeout: 15_000 });
-
-    // ---- their survey ----
-    await page.getByRole("button", { name: "Enter survey" }).first().click();
-    const survey = page.getByTestId("drawer-panel");
-    await survey.getByLabel("Task 1", { exact: true }).fill("Quotes");
-    await survey.getByLabel("Hours a week for task 1").fill("8");
-    await survey.getByLabel("Energy for Quotes").selectOption("1");
-    await survey.getByLabel("Judgment for Quotes").selectOption("2");
-    await survey.getByLabel("Copies between systems for task 1").selectOption("yes");
-    await survey.getByLabel("From for task 1").selectOption({ label: "Outlook" });
-    await survey.getByLabel("To for task 1").selectOption({ label: "Epicor" });
-    await survey.getByLabel("None", { exact: true }).check();
-    await survey.getByRole("button", { name: "Save survey" }).click();
-    await expect(survey.getByRole("status")).toContainText("Saved Dana Ruiz's survey", { timeout: 15_000 });
-    await survey.getByText("Close", { exact: true }).click();
-    await expect(page.getByText("1 of 1 entered")).toBeVisible({ timeout: 15_000 });
-
-    // ---- one conversation, with the helper ----
-    await page.goto(page.url().replace(/step=survey$/, "step=conversations"));
-    await page.getByRole("button", { name: "Run a capacity conversation" }).click();
-    await page.getByRole("button", { name: "Start with question 1" }).click();
-    await page.getByLabel("What they said").fill("Last March I rebuilt the Hendricks quote from scratch and we won it.");
-    await page.getByRole("button", { name: "Add to notes" }).click();
-    await expect(page.getByLabel("Notes", { exact: true })).toHaveValue(/^1\. Best work\nLast March I rebuilt the Hendricks quote/, { timeout: 60_000 });
-    for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Next question" }).click();
-    await page.getByRole("button", { name: "Finish" }).click();
-    await expect(page.getByText("Notes filled in from the conversation.")).toBeVisible();
-    await expect(page.getByLabel("Had a conversation")).toBeChecked();
-
-    // ---- the map ----
-    await page.goto(page.url().replace(/step=conversations$/, "step=build"));
-    await expect(page.getByTestId("map-dot")).toHaveCount(1, { timeout: 15_000 });
-    await expect(page.getByRole("cell", { name: "Quotes" })).toBeVisible();
+    // ---- the systems map ----
+    await page.getByRole("button", { name: "Next: Build" }).click();
+    await expect(page).toHaveURL(/step=build$/, { timeout: 15_000 });
+    await expect(page.getByTestId("map-dot")).toHaveCount(0);
+    await expect(page.getByRole("cell", { name: "Quotes" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("system-arrow").getByText("8 hours a week", { exact: true })).toBeVisible();
-    await expect(page.getByTestId("map-ring")).toHaveCount(1);
 
     // ---- the first win and its measured week ----
     await page.getByRole("button", { name: "Choose first win" }).click();
@@ -131,6 +109,8 @@ test.describe("Capacity Diagnostic", () => {
     await expect(page.getByText("6 hours a week, measured.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Systems and AI Snapshot" })).toBeVisible();
     await expect(page.getByText("8 hours a week by hand", { exact: true })).toBeVisible();
+    await expect(page.getByText("ChatGPT")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "In Their Words" })).toHaveCount(0);
     await page.getByRole("link", { name: /Readout step/ }).click();
     await page.getByRole("button", { name: "They chose the sprint" }).click();
     await expect(page.getByRole("button", { name: "Set back to pending" })).toBeVisible({ timeout: 15_000 });

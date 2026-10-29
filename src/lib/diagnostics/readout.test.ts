@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assembleReadout, hoursBackSentence, publishBlocker, readoutFigures, readoutMarkdown, splitList } from "./readout";
+import { assembleReadout, hoursBackSentence, publishBlocker, readoutFigures, readoutMarkdown, showsPrivacyLine, splitList } from "./readout";
 import { readoutBundle } from "./readout.fixture";
 
 const TODAY = "2026-10-22";
@@ -82,5 +82,21 @@ describe("the Markdown download", () => {
     expect(md).toContain("1. Order entry: 12 hours a week");
     expect(md).toContain("1. Order entry from email (week 3), champion: Estimator");
     expect(md).not.toMatch(/Dana|Lee Chan|—/);
+  });
+});
+
+describe("a readout with the interviews hidden (0305)", () => {
+  it("takes a role from the task when no person is attached, and lists the AI tools", () => {
+    const b = readoutBundle({ ai_tools: "ChatGPT, Copilot" });
+    b.tasks = b.tasks.map((t) => (t.canonical_title === "Quoting" ? { ...t, participant_id: null, energy: null, judgment: null, source: "lead" as const, role_title: "Quoting desk" } : t));
+    const r = assembleReadout(b, TODAY);
+    expect(r.firstWin?.role).toBe("Quoting desk");
+    expect(r.systems?.aiTools).toEqual(["ChatGPT", "Copilot"]);
+    expect(readoutFigures(r)).toContain("2");
+    expect(showsPrivacyLine(r)).toBe(false);
+  });
+
+  it("keeps the privacy line on a readout that runs the interviews", () => {
+    expect(showsPrivacyLine({ sections: undefined })).toBe(true);
   });
 });

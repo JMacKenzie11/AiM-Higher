@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { checkNarrative, findDenials, foreignNumbers, narrativeInput, NARRATIVE_SCHEMA } from "./narrative";
-import { assembleReadout, numbersIn, readoutFigures } from "./readout";
+import { checkNarrative, findDenials, foreignNumbers, narrativeInput, narrativeSchema, NARRATIVE_SCHEMA } from "./narrative";
+import { assembleReadout, numbersIn, readoutFigures, readoutSections } from "./readout";
 import { readoutBundle } from "./readout.fixture";
 import { READOUT_SECTIONS } from "./types";
 
-const r = assembleReadout(readoutBundle(), "2026-10-22");
+// A readout with the interviews in it, as every readout published
+// before 0305 is: no section list, so it runs them all.
+const r = { ...assembleReadout(readoutBundle(), "2026-10-22"), sections: undefined };
 const figures = readoutFigures(r);
 const section = (paragraph: string) => ({ evidence: [], paragraph });
 
@@ -39,7 +41,7 @@ describe("the narrative guard", () => {
   });
 
   it("allows the numbers inside the words it prints, like a quote's", () => {
-    const withNumber = assembleReadout(readoutBundle({}, {}), "2026-10-22");
+    const withNumber = { ...assembleReadout(readoutBundle({}, {}), "2026-10-22"), sections: undefined };
     withNumber.quotes = [{ text: "I lose 9 hours a week to this.", name: null }];
     expect(checkNarrative({ in_their_words: section("One estimator says they lose 9 hours a week to it.") }, withNumber).dropped).toEqual([]);
   });
@@ -59,6 +61,27 @@ describe("the narrative guard", () => {
     expect(input.readout.map.points).toBeUndefined();
     expect(input.readout.map).toMatchObject({ tasks_mapped: 7, hours_a_week_on_all_mapped_tasks: 47, draining_routine_tasks: 6, hours_a_week_on_draining_routine_tasks: 37 });
     expect(JSON.stringify(input.readout)).not.toMatch(/Dana Ruiz|Sam Ortiz/);
+  });
+});
+
+describe("a readout with the interviews hidden (0305)", () => {
+  const sys = assembleReadout(readoutBundle(), "2026-10-22");
+
+  it("runs every section but the two the interviews fill", () => {
+    expect(readoutSections(sys)).toEqual(READOUT_SECTIONS.map((s) => s.key).filter((k) => k !== "in_their_words" && k !== "capacity_map"));
+    expect(narrativeSchema(readoutSections(sys)).required).toEqual(readoutSections(sys));
+  });
+
+  it("keeps no paragraph for a section it does not run", () => {
+    const { narrative } = checkNarrative({ capacity_map: section("Your team spends 47 hours a week on these tasks."), hours_back: section("Your first win gave back 6 hours a week.") }, sys);
+    expect(narrative.capacity_map).toBeUndefined();
+    expect(narrative.hours_back).toContain("6 hours");
+  });
+
+  it("names the tasks as the walkthrough's, never as draining", () => {
+    const input = JSON.parse(narrativeInput(sys, null));
+    expect(input.readout.map).toMatchObject({ tasks_found_in_the_systems_walkthrough: 7, hours_a_week_on_those_tasks: 47 });
+    expect(JSON.stringify(input.readout)).not.toMatch(/draining/);
   });
 });
 

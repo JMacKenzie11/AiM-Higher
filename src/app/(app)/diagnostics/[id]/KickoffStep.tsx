@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ClientRow, DiagnosticRow, ParticipantRow } from "@/lib/diagnostics/types";
 import { draftPledge } from "@/lib/diagnostics/pledge";
+import { INTERVIEWS_SHOWN } from "@/lib/diagnostics/steps";
 import { StepCard } from "./StepCard";
 import { DxField } from "./DxField";
 import { AddPeople } from "./AddPeople";
@@ -10,7 +11,8 @@ import styles from "../diagnostics.module.css";
 // 2. KICKOFF. Day one with the owner: the scope, the Capacity
 // Destination, the people in scope, and the pledge the owner sends the
 // team the same day. Each person added here gets an empty survey for
-// the assessor to fill in on the next step.
+// the assessor to fill in on the next step. While the interviews are
+// hidden (steps.ts) the people and the pledge are too.
 export function KickoffStep({
   diagnostic,
   client,
@@ -61,30 +63,34 @@ export function KickoffStep({
         />
       </div>
 
-      <h3 className={styles.subhead}>
-        People in scope <span className={styles.subheadMeta}>{participants.length}</span>
-      </h3>
-      {participants.length > 0 ? (
-        <ul className={styles.plainList}>
-          {participants.map((p) => (
-            <li key={p.id}>
-              <span>
-                {p.name}
-                {p.role_title ? <span className={styles.muted}>, {p.role_title}</span> : null}
-              </span>
-              <span className={styles.muted}>{p.survey_entered_at ? "Survey entered" : "Survey not entered yet"}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <div className={styles.body}>
-        <AddPeople diagnosticId={id} />
-      </div>
+      {INTERVIEWS_SHOWN ? (
+        <>
+          <h3 className={styles.subhead}>
+            People in scope <span className={styles.subheadMeta}>{participants.length}</span>
+          </h3>
+          {participants.length > 0 ? (
+            <ul className={styles.plainList}>
+              {participants.map((p) => (
+                <li key={p.id}>
+                  <span>
+                    {p.name}
+                    {p.role_title ? <span className={styles.muted}>, {p.role_title}</span> : null}
+                  </span>
+                  <span className={styles.muted}>{p.survey_entered_at ? "Survey entered" : "Survey not entered yet"}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className={styles.body}>
+            <AddPeople diagnosticId={id} />
+          </div>
 
-      <h3 className={styles.subhead}>The pledge</h3>
-      <div className={styles.body}>
-        <Pledge diagnosticId={id} saved={diagnostic.pledge_text} draft={draft} sentAt={diagnostic.pledge_sent_at} />
-      </div>
+          <h3 className={styles.subhead}>The pledge</h3>
+          <div className={styles.body}>
+            <Pledge diagnosticId={id} saved={diagnostic.pledge_text} draft={draft} sentAt={diagnostic.pledge_sent_at} />
+          </div>
+        </>
+      ) : null}
     </StepCard>
   );
 }

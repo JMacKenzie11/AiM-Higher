@@ -1,6 +1,6 @@
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { READOUT_SECTIONS, type Narrative, type ReadoutSection } from "./types";
-import { numbersIn, readoutFigures, type ReadoutData } from "./readout";
+import { numbersIn, readoutFigures, readoutSections, type ReadoutData } from "./readout";
 
 // THE READOUT WRITER'S RULES, without the call. Pure so the number
 // guard and the schema are tested with no model and no database
@@ -12,23 +12,29 @@ import { numbersIn, readoutFigures, type ReadoutData } from "./readout";
 // guard drops any paragraph that states a number the input did not
 // carry, so a figure on the page cannot disagree with hours-back.ts.
 
-export const NARRATIVE_SCHEMA = {
-  type: "object",
-  properties: Object.fromEntries(
-    READOUT_SECTIONS.map((s) => [
-      s.key,
+// One entry per section the readout runs (readoutSections), so the
+// model is never asked for a section the readout leaves out.
+export function narrativeSchema(sections: readonly ReadoutSection[]) {
+  return {
+    type: "object",
+    properties: Object.fromEntries(
+      sections.map((key) => [
+        key,
       {
-        type: "object",
-        properties: {
-          evidence: { type: "array", items: { type: "string" } },
-          paragraph: { type: "string" },
+          type: "object",
+          properties: {
+            evidence: { type: "array", items: { type: "string" } },
+            paragraph: { type: "string" },
+          },
+          required: ["evidence", "paragraph"],
         },
-        required: ["evidence", "paragraph"],
-      },
-    ])
-  ),
-  required: READOUT_SECTIONS.map((s) => s.key),
-};
+      ])
+    ),
+    required: [...sections],
+  };
+}
+
+export const NARRATIVE_SCHEMA = narrativeSchema(READOUT_SECTIONS.map((s) => s.key));
 
 // The numbers in `text` that are not among the readout's figures.
 export function foreignNumbers(text: string, figures: readonly string[]): string[] {
@@ -62,7 +68,7 @@ export function checkNarrative(data: unknown, r: ReadoutData): NarrativeCheck {
   const narrative: Narrative = {};
   const dropped: ReadoutSection[] = [];
   const foreign: NarrativeCheck["foreign"] = {};
-  for (const { key } of READOUT_SECTIONS) {
+  for (const key of readoutSections(r)) {
     const raw = (data as Record<string, { paragraph?: unknown }> | null)?.[key]?.paragraph;
     const paragraph = typeof raw === "string" ? stripEmDashes(raw).replace(/\s+/g, " ").trim().slice(0, 1500) : "";
     if (!paragraph) continue;
@@ -87,8 +93,12 @@ export function checkNarrative(data: unknown, r: ReadoutData): NarrativeCheck {
 // under names that say what each figure counts, built from the
 // readout's summary alone: counts and tool names, never who uses what.
 export function narrativeInput(r: ReadoutData, ownerWords: string | null): string {
-  const { map, hoursBack, narrative: _narrative, systems, guardrails, ...rest } = r;
+  const { map, hoursBack, narrative: _narrative, systems, guardrails, sections: _sections, ...rest } = r;
   void _narrative;
+  void _sections;
+  // Without the interviews nobody rated a task, so the candidates are
+  // the tasks the lead entered, not "draining and routine" ones.
+  const rated = readoutSections(r).includes("capacity_map");
   return JSON.stringify({
     figures_you_may_use: readoutFigures(r),
     owner_words_at_kickoff: ownerWords,
@@ -112,19 +122,28 @@ export function narrativeInput(r: ReadoutData, ownerWords: string | null): strin
                 tools_and_how_many_people_use_each: systems.ai.tools.map((t) => ({ tool: t.tool, people: t.users })),
                 tool_uses_the_company_provided: systems.ai.companyProvided,
                 tool_uses_people_found_themselves: systems.ai.personal,
+                ...(systems.aiTools?.length ? { ai_tools_the_team_uses: systems.aiTools } : {}),
               },
               guardrail_rules: guardrails.rules,
               data_at_risk: guardrails.dataAtRisk,
             },
           }
         : { guardrails }),
-      map: {
-        tasks_mapped: map.tasks,
-        hours_a_week_on_all_mapped_tasks: map.totalHours,
-        draining_routine_tasks: map.candidates,
-        hours_a_week_on_draining_routine_tasks: map.candidateHours,
-        hours_a_week_volume_checked: map.checkedHours,
-      },
+      map: rated
+        ? {
+            tasks_mapped: map.tasks,
+            hours_a_week_on_all_mapped_tasks: map.totalHours,
+            draining_routine_tasks: map.candidates,
+            hours_a_week_on_draining_routine_tasks: map.candidateHours,
+            hours_a_week_volume_checked: map.checkedHours,
+          }
+        : {
+            tasks_found_in_the_systems_walkthrough: map.tasks,
+            hours_a_week_on_those_tasks: map.totalHours,
+            candidate_tasks_to_take_off_peoples_plates: map.candidates,
+            hours_a_week_on_candidate_tasks: map.candidateHours,
+            hours_a_week_volume_checked: map.checkedHours,
+          },
       hours_back: {
         measured_hours_a_week_from_the_first_win: hoursBack.measured,
         projected_further_hours_a_week_from_the_other_candidates: hoursBack.projected,

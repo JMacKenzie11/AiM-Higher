@@ -14,12 +14,14 @@ export type DataRisk = "low" | "medium" | "high";
 
 export type DiagnosticTask = {
   id: string;
-  participantId: string;
+  // Null, with no ratings, for a task the lead entered in the systems
+  // walkthrough (0305); roleTitle says who does it.
+  participantId: string | null;
   title: string;
   canonicalTitle: string | null;
   hoursPerWeek: number;
-  energy: number;
-  judgment: number;
+  energy: number | null;
+  judgment: number | null;
   volumeUnitsPerWeek: number | null;
   minutesPerUnit: number | null;
   dataRisk: DataRisk | null;
@@ -30,6 +32,7 @@ export type DiagnosticTask = {
   systemId?: string | null;
   copiesFromSystemId?: string | null;
   copiesToSystemId?: string | null;
+  roleTitle?: string | null;
 };
 
 export type DiagnosticWin = {
@@ -55,10 +58,28 @@ export function taskHours(t: DiagnosticTask): { hours: number; checked: boolean 
   return checked == null ? { hours: t.hoursPerWeek, checked: false } : { hours: checked, checked: true };
 }
 
-// Draining and routine, unless the lead has decided otherwise.
+// Draining and routine, unless the lead has decided otherwise. A task
+// nobody rated (the lead entered it as work to take off people's
+// plates, 0305) is a candidate until the lead says it is not.
 export function isCandidate(t: Pick<DiagnosticTask, "energy" | "judgment" | "candidateOverride">): boolean {
   if (t.candidateOverride != null) return t.candidateOverride;
+  if (t.energy == null || t.judgment == null) return true;
   return t.energy <= CANDIDATE_ENERGY_MAX && t.judgment <= CANDIDATE_JUDGMENT_MAX;
+}
+
+// An unrated task scores as if rated at the candidate ceiling on both
+// scales, so in a diagnostic with no ratings the order is by hours,
+// and one that mixes the two compares like with like.
+function weight(t: Pick<DiagnosticTask, "energy" | "judgment">): number {
+  return (6 - (t.energy ?? CANDIDATE_ENERGY_MAX)) * (6 - (t.judgment ?? CANDIDATE_JUDGMENT_MAX));
+}
+
+// Who a task belongs to, for counting heads: the person, else the role
+// the lead named, else the task itself.
+function whoKey(t: Pick<DiagnosticTask, "id" | "participantId" | "roleTitle">): string {
+  if (t.participantId) return `person:${t.participantId}`;
+  const role = t.roleTitle?.trim().toLowerCase();
+  return role ? `role:${role}` : `task:${t.id}`;
 }
 
 // What rolls tasks up: the canonical title when there is one, so
@@ -92,7 +113,8 @@ export type CandidateGroup = {
 };
 
 // Candidate score: hours * (6 - energy) * (6 - judgment), summed across
-// every candidate task sharing a canonical title. Highest first.
+// every candidate task sharing a canonical title. Highest first. An
+// unrated task weighs in at the ceiling (weight above).
 export function candidateGroups(tasks: readonly DiagnosticTask[]): CandidateGroup[] {
   const groups = new Map<string, CandidateGroup & { unassessed: boolean; who: Set<string> }>();
   for (const t of tasks) {
@@ -102,12 +124,12 @@ export function candidateGroups(tasks: readonly DiagnosticTask[]): CandidateGrou
       groups.get(key) ??
       { key, title: groupLabel(t), taskIds: [], people: 0, hours: 0, checkedHours: 0, score: 0, dataRisk: null, buildEffortHours: null, quickWin: false, unassessed: false, who: new Set<string>() };
     const { hours, checked } = taskHours(t);
-    g.who.add(t.participantId);
+    g.who.add(whoKey(t));
     g.people = g.who.size;
     g.taskIds.push(t.id);
     g.hours += hours;
     if (checked) g.checkedHours += hours;
-    g.score += hours * (6 - t.energy) * (6 - t.judgment);
+    g.score += hours * weight(t);
     if (t.dataRisk == null || t.buildEffortHours == null) g.unassessed = true;
     else {
       if (g.dataRisk == null || RISK_ORDER[t.dataRisk] > RISK_ORDER[g.dataRisk]) g.dataRisk = t.dataRisk;
@@ -183,10 +205,12 @@ export type MapPoint = {
   copying?: true;
 };
 
-// One dot per task for the Capacity Map, grouped by canonical title so
-// the same work sits together.
+// One dot per rated task for the Capacity Map, grouped by canonical
+// title so the same work sits together. A task nobody rated has no
+// place on it.
 export function capacityMap(tasks: readonly DiagnosticTask[]): MapPoint[] {
   return tasks
+    .flatMap((t) => (t.energy == null || t.judgment == null ? [] : [{ ...t, energy: t.energy, judgment: t.judgment }]))
     .map((t) => {
       const { hours, checked } = taskHours(t);
       const point: MapPoint = { taskId: t.id, key: groupKey(t), title: groupLabel(t), energy: t.energy, judgment: t.judgment, hours, checked, candidate: isCandidate(t) };

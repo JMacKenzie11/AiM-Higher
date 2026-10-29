@@ -5,7 +5,7 @@ import { Drawer } from "@/components/ui/Drawer";
 import { saveFirstWinAction, type WinInput } from "@/lib/diagnostics/actions";
 import { WIN_PATTERNS, winPattern } from "@/lib/diagnostics/win-patterns";
 import { isCandidate } from "@/lib/diagnostics/hours-back";
-import { toTask, type ParticipantRow, type TaskRow, type WinRow } from "@/lib/diagnostics/types";
+import { taskWho, toTask, type ParticipantRow, type TaskRow, type WinRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../useDxAction";
 import admin from "../../admin/companies/admin.module.css";
 import styles from "../diagnostics.module.css";
@@ -117,7 +117,7 @@ function WinDrawer({
           <select id="win-task" className={admin.select} value={f.task_id} onChange={set("task_id")}>
             {options.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.canonical_title || t.title}, {names.get(t.participant_id) ?? ""}
+                {t.canonical_title || t.title}, {taskWho(t, names)}
                 {isCandidate(toTask(t)) ? "" : " (not a candidate)"}
               </option>
             ))}

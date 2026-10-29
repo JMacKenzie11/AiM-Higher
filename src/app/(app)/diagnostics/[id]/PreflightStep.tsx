@@ -1,23 +1,29 @@
 import type { ReactNode } from "react";
-import type { DiagnosticRow, SystemLinkRow, SystemRow } from "@/lib/diagnostics/types";
+import type { DiagnosticRow, SystemLinkRow, SystemRow, TaskRow } from "@/lib/diagnostics/types";
+import { INTERVIEWS_SHOWN } from "@/lib/diagnostics/steps";
 import { StepCard } from "./StepCard";
 import { DxCheck, DxField } from "./DxField";
 import { SystemsWalkthrough } from "./SystemsWalkthrough";
+import { WalkthroughTasks } from "./WalkthroughTasks";
 import styles from "../diagnostics.module.css";
 
 // 1. PRE-FLIGHT. The five working days before kickoff: the tools the
 // group lives in, one IT contact, and three ticks. Next waits for
 // "access secured": no access by kickoff means the kickoff moves, not
-// the build. Under them, the systems walkthrough (phase 4).
+// the build. Under them, the systems walkthrough (phase 4). While the
+// people interviews are hidden (steps.ts), the work done in the systems
+// is entered here too, with the one company-level AI question.
 export function PreflightStep({
   diagnostic,
   systems,
   links,
+  tasks,
   footer,
 }: {
   diagnostic: DiagnosticRow;
   systems: SystemRow[];
   links: SystemLinkRow[];
+  tasks: TaskRow[];
   footer: ReactNode;
 }) {
   const id = diagnostic.id;
@@ -37,9 +43,24 @@ export function PreflightStep({
         <div className={styles.checks}>
           <DxCheck diagnosticId={id} field="access_secured" label="Access secured for the tools the first win will touch" checked={diagnostic.access_secured} />
           <DxCheck diagnosticId={id} field="brief_sent" label="One-page brief sent to the owner" checked={diagnostic.brief_sent} />
-          <DxCheck diagnosticId={id} field="conversations_booked" label="Conversations booked" checked={diagnostic.conversations_booked} />
+          {INTERVIEWS_SHOWN ? <DxCheck diagnosticId={id} field="conversations_booked" label="Conversations booked" checked={diagnostic.conversations_booked} /> : null}
         </div>
         <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} />
+        {INTERVIEWS_SHOWN ? null : (
+          <>
+            <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} />
+            <DxField
+              diagnosticId={id}
+              field="ai_tools"
+              label="AI tools the team uses for work"
+              value={diagnostic.ai_tools}
+              multiline
+              placeholder="ChatGPT, Copilot in Outlook, the quoting tool's assistant"
+              hint="One per line or comma. The readout lists them by name."
+              maxLength={2000}
+            />
+          </>
+        )}
       </div>
     </StepCard>
   );

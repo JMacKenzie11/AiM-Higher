@@ -1,0 +1,36 @@
+# Capacity Diagnostic: the lead's guide
+
+How to run a Capacity Diagnostic in AiMS HQ. This guide is for the person running it and is not served in the app: nothing about this module goes into Aimee's help or the `?` widget (Jason, 2026-10-29).
+
+Run a three-week Capacity Diagnostic for a client: their systems, the work done in them, the first win and the readout, all in one place. The people interviews (the survey, the conversations, the people in scope, the owner's pledge and the quotes) are hidden for now, so the diagnostic is about systems and process.
+
+The pages are on no menu. Go to `/diagnostics` for every engagement, or `/diagnostics/clients` for the businesses you run them for. **Diagnostics**, **Across clients** and **Clients** at the top of each switch between them.
+
+## Across clients
+
+**Across clients** adds up how the diagnostics have gone: how many met the guarantee, how many chose the sprint or declined, the average hours back a week, measured and projected, the average hours a week carried between systems by hand, and the share of people who use AI tools they found themselves. The last two show a dash until a published readout has systems or AI answers in it. The same figures follow by industry and by source. Only published readouts count toward them; a diagnostic still running is counted as running.
+
+## Add a client
+
+On **Clients**, select **Add a client** and fill in the business, the owner, its size and where it is. A client here is not a company on AiMS HQ. **Edit** on the client's page changes the details. **Archive** puts a client away without deleting anything, and **Restore** brings it back.
+
+## Start a diagnostic
+
+On the client's page, select **Start a diagnostic**. It opens on the first step. Each step is one card with **Back** and **Next** at the foot. The steps along the top go to any step directly.
+
+1. **Pre-flight.** List the tools the group uses and the IT contact, then tick what is done. **Next** waits for **Access secured**: no access by kickoff means the kickoff moves. Below that is the **systems walkthrough**, a 30-minute conversation with the IT or admin contact. Its four questions are on screen.
+   - **Add a system** for each one the team works in every week: its name, kind, what lives there and who looks after it.
+   - **Add a link** for each way information moves from one system to another: what moves, and whether it is typed in again, exported and imported, or connected automatically. Put what breaks or gets missed (question 4) in the link's notes. **Edit** opens either one again. You can delete a link any time, and a system once no task or link uses it.
+   - Under **The work done in them**, add each recurring task: what it is, who does it (a role, not a name), where it happens and its hours a week. In the table, **Copies information** picks the link the task copies along, if it does. Enter units a week and minutes per unit against the biggest tasks to check their hours, then the data risk and build hours. Every task is a candidate for the first win until you set **Candidate** to **No, leave it out**. Each cell saves when you leave it.
+   - Last, **AI tools the team uses for work**: one per line or comma. The readout lists them by name.
+2. **Kickoff.** Enter the kickoff and readout dates, the guarantee, the scope and the Capacity Destination.
+3. **Build.** The systems map shows each system as a box and each way information moves as an arrow: a heavy arrow is typed in again or exported and imported, labelled with the hours a week the copying tasks spend on it, and a thin one is automatic. Under it, the candidates, biggest first, with the top next wins. Select **Choose first win** to pick a pattern and the task it serves and enter the baseline. Once it is in use, enter the minutes per unit after and the Friday that ends its first full week: the measured hours back, the recovery rate, the projection and the guarantee fill in. Under **Systems and AI**: the connections carried by hand, biggest first; any copying no link covers yet; and the AI tools the team uses. Under **Guardrails snapshot**, enter the data the builds would touch and three rules, one per line. **Retyping removed** is in the pattern library for a first win on a connection carried by hand. Record the midpoint check with the owner at the bottom.
+4. **Readout.** **Open the readout** shows it as the owner will read it; **Download the PDF** gives you the file to send. Set the 90-day roadmap (three next wins, the week each lands and the champion to train) and press **Save**. The readout runs The First Win, Hours Back, The Capacity Destination, Top 3 Next Wins, the **Systems and AI Snapshot** (the systems map, the top three connections carried by hand with their hours, the AI tools, the data at risk and the three rules) and The 90-Day Roadmap. **Write the narrative** drafts a short paragraph for each section from the figures; edit any of them, and each saves when you leave it. A section left empty after writing came back with a number that isn't in the readout, so write that one yourself. When it reads right, press **Publish the readout**. You need the first win's measured week first. Publishing is final: the readout stops changing, and the PDF shows what you published. Then record the decision: **They chose the sprint** or **They declined**. **Download the roadmap as Markdown** gives you the roadmap, the next wins and the Capacity Destination to set up a sprint by hand.
+
+**Archive** at the foot of a diagnostic puts it away.
+
+A readout published before the interviews were hidden keeps every section it was published with.
+
+## Who sees what
+
+Only system admins on AiMS HQ can open these pages. The owner gets the readout PDF and nothing else.

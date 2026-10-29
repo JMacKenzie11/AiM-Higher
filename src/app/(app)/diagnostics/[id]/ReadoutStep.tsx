@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { publishBlocker, type ReadoutData } from "@/lib/diagnostics/readout";
+import { publishBlocker, readoutSections, type ReadoutData } from "@/lib/diagnostics/readout";
 import { decisionLabel, type DiagnosticRow } from "@/lib/diagnostics/types";
 import { StepCard } from "./StepCard";
 import { DecisionButtons, NarrativeFields, PublishButton, RoadmapEditor, WriteNarrativeButton } from "./ReadoutControls";
@@ -58,7 +58,7 @@ export function ReadoutStep({ diagnostic, readout, footer }: { diagnostic: Diagn
         meta="One short paragraph for each section"
         action={published ? undefined : <WriteNarrativeButton diagnosticId={id} written={written} />}
       >
-        <NarrativeFields diagnosticId={id} narrative={diagnostic.narrative ?? {}} locked={published} />
+        <NarrativeFields diagnosticId={id} narrative={diagnostic.narrative ?? {}} sections={readoutSections(readout)} locked={published} />
       </StepCard>
 
       <StepCard id="dx-publish" title={published ? "Decision" : "Publish and decide"} footer={footer}>
