@@ -5,6 +5,7 @@ import { addTaskAction, deleteTaskAction, rollUpTitlesAction, updateTaskAction, 
 import { formatHours, hoursChecked, isCandidate } from "@/lib/diagnostics/hours-back";
 import { taskWho, toTask, type ParticipantRow, type TaskRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../useDxAction";
+import { useSaveReport } from "./SaveStatus";
 import styles from "../diagnostics.module.css";
 
 // Every task from every person in one table. The lead corrects a row,
@@ -107,6 +108,7 @@ export function Cell({
   const [v, setV] = useState(value);
   // A save elsewhere (the title roll-up) changes the row under it.
   useEffect(() => setV(value), [value]);
+  useSaveReport({ pending: false, dirty: v !== value });
   return (
     <input
       className={`${styles.cellInput} ${wide ? styles.cellWide : ""}`}

@@ -36,7 +36,11 @@ The people at a client can sign in and see their own dashboard: for now, the aut
 
 ## Start a diagnostic
 
-On the client's page, select **Start a diagnostic**. It opens on the first step. Each step is one card with **Back** and **Next** at the foot. The steps along the top go to any step directly.
+On the client's page, select **Start a diagnostic**. It opens on the first screen of Pre-flight.
+
+A diagnostic takes weeks, so you can work in any order. Opening a diagnostic shows its **Overview**: **Next up** with **Continue** to the next thing to do, each step's progress, every screen with where it stands, and anything you skipped on the way. Each step is a few short screens. Every screen shows where you are in the step and one save status, and has **Back**, **Save and exit to overview** and **Next** at the foot. Everything saves as you go, and Next waits for it. Nothing is locked except publishing the readout, which needs the first win's measured week. The tabs along the top go to the overview or to any step.
+
+On **Score tasks**, each task is a card: pick a chip in each row, or press 1 to 9 for the highlighted row, and Enter for the next task. **Skip for now** moves on. **Table view** shows every task's scores in one table.
 
 1. **Pre-flight.** List the tools the group uses and the IT contact, then tick what is done. **Next** waits for **Access secured**: no access by kickoff means the kickoff moves. Below that is the **systems walkthrough**, a 30-minute conversation with the IT or admin contact. Its four questions are on screen.
    - **Add a system** for each one the team works in every week: its name, kind, what lives there and who looks after it.

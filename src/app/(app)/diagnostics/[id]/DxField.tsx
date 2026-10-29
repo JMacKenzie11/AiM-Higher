@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { updateDiagnosticAction, type DiagnosticPatch } from "@/lib/diagnostics/actions";
 import { useDxAction } from "../useDxAction";
+import { useSaveReport } from "./SaveStatus";
 import admin from "../../admin/companies/admin.module.css";
 import styles from "../diagnostics.module.css";
 
@@ -42,6 +43,7 @@ export function DxField({
   const [v, setV] = useState(initial);
   const [last, setLast] = useState(initial);
   const { pending, error, saved, run } = useDxAction();
+  useSaveReport({ pending: false, dirty: v !== last });
 
   function save() {
     if (v === last) return;

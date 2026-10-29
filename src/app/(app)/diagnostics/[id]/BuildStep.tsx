@@ -46,7 +46,8 @@ export function BuildStep({
   points,
   snapshot,
   agentTeam,
-  footer,
+  footer = null,
+  screen,
 }: {
   diagnostic: DiagnosticRow;
   participants: ParticipantRow[];
@@ -58,8 +59,13 @@ export function BuildStep({
   points: MapPoint[];
   snapshot: SystemsSnapshot;
   agentTeam: { saved: AgentCard[] | null; suggested: AgentCard[] };
-  footer: ReactNode;
+  footer?: ReactNode;
+  // A guided screen (Jason, 2026-10-29): candidates (with the map, the
+  // first win and the systems), agents, guardrails or midpoint. With
+  // none, every card shows.
+  screen?: string;
 }) {
+  const show = (k: string) => !screen || screen === k;
   const names = new Map(participants.map((p) => [p.id, p.name]));
   const winTask = firstWin ? tasks.find((t) => t.id === firstWin.task_id) : undefined;
   const pattern = firstWin ? winPattern(firstWin.pattern) : undefined;
@@ -68,6 +74,8 @@ export function BuildStep({
 
   return (
     <>
+      {show("candidates") ? (
+      <>
       <StepCard id="step-build" title={INTERVIEWS_SHOWN ? "Capacity Map" : "Systems map"} meta={`${summary.tasks} ${summary.tasks === 1 ? "task" : "tasks"}, ${summary.candidates} ${summary.candidates === 1 ? "candidate" : "candidates"}`}>
         <div className={styles.body}>
           {summary.tasks ? (
@@ -272,6 +280,10 @@ export function BuildStep({
         </div>
       </StepCard>
 
+      </>
+      ) : null}
+
+      {show("agents") ? (
       <StepCard id="dx-agent-team" title="Recommended agent team" meta={`${(agentTeam.saved?.length ? agentTeam.saved : agentTeam.suggested).length}`}>
         <AgentTeam
           diagnosticId={diagnostic.id}
@@ -280,7 +292,9 @@ export function BuildStep({
           defaultLimits={limitsText(diagnostic.never_alone ?? [], diagnostic.never_alone_other)}
         />
       </StepCard>
+      ) : null}
 
+      {show("guardrails") ? (
       <StepCard id="dx-guardrails" title="Guardrails snapshot">
         <div className={styles.body}>
           <p className={styles.muted}>
@@ -318,6 +332,9 @@ export function BuildStep({
         </div>
       </StepCard>
 
+      ) : null}
+
+      {show("midpoint") ? (
       <StepCard id="dx-midpoint" title="Midpoint check" footer={footer}>
         <div className={styles.body}>
           <div className={styles.grid2}>
@@ -343,6 +360,7 @@ export function BuildStep({
           />
         </div>
       </StepCard>
+      ) : null}
     </>
   );
 }

@@ -844,3 +844,399 @@
 .legendRing {
   border: 2px dashed var(--aims-warning);
 }
+
+/* ---- The guided screens (the approved wizard mockup) ------------- */
+
+/* A screen's progress: "Pre-flight · 2 of 6", the bar, the save status,
+   and the step's screens in order. */
+.screenProgress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.screenProgressHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.progress {
+  flex: 1 1 160px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  overflow: hidden;
+}
+
+.progress > div {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--aims-cobalt);
+}
+
+.progress[data-tone="good"] > div {
+  background: var(--aims-success);
+}
+
+.screenList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--text-body-sm);
+}
+
+.screenList a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.screenList a[data-state="done"] {
+  color: var(--aims-success);
+}
+
+.screenList a[aria-current="page"] {
+  color: var(--text-heading);
+  font-weight: 700;
+}
+
+.screenList a:hover {
+  text-decoration: underline;
+}
+
+.screenHeading {
+  margin: 0;
+  font: var(--text-h2);
+  color: var(--text-heading);
+}
+
+.screenWhy {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+}
+
+.saveBadge {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+  font: var(--text-caption);
+  font-weight: 600;
+}
+
+.saveBadge[data-state="saving"] {
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt-hover);
+}
+
+.saveBadge[data-state="unsaved"] {
+  background: var(--aims-warning-tint);
+  color: var(--aims-warning);
+}
+
+.screenFooter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* Scoring as cards. */
+.scoreHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.scoreCount {
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius-btn);
+  overflow: hidden;
+}
+
+.segmented > button {
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-button);
+  cursor: pointer;
+}
+
+.segmented > button[aria-pressed="true"] {
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
+}
+
+.segmented > button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.scoreLayout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.scoreCard {
+  flex: 999 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 2px solid var(--primary);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.scoreCard:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.scoreCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.scoreHours {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.chipRow {
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.chipRow[data-active="true"] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--aims-cobalt-tint) 50%, var(--surface));
+}
+
+.chipRow > legend {
+  padding: 0 var(--space-1);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chipButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 0 14px 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.chipButton[aria-pressed="true"] {
+  border: 2px solid var(--primary);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-navy);
+  font-weight: 600;
+}
+
+.chipButton:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.chipKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: #5b6472;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chipButton[aria-pressed="true"] .chipKey {
+  background: var(--primary);
+  color: var(--aims-white);
+}
+
+.scoreQueue {
+  flex: 1 1 240px;
+  padding: var(--space-3) 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.scoreQueue > h3 {
+  margin: 0 var(--space-4) var(--space-2);
+  font-size: 15px;
+}
+
+.scoreQueue ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scoreQueue button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font: var(--text-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.scoreQueue button[aria-current="step"] {
+  border-left-color: var(--primary);
+  background: var(--aims-cobalt-tint);
+  font-weight: 600;
+}
+
+.scoreQueue button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* The overview hub. */
+.nextUp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 2px solid var(--primary);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.stepCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: var(--space-4);
+}
+
+.stepCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.stepCard > a {
+  margin-top: auto;
+}
+
+.everyScreen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.everyScreen > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.everyScreen h3 {
+  margin: 0;
+  font: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.screenDot {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 32px;
+}
+
+.screenDot::before {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+}
+
+.screenDot[data-state="done"]::before {
+  background: var(--aims-success);
+}
+
+.screenDot[data-state="started"]::before {
+  background: var(--aims-cobalt);
+}
+
+.screenDot[data-state="locked"]::before {
+  background: var(--aims-danger);
+}
+
+.lockNote {
+  font: var(--text-caption);
+  color: var(--aims-warning);
+}
+
+/* The walkthrough question on a guided screen. */
+.askBox {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 10px;
+  background: var(--surface-inset);
+  font: var(--text-body-sm);
+}
