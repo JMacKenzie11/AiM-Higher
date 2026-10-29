@@ -94,10 +94,10 @@ export function WriteNarrativeButton({ diagnosticId, written }: { diagnosticId: 
   );
 }
 
-export function NarrativeFields({ diagnosticId, narrative, locked }: { diagnosticId: string; narrative: Narrative; locked: boolean }) {
+export function NarrativeFields({ diagnosticId, narrative, sections, locked }: { diagnosticId: string; narrative: Narrative; sections: ReadoutSection[]; locked: boolean }) {
   return (
     <div className={styles.body}>
-      {READOUT_SECTIONS.map((s) => (
+      {READOUT_SECTIONS.filter((s) => sections.includes(s.key)).map((s) => (
         <NarrativeField key={`${s.key}:${narrative[s.key] ?? ""}`} diagnosticId={diagnosticId} section={s.key} title={s.title} value={narrative[s.key] ?? ""} locked={locked} />
       ))}
     </div>

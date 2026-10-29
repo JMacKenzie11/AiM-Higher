@@ -95,6 +95,6 @@ describe("copying on the Capacity Map", () => {
     const points = capacityMap(tasks);
     expect(points.find((p) => p.taskId === "t2")?.copying).toBe(true);
     expect(points.find((p) => p.taskId === "t7")).not.toHaveProperty("copying");
-    expect(tasks.map(isCandidate)).toEqual(tasks.map((t) => t.energy <= 2 && t.judgment <= 2));
+    expect(tasks.map(isCandidate)).toEqual(tasks.map((t) => t.energy! <= 2 && t.judgment! <= 2));
   });
 });

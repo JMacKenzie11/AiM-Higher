@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { addTaskAction, deleteTaskAction, rollUpTitlesAction, updateTaskAction, type TaskPatch } from "@/lib/diagnostics/actions";
 import { formatHours, hoursChecked, isCandidate } from "@/lib/diagnostics/hours-back";
-import { toTask, type ParticipantRow, type TaskRow } from "@/lib/diagnostics/types";
+import { taskWho, toTask, type ParticipantRow, type TaskRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../useDxAction";
 import styles from "../diagnostics.module.css";
 
@@ -79,7 +79,7 @@ export function TaskGrid({
             </thead>
             <tbody>
               {sorted.map((t) => (
-                <TaskRowEditor key={t.id} task={t} person={names.get(t.participant_id) ?? ""} />
+                <TaskRowEditor key={t.id} task={t} person={taskWho(t, names)} />
               ))}
             </tbody>
           </table>
@@ -91,7 +91,7 @@ export function TaskGrid({
   );
 }
 
-function Cell({
+export function Cell({
   value,
   label,
   onSave,
@@ -128,7 +128,7 @@ function TaskRowEditor({ task, person }: { task: TaskRow; person: string }) {
   const override = task.candidate_override == null ? "auto" : task.candidate_override ? "yes" : "no";
   const name = task.title;
   const rating = (k: "energy" | "judgment") => (
-    <select className={styles.cellInput} aria-label={`${k === "energy" ? "Energy" : "Judgment"} for ${name}`} value={task[k]} onChange={(e) => save({ [k]: e.target.value })}>
+    <select className={styles.cellInput} aria-label={`${k === "energy" ? "Energy" : "Judgment"} for ${name}`} value={task[k] ?? ""} onChange={(e) => save({ [k]: e.target.value })}>
       {[1, 2, 3, 4, 5].map((n) => (
         <option key={n} value={n}>
           {n}

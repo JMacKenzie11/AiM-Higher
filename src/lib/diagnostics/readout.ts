@@ -1,6 +1,7 @@
 import { capacityMap, formatHours, summarize, topNextWins, type MapPoint } from "./hours-back";
 import { winPattern } from "./win-patterns";
-import { READOUT_SECTIONS, toTask, toWin, type DiagnosticBundle, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
+import { READOUT_SECTIONS, toTask, toWin, type DiagnosticBundle, type Narrative, type ReadoutSection, type RoadmapItem, type TaskRow } from "./types";
+import { INTERVIEWS_SHOWN } from "./steps";
 import { bundleHasSystemsData, snapshotOf, type AiSummary, type Connection, type SnapshotSystem, type SystemsSnapshot } from "./systems-snapshot";
 
 // THE READOUT, ASSEMBLED. Everything the owner is shown, in the order
@@ -35,14 +36,18 @@ export type ReadoutSystems = {
   // view's figure.
   handCarriedHours: number;
   ai: AiSummary;
+  // 0305. The company-level answer, the AI tools the team uses, in
+  // place of each person's; absent where nobody answered it.
+  aiTools?: string[];
 };
 
-export function readoutSystems(snap: SystemsSnapshot): ReadoutSystems {
+export function readoutSystems(snap: SystemsSnapshot, aiTools: string[] = []): ReadoutSystems {
   return {
     map: { systems: snap.systems, connections: snap.connections },
     handCarried: snap.handCarried.slice(0, MAX_READOUT_CONNECTIONS).map((c) => ({ from: c.from, to: c.to, whatMoves: c.whatMoves, hours: c.hoursCarried })),
     handCarriedHours: snap.handCarriedHours,
     ai: snap.ai,
+    ...(aiTools.length ? { aiTools } : {}),
   };
 }
 
@@ -50,6 +55,22 @@ export function readoutSystems(snap: SystemsSnapshot): ReadoutSystems {
 // readout has one, the Guardrails Snapshot otherwise, as every readout
 // published before phase 4 has it. The narrative keeps its key either
 // way, so a stored paragraph is never lost.
+// The sections that come from the people interviews. While they are
+// hidden (steps.ts) a new readout leaves them out.
+const INTERVIEW_SECTIONS: readonly ReadoutSection[] = ["in_their_words", "capacity_map"];
+
+// The sections a readout runs, in order: its own list where it has one,
+// every section on a readout published before the list existed.
+export function readoutSections(r: Pick<ReadoutData, "sections">): ReadoutSection[] {
+  return r.sections ?? READOUT_SECTIONS.map((s) => s.key);
+}
+
+// The privacy line speaks for people's ratings and answers, so it
+// rides with the interviews' own section.
+export function showsPrivacyLine(r: Pick<ReadoutData, "sections">): boolean {
+  return readoutSections(r).includes("in_their_words");
+}
+
 export function sectionTitle(k: ReadoutSection, r: Pick<ReadoutData, "systems">): string {
   if (k === "guardrails" && r.systems) return "Systems and AI Snapshot";
   return READOUT_SECTIONS.find((s) => s.key === k)!.title;
@@ -92,6 +113,9 @@ export type ReadoutData = {
   // Phase 4. Absent on a readout with no systems data, and on every
   // readout published before it: those show the Guardrails section.
   systems?: ReadoutSystems;
+  // 0305. The sections this readout runs; absent on every readout
+  // published before, which runs them all.
+  sections?: ReadoutSection[];
 };
 
 // A free-text list, one item per line or comma: the tools in use and
@@ -108,8 +132,13 @@ export function assembleReadout(b: DiagnosticBundle, preparedOn: string): Readou
   const tasks = b.tasks.map(toTask);
   const win = toWin(b.firstWin);
   const summary = summarize(tasks, win, Number(d.guarantee_hours));
-  const roleOf = new Map(b.participants.map((p) => [p.id, p.role_title?.trim() || NO_ROLE]));
+  const personRole = new Map(b.participants.map((p) => [p.id, p.role_title?.trim() || NO_ROLE]));
   const nameOf = new Map(b.participants.map((p) => [p.id, p.name]));
+  // A task's role: its person's, or the one the lead named for it (0305).
+  const roleOfTask = (t: Pick<TaskRow, "participant_id" | "role_title">) =>
+    (t.participant_id ? personRole.get(t.participant_id) : null) ?? (t.role_title?.trim() || NO_ROLE);
+  const rowOf = new Map(b.tasks.map((t) => [t.id, t]));
+  const aiTools = splitList(d.ai_tools ?? null);
 
   // Approved lines only, oldest approval first, three at most.
   const quotes = b.quotes
@@ -125,7 +154,7 @@ export function assembleReadout(b: DiagnosticBundle, preparedOn: string): Readou
       title: b.firstWin.title,
       pattern: winPattern(b.firstWin.pattern)?.title ?? b.firstWin.pattern,
       serves: task ? task.canonical_title || task.title : "",
-      role: task ? (roleOf.get(task.participant_id) ?? NO_ROLE) : NO_ROLE,
+      role: task ? roleOfTask(task) : NO_ROLE,
       baselineMinutes: win?.baselineMinutesPerUnit ?? null,
       afterMinutes: win?.afterMinutesPerUnit ?? null,
       unitsPerWeek: win?.unitsPerWeek ?? null,
@@ -141,7 +170,7 @@ export function assembleReadout(b: DiagnosticBundle, preparedOn: string): Readou
     const hours = n.destination_hours == null ? 0 : Number(n.destination_hours);
     const wish = n.redeploy_wish?.trim();
     if (!hours && !wish) continue;
-    const role = roleOf.get(n.participant_id) ?? NO_ROLE;
+    const role = personRole.get(n.participant_id) ?? NO_ROLE;
     const r = byRole.get(role) ?? { hours: 0, wishes: [] };
     r.hours += hours;
     if (wish) r.wishes.push(wish);
@@ -155,7 +184,7 @@ export function assembleReadout(b: DiagnosticBundle, preparedOn: string): Readou
     title: g.title,
     hours: g.hours,
     people: g.people,
-    helps: [...new Set(tasks.filter((t) => g.taskIds.includes(t.id)).map((t) => roleOf.get(t.participantId) ?? NO_ROLE))],
+    helps: [...new Set(g.taskIds.map((id) => rowOf.get(id)).filter((t): t is TaskRow => Boolean(t)).map(roleOfTask))],
     dataRisk: g.dataRisk,
     buildEffortHours: g.buildEffortHours,
   }));
@@ -187,7 +216,8 @@ export function assembleReadout(b: DiagnosticBundle, preparedOn: string): Readou
     guardrails: { tools: splitList(d.tools_in_use), dataAtRisk: d.data_at_risk, rules: splitList(d.guardrail_rules, /\n+/) },
     roadmap: (d.roadmap ?? []).filter((r) => r.title?.trim()),
     narrative: d.narrative ?? {},
-    ...(bundleHasSystemsData(b) ? { systems: readoutSystems(snapshotOf(b)) } : {}),
+    ...(bundleHasSystemsData(b) || aiTools.length ? { systems: readoutSystems(snapshotOf(b), aiTools) } : {}),
+    ...(INTERVIEWS_SHOWN ? {} : { sections: READOUT_SECTIONS.map((s) => s.key).filter((k) => !INTERVIEW_SECTIONS.includes(k)) }),
   };
 }
 
@@ -273,6 +303,7 @@ export function readoutFigures(r: ReadoutData): string[] {
     sys.ai.tools.forEach((t) => add(t.users));
     add(sys.ai.companyProvided);
     add(sys.ai.personal);
+    add(sys.aiTools?.length);
   }
   for (const item of r.roadmap) add(item.target_week);
   add(r.roadmap.length);
@@ -290,7 +321,7 @@ export function readoutFigures(r: ReadoutData): string[] {
     ...r.guardrails.tools,
     ...r.guardrails.rules,
     ...r.roadmap.flatMap((x) => [x.title, x.champion]),
-    ...(r.systems ? [...r.systems.map.systems.map((x) => x.name), ...r.systems.handCarried.flatMap((c) => c.whatMoves), ...r.systems.ai.tools.map((t) => t.tool)] : []),
+    ...(r.systems ? [...r.systems.map.systems.map((x) => x.name), ...r.systems.handCarried.flatMap((c) => c.whatMoves), ...r.systems.ai.tools.map((t) => t.tool), ...(r.systems.aiTools ?? [])] : []),
   ];
   for (const w of words) if (w) numbersIn(w).forEach((n) => out.add(n));
   return [...out];

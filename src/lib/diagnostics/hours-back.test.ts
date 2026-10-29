@@ -192,3 +192,43 @@ describe("the map and the summary", () => {
     expect(formatHours(null)).toBe("Not yet");
   });
 });
+
+describe("tasks the lead entered in the walkthrough (0305)", () => {
+  const lead = (id: string, title: string, hours: number, role: string | null, extra: Partial<DiagnosticTask> = {}): DiagnosticTask => ({
+    id,
+    participantId: null,
+    roleTitle: role,
+    title,
+    canonicalTitle: null,
+    hoursPerWeek: hours,
+    energy: null,
+    judgment: null,
+    volumeUnitsPerWeek: null,
+    minutesPerUnit: null,
+    dataRisk: null,
+    buildEffortHours: null,
+    candidateOverride: null,
+    ...extra,
+  });
+
+  it("are candidates until the lead leaves one out", () => {
+    expect(isCandidate(lead("a", "Invoices", 4, "Bookkeeper"))).toBe(true);
+    expect(isCandidate(lead("a", "Invoices", 4, "Bookkeeper", { candidateOverride: false }))).toBe(false);
+  });
+
+  it("rank by hours, count roles as heads, and stay off the Capacity Map", () => {
+    const tasks = [
+      lead("a", "Invoices", 4, "Bookkeeper"),
+      lead("b", "Invoices", 2, "bookkeeper"),
+      lead("c", "Order entry", 5, "Inside sales"),
+      lead("d", "Timesheets", 1, null),
+    ];
+    const groups = candidateGroups(tasks);
+    expect(groups.map((g) => g.title)).toEqual(["Invoices", "Order entry", "Timesheets"]);
+    // Scored as if rated at the candidate ceiling: hours times 16.
+    expect(groups[0]).toMatchObject({ hours: 6, people: 1, score: 96 });
+    expect(groups[2].people).toBe(1);
+    expect(capacityMap(tasks)).toEqual([]);
+    expect(summarize(tasks, null)).toMatchObject({ tasks: 4, candidates: 4, totalHours: 12 });
+  });
+});

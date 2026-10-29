@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { formatHours } from "@/lib/diagnostics/hours-back";
-import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, sectionTitle, type ReadoutData } from "@/lib/diagnostics/readout";
+import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, readoutSections, sectionTitle, showsPrivacyLine, type ReadoutData } from "@/lib/diagnostics/readout";
 import type { ReadoutSection } from "@/lib/diagnostics/types";
 import { CapacityMap } from "../CapacityMap";
 import { SystemsMap } from "../SystemsMap";
@@ -12,7 +12,9 @@ import styles from "../../diagnostics.module.css";
 // shape for the draft and the published copy; the PDF draws the same
 // sections from the same data (lib/diagnostics/pdf/ReadoutPdf.tsx).
 
+// A section the readout does not run (readoutSections) draws nothing.
 function Section({ k, r, children }: { k: ReadoutSection; r: ReadoutData; children: ReactNode }) {
+  if (!readoutSections(r).includes(k)) return null;
   return (
     <section className={styles.card} aria-labelledby={`readout-${k}`}>
       <div className={styles.cardHeader}>
@@ -41,7 +43,7 @@ export function ReadoutView({ r }: { r: ReadoutData }) {
   const h = r.hoursBack;
   return (
     <>
-      <PrivacyNote>{PRIVACY_LINE}</PrivacyNote>
+      {showsPrivacyLine(r) ? <PrivacyNote>{PRIVACY_LINE}</PrivacyNote> : null}
 
       <Section k="in_their_words" r={r}>
         {r.quotes.length === 0 ? (
@@ -216,6 +218,11 @@ function SystemsAndAi({ r }: { r: ReadoutData }) {
           </div>
           {sys.ai.tools.length ? <p className={styles.muted}>{sys.ai.tools.map((t) => `${t.tool} (${t.users})`).join(", ")}</p> : null}
         </>
+      ) : null}
+      {sys.aiTools?.length ? (
+        <p>
+          <strong>AI tools the team uses:</strong> {sys.aiTools.join(", ")}
+        </p>
       ) : null}
       {r.guardrails.dataAtRisk ? (
         <p>

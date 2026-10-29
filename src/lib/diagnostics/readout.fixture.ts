@@ -37,6 +37,7 @@ const task = (participant: string, title: string, hours: number, energy: number,
   system_id: null,
   copies_from_system_id: null,
   copies_to_system_id: null,
+  role_title: null,
   ...extra,
 });
 
@@ -73,6 +74,7 @@ export function readoutBundle(overrides: Partial<DiagnosticRow> = {}, firstWin: 
       client_id: "c1",
       status: "build",
       tools_in_use: "Outlook, Excel\nQuickBooks",
+      ai_tools: null,
       it_contact: null,
       access_secured: true,
       brief_sent: true,

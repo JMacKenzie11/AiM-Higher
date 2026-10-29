@@ -2,7 +2,7 @@ import path from "node:path";
 import { Circle, Defs, Document, Font, Image, Line, LinearGradient, Page, Polygon, Rect, Stop, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 import { formatHours } from "../hours-back";
 import { MAP, layoutMap, xFor, yFor } from "../map-layout";
-import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, sectionTitle, type ReadoutData } from "../readout";
+import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, readoutSections, sectionTitle, showsPrivacyLine, type ReadoutData } from "../readout";
 import type { ReadoutSection } from "../types";
 import { SYSTEMS_MAP, layoutSystemsMap } from "../systems-map-layout";
 
@@ -95,7 +95,9 @@ function PageFrame({ r, section, children }: { r: ReadoutData; section: string; 
 // together: the whole section moves to the next page rather than split,
 // for the short sections whose heading, paragraph and figures read as
 // one (the map, Hours Back).
+// A section the readout does not run (readoutSections) draws nothing.
 function Section({ k, r, together = false, children }: { k: ReadoutSection; r: ReadoutData; together?: boolean; children?: React.ReactNode }) {
+  if (!readoutSections(r).includes(k)) return null;
   return (
     <View wrap={!together}>
       <Text style={s.h2} minPresenceAhead={80}>
@@ -198,6 +200,12 @@ function SystemsAndAiPdf({ r }: { r: ReadoutData }) {
           />
           {sys.ai.tools.length ? <Text style={[s.p, s.muted]}>{sys.ai.tools.map((t) => `${t.tool} (${t.users})`).join(", ")}</Text> : null}
         </>
+      ) : null}
+      {sys.aiTools?.length ? (
+        <Text style={s.p}>
+          <Text style={s.bold}>AI tools the team uses: </Text>
+          {sys.aiTools.join(", ")}
+        </Text>
       ) : null}
       {r.guardrails.dataAtRisk ? (
         <Text style={s.p}>
@@ -319,9 +327,11 @@ export function ReadoutPdf({ r }: { r: ReadoutData }) {
 
       {/* ---- The readout ---- */}
       <PageFrame r={r} section="Readout">
-        <View style={[s.cardSand, { borderLeftWidth: 3, borderLeftColor: C.chartreuse }]}>
-          <Text style={s.small}>{PRIVACY_LINE}</Text>
-        </View>
+        {showsPrivacyLine(r) ? (
+          <View style={[s.cardSand, { borderLeftWidth: 3, borderLeftColor: C.chartreuse }]}>
+            <Text style={s.small}>{PRIVACY_LINE}</Text>
+          </View>
+        ) : null}
 
         <Section k="in_their_words" r={r}>
           {r.quotes.length === 0 ? (

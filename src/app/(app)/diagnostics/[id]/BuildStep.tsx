@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
 import { formatHours, type CandidateGroup, type CapacitySummary, type MapPoint } from "@/lib/diagnostics/hours-back";
 import { winPattern } from "@/lib/diagnostics/win-patterns";
-import type { DiagnosticRow, ParticipantRow, TaskRow, WinRow } from "@/lib/diagnostics/types";
+import { taskWho, type DiagnosticRow, type ParticipantRow, type TaskRow, type WinRow } from "@/lib/diagnostics/types";
 import { StepCard } from "./StepCard";
 import { CapacityMap } from "./CapacityMap";
 import { SystemsMap } from "./SystemsMap";
 import type { SystemsSnapshot } from "@/lib/diagnostics/systems-snapshot";
 import { WinButton } from "./WinDrawer";
+import { INTERVIEWS_SHOWN } from "@/lib/diagnostics/steps";
+import { splitList } from "@/lib/diagnostics/readout";
 import { DxField } from "./DxField";
 import { shortDate } from "../format";
 import styles from "../diagnostics.module.css";
@@ -17,7 +19,9 @@ import styles from "../diagnostics.module.css";
 // check with the owner is a dated note here. Every figure is from
 // hours-back.ts, and the systems figures from systems-snapshot.ts
 // (phase 4): the systems map beside the Capacity Map, and the systems
-// and AI card for the assessor.
+// and AI card for the assessor. While the people interviews are hidden
+// (steps.ts) nobody rates a task, so there is no Capacity Map: the
+// systems map is the picture, and candidates go by hours.
 
 const RISK: Record<string, string> = { low: "Low", medium: "Medium", high: "High" };
 
@@ -47,42 +51,54 @@ export function BuildStep({
   const names = new Map(participants.map((p) => [p.id, p.name]));
   const winTask = firstWin ? tasks.find((t) => t.id === firstWin.task_id) : undefined;
   const pattern = firstWin ? winPattern(firstWin.pattern) : undefined;
+  const who = INTERVIEWS_SHOWN ? { one: "person", many: "people", head: "People" } : { one: "role", many: "roles", head: "Roles" };
+  const aiTools = splitList(diagnostic.ai_tools);
 
   return (
     <>
-      <StepCard id="step-build" title="Capacity Map" meta={`${summary.tasks} tasks, ${summary.candidates} candidates`}>
+      <StepCard id="step-build" title={INTERVIEWS_SHOWN ? "Capacity Map" : "Systems map"} meta={`${summary.tasks} tasks, ${summary.candidates} candidates`}>
         <div className={styles.body}>
-          {points.length ? (
+          {summary.tasks ? (
             <div className={styles.figures}>
               <Figure value={formatHours(summary.totalHours)} label="Hours a week on these tasks" />
               <Figure value={formatHours(summary.candidateHours)} label="Hours on candidates" />
               <Figure value={formatHours(summary.checkedHours)} label="Hours volume-checked" />
             </div>
           ) : null}
-          <div className={styles.systemsMaps}>
-            {points.length === 0 ? <p className={styles.empty}>The map fills in as surveys are entered.</p> : <CapacityMap points={points} />}
-            {snapshot.systems.length ? (
-              <SystemsMap systems={snapshot.systems} connections={snapshot.connections} />
-            ) : (
-              <p className={styles.empty}>The systems map fills in as systems are added on Pre-flight.</p>
-            )}
-          </div>
+          {INTERVIEWS_SHOWN ? (
+            <div className={styles.systemsMaps}>
+              {points.length === 0 ? <p className={styles.empty}>The map fills in as surveys are entered.</p> : <CapacityMap points={points} />}
+              {snapshot.systems.length ? (
+                <SystemsMap systems={snapshot.systems} connections={snapshot.connections} />
+              ) : (
+                <p className={styles.empty}>The systems map fills in as systems are added on Pre-flight.</p>
+              )}
+            </div>
+          ) : snapshot.systems.length ? (
+            <SystemsMap systems={snapshot.systems} connections={snapshot.connections} />
+          ) : (
+            <p className={styles.empty}>The systems map fills in as systems are added on Pre-flight.</p>
+          )}
         </div>
       </StepCard>
 
       <StepCard id="dx-candidates" title="Candidates" meta={`${groups.length}`}>
         {groups.length === 0 ? (
-          <p className={styles.empty}>No task is both draining and routine yet. A task can be made a candidate on the Survey step.</p>
+          <p className={styles.empty}>
+            {INTERVIEWS_SHOWN
+              ? "No task is both draining and routine yet. A task can be made a candidate on the Survey step."
+              : "No candidates yet. Every task entered on Pre-flight is one, unless you leave it out there."}
+          </p>
         ) : (
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
                 <tr>
                   <th>Task</th>
-                  <th className={styles.num}>People</th>
+                  <th className={styles.num}>{who.head}</th>
                   <th className={styles.num}>Hours a week</th>
                   <th className={styles.num}>Checked</th>
-                  <th className={styles.num}>Score</th>
+                  {INTERVIEWS_SHOWN ? <th className={styles.num}>Score</th> : null}
                   <th>Data risk</th>
                   <th className={styles.num}>Build hours</th>
                   <th>
@@ -97,7 +113,7 @@ export function BuildStep({
                     <td className={styles.num}>{g.people}</td>
                     <td className={styles.num}>{formatHours(g.hours)}</td>
                     <td className={styles.num}>{formatHours(g.checkedHours)}</td>
-                    <td className={styles.num}>{Math.round(g.score)}</td>
+                    {INTERVIEWS_SHOWN ? <td className={styles.num}>{Math.round(g.score)}</td> : null}
                     <td>{g.dataRisk ? RISK[g.dataRisk] : "Not set"}</td>
                     <td className={styles.num}>{g.buildEffortHours == null ? "Not set" : formatHours(g.buildEffortHours)}</td>
                     <td>{g.quickWin ? <span className={styles.chip}>Quick win</span> : null}</td>
@@ -115,7 +131,7 @@ export function BuildStep({
                 <li key={g.key}>
                   <span>{g.title}</span>
                   <span className={styles.muted}>
-                    {formatHours(g.hours)} hours a week, {g.people} {g.people === 1 ? "person" : "people"}
+                    {formatHours(g.hours)} hours a week, {g.people} {g.people === 1 ? who.one : who.many}
                   </span>
                 </li>
               ))}
@@ -141,7 +157,7 @@ export function BuildStep({
               <strong>{firstWin.title}</strong>
               <span className={styles.muted}>
                 {" "}
-                ({pattern?.title ?? firstWin.pattern}), for {winTask ? `${winTask.title}, ${names.get(winTask.participant_id) ?? ""}` : "a task no longer listed"}
+                ({pattern?.title ?? firstWin.pattern}), for {winTask ? `${winTask.title}, ${taskWho(winTask, names)}` : "a task no longer listed"}
               </span>
             </p>
             <p className={styles.muted}>
@@ -204,7 +220,13 @@ export function BuildStep({
           ) : null}
           <div>
             <h3 className={styles.subhead}>AI use</h3>
-            {snapshot.ai.answered === 0 ? (
+            {!INTERVIEWS_SHOWN ? (
+              aiTools.length ? (
+                <p>{aiTools.join(", ")}</p>
+              ) : (
+                <p className={styles.empty}>Add the AI tools the team uses on Pre-flight.</p>
+              )
+            ) : snapshot.ai.answered === 0 ? (
               <p className={styles.empty}>Nobody has answered the AI questions yet.</p>
             ) : (
               <>

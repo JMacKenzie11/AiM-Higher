@@ -82,9 +82,11 @@ export type DiagnosticRow = {
   narrative: Narrative | null;
   published_readout: unknown;
   decided_at: string | null;
+  // 0305: the one company-level question, what AI tools the team uses.
+  ai_tools: string | null;
 };
 export const DIAGNOSTIC_COLUMNS =
-  "id, client_id, status, tools_in_use, it_contact, access_secured, brief_sent, conversations_booked, scope, capacity_destination, pledge_text, pledge_sent_at, kickoff_at, midpoint_at, midpoint_note, readout_at, published_at, guarantee_hours, decision, archived_at, created_at, data_at_risk, guardrail_rules, roadmap, narrative, published_readout, decided_at";
+  "id, client_id, status, tools_in_use, it_contact, access_secured, brief_sent, conversations_booked, scope, capacity_destination, pledge_text, pledge_sent_at, kickoff_at, midpoint_at, midpoint_note, readout_at, published_at, guarantee_hours, decision, archived_at, created_at, data_at_risk, guardrail_rules, roadmap, narrative, published_readout, decided_at, ai_tools";
 
 // One line of the 90-day roadmap: a next win, the week of the sprint it
 // is meant to land in, and the person to train as its champion.
@@ -126,11 +128,13 @@ export const PARTICIPANT_COLUMNS =
 export type TaskRow = {
   id: string;
   diagnostic_id: string;
-  participant_id: string;
+  // Null for a task the lead entered in the walkthrough (0305), which
+  // carries role_title instead and no ratings.
+  participant_id: string | null;
   title: string;
   hours_per_week: number;
-  energy: number;
-  judgment: number;
+  energy: number | null;
+  judgment: number | null;
   source: "survey" | "conversation" | "lead";
   volume_units_per_week: number | null;
   minutes_per_unit: number | null;
@@ -144,9 +148,10 @@ export type TaskRow = {
   system_id: string | null;
   copies_from_system_id: string | null;
   copies_to_system_id: string | null;
+  role_title: string | null;
 };
 export const TASK_COLUMNS =
-  "id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment, source, volume_units_per_week, minutes_per_unit, data_risk, build_effort_hours, candidate_override, canonical_title, created_at, system_id, copies_from_system_id, copies_to_system_id";
+  "id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment, source, volume_units_per_week, minutes_per_unit, data_risk, build_effort_hours, candidate_override, canonical_title, created_at, system_id, copies_from_system_id, copies_to_system_id, role_title";
 
 // ---- Systems and AI use (0298) -------------------------------------
 
@@ -276,7 +281,14 @@ export function toTask(r: TaskRow): DiagnosticTask {
     systemId: r.system_id ?? null,
     copiesFromSystemId: r.copies_from_system_id ?? null,
     copiesToSystemId: r.copies_to_system_id ?? null,
+    roleTitle: r.role_title ?? null,
   };
+}
+
+// Who does a task, for the lead's screens: the person's name, or the
+// role the lead named for a task entered in the walkthrough (0305).
+export function taskWho(t: Pick<TaskRow, "participant_id" | "role_title">, names: ReadonlyMap<string, string>): string {
+  return (t.participant_id ? names.get(t.participant_id) : undefined) ?? t.role_title?.trim() ?? "";
 }
 
 export function toWin(r: WinRow | null): DiagnosticWin | null {

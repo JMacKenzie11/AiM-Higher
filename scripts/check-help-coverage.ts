@@ -31,6 +31,16 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 const APP_ROOT = path.join(REPO_ROOT, "src", "app", "(app)");
 const HELP_ROOT = path.join(REPO_ROOT, "docs", "help");
 
+// Routes with no in-app help, on purpose. Help in docs/help/ is what
+// Aimee searches and the ? widget shows, so a route listed here must
+// never get a doc there.
+//   /diagnostics  the Capacity Diagnostic and everything built on it
+//                 (Jason, 2026-10-29: nothing for this module goes into
+//                 Aimee's help). Its lead's guide is
+//                 docs/diagnostics-guide.md, which nothing serves.
+const NO_IN_APP_HELP = ["/diagnostics"];
+const withoutHelp = (route: string) => NO_IN_APP_HELP.some((p) => route === p || route.startsWith(`${p}/`));
+
 async function collectPageRoutes(dir: string, prefix = ""): Promise<string[]> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const routes: string[] = [];
@@ -116,10 +126,22 @@ async function main() {
   ]);
 
   const missing: Array<{ route: string; expected: string[] }> = [];
+  const served: string[] = [];
   for (const route of routes.sort()) {
+    if (withoutHelp(route)) {
+      // A doc that would cover it is the mistake this list exists for.
+      const doc = routeToSlugCandidates(route).find((c) => slugs.has(c));
+      if (doc) served.push(`${route} has docs/help/${doc}.md, but takes no in-app help`);
+      continue;
+    }
     const candidates = routeToSlugCandidates(route);
     const covered = candidates.some((c) => slugs.has(c));
     if (!covered) missing.push({ route, expected: candidates });
+  }
+
+  if (served.length) {
+    console.error(served.join("\n"));
+    process.exit(1);
   }
 
   if (missing.length === 0) {

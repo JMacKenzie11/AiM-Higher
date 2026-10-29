@@ -71,6 +71,7 @@ const task = (id: string, participant: number, title: string, hours: number, ext
   system_id: null,
   copies_from_system_id: null,
   copies_to_system_id: null,
+  role_title: null,
   ...extra,
 });
 

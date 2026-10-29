@@ -178,6 +178,7 @@ export type DiagnosticPatch = {
   guarantee_hours?: string | number;
   data_at_risk?: string;
   guardrail_rules?: string;
+  ai_tools?: string;
 };
 
 export async function updateDiagnosticAction(id: string, patch: DiagnosticPatch): Promise<DxResult> {
@@ -192,6 +193,7 @@ export async function updateDiagnosticAction(id: string, patch: DiagnosticPatch)
     ["midpoint_note", 4000],
     ["data_at_risk", 2000],
     ["guardrail_rules", 2000],
+    ["ai_tools", 2000],
   ];
   for (const [k, max] of limits) if (k in patch) row[k] = text(patch[k], max);
   for (const k of ["access_secured", "brief_sent", "conversations_booked"] as const) {
@@ -428,7 +430,14 @@ export type TaskPatch = {
   data_risk?: string | null;
   build_effort_hours?: string | number | null;
   candidate_override?: "auto" | "yes" | "no";
+  // 0305: who does a task entered in the walkthrough, and where.
+  role_title?: string;
+  system_id?: string | null;
+  copies_from_system_id?: string | null;
+  copies_to_system_id?: string | null;
 };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function cleanTaskPatch(patch: TaskPatch): Record<string, unknown> | string {
   const row: Record<string, unknown> = {};
@@ -469,6 +478,19 @@ function cleanTaskPatch(patch: TaskPatch): Record<string, unknown> | string {
   if ("candidate_override" in patch) {
     row.candidate_override = patch.candidate_override === "yes" ? true : patch.candidate_override === "no" ? false : null;
   }
+  if ("role_title" in patch) row.role_title = text(patch.role_title, 120);
+  // A system from another diagnostic is refused by 0298's trigger; this
+  // only keeps a malformed id from reaching it.
+  for (const k of ["system_id", "copies_from_system_id", "copies_to_system_id"] as const) {
+    if (k in patch) {
+      const v = patch[k];
+      if (v && !UUID.test(v)) return "That system doesn't exist.";
+      row[k] = v || null;
+    }
+  }
+  if (("copies_from_system_id" in row) !== ("copies_to_system_id" in row)) return "Pick both systems it copies between, or neither.";
+  if (row.copies_from_system_id && row.copies_from_system_id === row.copies_to_system_id) return "It copies between two different systems.";
+  if ((row.copies_from_system_id == null) !== (row.copies_to_system_id == null)) return "Pick both systems it copies between, or neither.";
   return row;
 }
 
@@ -503,6 +525,25 @@ export async function addTaskAction(
   const { data } = await supabase
     .from("diagnostic_tasks")
     .insert({ ...row, diagnostic_id: diagnosticId, participant_id: participantId, source: "lead" })
+    .select("id");
+  if (!data?.length) return REFUSED;
+  touched(diagnosticId);
+  return { ok: true };
+}
+
+// A task the lead enters in the systems walkthrough (0305): no person,
+// no ratings, the role that does it and the system it happens in.
+export async function addWalkthroughTaskAction(
+  diagnosticId: string,
+  input: { title: string; role_title?: string; hours_per_week: string | number; system_id?: string | null }
+): Promise<DxResult> {
+  const supabase = await caller();
+  const row = cleanTaskPatch(input);
+  if (typeof row === "string") return { ok: false, message: row };
+  if (!row.title || row.hours_per_week == null) return { ok: false, message: "Add the task and its hours a week." };
+  const { data } = await supabase
+    .from("diagnostic_tasks")
+    .insert({ ...row, diagnostic_id: diagnosticId, participant_id: null, source: "lead" })
     .select("id");
   if (!data?.length) return REFUSED;
   touched(diagnosticId);
