@@ -865,8 +865,10 @@
   color: var(--text-heading);
 }
 
+/* A thin bar. It never grows, so in a column it stays 8px high; in
+   the scoring header's row it takes the spare width (.scoreHead). */
 .progress {
-  flex: 1 1 160px;
+  flex: none;
   height: 8px;
   border-radius: var(--radius-pill);
   background: var(--aims-navy-tint);
@@ -955,6 +957,10 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
+}
+
+.scoreHead > .progress {
+  flex: 1 1 160px;
 }
 
 .scoreCount {
