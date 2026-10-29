@@ -105,22 +105,23 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
       subtitle={DIAGNOSTIC_STEPS[index].lead}
       backHref={`/diagnostics/clients/${client.id}`}
       backLabel={client.name}
-      heroExtras={
-        <nav className={styles.steps} aria-label="Diagnostic steps">
-          {DIAGNOSTIC_STEPS.map((s, i) => (
-            <Link
-              key={s.key}
-              href={`/diagnostics/${id}?step=${s.key}`}
-              className={styles.step}
-              aria-current={s.key === step ? "step" : undefined}
-              data-done={i <= reached ? "true" : undefined}
-            >
-              {s.label}
-            </Link>
-          ))}
-        </nav>
-      }
+      flush
     >
+      {/* The steps as tabs, on the sand under the hero, never in it
+          (Jason, 2026-10-29). A step not reached yet is quieter. */}
+      <nav className={styles.tabRow} aria-label="Diagnostic steps">
+        {DIAGNOSTIC_STEPS.map((s, i) => (
+          <Link
+            key={s.key}
+            href={`/diagnostics/${id}?step=${s.key}`}
+            className={s.key === step ? styles.tabActive : styles.tab}
+            aria-current={s.key === step ? "step" : undefined}
+            data-ahead={i > reached ? "true" : undefined}
+          >
+            {s.label}
+          </Link>
+        ))}
+      </nav>
       {content}
       <p className={styles.archiveRow}>
         <ArchiveButton kind="diagnostic" id={id} archived={Boolean(diagnostic.archived_at)} />

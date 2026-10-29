@@ -10751,8 +10751,9 @@ export const ASSISTANT_MENU = {
   summaries: ["meetings", "meeting_analyses"],
   // An assistant may add here and read nothing back (0281).
   addOnly: ["aimee_handoffs"],
-  // The only functions the gate lets an assistant call.
-  rpc: ["assistant_meeting_summaries"],
+  // The only functions the gate lets an assistant call. The two bot
+  // functions (0308) check for a system admin themselves.
+  rpc: ["assistant_meeting_summaries", "assistant_record_bot_run", "assistant_bots"],
 } as const;
 
 // The restrictive rules a table must carry, by where it sits on the menu.
@@ -10857,7 +10858,10 @@ select n.nspname as s, c.relname as r, c.relrowsecurity as rls,
     // Likewise the route check (0275), its own probe below.
     const liveSession = `create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
 create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
-create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';`;
+create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';
+-- The role rule (0284, 0308) is the role probe's; here the simulated
+-- assistant signs in as an open role.
+create or replace function public.auth_role() returns text language sql stable security definer set search_path = public as 'select ''team_member''::text';`;
     [gate] = await run(["begin;", pending, plant, liveSession, `
 create temp table _gate (kind text, item text, outcome text) on commit drop;
 do $$
@@ -10924,7 +10928,7 @@ select (select string_agg(item, ',' order by item) from _gate where kind = 'rpc'
     const offPaths = ["PATCH /commitments", "DELETE /commitments", "GET /coaching_conversations", "GET /meetings", "POST /rpc/graphql", "POST /notifications", "GET /priority_progress", "GET /", "POST /priorities", "PATCH /annual_goals"];
     const menuOk = menuPaths.every((p) => pathOutcome(p) === "allowed");
     const offOk = offPaths.every((p) => pathOutcome(p) === "refused");
-    const ok = (gate.allowed ?? "") === wantAllowed && gate.refused === gate.total - 1 &&
+    const ok = (gate.allowed ?? "") === wantAllowed && gate.refused === gate.total - ASSISTANT_MENU.rpc.length &&
       gate.config === "pgrst.db_pre_request=public.assistant_request_gate" && menuOk && offOk && gate.app === "allowed";
     out.push({
       name: "assistant allow list · every function",
@@ -10932,7 +10936,7 @@ select (select string_agg(item, ',' order by item) from _gate where kind = 'rpc'
       withheld: `functions refused: ${gate.refused} of ${gate.total} callable by a signed-in user, the planted one among them | off-menu paths: ${offOk ? "refused" : "SOME ALLOWED"} | gate wired: ${gate.config ?? "NO"}`,
       ok,
       detail: ok
-        ? "an assistant may call one function and the menu's paths, every other function and path is refused before it runs, and the app is not"
+        ? "an assistant may call the menu's functions and paths, every other function and path is refused before it runs, and the app is not"
         : `THE GATE LETS AN ASSISTANT REACH SOMETHING OFF THE MENU, or refuses the app (paths: ${gate.paths})`,
     });
   }
@@ -12051,19 +12055,26 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 //             the menu
 //   withheld  a portfolio admin is refused (42501)
 // Red before 0284: the portfolio admin reaches the menu.
+// 0308: the open roles are an allow list, so a diagnostic client (0307),
+// created here, is refused as a portfolio admin is. Red before 0308: the
+// gate refused portfolio admins alone and let the diagnostic client by.
 async function assistantRoleProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
-  const name = "assistant roles · all but portfolio admins";
+  const name = "assistant roles · the open roles only";
+  const DC = randomUUID();
   let r: Record<string, string> = {};
   try {
     const [row] = await run<{ r: string }>(["begin;", pending, `
 create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
 create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';
 create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${DC}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${DC}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values ('${DC}', null, 'Harness 0308 diagnostic client', 'diagnostic_client', 'active');
 create temp table _r (k text, v text) on commit drop;
 do $$
 declare who text; sub uuid; o text;
 begin
-  foreach who in array array['system_admin', 'company_admin', 'aims_guide', 'team_member', 'portfolio_admin'] loop
+  foreach who in array array['system_admin', 'company_admin', 'aims_guide', 'team_member', 'portfolio_admin', 'diagnostic_client'] loop
     select id into sub from public.profiles where role = who and status = 'active' order by id limit 1;
     if sub is null then insert into _r values (who, 'nobody on this clone'); continue; end if;
     perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated","client_id":"harness-0284"}', sub), true);
@@ -12081,13 +12092,17 @@ select jsonb_object_agg(k, v)::text as r from _r;`, "rollback;"].join("\n"));
       detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
   }
   const open = ["system_admin", "company_admin", "aims_guide", "team_member"];
-  const ok = open.every((k) => r[k] === "allowed" || r[k] === "nobody on this clone") && r.portfolio_admin === "refused 42501";
+  const ok =
+    open.every((k) => r[k] === "allowed" || r[k] === "nobody on this clone") &&
+    r.portfolio_admin === "refused 42501" && r.diagnostic_client === "refused 42501";
   return [{
     name,
     granted: open.map((k) => `${k.replace("_", " ")}: ${r[k]}`).join(" | "),
-    withheld: `portfolio admin: ${r.portfolio_admin} (want refused 42501)`,
+    withheld: `portfolio admin: ${r.portfolio_admin}, diagnostic client: ${r.diagnostic_client} (want refused 42501 each)`,
     ok,
-    detail: ok ? "every role but portfolio admins reaches the assistant menu" : "THE WRONG ROLES REACH THE ASSISTANT MENU (is 0284 applied?)",
+    detail: ok
+      ? "the roles AI apps are open to reach the assistant menu, and no other"
+      : "THE WRONG ROLES REACH THE ASSISTANT MENU (are 0284 and 0308 applied?)",
   }];
 }
 
@@ -13135,15 +13150,19 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 //             client's diagnostic is refused (23503), its stage moves
 //             (1 row), a go-live before the build starts is refused
 //             (23514), and it can be deleted (1 row)
+//   bots      (0308) a bot and a run count toward the reads, so nobody but
+//             the system admin reads them; an automation with a bot cannot
+//             be deleted (23503) until the bot is (1 row, its runs with it)
 // Red before 0294: the tables do not exist. Red before 0295: the system
 // admin still reads all eight off the primary instance. Red before 0296:
 // published_readout does not exist. Red before 0298: the systems tables
 // do not exist. Red before 0306: diagnostic_automations does not exist.
+// Red before 0308: diagnostic_bots does not exist.
 async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "diagnostics · system admin only";
   const CL = randomUUID(), DX = randomUUID(), PT = randomUUID(), TK = randomUUID();
   const DX2 = randomUUID(), S1 = randomUUID(), S2 = randomUUID(), S3 = randomUUID(), LK = randomUUID(), AI = randomUUID();
-  const CL2 = randomUUID(), DX3 = randomUUID(), AU = randomUUID();
+  const CL2 = randomUUID(), DX3 = randomUUID(), AU = randomUUID(), BT = randomUUID();
   const reads = `(select count(*) from public.diagnostic_clients where id = '${CL}')
     + (select count(*) from public.diagnostics where id = '${DX}')
     + (select count(*) from public.diagnostic_participants where id = '${PT}')
@@ -13155,7 +13174,9 @@ async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pe
     + (select count(*) from public.diagnostic_systems where id = '${S1}')
     + (select count(*) from public.diagnostic_system_links where id = '${LK}')
     + (select count(*) from public.diagnostic_ai_use where id = '${AI}')
-    + (select count(*) from public.diagnostic_automations where id = '${AU}')`;
+    + (select count(*) from public.diagnostic_automations where id = '${AU}')
+    + (select count(*) from public.diagnostic_bots where id = '${BT}')
+    + (select count(*) from public.diagnostic_bot_runs where bot_id = '${BT}')`;
   const asRole = (key: string, sub: string) => `
   perform set_config('request.jwt.claims', '{"sub":"${sub}","role":"authenticated"}', true);
   select ${reads} into n; insert into _p values ('${key}_reads', n::text);
@@ -13201,6 +13222,8 @@ insert into public.diagnostic_ai_use (id, participant_id, tool, provided_by) val
 insert into public.diagnostic_clients (id, name) values ('${CL2}', 'Harness 0306 other client');
 insert into public.diagnostics (id, client_id) values ('${DX3}', '${CL2}');
 insert into public.diagnostic_automations (id, client_id, diagnostic_id, title) values ('${AU}', '${CL}', '${DX}', 'Harness automation');
+insert into public.diagnostic_bots (id, automation_id, client_id, code, kind, every) values ('${BT}', '${AU}', '${CL}', 'harness-${BT.slice(0, 8)}', 'scheduled', 'day');
+insert into public.diagnostic_bot_runs (bot_id, result, items) values ('${BT}', 'worked', 2);
 create temp table _p (k text, v text) on commit drop;
 grant all on _p to authenticated;
 set local role authenticated;
@@ -13260,6 +13283,14 @@ begin
   exception when others then insert into _p values ('auto_backwards', 'error ' || sqlstate); end;
   begin
     delete from public.diagnostic_automations where id = '${AU}';
+    get diagnostics n = row_count; insert into _p values ('auto_delete_with_bot', n::text);
+  exception when others then insert into _p values ('auto_delete_with_bot', 'error ' || sqlstate); end;
+  begin
+    delete from public.diagnostic_bots where id = '${BT}';
+    get diagnostics n = row_count; insert into _p values ('bot_delete', n::text);
+  exception when others then insert into _p values ('bot_delete', 'error ' || sqlstate); end;
+  begin
+    delete from public.diagnostic_automations where id = '${AU}';
     get diagnostics n = row_count; insert into _p values ('auto_delete', n::text);
   exception when others then insert into _p values ('auto_delete', 'error ' || sqlstate); end;
 end $$;
@@ -13317,10 +13348,11 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
       r[`${k}_auto_insert`] === "error 42501" && r[`${k}_update`] === "0"
   );
   const adminOk =
-    r.system_admin_reads === "12" && r.system_admin_insert === "1" && r.system_admin_sys_insert === "1" &&
+    r.system_admin_reads === "14" && r.system_admin_insert === "1" && r.system_admin_sys_insert === "1" &&
     r.system_admin_auto_insert === "1" && r.system_admin_update === "1";
   const automationsOk =
-    r.auto_cross_client === "error 23503" && r.auto_update === "1" && r.auto_backwards === "error 23514" && r.auto_delete === "1";
+    r.auto_cross_client === "error 23503" && r.auto_update === "1" && r.auto_backwards === "error 23514" &&
+    r.auto_delete_with_bot === "error 23503" && r.bot_delete === "1" && r.auto_delete === "1";
   const systemsOk =
     r.cross_link === "error 23514" && r.cross_task === "error 23514" && r.half_pair === "error 23514" && r.whole_pair === "1" &&
     r.system_in_use_delete === "error 23503" && r.link_delete === "1" && r.ai_delete === "1";
@@ -13330,9 +13362,9 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   return [{
     name,
     granted:
-      `system admin reads ${r.system_admin_reads} of 12, adds a client ${r.system_admin_insert}, a system ${r.system_admin_sys_insert} and an automation ${r.system_admin_auto_insert}, updates an answer ${r.system_admin_update} (want 12, 1, 1, 1, 1) | ` +
+      `system admin reads ${r.system_admin_reads} of 14, adds a client ${r.system_admin_insert}, a system ${r.system_admin_sys_insert} and an automation ${r.system_admin_auto_insert}, updates an answer ${r.system_admin_update} (want 14, 1, 1, 1, 1) | ` +
       `whole copy pair ${r.whole_pair}, deletes a link ${r.link_delete} and an AI row ${r.ai_delete} (want 1 each) | ` +
-      `moves an automation's stage ${r.auto_update}, deletes it ${r.auto_delete} (want 1 each)`,
+      `moves an automation's stage ${r.auto_update}, deletes its bot (and runs) ${r.bot_delete}, then it ${r.auto_delete} (want 1 each) | deleting an automation with a bot ${r.auto_delete_with_bot} (want error 23503)`,
     withheld:
       others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]}, ${r[`${k}_sys_insert`]} and ${r[`${k}_auto_insert`]}, updates ${r[`${k}_update`]}`).join(" | ") +
       ` (want 0, error 42501 three times, 0 each) | an automation on another client's diagnostic ${r.auto_cross_client} (want error 23503), ` +
@@ -13485,6 +13517,132 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
         : !offPrimaryOk
           ? "A DIAGNOSTIC CLIENT READS OFF THE PRIMARY INSTANCE"
           : "A DIAGNOSTIC CLIENT REACHES SOMETHING NOT ITS OWN, writes, or a member row admits the wrong person",
+  }];
+}
+
+// ---- A bot reports its runs through the assistant (0308) ------------
+//
+// The Capacity Diagnostic's bots report each run through the MCP
+// server, signed in as a system admin. Seeded as postgres: a client, a
+// live automation, its bot. The gate's own checks (session, approval,
+// route) are switched to yes here, so this measures the bot door alone.
+// As an assistant:
+//   granted   a system admin: the gate lets POST /rpc/assistant_record_bot_run
+//             and /rpc/assistant_bots by; a worked run with 3 items is
+//             recorded with 3, a failed run with 5 is recorded with 0
+//             and its note; assistant_bots() lists the bot with its runs
+//   withheld  the same system admin's assistant cannot read or write the
+//             tables directly (42501 at the gate); an unknown code is
+//             refused (P0002); a result that is neither is refused
+//             (22023); a team member's assistant passes the gate and is
+//             refused by both functions (42501); off the primary
+//             instance the system admin is refused (42501)
+// Red before 0308: the functions do not exist.
+async function diagnosticBotRunProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "diagnostic bots · runs through the assistant";
+  const CL = randomUUID(), AU = randomUUID(), BT = randomUUID();
+  const CODE = `harness-${BT.slice(0, 8)}`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+insert into public.diagnostic_clients (id, name) values ('${CL}', 'Harness 0308 client');
+insert into public.diagnostic_automations (id, client_id, title, stage, goes_live) values ('${AU}', '${CL}', 'Harness invoice matching', 'live', current_date);
+insert into public.diagnostic_bots (id, automation_id, client_id, code, kind, every, minutes_per_item, hourly_rate)
+  values ('${BT}', '${AU}', '${CL}', '${CODE}', 'scheduled', 'day', 5, 45);
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int; j jsonb; o text;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated","client_id":"harness-0308"}', true);
+  perform set_config('request.method', 'POST', true);
+  perform set_config('request.path', '/rpc/assistant_record_bot_run', true);
+  begin perform public.assistant_request_gate(); o := 'allowed'; exception when others then o := 'refused ' || sqlstate; end;
+  insert into _p values ('gate_record', o);
+  perform set_config('request.path', '/rpc/assistant_bots', true);
+  begin perform public.assistant_request_gate(); o := 'allowed'; exception when others then o := 'refused ' || sqlstate; end;
+  insert into _p values ('gate_list', o);
+  perform set_config('request.method', 'GET', true);
+  perform set_config('request.path', '/diagnostic_bot_runs', true);
+  begin perform public.assistant_request_gate(); o := 'allowed'; exception when others then o := 'refused ' || sqlstate; end;
+  insert into _p values ('gate_table_read', o);
+  perform set_config('request.method', 'POST', true);
+  begin perform public.assistant_request_gate(); o := 'allowed'; exception when others then o := 'refused ' || sqlstate; end;
+  insert into _p values ('gate_table_write', o);
+  begin
+    insert into public.diagnostic_bot_runs (bot_id, result) values ('${BT}', 'worked');
+    get diagnostics n = row_count; insert into _p values ('table_write', n::text);
+  exception when others then insert into _p values ('table_write', 'error ' || sqlstate); end;
+
+  j := public.assistant_record_bot_run('${CODE}', 'worked', 3, null);
+  insert into _p values ('worked_items', j ->> 'items');
+  j := public.assistant_record_bot_run(upper('${CODE}'), 'failed', 5, 'Harness CRM did not respond');
+  insert into _p values ('failed_items', j ->> 'items');
+  begin perform public.assistant_record_bot_run('harness-no-such-bot', 'worked', 1, null); o := 'recorded';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('unknown', o);
+  begin perform public.assistant_record_bot_run('${CODE}', 'maybe', 1, null); o := 'recorded';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('bad_result', o);
+  j := public.assistant_bots();
+  select count(*) into n from jsonb_array_elements(j) e where e -> 'bot' ->> 'code' = '${CODE}' and jsonb_array_length(e -> 'runs') = 2;
+  insert into _p values ('listed', n::text);
+
+  perform set_config('request.jwt.claims', '{"sub":"${ids.member}","role":"authenticated","client_id":"harness-0308"}', true);
+  perform set_config('request.path', '/rpc/assistant_record_bot_run', true);
+  begin perform public.assistant_request_gate(); o := 'allowed'; exception when others then o := 'refused ' || sqlstate; end;
+  insert into _p values ('member_gate', o);
+  begin perform public.assistant_record_bot_run('${CODE}', 'worked', 1, null); o := 'recorded';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('member_record', o);
+  begin perform public.assistant_bots(); o := 'listed';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('member_list', o);
+end $$;
+reset role;
+insert into _p select 'failed_row', count(*)::text from public.diagnostic_bot_runs where bot_id = '${BT}' and result = 'failed' and items = 0 and note = 'Harness CRM did not respond';
+update public.instance_settings set is_primary = false;
+set local role authenticated;
+do $$
+declare o text;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated","client_id":"harness-0308"}', true);
+  begin perform public.assistant_record_bot_run('${CODE}', 'worked', 1, null); o := 'recorded';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('not_primary', o);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 140);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0308 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const grantedOk = r.gate_record === "allowed" && r.gate_list === "allowed" && r.worked_items === "3" && r.failed_items === "0" && r.failed_row === "1" && r.listed === "1";
+  const withheldOk =
+    r.gate_table_read === "refused 42501" && r.gate_table_write === "refused 42501" && r.table_write === "error 42501" &&
+    r.unknown === "error P0002" && r.bad_result === "error 22023" &&
+    r.member_gate === "allowed" && r.member_record === "error 42501" && r.member_list === "error 42501" && r.not_primary === "error 42501";
+  const ok = grantedOk && withheldOk;
+  return [{
+    name,
+    granted:
+      `system admin's assistant: gate on record ${r.gate_record}, on list ${r.gate_list} | worked run items ${r.worked_items}, failed run items ${r.failed_items}, failed row with its note ${r.failed_row}, listed with both runs ${r.listed} (want allowed, allowed, 3, 0, 1, 1)`,
+    withheld:
+      `the runs table at the gate: read ${r.gate_table_read}, write ${r.gate_table_write}; a direct insert ${r.table_write} (want refused 42501, refused 42501, error 42501) | ` +
+      `unknown code ${r.unknown} (want error P0002), result "maybe" ${r.bad_result} (want error 22023) | ` +
+      `a team member's assistant: gate ${r.member_gate}, record ${r.member_record}, list ${r.member_list} (want allowed, error 42501, error 42501) | ` +
+      `off the primary instance ${r.not_primary} (want error 42501)`,
+    ok,
+    detail: ok
+      ? "a system admin's bot reports runs and lists bots through the two functions only; a failed run saves nothing; nobody else gets in"
+      : !grantedOk
+        ? "A BOT CANNOT REPORT ITS RUN, or a failed run counts items (is 0308 applied? is the clone marked primary?)"
+        : "SOMEONE OTHER THAN A SYSTEM ADMIN'S BOT REPORTS OR LISTS RUNS, or the tables open to an assistant",
   }];
 }
 
@@ -15423,6 +15581,7 @@ async function main(): Promise<void> {
   const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
   const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
   const diagnosticClient = await diagnosticClientOwnClientProbes(run, ids, pendingSql);
+  const diagnosticBots = await diagnosticBotRunProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -15450,7 +15609,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

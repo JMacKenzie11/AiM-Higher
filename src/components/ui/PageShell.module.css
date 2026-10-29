@@ -124,6 +124,12 @@
   gap: var(--space-5);
 }
 
+/* PageShell's flush: below the hero, not over it (Company settings). */
+.contentFlush {
+  margin-top: 0;
+  padding-top: var(--space-6);
+}
+
 /* A short message with one way forward, for pages that are only
    that (an error, a link that can't be opened). The content band
    overlaps the hero by 32px, so bare text placed straight into it

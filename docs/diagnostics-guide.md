@@ -18,6 +18,18 @@ On **Clients**, select **Add a client** and fill in the business, the owner, its
 
 A client's page lists the automations being built for them under **Automations**: each one's stage (Planned, Building, Testing, Live or Paused), its build dates, its champion and the latest update. **Add from the diagnostic** starts the list from the newest diagnostic: the first win (Live once it is in use) and each next win on the roadmap (Planned, with its champion). Pressing it again adds only what is not there yet. **Add an automation** adds one by hand. Select an automation's name to change its stage, the day its build starts, the day it goes live, its champion or the latest update, or to remove it. The client will read this list on their own dashboard once client logins are built.
 
+## Bots
+
+Most automations are built as Grok Bots. In an automation's drawer, **Add a bot** and fill in:
+
+- **Bot code**: the name the bot reports by, such as `northline-invoice-match`. It says which bot and which client.
+- **How it starts**: **On a schedule** (how often, and when) or **When something happens** (what sets it off, which the client will read, and if you like how often it should run at least).
+- **One item is a**, **Agreed minutes saved per item**, **Agreed hourly rate** and **Agreed on**: what the savings are worked out from.
+
+The Grok Bot reports each run to AiMS HQ with the `record_bot_run` tool, connected to AiMS HQ through AI apps and signed in as a system admin: the bot code, whether it worked or failed, how many items it handled, and for a failure one line on why. A failed run counts but saves nothing; only system admins see why it failed.
+
+A bot is **Late** when its next run is half an interval overdue, **Stopped** after two missed runs, and **Needs attention** when its last run failed. **Bots**, at the top of the diagnostic pages, lists every client's bots with the ones needing a look first. When a bot changes to or from one of those, AiMS HQ sends a webhook to the Bot Management Grok Bot; `list_bot_problems` gives the same list when no alert came.
+
 ## People who can sign in
 
 The people at a client can sign in and see their own dashboard: for now, the automations being built for them. On the client's page, under **People who can sign in**, enter a name and email and select **Send invite**. They get the usual AiMS HQ invite, set a password, and from then on land on their dashboard at the usual address. They see nothing else in AiMS HQ. Each person shows when they last signed in, or that they haven't yet, with **Send again**. **Remove access** deletes their account.

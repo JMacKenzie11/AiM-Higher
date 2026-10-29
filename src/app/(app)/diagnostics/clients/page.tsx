@@ -22,8 +22,9 @@ export default async function DiagnosticClientsPage() {
       eyebrow="Capacity Diagnostic"
       title="Clients"
       subtitle="The businesses a diagnostic is run for."
-      heroExtras={<SectionNav current="clients" />}
+      flush
     >
+      <SectionNav current="clients" />
       <section className={styles.card} aria-labelledby="dx-clients">
         <div className={styles.cardHeader}>
           <h2 id="dx-clients" className={styles.cardTitle}>

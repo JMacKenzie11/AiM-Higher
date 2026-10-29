@@ -56,7 +56,7 @@ export function BuildStep({
 
   return (
     <>
-      <StepCard id="step-build" title={INTERVIEWS_SHOWN ? "Capacity Map" : "Systems map"} meta={`${summary.tasks} tasks, ${summary.candidates} candidates`}>
+      <StepCard id="step-build" title={INTERVIEWS_SHOWN ? "Capacity Map" : "Systems map"} meta={`${summary.tasks} ${summary.tasks === 1 ? "task" : "tasks"}, ${summary.candidates} ${summary.candidates === 1 ? "candidate" : "candidates"}`}>
         <div className={styles.body}>
           {summary.tasks ? (
             <div className={styles.figures}>

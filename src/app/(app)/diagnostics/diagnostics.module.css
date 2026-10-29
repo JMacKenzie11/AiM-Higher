@@ -18,10 +18,6 @@
   min-width: 0;
 }
 
-.card + .card {
-  margin-top: var(--space-5);
-}
-
 .cardHeader {
   display: flex;
   flex-wrap: wrap;
@@ -130,46 +126,68 @@
   font: var(--text-body);
 }
 
-/* The tabs on the hero's blue band: the current one white, the rest
-   light text that lifts on hover. A step not reached yet is quieter. */
-.steps {
+/* The tabs at the top of the content, under the hero and never in it
+   (Jason, 2026-10-29): Company settings' tabs, the app's outlined
+   button style with the current one pressed (analysis-tabs.module.css).
+   A diagnostic step not reached yet is quieter. */
+.tabRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: var(--space-5);
+  gap: var(--space-2);
 }
 
-.step {
+.tab,
+.tabActive {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
+  gap: var(--space-2);
+  height: var(--control-h-btn);
+  padding: 0 var(--space-4);
+  font: var(--text-button);
   border-radius: var(--radius-btn);
-  color: color-mix(in srgb, var(--aims-white) 62%, transparent);
-  font: var(--text-body-sm);
-  font-size: 14px;
-  font-weight: 500;
+  border: 1px solid var(--border-interactive);
+  background: var(--surface);
   text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.step[data-done="true"] {
-  color: var(--aims-sky-tint);
+.tab {
+  color: var(--text);
 }
 
-.step:hover {
-  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
+.tab[data-ahead="true"] {
+  color: var(--text-muted);
 }
 
-.step[aria-current="step"],
-.step[aria-current="page"] {
-  background: var(--aims-white);
-  color: var(--aims-navy);
-  font-weight: 600;
+.tab:hover {
+  background: var(--aims-cobalt-tint);
+  border-color: var(--border-strong);
+  color: var(--primary);
 }
 
-.step:focus-visible {
-  outline: 2px solid var(--aims-chartreuse);
+.tabActive {
+  background: var(--aims-cobalt-tint);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.tab:focus-visible,
+.tabActive:focus-visible {
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .tab,
+  .tabActive {
+    padding: 0 var(--space-3);
+    font-size: 14px;
+  }
 }
 
 /* Forms. */
@@ -320,6 +338,59 @@
   border-top: 1px solid var(--border);
   border-radius: 0 0 14px 14px;
   background: var(--bg);
+}
+
+/* The Bots page's totals (0308). */
+.figureBad {
+  color: var(--aims-danger);
+}
+
+.figureGood {
+  color: var(--aims-success);
+}
+
+/* An automation's bot (0308), in its drawer. */
+.botSection {
+  border-top: 1px solid var(--border);
+}
+
+.choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice > legend {
+  margin-bottom: var(--space-1);
+}
+
+.choice button[aria-pressed="true"] {
+  background: var(--aims-cobalt-tint);
+  border-width: 2px;
+  color: var(--aims-navy);
+}
+
+/* The Grok Bot setup box (switched off, GROK_SETUP_SHOWN). */
+.setupBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 12px;
+  background: var(--surface-inset);
+  font: var(--text-body-sm);
+}
+
+.setupText {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  white-space: pre-wrap;
+  font: 12.5px/1.55 ui-monospace, Menlo, monospace;
 }
 
 /* A link-styled button that opens a drawer from a table row. */
@@ -556,7 +627,7 @@
 }
 
 .archiveRow {
-  margin-top: var(--space-5);
+  margin: 0;
 }
 
 .mapFigure {

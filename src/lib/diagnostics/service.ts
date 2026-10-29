@@ -30,6 +30,7 @@ import {
 import { assembleReadout, isReadoutData, type ReadoutData } from "./readout";
 import type { AcrossInput } from "./across";
 import { sortAutomations } from "./automations";
+import { BOT_COLUMNS, botHealth, botSavings, type BotHealth, type BotRow, type BotRun, type BotSavings } from "./bots";
 
 // Every read goes through the caller's own client, so row security
 // (system admin only, 0294) is the boundary; the pages' requireRole is
@@ -256,4 +257,59 @@ export async function getPortal(): Promise<PortalView | null> {
   if (!client) return null;
   const { data: autos } = await supabase.from("diagnostic_automations").select(AUTOMATION_COLUMNS).eq("client_id", client.id).limit(500);
   return { client, automations: sortAutomations((autos ?? []) as AutomationRow[]) };
+}
+
+// ---- Bots (0308) ----------------------------------------------------
+
+export type BotView = {
+  bot: BotRow;
+  automation: { id: string; title: string; stage: string; goes_live: string | null };
+  client: { id: string; name: string };
+  health: BotHealth;
+  savings: BotSavings;
+  // Newest first, the last ten, notes included (system admins only).
+  recent: BotRun[];
+  lastRunAt: string | null;
+};
+
+type BotJoined = BotRow & {
+  diagnostic_automations: { id: string; title: string; stage: string; goes_live: string | null } | null;
+  diagnostic_clients: { id: string; name: string; archived_at: string | null } | null;
+};
+
+// Bots with their health and savings, for one client or every one,
+// read as the caller (system admin only, 0308). Every run is read for
+// the totals; a client has a handful of bots.
+export async function listBots(clientId?: string): Promise<BotView[]> {
+  const supabase = await db();
+  let q = supabase
+    .from("diagnostic_bots")
+    .select(`${BOT_COLUMNS}, diagnostic_automations(id, title, stage, goes_live), diagnostic_clients(id, name, archived_at)`)
+    .limit(1000);
+  if (clientId) q = q.eq("client_id", clientId);
+  const { data } = await q;
+  const bots = ((data ?? []) as unknown as BotJoined[]).filter(
+    (b) => b.diagnostic_automations && b.diagnostic_clients && (clientId || !b.diagnostic_clients.archived_at)
+  );
+  const now = new Date();
+  return Promise.all(
+    bots.map(async (b) => {
+      const { data: runRows } = await supabase
+        .from("diagnostic_bot_runs")
+        .select("ran_at, result, items, note")
+        .eq("bot_id", b.id)
+        .order("ran_at", { ascending: false })
+        .limit(10000);
+      const runs = (runRows ?? []) as BotRun[];
+      return {
+        bot: b,
+        automation: b.diagnostic_automations!,
+        client: { id: b.diagnostic_clients!.id, name: b.diagnostic_clients!.name },
+        health: botHealth(b, b.diagnostic_automations!, runs, now),
+        savings: botSavings(b, runs, now),
+        recent: runs.slice(0, 10),
+        lastRunAt: runs[0]?.ran_at ?? null,
+      };
+    })
+  );
 }
