@@ -43,6 +43,14 @@ test.describe("Diagnostic client portal", () => {
     await auto.getByLabel("Goes live").fill("2026-08-04");
     await auto.getByRole("button", { name: "Save" }).click();
     await expect(automations.getByRole("button", { name: "Order entry" })).toBeVisible({ timeout: 15_000 });
+    // One being built, for the stepper (0310).
+    await automations.getByRole("button", { name: "Add an automation" }).click();
+    const second = page.getByTestId("drawer-panel");
+    await second.getByLabel("Automation", { exact: true }).fill("Invoice matching");
+    await second.getByLabel("Stage").selectOption("building");
+    await second.getByLabel("Champion").fill("Dana R., Purchasing");
+    await second.getByRole("button", { name: "Save" }).click();
+    await expect(automations.getByRole("button", { name: "Invoice matching" })).toBeVisible({ timeout: 15_000 });
 
     // ---- the person ----
     const people = page.getByRole("region", { name: "People who can sign in" });
@@ -55,6 +63,21 @@ test.describe("Diagnostic client portal", () => {
 
     // As the invite link would: a password, and the profile active.
     const admin = devAdmin();
+    // A bot on Order entry and its runs, as record_bot_run would write
+    // them: 24 and 12 orders this week at 5 minutes, and a failed run
+    // whose reason the client must never see.
+    const { data: orderEntry } = await admin.from("diagnostic_automations").select("id, client_id").eq("title", "Order entry").order("created_at", { ascending: false }).limit(1).single();
+    const { data: bot } = await admin
+      .from("diagnostic_bots")
+      .insert({ automation_id: orderEntry!.id, client_id: orderEntry!.client_id, code: `e2e-portal-${stamp}`, kind: "triggered", trigger_text: "A new order arrives", minutes_per_item: 5, hourly_rate: 45, currency: "CAD" })
+      .select("id")
+      .single();
+    const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+    await admin.from("diagnostic_bot_runs").insert([
+      { bot_id: bot!.id, ran_at: minutesAgo(30), result: "worked", items: 24 },
+      { bot_id: bot!.id, ran_at: minutesAgo(60), result: "failed", items: 0, note: "E2E secret reason" },
+      { bot_id: bot!.id, ran_at: minutesAgo(90), result: "worked", items: 12 },
+    ]);
     const { data: profile } = await admin.from("profiles").select("id, role").eq("full_name", personName).single();
     expect(profile?.role).toBe("diagnostic_client");
     await admin.auth.admin.updateUserById(profile!.id, { password, email_confirm: true });
@@ -69,9 +92,23 @@ test.describe("Diagnostic client portal", () => {
     await client.getByRole("button", { name: /sign in/i }).click();
     // Sign-in sends everyone to / and the middleware routes them on, so
     // wait for the dashboard rather than a URL (as signIn does).
-    await expect(client.getByRole("heading", { level: 1, name: clientName })).toBeVisible({ timeout: 30_000 });
-    await expect(client.getByText("Order entry")).toBeVisible();
-    await expect(client.getByText("Live since Aug 4, 2026")).toBeVisible();
+    await expect(client.getByRole("heading", { level: 1, name: "Your automations" })).toBeVisible({ timeout: 30_000 });
+    // The client's name beside the AiMS HQ logo in the top bar.
+    await expect(client.getByRole("banner").getByText(clientName)).toBeVisible();
+    // The dashboard (0310): the totals, the bot card and its details,
+    // the stepper, and never the failure's reason or the bot's code.
+    await expect(client.getByText("Hours saved this week")).toBeVisible();
+    await expect(client.getByText("$135 CAD")).toBeVisible();
+    const card = client.getByRole("button", { name: /Order entry/ });
+    await expect(card.getByText("Running well")).toBeVisible();
+    await card.click();
+    const details = client.getByRole("region", { name: "Order entry details" });
+    await expect(details.getByText("36 items × 5 minutes = 3 hours this week, worth $135 CAD.")).toBeVisible();
+    await expect(details.getByText("Did not finish")).toBeVisible();
+    await expect(client.getByText("E2E secret reason")).toHaveCount(0);
+    await expect(client.getByText(`e2e-portal-${stamp}`)).toHaveCount(0);
+    await expect(client.getByRole("list", { name: "Stage: Building" })).toBeVisible();
+    await expect(client.getByText("Champion: Dana R., Purchasing")).toBeVisible();
     await expect(client.getByRole("img", { name: "AiMS HQ" })).toBeVisible();
     // Every other page sends them back.
     for (const path of ["/dashboard", "/diagnostics", "/admin/companies", "/"]) {

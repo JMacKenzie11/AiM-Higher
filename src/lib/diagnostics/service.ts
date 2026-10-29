@@ -30,6 +30,7 @@ import {
 import { assembleReadout, isReadoutData, type ReadoutData } from "./readout";
 import type { AcrossInput } from "./across";
 import { sortAutomations } from "./automations";
+import type { PortalBotData } from "./portal";
 import { BOT_COLUMNS, botHealth, botSavings, type BotHealth, type BotRow, type BotRun, type BotSavings } from "./bots";
 
 // Every read goes through the caller's own client, so row security
@@ -245,6 +246,9 @@ export async function listClientPeople(clientId: string): Promise<ClientPerson[]
 export type PortalView = {
   client: { id: string; name: string; country: string | null };
   automations: AutomationRow[];
+  // 0310: the bots through portal_dashboard(), as the person.
+  bots: PortalBotData[];
+  readoutPublishedAt: string | null;
 };
 
 // What a diagnostic client's person sees, read as them: their client
@@ -255,8 +259,25 @@ export async function getPortal(): Promise<PortalView | null> {
   const { data: rows } = await supabase.rpc("portal_client");
   const client = ((rows ?? []) as PortalView["client"][])[0];
   if (!client) return null;
-  const { data: autos } = await supabase.from("diagnostic_automations").select(AUTOMATION_COLUMNS).eq("client_id", client.id).limit(500);
-  return { client, automations: sortAutomations((autos ?? []) as AutomationRow[]) };
+  const [{ data: autos }, { data: dash }] = await Promise.all([
+    supabase.from("diagnostic_automations").select(AUTOMATION_COLUMNS).eq("client_id", client.id).limit(500),
+    supabase.rpc("portal_dashboard"),
+  ]);
+  const d = (dash ?? null) as { bots?: PortalBotData[]; readout_published_at?: string | null } | null;
+  return {
+    client,
+    automations: sortAutomations((autos ?? []) as AutomationRow[]),
+    bots: d?.bots ?? [],
+    readoutPublishedAt: d?.readout_published_at ?? null,
+  };
+}
+
+// The client's newest published readout, as published, through
+// portal_readout() (0310). Null when there is none.
+export async function getPortalReadout(): Promise<ReadoutData | null> {
+  const supabase = await db();
+  const { data } = await supabase.rpc("portal_readout");
+  return isReadoutData(data) ? data : null;
 }
 
 // ---- Bots (0308) ----------------------------------------------------
