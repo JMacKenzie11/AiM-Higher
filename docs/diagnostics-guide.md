@@ -14,6 +14,10 @@ The pages are on no menu. Go to `/diagnostics` for every engagement, or `/diagno
 
 On **Clients**, select **Add a client** and fill in the business, the owner, its size and where it is. A client here is not a company on AiMS HQ. **Edit** on the client's page changes the details. **Archive** puts a client away without deleting anything, and **Restore** brings it back.
 
+## Automations
+
+A client's page lists the automations being built for them under **Automations**: each one's stage (Planned, Building, Testing, Live or Paused), its build dates, its champion and the latest update. **Add from the diagnostic** starts the list from the newest diagnostic: the first win (Live once it is in use) and each next win on the roadmap (Planned, with its champion). Pressing it again adds only what is not there yet. **Add an automation** adds one by hand. Select an automation's name to change its stage, the day its build starts, the day it goes live, its champion or the latest update, or to remove it. The client will read this list on their own dashboard once client logins are built.
+
 ## Start a diagnostic
 
 On the client's page, select **Start a diagnostic**. It opens on the first step. Each step is one card with **Back** and **Next** at the foot. The steps along the top go to any step directly.

@@ -8,7 +8,8 @@ import { test, expect, signIn, users } from "./fixtures";
 // hours on Build; choose the first win and its measured week, publish
 // the readout, fetch its PDF and Markdown, and record the decision
 // (0296); see the Across clients tab (phase 3) and the Systems and AI
-// Snapshot in the readout (phase 4). Then archive the client, since
+// Snapshot in the readout (phase 4); start the client's automations
+// from the first win and add one by hand (0306). Then archive the client, since
 // nothing in the module is ever deleted. No model call runs here.
 //
 // The client's name is unique per run so a failed run leaves nothing
@@ -127,6 +128,35 @@ test.describe("Capacity Diagnostic", () => {
     await page.getByRole("link", { name }).first().click();
     await expect(page).toHaveURL(/\/diagnostics\/clients\/[0-9a-f-]{36}$/, { timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Start a diagnostic" })).toBeVisible({ timeout: 15_000 });
+
+    // ---- automations (0306) ----
+    // The first win starts live, from its in-use date; pressing it again
+    // adds nothing.
+    const automations = page.getByRole("region", { name: "Automations" });
+    await automations.getByRole("button", { name: "Add from the diagnostic" }).click();
+    const firstWin = automations.getByRole("row").filter({ hasText: "Quote first draft" });
+    await expect(firstWin.getByText("Live", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(firstWin.getByText("Goes live Oct 12, 2026")).toBeVisible();
+    await automations.getByRole("button", { name: "Add from the diagnostic" }).click();
+    await expect(automations.getByText("Everything from the diagnostic is already here.")).toBeVisible({ timeout: 15_000 });
+    // One by hand: a go-live before its build starts is refused.
+    await automations.getByRole("button", { name: "Add an automation" }).click();
+    const auto = page.getByTestId("drawer-panel");
+    await auto.getByLabel("Automation", { exact: true }).fill("Invoice matching");
+    await auto.getByLabel("Stage").selectOption("building");
+    await auto.getByLabel("Build starts").fill("2026-11-02");
+    await auto.getByLabel("Goes live").fill("2026-10-26");
+    await auto.getByRole("button", { name: "Save" }).click();
+    await expect(auto.getByText("It goes live on or after the day the build starts.")).toBeVisible({ timeout: 15_000 });
+    await auto.getByLabel("Goes live").fill("2026-11-23");
+    await auto.getByLabel("Champion").fill("Dana R., Purchasing");
+    await auto.getByLabel("Latest update for the client").fill("Mapping the supplier invoices this week.");
+    await auto.getByRole("button", { name: "Save" }).click();
+    const byHand = automations.getByRole("row").filter({ hasText: "Invoice matching" });
+    await expect(byHand.getByText("Nov 2, 2026 to Nov 23, 2026")).toBeVisible({ timeout: 15_000 });
+    await expect(byHand.getByText("Building", { exact: true })).toBeVisible();
+    await expect(byHand.getByText("Mapping the supplier invoices this week.")).toBeVisible();
+
     await page.getByRole("button", { name: "Archive" }).click();
     await expect(page.getByRole("button", { name: "Restore" })).toBeVisible({ timeout: 15_000 });
   });

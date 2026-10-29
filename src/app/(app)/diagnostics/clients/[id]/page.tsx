@@ -8,19 +8,21 @@ import { ClientButton } from "../../ClientDrawer";
 import { ArchiveButton, StartDiagnosticButton } from "../../ActionButtons";
 import { shortDate } from "../../format";
 import { DecisionChip, StatusChip } from "../../Chips";
+import { Automations } from "./Automations";
 import styles from "../../diagnostics.module.css";
 
 export const metadata = { title: "Diagnostic client" };
 
 type PageProps = { params: Promise<{ id: string }> };
 
-// One client: their details and every diagnostic run for them.
+// One client: their details, the automations being built for them
+// (0306), and every diagnostic run for them.
 export default async function DiagnosticClientPage({ params }: PageProps) {
   await requireDiagnostics();
   const { id } = await params;
   const found = await getClient(id);
   if (!found) notFound();
-  const { client, diagnostics } = found;
+  const { client, diagnostics, automations, automationSource } = found;
   const source = CLIENT_SOURCES.find((s) => s.value === client.source)?.label;
   const details: Array<[string, string | null]> = [
     ["Owner", [client.owner_name, client.owner_email].filter(Boolean).join(", ") || null],
@@ -59,6 +61,8 @@ export default async function DiagnosticClientPage({ params }: PageProps) {
           ))}
         </ul>
       </section>
+
+      <Automations clientId={client.id} automations={automations} sourceId={automationSource?.id ?? null} archived={Boolean(client.archived_at)} />
 
       <section className={styles.card} aria-labelledby="client-dx">
         <div className={styles.cardHeader}>

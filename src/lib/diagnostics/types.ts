@@ -315,3 +315,38 @@ export type DiagnosticBundle = {
   links: SystemLinkRow[];
   aiUse: AiUseRow[];
 };
+
+// ---- Automations (0306) ----------------------------------------------
+
+// Where an automation is, in the order a client reads them.
+export const AUTOMATION_STAGES = [
+  { value: "planned", label: "Planned" },
+  { value: "building", label: "Building" },
+  { value: "testing", label: "Testing" },
+  { value: "live", label: "Live" },
+  { value: "paused", label: "Paused" },
+] as const;
+export type AutomationStage = (typeof AUTOMATION_STAGES)[number]["value"];
+
+export function stageLabel(s: string): string {
+  return AUTOMATION_STAGES.find((x) => x.value === s)?.label ?? s;
+}
+
+// One automation built for a client. goes_live is the day it is
+// implemented.
+export type AutomationRow = {
+  id: string;
+  client_id: string;
+  diagnostic_id: string | null;
+  title: string;
+  stage: AutomationStage;
+  build_starts: string | null;
+  goes_live: string | null;
+  champion: string | null;
+  latest_update: string | null;
+  latest_update_at: string | null;
+  created_at: string;
+};
+
+export const AUTOMATION_COLUMNS =
+  "id, client_id, diagnostic_id, title, stage, build_starts, goes_live, champion, latest_update, latest_update_at, created_at";
