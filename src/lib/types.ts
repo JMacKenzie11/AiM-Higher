@@ -16,7 +16,13 @@ export type Role =
   // and aims_guide it has no company_id: having one would make every
   // `auth_company_id() = company_id` predicate in the schema quietly
   // true for one tenant. See migration 0190.
-  | "portfolio_admin";
+  | "portfolio_admin"
+  // A Capacity Diagnostic client's person (0307). Signs in at the usual
+  // address and reaches only /portal: their client's dashboard, read
+  // only. No company_id; tied to one diagnostic client by
+  // diagnostic_client_members. Added by a system admin inside the
+  // diagnostic module, never through the users admin.
+  | "diagnostic_client";
 
 // Every role, as a value. For code that has to check a string against
 // the list at runtime, like a help doc's `roles:` frontmatter. The
@@ -28,6 +34,7 @@ export const ROLES = [
   "team_member",
   "aims_guide",
   "portfolio_admin",
+  "diagnostic_client",
 ] as const satisfies readonly Role[];
 type MissingFromRoles = Exclude<Role, (typeof ROLES)[number]>;
 const rolesAreComplete: MissingFromRoles extends never ? true : never = true;

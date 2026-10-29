@@ -651,14 +651,17 @@ export async function dispatchInvite(
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("first_name")
+    .select("first_name, role")
     .eq("id", profileId)
-    .maybeSingle<Pick<Profile, "first_name">>();
+    .maybeSingle<Pick<Profile, "first_name" | "role">>();
 
   const sent = await sendInviteEmail({
     to: email,
     firstName: profile?.first_name ?? null,
     actionLink: link,
+    // A diagnostic client's person is given their company's
+    // dashboard (0307), and the email says so.
+    kind: profile?.role === "diagnostic_client" ? "client" : "company",
   });
 
   if (!sent.ok) {

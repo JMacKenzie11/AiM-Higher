@@ -304,6 +304,24 @@
   text-decoration: underline;
 }
 
+/* A line under a card's title saying what the card is for. */
+.cardLead {
+  margin: 0;
+  padding: var(--space-3) var(--space-5) 0;
+}
+
+.warnText {
+  color: var(--aims-warning);
+}
+
+/* The invite row at a card's foot, on the sand. */
+.inviteRow {
+  flex-direction: row;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 14px 14px;
+  background: var(--bg);
+}
+
 /* A link-styled button that opens a drawer from a table row. */
 .linkButton {
   padding: 0;

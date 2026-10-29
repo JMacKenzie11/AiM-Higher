@@ -13358,6 +13358,136 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- A diagnostic client sees its own client only (0307) ----------
+//
+// The one widening for the diagnostic_client role. Seeded as postgres
+// inside the transaction: two diagnostic clients, an automation each,
+// a diagnostic for the first, and a diagnostic_client person (an
+// auth user and an active profile) who is a member of the first. Then:
+//   granted   the person reads its own client's automation (1), its
+//             own membership row (1), and portal_client() returns its
+//             client (1 row, the right name)
+//   withheld  it reads 0 of the other client's automation, 0 client
+//             rows, 0 diagnostics, 0 companies and 0 other profiles;
+//             it cannot add an automation or a member (42501), and its
+//             update to its own automation reaches 0 rows; a member row
+//             for someone who is not a diagnostic client is refused
+//             (23514), even from a system admin; a diagnostic_client
+//             profile with a company is refused (23514); a pending
+//             person (not yet signed in) reads 0
+//   withheld  off the primary instance it reads 0 and portal_client()
+//             returns nothing
+// Red before 0307: the role does not exist (profiles_role_check).
+async function diagnosticClientOwnClientProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "diagnostic client · own client only";
+  const CL = randomUUID(), CL2 = randomUUID(), DX = randomUUID(), AU = randomUUID(), AU2 = randomUUID();
+  const P = randomUUID(), PEND = randomUUID(), BAD = randomUUID();
+  const user = (id: string) =>
+    `('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now())`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ${user(P)}, ${user(PEND)}, ${user(BAD)};
+insert into public.diagnostic_clients (id, name, owner_email, notes) values
+  ('${CL}', 'Harness 0307 client', 'owner@example.invalid', 'lead notes'), ('${CL2}', 'Harness 0307 other client', null, null);
+insert into public.diagnostics (id, client_id) values ('${DX}', '${CL}');
+insert into public.diagnostic_automations (id, client_id, title, stage) values
+  ('${AU}', '${CL}', 'Harness own automation', 'live'), ('${AU2}', '${CL2}', 'Harness other automation', 'live');
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${P}', null, 'Harness 0307 client person', 'diagnostic_client', 'active'),
+  ('${PEND}', null, 'Harness 0307 pending person', 'diagnostic_client', 'pending');
+insert into public.diagnostic_client_members (profile_id, client_id) values ('${P}', '${CL}'), ('${PEND}', '${CL}');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+do $$
+declare n int;
+begin
+  begin
+    insert into public.profiles (id, company_id, full_name, role, status) values ('${BAD}', '${ids.memberCompany}', 'Harness 0307 with a company', 'diagnostic_client', 'active');
+    get diagnostics n = row_count; insert into _p values ('with_company', n::text);
+  exception when others then insert into _p values ('with_company', 'error ' || sqlstate); end;
+end $$;
+set local role authenticated;
+do $$
+declare n int; t text;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${P}","role":"authenticated"}', true);
+  select count(*) into n from public.diagnostic_automations where id = '${AU}'; insert into _p values ('own_auto', n::text);
+  select count(*) into n from public.diagnostic_automations where id = '${AU2}'; insert into _p values ('other_auto', n::text);
+  select count(*) into n from public.diagnostic_client_members where profile_id = '${P}'; insert into _p values ('own_member', n::text);
+  select count(*) into n from public.diagnostic_client_members where profile_id = '${PEND}'; insert into _p values ('other_member', n::text);
+  select count(*), max(name) into n, t from public.portal_client(); insert into _p values ('portal', n::text || ' ' || coalesce(t, ''));
+  select count(*) into n from public.diagnostic_clients; insert into _p values ('clients', n::text);
+  select count(*) into n from public.diagnostics where id = '${DX}'; insert into _p values ('diagnostics', n::text);
+  select count(*) into n from public.companies; insert into _p values ('companies', n::text);
+  select count(*) into n from public.profiles where id <> '${P}'; insert into _p values ('profiles', n::text);
+  begin
+    insert into public.diagnostic_automations (client_id, title) values ('${CL}', 'By the client');
+    get diagnostics n = row_count; insert into _p values ('auto_insert', n::text);
+  exception when others then insert into _p values ('auto_insert', 'error ' || sqlstate); end;
+  update public.diagnostic_automations set stage = 'paused' where id = '${AU}';
+  get diagnostics n = row_count; insert into _p values ('auto_update', n::text);
+  begin
+    insert into public.diagnostic_client_members (profile_id, client_id) values ('${P}', '${CL2}');
+    get diagnostics n = row_count; insert into _p values ('member_insert', n::text);
+  exception when others then insert into _p values ('member_insert', 'error ' || sqlstate); end;
+  perform set_config('request.jwt.claims', '{"sub":"${PEND}","role":"authenticated"}', true);
+  select count(*) into n from public.diagnostic_automations where id = '${AU}'; insert into _p values ('pending_auto', n::text);
+  perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  begin
+    insert into public.diagnostic_client_members (profile_id, client_id) values ('${ids.member}', '${CL}');
+    get diagnostics n = row_count; insert into _p values ('non_client_member', n::text);
+  exception when others then insert into _p values ('non_client_member', 'error ' || sqlstate); end;
+  delete from public.diagnostic_client_members where profile_id = '${PEND}';
+  get diagnostics n = row_count; insert into _p values ('admin_member_delete', n::text);
+  perform set_config('request.jwt.claims', '{"sub":"${ids.member}","role":"authenticated"}', true);
+  select count(*) into n from public.diagnostic_automations where id = '${AU}'; insert into _p values ('member_auto', n::text);
+end $$;
+reset role;
+update public.instance_settings set is_primary = false;
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', '{"sub":"${P}","role":"authenticated"}', true);
+  select count(*) into n from public.diagnostic_automations where id = '${AU}'; insert into _p values ('not_primary_auto', n::text);
+  select count(*) into n from public.portal_client(); insert into _p values ('not_primary_portal', n::text);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0307 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const grantedOk = r.own_auto === "1" && r.own_member === "1" && r.portal === "1 Harness 0307 client";
+  const withheldOk =
+    r.other_auto === "0" && r.other_member === "0" && r.clients === "0" && r.diagnostics === "0" && r.companies === "0" && r.profiles === "0" &&
+    r.auto_insert === "error 42501" && r.auto_update === "0" && r.member_insert === "error 42501" && r.pending_auto === "0" &&
+    r.non_client_member === "error 23514" && r.with_company === "error 23514" && r.admin_member_delete === "1" && r.member_auto === "0";
+  const offPrimaryOk = r.not_primary_auto === "0" && r.not_primary_portal === "0";
+  const ok = grantedOk && withheldOk && offPrimaryOk;
+  return [{
+    name,
+    granted: `reads its own automation ${r.own_auto}, its membership ${r.own_member}, portal_client ${r.portal} (want 1, 1, "1 Harness 0307 client")`,
+    withheld:
+      `the other client's automation ${r.other_auto}, another member ${r.other_member}, client rows ${r.clients}, diagnostics ${r.diagnostics}, companies ${r.companies}, other profiles ${r.profiles} (want 0 each) | ` +
+      `adds an automation ${r.auto_insert}, updates its own ${r.auto_update}, adds a member ${r.member_insert} (want error 42501, 0, error 42501) | ` +
+      `pending person reads ${r.pending_auto} (want 0) | a team member reads ${r.member_auto} (want 0) | ` +
+      `a member row for a non-client ${r.non_client_member}, a diagnostic client with a company ${r.with_company} (want error 23514 each) | system admin removes a member ${r.admin_member_delete} (want 1) | ` +
+      `off the primary instance reads ${r.not_primary_auto}, portal_client ${r.not_primary_portal} (want 0, 0)`,
+    ok,
+    detail: ok
+      ? "a diagnostic client reads its own client's automations and name, and nothing else; only a system admin adds or removes one"
+      : !grantedOk
+        ? "A DIAGNOSTIC CLIENT CANNOT SEE ITS OWN CLIENT (is 0307 applied? is the clone marked primary?)"
+        : !offPrimaryOk
+          ? "A DIAGNOSTIC CLIENT READS OFF THE PRIMARY INSTANCE"
+          : "A DIAGNOSTIC CLIENT REACHES SOMETHING NOT ITS OWN, writes, or a member row admits the wrong person",
+  }];
+}
+
 async function commitmentsForColleagueProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "commitments · for a colleague";
   const M = ids.member, CO = ids.memberCompany, OTHER = ids.otherCompany;
@@ -15292,6 +15422,7 @@ async function main(): Promise<void> {
   const sysadminOwn = await sysadminOwnCompanyProbes(run, ids, pendingSql);
   const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
   const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
+  const diagnosticClient = await diagnosticClientOwnClientProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -15319,7 +15450,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

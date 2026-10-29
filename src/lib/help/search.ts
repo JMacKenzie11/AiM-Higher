@@ -87,6 +87,7 @@ const ROLE_NAMES: Record<Role, string> = {
   aims_guide: "an AiMS Guide working with this company",
   system_admin: "a system admin",
   portfolio_admin: "a portfolio admin, who can read inside a company but not change it",
+  diagnostic_client: "a Capacity Diagnostic client, who sees only their own dashboard",
 };
 
 // THE PERSON'S ROLE, AND WHAT FOLLOWS FROM IT (2026-09-29). A team

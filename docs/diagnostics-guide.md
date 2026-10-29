@@ -18,6 +18,10 @@ On **Clients**, select **Add a client** and fill in the business, the owner, its
 
 A client's page lists the automations being built for them under **Automations**: each one's stage (Planned, Building, Testing, Live or Paused), its build dates, its champion and the latest update. **Add from the diagnostic** starts the list from the newest diagnostic: the first win (Live once it is in use) and each next win on the roadmap (Planned, with its champion). Pressing it again adds only what is not there yet. **Add an automation** adds one by hand. Select an automation's name to change its stage, the day its build starts, the day it goes live, its champion or the latest update, or to remove it. The client will read this list on their own dashboard once client logins are built.
 
+## People who can sign in
+
+The people at a client can sign in and see their own dashboard: for now, the automations being built for them. On the client's page, under **People who can sign in**, enter a name and email and select **Send invite**. They get the usual AiMS HQ invite, set a password, and from then on land on their dashboard at the usual address. They see nothing else in AiMS HQ. Each person shows when they last signed in, or that they haven't yet, with **Send again**. **Remove access** deletes their account.
+
 ## Start a diagnostic
 
 On the client's page, select **Start a diagnostic**. It opens on the first step. Each step is one card with **Back** and **Next** at the foot. The steps along the top go to any step directly.
@@ -37,4 +41,4 @@ A readout published before the interviews were hidden keeps every section it was
 
 ## Who sees what
 
-Only system admins on AiMS HQ can open these pages. The owner gets the readout PDF and nothing else.
+Only system admins on AiMS HQ can open these pages. The owner gets the readout PDF, and the people you add under **People who can sign in** see their own dashboard and nothing else.

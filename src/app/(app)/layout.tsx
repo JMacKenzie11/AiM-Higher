@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import {
   NAV_GROUPS_COOKIE,
   parseCollapsedGroups,
@@ -38,6 +39,10 @@ export default async function AppLayout({
 }) {
   const session = await requireProfile();
   const role = session.profile.role;
+  // A Capacity Diagnostic client's person has only /portal (0307).
+  // Middleware sends them there first; this is the same rule where the
+  // pages are drawn.
+  if (role === "diagnostic_client") redirect("/portal");
   const isSystemAdmin = role === "system_admin";
   const isGuide = role === "aims_guide";
   const isPortfolioAdmin = role === "portfolio_admin";

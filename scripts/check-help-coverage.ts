@@ -38,7 +38,10 @@ const HELP_ROOT = path.join(REPO_ROOT, "docs", "help");
 //                 (Jason, 2026-10-29: nothing for this module goes into
 //                 Aimee's help). Its lead's guide is
 //                 docs/diagnostics-guide.md, which nothing serves.
-const NO_IN_APP_HELP = ["/diagnostics"];
+//   /portal       a diagnostic client's dashboard (0307), part of the
+//                 same module; outside (app) today, listed so a doc
+//                 never covers it if it moves.
+const NO_IN_APP_HELP = ["/diagnostics", "/portal"];
 const withoutHelp = (route: string) => NO_IN_APP_HELP.some((p) => route === p || route.startsWith(`${p}/`));
 
 async function collectPageRoutes(dir: string, prefix = ""): Promise<string[]> {
