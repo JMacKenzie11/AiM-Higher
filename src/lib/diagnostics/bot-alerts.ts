@@ -16,11 +16,14 @@ import { BOT_COLUMNS, botHealth, botStatusLabel, type BotRow, type BotRun, type 
 // status the webhook was last told. Nothing else in the module writes
 // as the service role.
 //
-// THE WEBHOOK. POST to BOT_ALERT_WEBHOOK_URL, JSON, signed with
-// BOT_ALERT_WEBHOOK_SECRET: X-AiMS-Timestamp is the Unix time in
-// seconds, and X-AiMS-Signature is "sha256=" + the hex HMAC-SHA256 of
-// "<timestamp>.<body>". A receiver recomputes it and refuses a stale
-// timestamp. A send that fails leaves alert_status as it was, so the
+// THE WEBHOOK. POST to BOT_ALERT_WEBHOOK_URL, JSON. With
+// BOT_ALERT_WEBHOOK_KEY set, it carries "Authorization: Bearer <key>",
+// which is how a Grok Bot webhook receiver authenticates a sender
+// (Jason, 2026-10-29). With BOT_ALERT_WEBHOOK_SECRET set, it is also
+// signed: X-AiMS-Timestamp is the Unix time in seconds, and
+// X-AiMS-Signature is "sha256=" + the hex HMAC-SHA256 of
+// "<timestamp>.<body>", for a receiver that checks signatures. Both
+// optional. A send that fails leaves alert_status as it was, so the
 // next check tries again. With no URL set, statuses are recorded and
 // nothing is sent.
 
@@ -50,20 +53,30 @@ export function signAlert(body: string, secret: string, timestamp: number): stri
   return "sha256=" + createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
 }
 
+// The headers an alert goes with: JSON, the bearer key, the signature,
+// each when its setting is there.
+export function alertHeaders(body: string, env: { key?: string; secret?: string }, timestamp: number): Record<string, string> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (env.key) headers.authorization = `Bearer ${env.key}`;
+  if (env.secret) {
+    headers["x-aims-timestamp"] = String(timestamp);
+    headers["x-aims-signature"] = signAlert(body, env.secret, timestamp);
+  }
+  return headers;
+}
+
 async function sendAlert(alert: BotAlert): Promise<"sent" | "not_configured" | "failed"> {
   const url = process.env.BOT_ALERT_WEBHOOK_URL;
-  const secret = process.env.BOT_ALERT_WEBHOOK_SECRET;
-  if (!url || !secret) return "not_configured";
+  if (!url) return "not_configured";
   const body = JSON.stringify(alert);
-  const timestamp = Math.floor(Date.now() / 1000);
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-aims-timestamp": String(timestamp),
-        "x-aims-signature": signAlert(body, secret, timestamp),
-      },
+      headers: alertHeaders(
+        body,
+        { key: process.env.BOT_ALERT_WEBHOOK_KEY, secret: process.env.BOT_ALERT_WEBHOOK_SECRET },
+        Math.floor(Date.now() / 1000)
+      ),
       body,
       signal: AbortSignal.timeout(10_000),
     });
