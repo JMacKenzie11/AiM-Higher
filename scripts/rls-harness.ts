@@ -13409,11 +13409,19 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 //             person (not yet signed in) reads 0
 //   withheld  off the primary instance it reads 0 and portal_client()
 //             returns nothing
-// Red before 0307: the role does not exist (profiles_role_check).
+//   dashboard (0310) portal_dashboard() gives the person its own
+//             client's one bot with both runs and its total items, and
+//             never the failed run's note or the bot's code; the other
+//             client's bot is not in it; portal_readout() gives its
+//             published readout. A system admin and a pending person
+//             get nothing from either.
+// Red before 0307: the role does not exist (profiles_role_check). Red
+// before 0310: portal_dashboard() does not exist.
 async function diagnosticClientOwnClientProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "diagnostic client · own client only";
   const CL = randomUUID(), CL2 = randomUUID(), DX = randomUUID(), AU = randomUUID(), AU2 = randomUUID();
   const P = randomUUID(), PEND = randomUUID(), BAD = randomUUID();
+  const BT = randomUUID(), BT2 = randomUUID();
   const user = (id: string) =>
     `('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now())`;
   let row: Record<string, string> | undefined;
@@ -13430,6 +13438,12 @@ insert into public.profiles (id, company_id, full_name, role, status) values
   ('${P}', null, 'Harness 0307 client person', 'diagnostic_client', 'active'),
   ('${PEND}', null, 'Harness 0307 pending person', 'diagnostic_client', 'pending');
 insert into public.diagnostic_client_members (profile_id, client_id) values ('${P}', '${CL}'), ('${PEND}', '${CL}');
+insert into public.diagnostic_bots (id, automation_id, client_id, code, kind, every, minutes_per_item, hourly_rate) values
+  ('${BT}', '${AU}', '${CL}', 'harness-own-${BT.slice(0, 8)}', 'scheduled', 'day', 5, 45),
+  ('${BT2}', '${AU2}', '${CL2}', 'harness-other-${BT2.slice(0, 8)}', 'scheduled', 'day', 5, 45);
+insert into public.diagnostic_bot_runs (bot_id, result, items, note) values
+  ('${BT}', 'worked', 12, null), ('${BT}', 'failed', 0, 'Harness secret failure reason'), ('${BT2}', 'worked', 7, null);
+update public.diagnostics set published_at = now(), published_readout = '{"version":1,"clientName":"Harness 0310"}'::jsonb where id = '${DX}';
 create temp table _p (k text, v text) on commit drop;
 grant all on _p to authenticated;
 do $$
@@ -13454,6 +13468,12 @@ begin
   select count(*) into n from public.diagnostics where id = '${DX}'; insert into _p values ('diagnostics', n::text);
   select count(*) into n from public.companies; insert into _p values ('companies', n::text);
   select count(*) into n from public.profiles where id <> '${P}'; insert into _p values ('profiles', n::text);
+  select jsonb_array_length(public.portal_dashboard() -> 'bots') into n; insert into _p values ('dash_bots', n::text);
+  insert into _p select 'dash_runs', jsonb_array_length(public.portal_dashboard() -> 'bots' -> 0 -> 'runs')::text;
+  insert into _p select 'dash_items', public.portal_dashboard() -> 'bots' -> 0 ->> 'total_items_worked';
+  insert into _p select 'dash_leak', (public.portal_dashboard()::text ~ 'Harness secret failure reason|harness-own-|harness-other-|"note"')::text;
+  insert into _p select 'dash_readout', (public.portal_dashboard() ->> 'readout_published_at' is not null)::text;
+  insert into _p select 'readout', coalesce(public.portal_readout() ->> 'clientName', 'none');
   begin
     insert into public.diagnostic_automations (client_id, title) values ('${CL}', 'By the client');
     get diagnostics n = row_count; insert into _p values ('auto_insert', n::text);
@@ -13466,7 +13486,9 @@ begin
   exception when others then insert into _p values ('member_insert', 'error ' || sqlstate); end;
   perform set_config('request.jwt.claims', '{"sub":"${PEND}","role":"authenticated"}', true);
   select count(*) into n from public.diagnostic_automations where id = '${AU}'; insert into _p values ('pending_auto', n::text);
+  insert into _p select 'pending_dash', coalesce(public.portal_dashboard()::text, 'none');
   perform set_config('request.jwt.claims', '{"sub":"${ids.systemAdmin}","role":"authenticated"}', true);
+  insert into _p select 'admin_dash', coalesce(public.portal_dashboard()::text, 'none') || ' / ' || coalesce(public.portal_readout()::text, 'none');
   begin
     insert into public.diagnostic_client_members (profile_id, client_id) values ('${ids.member}', '${CL}');
     get diagnostics n = row_count; insert into _p values ('non_client_member', n::text);
@@ -13490,10 +13512,13 @@ reset role;
 select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   } catch (err) {
     const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
-    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0307 applied?)" }];
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (are 0307 and 0310 applied?)" }];
   }
   const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
-  const grantedOk = r.own_auto === "1" && r.own_member === "1" && r.portal === "1 Harness 0307 client";
+  const dashOk =
+    r.dash_bots === "1" && r.dash_runs === "2" && r.dash_items === "12" && r.dash_leak === "false" && r.dash_readout === "true" &&
+    r.readout === "Harness 0310" && r.pending_dash === "none" && r.admin_dash === "none / none";
+  const grantedOk = r.own_auto === "1" && r.own_member === "1" && r.portal === "1 Harness 0307 client" && dashOk;
   const withheldOk =
     r.other_auto === "0" && r.other_member === "0" && r.clients === "0" && r.diagnostics === "0" && r.companies === "0" && r.profiles === "0" &&
     r.auto_insert === "error 42501" && r.auto_update === "0" && r.member_insert === "error 42501" && r.pending_auto === "0" &&
@@ -13502,7 +13527,10 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   const ok = grantedOk && withheldOk && offPrimaryOk;
   return [{
     name,
-    granted: `reads its own automation ${r.own_auto}, its membership ${r.own_member}, portal_client ${r.portal} (want 1, 1, "1 Harness 0307 client")`,
+    granted:
+      `reads its own automation ${r.own_auto}, its membership ${r.own_member}, portal_client ${r.portal} (want 1, 1, "1 Harness 0307 client") | ` +
+      `dashboard: bots ${r.dash_bots}, runs ${r.dash_runs}, items ${r.dash_items}, note or code in it ${r.dash_leak}, readout date ${r.dash_readout}; readout ${r.readout} (want 1, 2, 12, false, true; "Harness 0310") | ` +
+      `pending person's dashboard ${r.pending_dash}, a system admin's dashboard and readout ${r.admin_dash} (want none, none / none)`,
     withheld:
       `the other client's automation ${r.other_auto}, another member ${r.other_member}, client rows ${r.clients}, diagnostics ${r.diagnostics}, companies ${r.companies}, other profiles ${r.profiles} (want 0 each) | ` +
       `adds an automation ${r.auto_insert}, updates its own ${r.auto_update}, adds a member ${r.member_insert} (want error 42501, 0, error 42501) | ` +
@@ -13513,7 +13541,9 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
     detail: ok
       ? "a diagnostic client reads its own client's automations and name, and nothing else; only a system admin adds or removes one"
       : !grantedOk
-        ? "A DIAGNOSTIC CLIENT CANNOT SEE ITS OWN CLIENT (is 0307 applied? is the clone marked primary?)"
+        ? dashOk
+          ? "A DIAGNOSTIC CLIENT CANNOT SEE ITS OWN CLIENT (is 0307 applied? is the clone marked primary?)"
+          : "THE CLIENT DASHBOARD SHOWS THE WRONG BOTS, A FAILURE NOTE OR A BOT CODE, OR OPENS TO SOMEONE ELSE (is 0310 applied?)"
         : !offPrimaryOk
           ? "A DIAGNOSTIC CLIENT READS OFF THE PRIMARY INSTANCE"
           : "A DIAGNOSTIC CLIENT REACHES SOMETHING NOT ITS OWN, writes, or a member row admits the wrong person",
