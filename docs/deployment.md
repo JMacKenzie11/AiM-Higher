@@ -119,17 +119,20 @@ set, by name. It reports `MCP_ENABLED` and never sets it: that switch
 is global. As of 2026-10-14: dev, production and PromiseOne have all of
 it.
 
-`BOT_ALERT_WEBHOOK_URL` and `BOT_ALERT_WEBHOOK_SECRET` — where the
-Capacity Diagnostic's bot alerts go (0308): Jason's Bot Management Grok
-Bot. Both optional; with either unset, bot statuses are still recorded
-and no alert is sent (the bot-health cron's log line says "webhook not
-configured"). Set the secret `sensitive`, Production only. Each alert is
-a POST of JSON (`event`, `bot` with its code, automation and client,
-`status`, `status_label`, `previous_status`, `reason`, `last_run_at`,
-`at`) with headers `X-AiMS-Timestamp` (Unix seconds) and
-`X-AiMS-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<body>">`;
-the receiver recomputes the signature with the secret and refuses a
-stale timestamp. The `/api/cron/bot-health` cron runs every 15 minutes
+`BOT_ALERT_WEBHOOK_URL`, `BOT_ALERT_WEBHOOK_KEY` and
+`BOT_ALERT_WEBHOOK_SECRET` — where the Capacity Diagnostic's bot alerts
+go (0308): Jason's Bot Management Grok Bot. With no URL, bot statuses
+are still recorded and no alert is sent (the bot-health cron's log line
+says "webhook not configured"). The URL is the Grok Bot webhook's
+"POST to" address and the key is its "key": a Grok Bot receiver
+authenticates a sender by `Authorization: Bearer <key>`, which every
+alert carries when the key is set. The secret is optional, for a
+receiver that checks signatures. Set the key and secret `sensitive`,
+Production only. Each alert is a POST of JSON (`event`, `bot` with its
+code, automation and client, `status`, `status_label`,
+`previous_status`, `reason`, `last_run_at`, `at`); with the secret set
+it also carries `X-AiMS-Timestamp` (Unix seconds) and
+`X-AiMS-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<body>">`. The `/api/cron/bot-health` cron runs every 15 minutes
 (`vercel.json`) and needs `CRON_SECRET` like the others.
 
 `PROD_*` has a second job. The cron routes are excluded from instance
