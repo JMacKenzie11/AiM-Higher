@@ -5,14 +5,29 @@ import { decisionLabel, type DiagnosticRow } from "@/lib/diagnostics/types";
 import { StepCard } from "./StepCard";
 import { DecisionButtons, NarrativeFields, PublishButton, RoadmapEditor, WriteNarrativeButton } from "./ReadoutControls";
 import { shortDate } from "../format";
+import { ReadoutView } from "./readout/ReadoutView";
 import styles from "../diagnostics.module.css";
 
 // 6. READOUT. The readout in the order it runs, assembled from what the
 // engagement collected (lib/diagnostics/readout.ts). The lead adds the
 // roadmap and the narrative, opens the readout to check it, publishes
 // it, and records the decision. Publishing fixes the readout: from then
-// on the readout page and the PDF show the published copy.
-export function ReadoutStep({ diagnostic, readout, footer }: { diagnostic: DiagnosticRow; readout: ReadoutData; footer: ReactNode }) {
+// on the readout page and the PDF show the published copy. On the
+// guided screens (Jason, 2026-10-29): roadmap, narrative, preview (the
+// readout itself, here), then publish and decide. With no screen, all
+// but the inline preview show.
+export function ReadoutStep({
+  diagnostic,
+  readout,
+  footer = null,
+  screen,
+}: {
+  diagnostic: DiagnosticRow;
+  readout: ReadoutData;
+  footer?: ReactNode;
+  screen?: string;
+}) {
+  const show = (k: string) => !screen || screen === k;
   const id = diagnostic.id;
   const published = Boolean(diagnostic.published_at);
   const blocker = publishBlocker(readout);
@@ -23,6 +38,7 @@ export function ReadoutStep({ diagnostic, readout, footer }: { diagnostic: Diagn
 
   return (
     <>
+      {show("preview") ? (
       <StepCard
         id="dx-readout"
         title="The readout"
@@ -47,11 +63,16 @@ export function ReadoutStep({ diagnostic, readout, footer }: { diagnostic: Diagn
           </span>
         </div>
       </StepCard>
+      ) : null}
+      {screen === "preview" ? <ReadoutView r={readout} /> : null}
 
+      {show("roadmap") ? (
       <StepCard id="dx-roadmap" title="The 90-day roadmap" meta="Three next wins, the week each lands, and who to train">
         <RoadmapEditor diagnosticId={id} items={roadmap} locked={published} />
       </StepCard>
+      ) : null}
 
+      {show("narrative") ? (
       <StepCard
         id="dx-narrative"
         title="The narrative"
@@ -60,7 +81,9 @@ export function ReadoutStep({ diagnostic, readout, footer }: { diagnostic: Diagn
       >
         <NarrativeFields diagnosticId={id} narrative={diagnostic.narrative ?? {}} sections={readoutSections(readout)} locked={published} />
       </StepCard>
+      ) : null}
 
+      {show("publish") ? (
       <StepCard id="dx-publish" title={published ? "Decision" : "Publish and decide"} footer={footer}>
         <div className={styles.body}>
           {published ? null : <PublishButton diagnosticId={id} blocker={blocker} />}
@@ -71,6 +94,7 @@ export function ReadoutStep({ diagnostic, readout, footer }: { diagnostic: Diagn
           <DecisionButtons diagnosticId={id} decision={diagnostic.decision} published={published} />
         </div>
       </StepCard>
+      ) : null}
     </>
   );
 }

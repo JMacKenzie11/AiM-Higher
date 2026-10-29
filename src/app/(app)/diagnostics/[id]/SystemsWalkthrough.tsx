@@ -12,7 +12,9 @@ import styles from "../diagnostics.module.css";
 // conversation with the client's IT or admin contact, entered as the
 // systems the people in scope work in and the ways information moves
 // between them. The four questions sit above the lists, read as
-// written; question 4's answer is each link's notes.
+// written; question 4's answer is each link's notes. On the guided
+// screens (part) the systems and the links are a screen each, with
+// their own two questions.
 
 export const WALKTHROUGH_QUESTIONS = [
   "What are the main systems the people in scope work in every week?",
@@ -21,23 +23,40 @@ export const WALKTHROUGH_QUESTIONS = [
   "Which of those moves breaks or gets missed most often?",
 ] as const;
 
-export function SystemsWalkthrough({ diagnosticId, systems, links }: { diagnosticId: string; systems: SystemRow[]; links: SystemLinkRow[] }) {
+export function SystemsWalkthrough({
+  diagnosticId,
+  systems,
+  links,
+  part = "all",
+}: {
+  diagnosticId: string;
+  systems: SystemRow[];
+  links: SystemLinkRow[];
+  part?: "all" | "systems" | "links";
+}) {
   const [system, setSystem] = useState<SystemRow | "new" | null>(null);
   const [link, setLink] = useState<SystemLinkRow | "new" | null>(null);
   const name = (id: string) => systems.find((s) => s.id === id)?.name ?? "Unknown system";
 
   return (
     <div className={styles.body}>
-      <div>
-        <h3 className={styles.cardTitle}>Systems walkthrough</h3>
-        <p className={styles.status}>Thirty minutes with the IT or admin contact.</p>
-        <ol className={styles.guide}>
-          {WALKTHROUGH_QUESTIONS.map((q) => (
-            <li key={q}>{q}</li>
-          ))}
-        </ol>
-      </div>
+      {part === "all" ? (
+        <div>
+          <h3 className={styles.cardTitle}>Systems walkthrough</h3>
+          <p className={styles.status}>Thirty minutes with the IT or admin contact.</p>
+          <ol className={styles.guide}>
+            {WALKTHROUGH_QUESTIONS.map((q) => (
+              <li key={q}>{q}</li>
+            ))}
+          </ol>
+        </div>
+      ) : (
+        <p className={styles.askBox}>
+          Ask: <em>{(part === "systems" ? WALKTHROUGH_QUESTIONS.slice(0, 2) : WALKTHROUGH_QUESTIONS.slice(2)).join(" ")}</em>
+        </p>
+      )}
 
+      {part === "links" ? null : (
       <div>
         <div className={styles.cardHeader}>
           <h4 className={styles.cardTitle}>Systems</h4>
@@ -78,7 +97,9 @@ export function SystemsWalkthrough({ diagnosticId, systems, links }: { diagnosti
           </div>
         )}
       </div>
+      )}
 
+      {part === "systems" ? null : (
       <div>
         <div className={styles.cardHeader}>
           <h4 className={styles.cardTitle}>How information moves</h4>
@@ -121,6 +142,7 @@ export function SystemsWalkthrough({ diagnosticId, systems, links }: { diagnosti
           </div>
         )}
       </div>
+      )}
 
       {system ? <SystemDrawer diagnosticId={diagnosticId} system={system === "new" ? null : system} onClose={() => setSystem(null)} /> : null}
       {link ? <LinkDrawer diagnosticId={diagnosticId} link={link === "new" ? null : link} systems={systems} onClose={() => setLink(null)} /> : null}

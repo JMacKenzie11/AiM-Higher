@@ -24,11 +24,14 @@ export function WalkthroughTasks({
   tasks,
   systems,
   links,
+  scoring = true,
 }: {
   diagnosticId: string;
   tasks: TaskRow[];
   systems: SystemRow[];
   links: SystemLinkRow[];
+  // The guided Tasks screen leaves the scores to the Score tasks screen.
+  scoring?: boolean;
 }) {
   const systemName = new Map(systems.map((s) => [s.id, s.name]));
   // What a task can copy along: each link's direction, once.
@@ -63,11 +66,15 @@ export function WalkthroughTasks({
                 <th className={styles.num}>Units a week</th>
                 <th className={styles.num}>Minutes per unit</th>
                 <th className={styles.num}>Baseline (measured)</th>
-                <th>How often</th>
-                <th>Data risk</th>
-                <th>Build effort</th>
-                <th>Needs approval</th>
-                <th>Agent type</th>
+                {scoring ? (
+                  <>
+                    <th>How often</th>
+                    <th>Data risk</th>
+                    <th>Build effort</th>
+                    <th>Needs approval</th>
+                    <th>Agent type</th>
+                  </>
+                ) : null}
                 <th>Candidate</th>
                 <th>
                   <span className={styles.srOnly}>Remove</span>
@@ -76,7 +83,7 @@ export function WalkthroughTasks({
             </thead>
             <tbody>
               {sorted.map((t) => (
-                <TaskEditor key={t.id} task={t} systems={systems} pairs={pairs} />
+                <TaskEditor key={t.id} task={t} systems={systems} pairs={pairs} scoring={scoring} />
               ))}
             </tbody>
           </table>
@@ -87,7 +94,7 @@ export function WalkthroughTasks({
   );
 }
 
-function TaskEditor({ task, systems, pairs }: { task: TaskRow; systems: SystemRow[]; pairs: Array<{ value: string; label: string }> }) {
+function TaskEditor({ task, systems, pairs, scoring }: { task: TaskRow; systems: SystemRow[]; pairs: Array<{ value: string; label: string }>; scoring: boolean }) {
   const { pending, error, run } = useDxAction();
   const save = (patch: TaskPatch) => run(() => updateTaskAction(task.id, patch));
   const s = (v: number | null) => (v == null ? "" : String(v));
@@ -147,6 +154,8 @@ function TaskEditor({ task, systems, pairs }: { task: TaskRow; systems: SystemRo
         <Cell value={s(task.minutes_per_unit)} label={`Minutes per unit for ${name}`} numeric onSave={(v) => save({ minutes_per_unit: v })} />
       </td>
       <td className={styles.num}>{checked == null ? "" : formatHours(checked)}</td>
+      {scoring ? (
+      <>
       <td>
         <Choice label={`How often for ${name}`} value={task.frequency} options={TASK_FREQUENCIES} onChange={(v) => save({ frequency: v })} />
       </td>
@@ -176,6 +185,8 @@ function TaskEditor({ task, systems, pairs }: { task: TaskRow; systems: SystemRo
       <td>
         <Choice label={`Agent type for ${name}`} value={task.agent_type} options={AGENT_TYPES} onChange={(v) => save({ agent_type: v })} />
       </td>
+      </>
+      ) : null}
       <td>
         <select
           className={styles.cellInput}
