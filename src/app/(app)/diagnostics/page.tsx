@@ -23,8 +23,9 @@ export default async function DiagnosticsPage({ searchParams }: { searchParams: 
         eyebrow="Capacity Diagnostic"
         title="Across clients"
         subtitle="How the diagnostics have gone, taken together. Only published readouts count toward the figures."
-        heroExtras={<SectionNav current="across" />}
+        flush
       >
+        <SectionNav current="across" />
         <AcrossClients rows={await listAcrossClients()} />
       </PageShell>
     );
@@ -37,8 +38,9 @@ export default async function DiagnosticsPage({ searchParams }: { searchParams: 
       eyebrow="Capacity Diagnostic"
       title="Diagnostics"
       subtitle="Every engagement across clients. Start one from a client's page."
-      heroExtras={<SectionNav current="diagnostics" />}
+      flush
     >
+      <SectionNav current="diagnostics" />
       <section className={styles.card} aria-labelledby="dx-list">
         <div className={styles.cardHeader}>
           <h2 id="dx-list" className={styles.cardTitle}>

@@ -10,6 +10,7 @@ import { isStep, statusAfterVisiting, type DiagnosticStep } from "./steps";
 import { AUTOMATION_STAGES, CLIENT_SOURCES, LINK_HOWS, SYSTEM_KINDS, READOUT_SECTIONS, type DiagnosticStatus, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
 import { rollUpTitles } from "./titles";
 import { automationsFromDiagnostic } from "./automations";
+import { BOT_CODE } from "./bots";
 import { parseParticipantLines } from "./participants";
 import { getDiagnostic, readoutToday } from "./service";
 import { assembleReadout, publishBlocker } from "./readout";
@@ -957,7 +958,9 @@ export async function saveAutomationAction(clientId: string, id: string | null, 
 
 export async function deleteAutomationAction(clientId: string, id: string): Promise<DxResult> {
   const supabase = await caller();
-  const { data } = await supabase.from("diagnostic_automations").delete().eq("id", id).eq("client_id", clientId).select("id");
+  const { data, error } = await supabase.from("diagnostic_automations").delete().eq("id", id).eq("client_id", clientId).select("id");
+  // A bot holds its automation (0308, ON DELETE RESTRICT).
+  if (error?.code === "23503") return { ok: false, message: "Remove its bot first." };
   if (!data?.length) return REFUSED;
   touched(undefined, clientId);
   return { ok: true };
@@ -986,4 +989,84 @@ export async function addAutomationsFromDiagnosticAction(diagnosticId: string): 
   if (!data?.length) return REFUSED;
   touched(undefined, dx.client_id);
   return { ok: true, added: data.length };
+}
+
+// ---- Bots (0308) ---------------------------------------------------
+
+export type BotInput = {
+  code: string;
+  kind: string;
+  every?: string;
+  every_hours?: string | number | null;
+  at_time?: string;
+  trigger_text?: string;
+  safety_every?: string;
+  item_noun?: string;
+  minutes_per_item?: string | number | null;
+  hourly_rate?: string | number | null;
+  currency?: string;
+  agreed_on?: string;
+};
+
+const EVERY = ["hours", "day", "weekday", "week", "month"];
+const SAFETY = ["day", "weekday", "week"];
+
+// Adds or changes the bot behind one automation. One bot each.
+export async function saveBotAction(clientId: string, automationId: string, input: BotInput): Promise<DxResult> {
+  const supabase = await caller();
+  const code = (input.code ?? "").trim().toLowerCase();
+  if (code.length < 3 || code.length > 60 || !BOT_CODE.test(code)) {
+    return { ok: false, message: "A bot code is 3 to 60 lower case letters and digits, joined by hyphens." };
+  }
+  if (input.kind !== "scheduled" && input.kind !== "triggered") return { ok: false, message: "Choose how the bot starts." };
+  const scheduled = input.kind === "scheduled";
+  const every = scheduled ? input.every ?? "" : null;
+  if (scheduled && !EVERY.includes(every ?? "")) return { ok: false, message: "Choose how often it runs." };
+  let everyHours: number | null = null;
+  if (every === "hours") {
+    const n = numberIn(input.every_hours, 1, 24);
+    if (n === "bad" || n == null || !Number.isInteger(n)) return { ok: false, message: "Every how many hours: a whole number from 1 to 24." };
+    everyHours = n;
+  }
+  const at = scheduled && every !== "hours" ? text(input.at_time, 5) : null;
+  if (at && !/^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(at)) return { ok: false, message: "That time doesn't look right." };
+  const safety = !scheduled && input.safety_every && SAFETY.includes(input.safety_every) ? input.safety_every : null;
+  const minutes = numberIn(input.minutes_per_item, 0, 10000);
+  const rate = numberIn(input.hourly_rate, 0, 100000);
+  if (minutes === "bad" || rate === "bad") return { ok: false, message: "Minutes and the hourly rate should be numbers." };
+  const agreedOn = isoDate(input.agreed_on);
+  if (agreedOn === "bad") return { ok: false, message: "That date doesn't look right." };
+  const row = {
+    code,
+    kind: input.kind,
+    every,
+    every_hours: everyHours,
+    at_time: at,
+    trigger_text: scheduled ? null : text(input.trigger_text, 300),
+    safety_every: safety,
+    item_noun: text(input.item_noun, 60) ?? "item",
+    minutes_per_item: minutes ?? 0,
+    hourly_rate: rate ?? 0,
+    currency: input.currency === "USD" ? "USD" : "CAD",
+    agreed_on: agreedOn,
+  };
+  const { data: existing } = await supabase.from("diagnostic_bots").select("id").eq("automation_id", automationId).maybeSingle<{ id: string }>();
+  const { data, error } = existing
+    ? await supabase.from("diagnostic_bots").update(row).eq("id", existing.id).select("id")
+    : await supabase.from("diagnostic_bots").insert({ ...row, automation_id: automationId, client_id: clientId }).select("id");
+  if (error?.code === "23505") return { ok: false, message: "Another bot already has that code." };
+  if (!data?.length) return REFUSED;
+  touched(undefined, clientId);
+  revalidatePath("/diagnostics/bots");
+  return { ok: true, id: data[0].id };
+}
+
+// Removes a bot and every run it reported.
+export async function deleteBotAction(clientId: string, botId: string): Promise<DxResult> {
+  const supabase = await caller();
+  const { data } = await supabase.from("diagnostic_bots").delete().eq("id", botId).eq("client_id", clientId).select("id");
+  if (!data?.length) return REFUSED;
+  touched(undefined, clientId);
+  revalidatePath("/diagnostics/bots");
+  return { ok: true };
 }

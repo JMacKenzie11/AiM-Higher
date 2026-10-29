@@ -18,6 +18,10 @@ export type PageShellProps = {
   backHref?: string;
   backLabel?: string;
   ariaLabel?: string;
+  // Content starts below the hero instead of overlapping its last
+  // 32px, as on Company settings: nothing sits in the hero but its
+  // own title and text (Jason, 2026-10-29, the diagnostic pages).
+  flush?: boolean;
   children: ReactNode;
 };
 
@@ -38,6 +42,7 @@ export function PageShell({
   backHref,
   backLabel,
   ariaLabel,
+  flush,
   children,
 }: PageShellProps) {
   return (
@@ -61,7 +66,7 @@ export function PageShell({
           <SectionTabs />
         </div>
       </section>
-      <div className={styles.content}>{children}</div>
+      <div className={flush ? `${styles.content} ${styles.contentFlush}` : styles.content}>{children}</div>
     </div>
   );
 }

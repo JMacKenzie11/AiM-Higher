@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
-import { getClient, listClientPeople } from "@/lib/diagnostics/service";
+import { getClient, listBots, listClientPeople } from "@/lib/diagnostics/service";
 import { CLIENT_SOURCES } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { ClientButton } from "../../ClientDrawer";
@@ -22,7 +22,7 @@ type PageProps = { params: Promise<{ id: string }> };
 export default async function DiagnosticClientPage({ params }: PageProps) {
   await requireDiagnostics();
   const { id } = await params;
-  const [found, people] = await Promise.all([getClient(id), listClientPeople(id)]);
+  const [found, people, bots] = await Promise.all([getClient(id), listClientPeople(id), listBots(id)]);
   if (!found) notFound();
   const { client, diagnostics, automations, automationSource } = found;
   const source = CLIENT_SOURCES.find((s) => s.value === client.source)?.label;
@@ -64,7 +64,15 @@ export default async function DiagnosticClientPage({ params }: PageProps) {
         </ul>
       </section>
 
-      <Automations clientId={client.id} automations={automations} sourceId={automationSource?.id ?? null} archived={Boolean(client.archived_at)} />
+      <Automations
+        clientId={client.id}
+        clientName={client.name}
+        country={client.country}
+        automations={automations}
+        bots={bots}
+        sourceId={automationSource?.id ?? null}
+        archived={Boolean(client.archived_at)}
+      />
 
       <People clientId={client.id} people={people} archived={Boolean(client.archived_at)} />
 

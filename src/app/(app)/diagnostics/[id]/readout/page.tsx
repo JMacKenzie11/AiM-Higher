@@ -25,17 +25,16 @@ export default async function ReadoutPage({ params }: { params: Promise<{ id: st
       subtitle={r.ownerName ? `Prepared for ${r.ownerName}` : undefined}
       backHref={`/diagnostics/${id}?step=readout`}
       backLabel="Readout step"
-      heroExtras={
-        <span className={styles.formRow}>
-          <a href={`/diagnostics/${id}/readout/pdf`} className={styles.secondary}>
-            Download the PDF
-          </a>
-          <a href={`/diagnostics/${id}/readout/pdf?view`} className={styles.secondary} target="_blank" rel="noopener">
-            View the PDF
-          </a>
-        </span>
-      }
+      flush
     >
+      <span className={styles.formRow}>
+        <a href={`/diagnostics/${id}/readout/pdf`} className={styles.secondary}>
+          Download the PDF
+        </a>
+        <a href={`/diagnostics/${id}/readout/pdf?view`} className={styles.secondary} target="_blank" rel="noopener">
+          View the PDF
+        </a>
+      </span>
       <ReadoutView r={r} />
     </PageShell>
   );

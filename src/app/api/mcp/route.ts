@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { assistantClient, verifyAssistantToken } from "@/lib/mcp/auth";
 import { AddRefused, addCommitment, addIssue, addMeasureValue } from "@/lib/mcp/adds";
 import { workWithAimee } from "@/lib/mcp/handoff";
+import { listBots, recordBotRun } from "@/lib/mcp/bots";
 import { chooseCompany, type VisibleCompany } from "@/lib/mcp/company";
 import { limitBroken, limitMessage } from "@/lib/mcp/limits";
 import { recentCounts, recordAction } from "@/lib/mcp/log";
@@ -176,6 +177,11 @@ const ADDS = { readOnlyHint: false, destructiveHint: false, idempotentHint: fals
 // person has allowed it. Not destructive, not idempotent (each call is
 // a new link).
 const HANDOFF = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
+// record_bot_run (0308). A bot reporting its own run: it writes one
+// row, so it is not read only, but it is no add the person is asked
+// about; the caller is a bot. Not destructive, not idempotent (each
+// call is a run).
+const RECORD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 const company = z
   .string()
   .max(200)
@@ -418,8 +424,51 @@ const handler = createMcpHandler(
       async (args, ctx) =>
         runTool("work_with_aimee", true, ctx, args, (c, a) => workWithAimee({ ...c, company: c.company! }, { topic: a.topic }))
     );
+
+    // The Capacity Diagnostic's bots (0308): system admins on HQ only,
+    // which the database functions check. No company.
+    server.registerTool(
+      "record_bot_run",
+      {
+        title: "Report a bot run",
+        description:
+          "For a Capacity Diagnostic bot (such as a Grok Bot) to report one run to AiMS HQ when it finishes. Name the bot by its bot code, which says which bot and client this is. Report every run, including one that failed: result is worked or failed; items is how many things it handled (default 1; a failed run saves nothing whatever it says); note is, for a failed run, one line on why (for example \"Acumatica did not respond\"), which only AiMS system admins see. Only a system admin's sign-in may call this.",
+        inputSchema: z.object({
+          bot: z.string().min(3).max(60).describe("The bot code, such as northline-invoice-match."),
+          result: z.enum(["worked", "failed"]).describe("Whether the run worked."),
+          items: z.number().int().min(0).max(1000000).optional().describe("How many items it handled. Default 1."),
+          note: z.string().max(500).optional().describe("For a failed run, one line on why."),
+        }),
+        annotations: RECORD,
+      },
+      async (args, ctx) => runTool("record_bot_run", false, ctx, args, (c, a) => recordBotRun(c, a))
+    );
+
+    server.registerTool(
+      "list_bots",
+      {
+        title: "List the bots",
+        description:
+          "Every Capacity Diagnostic bot on AiMS HQ: its code, automation, client, schedule, status (Running well, Late, Stopped, Needs attention or Not live yet) and why, last run, and hours saved this week. Only a system admin's sign-in may call this. Read only.",
+        inputSchema: z.object({}),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("list_bots", false, ctx, args, (c) => listBots(c, { problems_only: false }))
+    );
+
+    server.registerTool(
+      "list_bot_problems",
+      {
+        title: "List bots with a problem",
+        description:
+          "Only the Capacity Diagnostic bots that are Late, Stopped or Need attention, with why. Use it to check on bots when no alert has arrived. Only a system admin's sign-in may call this. Read only.",
+        inputSchema: z.object({}),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("list_bot_problems", false, ctx, args, (c) => listBots(c, { problems_only: true }))
+    );
   },
-  { serverInfo: { name: "AiMS HQ", version: "0.5.0" } }
+  { serverInfo: { name: "AiMS HQ", version: "0.6.0" } }
 );
 
 async function route(request: Request): Promise<Response> {

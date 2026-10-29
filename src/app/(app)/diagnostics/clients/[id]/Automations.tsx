@@ -5,9 +5,15 @@ import { Drawer } from "@/components/ui/Drawer";
 import {
   addAutomationsFromDiagnosticAction,
   deleteAutomationAction,
+  deleteBotAction,
   saveAutomationAction,
+  saveBotAction,
   type AutomationInput,
+  type BotInput,
 } from "@/lib/diagnostics/actions";
+import { suggestBotCode } from "@/lib/diagnostics/bots";
+import type { BotView } from "@/lib/diagnostics/service";
+import { BotChip, BotSection, seedBot } from "./BotSection";
 import { AUTOMATION_STAGES, stageLabel, type AutomationRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../../useDxAction";
 import { shortDate } from "../../format";
@@ -18,7 +24,7 @@ import styles from "../../diagnostics.module.css";
 // keeps, and the client will read once client logins exist. Each row
 // opens the drawer to change its stage, dates, champion and latest
 // update. The first ones come from the newest diagnostic's first win
-// and roadmap.
+// and roadmap. An automation's bot (0308) is edited in the same drawer.
 
 const STAGE_TONE: Record<string, string> = {
   live: "",
@@ -41,15 +47,22 @@ function buildDates(a: AutomationRow): string {
 
 export function Automations({
   clientId,
+  clientName,
+  country,
   automations,
+  bots,
   sourceId,
   archived,
 }: {
   clientId: string;
+  clientName: string;
+  country: string | null;
   automations: AutomationRow[];
+  bots: BotView[];
   sourceId: string | null;
   archived: boolean;
 }) {
+  const botOf = new Map(bots.map((b) => [b.automation.id, b]));
   const [editing, setEditing] = useState<AutomationRow | "new" | null>(null);
   const from = useDxAction();
   const [note, setNote] = useState<string | null>(null);
@@ -104,6 +117,7 @@ export function Automations({
                 <th>Stage</th>
                 <th>Build</th>
                 <th>Champion</th>
+                <th>Bot</th>
                 <th>Latest update</th>
               </tr>
             </thead>
@@ -120,6 +134,7 @@ export function Automations({
                   </td>
                   <td className={styles.muted}>{buildDates(a)}</td>
                   <td>{a.champion ?? ""}</td>
+                  <td>{botOf.get(a.id) ? <BotChip status={botOf.get(a.id)!.health.status} /> : <span className={styles.muted}>No bot</span>}</td>
                   <td>
                     {a.latest_update ?? ""}
                     {a.latest_update_at ? <span className={styles.muted}> ({shortDate(a.latest_update_at)})</span> : null}
@@ -130,7 +145,16 @@ export function Automations({
           </table>
         </div>
       )}
-      {editing ? <AutomationDrawer clientId={clientId} automation={editing === "new" ? null : editing} onClose={() => setEditing(null)} /> : null}
+      {editing ? (
+        <AutomationDrawer
+          clientId={clientId}
+          clientName={clientName}
+          country={country}
+          automation={editing === "new" ? null : editing}
+          bot={editing === "new" ? null : botOf.get(editing.id) ?? null}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -146,8 +170,25 @@ function seed(a: AutomationRow | null): AutomationInput {
   };
 }
 
-function AutomationDrawer({ clientId, automation, onClose }: { clientId: string; automation: AutomationRow | null; onClose: () => void }) {
+function AutomationDrawer({
+  clientId,
+  clientName,
+  country,
+  automation,
+  bot,
+  onClose,
+}: {
+  clientId: string;
+  clientName: string;
+  country: string | null;
+  automation: AutomationRow | null;
+  bot: BotView | null;
+  onClose: () => void;
+}) {
   const [form, setForm] = useState<AutomationInput>(() => seed(automation));
+  const [hasBot, setHasBot] = useState(Boolean(bot));
+  const [botForm, setBotForm] = useState<BotInput>(() => seedBot(bot, suggestBotCode(clientName, automation?.title ?? ""), country));
+  const [removingBot, setRemovingBot] = useState(false);
   const { pending, error, run } = useDxAction();
   const set = (k: keyof AutomationInput) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const id = automation?.id ?? null;
@@ -170,7 +211,18 @@ function AutomationDrawer({ clientId, automation, onClose }: { clientId: string;
       title={automation?.title ?? "New automation"}
       footer={
         <>
-          <button type="button" className={styles.primary} onClick={() => run(() => saveAutomationAction(clientId, id, form), onClose)} disabled={pending}>
+          <button
+            type="button"
+            className={styles.primary}
+            onClick={() =>
+              run(async () => {
+                const saved = await saveAutomationAction(clientId, id, form);
+                if (!saved.ok || !hasBot) return saved;
+                return saveBotAction(clientId, saved.id ?? id ?? "", botForm);
+              }, onClose)
+            }
+            disabled={pending}
+          >
             Save
           </button>
           <button type="button" className={styles.secondary} onClick={onClose} disabled={pending}>
@@ -211,6 +263,48 @@ function AutomationDrawer({ clientId, automation, onClose }: { clientId: string;
           <textarea id="automation-latest_update" className={styles.textarea} value={form.latest_update} onChange={set("latest_update")} maxLength={2000} />
         </div>
       </div>
+      {hasBot ? (
+        <>
+          <BotSection form={botForm} setForm={setBotForm} view={bot} />
+          {bot ? (
+            <div className={`${styles.body} ${styles.formRow}`}>
+              {removingBot ? (
+                <>
+                  <button type="button" className={`${styles.danger} ${styles.small}`} disabled={pending} onClick={() => run(() => deleteBotAction(clientId, bot.bot.id), onClose)}>
+                    Remove the bot and its runs
+                  </button>
+                  <button type="button" className={`${styles.secondary} ${styles.small}`} onClick={() => setRemovingBot(false)}>
+                    Keep it
+                  </button>
+                </>
+              ) : (
+                <button type="button" className={`${styles.secondary} ${styles.small}`} onClick={() => setRemovingBot(true)}>
+                  Remove the bot
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className={styles.body}>
+              <button type="button" className={`${styles.secondary} ${styles.small}`} onClick={() => setHasBot(false)}>
+                No bot after all
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className={styles.body}>
+          <button
+            type="button"
+            className={`${styles.secondary} ${styles.small}`}
+            onClick={() => {
+              setBotForm((f) => ({ ...f, code: f.code || suggestBotCode(clientName, form.title) }));
+              setHasBot(true);
+            }}
+          >
+            Add a bot
+          </button>
+        </div>
+      )}
     </Drawer>
   );
 }

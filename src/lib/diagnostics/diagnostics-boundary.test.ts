@@ -41,9 +41,13 @@ describe("the Capacity Diagnostic's boundary", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("is imported by nothing outside itself", () => {
+  // The two doors in from outside, both for the bots (0308): the health
+  // cron, and the MCP tools a bot reports its runs through.
+  const DOORS = ["app/api/cron/bot-health/route.ts", "lib/mcp/bots.ts"];
+
+  it("is imported by nothing outside itself, but for the bots' two doors", () => {
     const offenders = all
-      .filter((f) => !inModule(f))
+      .filter((f) => !inModule(f) && !DOORS.includes(path.relative(SRC, f)))
       .flatMap((f) =>
         imports(f)
           .filter((i) => /^@\/lib\/diagnostics(\/|$)/.test(i) || /(^|\/)\(app\)\/diagnostics(\/|$)/.test(i))
