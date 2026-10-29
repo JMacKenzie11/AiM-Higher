@@ -1,0 +1,191 @@
+/* The client portal (0307): AiMS HQ's top bar, a gradient hero, and
+   white cards on the sand, in the diagnostic module's look. */
+
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.bar {
+  background: var(--grad-brand);
+  color: var(--aims-white);
+}
+
+.barInner,
+.heroInner,
+.main {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.barInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 64px;
+}
+
+.logo {
+  height: 30px;
+  width: auto;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--text-body-sm);
+}
+
+.name {
+  color: var(--aims-sky-tint);
+}
+
+.signOut {
+  min-height: var(--tap-min);
+  padding: 0 var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--aims-white) 40%, transparent);
+  border-radius: var(--radius-btn);
+  background: transparent;
+  color: var(--aims-white);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.signOut:hover {
+  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
+}
+
+.signOut:focus-visible {
+  outline: 2px solid var(--aims-chartreuse);
+  outline-offset: 2px;
+}
+
+.hero {
+  background: var(--grad-brand);
+  border-top: 1px solid color-mix(in srgb, var(--aims-white) 12%, transparent);
+  color: var(--aims-white);
+}
+
+.heroInner {
+  padding-top: var(--space-5);
+  padding-bottom: var(--space-6);
+}
+
+.eyebrow {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--aims-sky-tint);
+}
+
+.title {
+  margin: var(--space-1) 0 0;
+  font: var(--text-h1);
+  color: var(--aims-white);
+}
+
+.main {
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-8, 64px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cardTitle {
+  margin: 0;
+  font: var(--text-h3);
+  font-size: 18px;
+  color: var(--text-heading);
+}
+
+.muted {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border);
+}
+
+.item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.itemHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.itemTitle {
+  font: var(--text-body);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.update {
+  margin: 0;
+  font: var(--text-body);
+}
+
+.chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font: var(--text-caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The tints stay light in dark mode, so the text keeps its colour. */
+.chipGood {
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+}
+
+.chipInfo {
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt-hover);
+}
+
+.chipWarn {
+  background: var(--aims-warning-tint);
+  color: var(--aims-warning);
+}
+
+.chipQuiet {
+  background: var(--aims-navy-tint);
+  color: #5b6472;
+}

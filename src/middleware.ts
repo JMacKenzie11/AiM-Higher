@@ -61,6 +61,10 @@ function pendingAllowsPath(pathname: string): boolean {
   return PENDING_ALLOWED_PATHS.includes(pathname);
 }
 
+function portalAllowsPath(pathname: string): boolean {
+  return pathname === "/portal" || pathname.startsWith("/portal/") || pathname.startsWith("/auth/");
+}
+
 export async function middleware(request: NextRequest) {
   // Scheduled jobs first, before anything else looks at the request.
   // They are not a visitor's request: no hostname worth resolving, no
@@ -146,6 +150,15 @@ export async function middleware(request: NextRequest) {
   // the invite flow would leak the app to whoever holds the browser.
   if (isPending && needsPendingCheck) {
     return NextResponse.redirect(new URL("/accept-invite", request.url));
+  }
+
+  // A Capacity Diagnostic client's person (0307) has one place in the
+  // app: their client's dashboard at /portal. Every other page, the
+  // root included, sends them there. Row security is the boundary
+  // (they have no company, and read only their own client's rows);
+  // this keeps them off pages that would only show them empty shells.
+  if (role === "diagnostic_client" && !portalAllowsPath(path)) {
+    return NextResponse.redirect(new URL("/portal", request.url));
   }
 
   // Authenticated visitors don't see the marketing page. Cross-tenant

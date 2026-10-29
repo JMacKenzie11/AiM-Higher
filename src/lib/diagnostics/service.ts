@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
   CLIENT_COLUMNS,
@@ -205,4 +206,54 @@ export async function getReadout(id: string): Promise<{ readout: ReadoutData; pu
 
 export function readoutToday(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+}
+
+// ---- Client logins (0307) ------------------------------------------
+
+export type ClientPerson = {
+  id: string;
+  full_name: string;
+  status: "pending" | "active" | "inactive";
+  invited_at: string | null;
+  // From auth.users, which only the admin client reads: one lookup per
+  // person, and a client has a handful (as listSystemAdmins).
+  email: string | null;
+  last_sign_in_at: string | null;
+};
+
+// The people at one client who can sign in to its dashboard. The
+// member rows and profiles come through the caller's client (system
+// admin only); email and last sign-in through the admin client.
+export async function listClientPeople(clientId: string): Promise<ClientPerson[]> {
+  const supabase = await db();
+  const { data: members } = await supabase.from("diagnostic_client_members").select("profile_id").eq("client_id", clientId).limit(200);
+  const ids = ((members ?? []) as Array<{ profile_id: string }>).map((m) => m.profile_id);
+  if (ids.length === 0) return [];
+  const { data: profiles } = await supabase.from("profiles").select("id, full_name, status, invited_at").in("id", ids).order("full_name");
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  return Promise.all(
+    ((profiles ?? []) as Array<Omit<ClientPerson, "email" | "last_sign_in_at">>).map(async (p) => {
+      const { data } = await admin.auth.admin.getUserById(p.id);
+      return { ...p, email: data?.user?.email ?? null, last_sign_in_at: data?.user?.last_sign_in_at ?? null };
+    })
+  );
+}
+
+// ---- The portal (0307) ---------------------------------------------
+
+export type PortalView = {
+  client: { id: string; name: string; country: string | null };
+  automations: AutomationRow[];
+};
+
+// What a diagnostic client's person sees, read as them: their client
+// through portal_client() (name and country only) and its automations
+// through 0307's read rule. Null when they belong to no live client.
+export async function getPortal(): Promise<PortalView | null> {
+  const supabase = await db();
+  const { data: rows } = await supabase.rpc("portal_client");
+  const client = ((rows ?? []) as PortalView["client"][])[0];
+  if (!client) return null;
+  const { data: autos } = await supabase.from("diagnostic_automations").select(AUTOMATION_COLUMNS).eq("client_id", client.id).limit(500);
+  return { client, automations: sortAutomations((autos ?? []) as AutomationRow[]) };
 }

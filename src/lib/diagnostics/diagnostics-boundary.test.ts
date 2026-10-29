@@ -11,7 +11,10 @@ import path from "node:path";
 // what.
 
 const SRC = path.resolve(__dirname, "../..");
-const MODULE_DIRS = [path.join(SRC, "lib/diagnostics"), path.join(SRC, "app/(app)/diagnostics")];
+// The client portal (0307) is part of the module: a diagnostic client's
+// dashboard, outside the (app) group so it has no sidebar.
+const PORTAL_DIR = path.join(SRC, "app/portal");
+const MODULE_DIRS = [path.join(SRC, "lib/diagnostics"), path.join(SRC, "app/(app)/diagnostics"), PORTAL_DIR];
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -50,15 +53,27 @@ describe("the Capacity Diagnostic's boundary", () => {
   });
 
   it("opens every page only for a system admin on the primary instance", () => {
-    const pages = all.filter((f) => inModule(f) && path.basename(f) === "page.tsx");
+    const pages = all.filter((f) => inModule(f) && !f.startsWith(PORTAL_DIR + path.sep) && path.basename(f) === "page.tsx");
     expect(pages.length).toBeGreaterThan(0);
     const offenders = pages.filter((f) => !/await requireDiagnostics\(\)/.test(readFileSync(f, "utf8")));
     expect(offenders.map((f) => path.relative(SRC, f))).toEqual([]);
   });
 
+  it("opens the portal only for a diagnostic client", () => {
+    expect(readFileSync(path.join(PORTAL_DIR, "layout.tsx"), "utf8")).toMatch(/role !== "diagnostic_client"\) redirect\(/);
+  });
+
   it("names no platform table", () => {
     const tables = /\.from\(\s*["'](companies|profiles|priorities|commitments|success_measures|issues|functions|foundation_items)["']/;
-    const offenders = all.filter(inModule).filter((f) => !f.endsWith(".test.ts") && tables.test(readFileSync(f, "utf8")));
+    // Client logins (0307) read a client person's own profile row (name,
+    // role, status), in these two files and nowhere else in the module.
+    const PROFILE_READERS = ["lib/diagnostics/member-actions.ts", "lib/diagnostics/service.ts"];
+    const offenders = all.filter(inModule).filter((f) => {
+      if (f.endsWith(".test.ts")) return false;
+      const src = readFileSync(f, "utf8");
+      const scrubbed = PROFILE_READERS.includes(path.relative(SRC, f)) ? src.replace(/\.from\(\s*["']profiles["']/g, "") : src;
+      return tables.test(scrubbed);
+    });
     expect(offenders.map((f) => path.relative(SRC, f))).toEqual([]);
   });
 });

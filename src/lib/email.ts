@@ -27,6 +27,9 @@ export type InviteEmailInput = {
   to: string;
   firstName?: string | null;
   actionLink: string;
+  // "client" for a Capacity Diagnostic client's person (0307), who is
+  // given their company's dashboard, not added to a company on AiMS HQ.
+  kind?: "company" | "client";
 };
 
 // Invite email for the "resend to an existing pending user" path.
@@ -146,7 +149,11 @@ function renderInviteHtml(input: InviteEmailInput): string {
               </td>
             </tr>
           </table>
-          <div style="color:#8892a6; font-size: 12px; margin-top: 16px;">You&rsquo;re receiving this because someone added you to a company on AiMS HQ.</div>
+          <div style="color:#8892a6; font-size: 12px; margin-top: 16px;">${
+            input.kind === "client"
+              ? "You&rsquo;re receiving this because you were given access to your company&rsquo;s dashboard on AiMS HQ."
+              : "You&rsquo;re receiving this because someone added you to a company on AiMS HQ."
+          }</div>
         </td>
       </tr>
     </table>

@@ -136,8 +136,6 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/diagnostics/[id]/readout", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/diagnostics/clients", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/diagnostics/clients/[id]", roles: ["system_admin"], feature: null, link: false },
-  // Workers, the browser-teaching prototype (0303). On no menu and
-  // HQ only, as the Capacity Diagnostic is.
 ];
 
 export function canRoleOpen(entry: PageEntry, role: Role): boolean {
