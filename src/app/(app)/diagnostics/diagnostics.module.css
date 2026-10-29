@@ -1,13 +1,21 @@
-/* The Capacity Diagnostic's pages (0294). Cards follow the Commitments
-   and meeting cards: a navy-tint header with the title and its main
-   action top right, the content, then the foot. */
+/* The Capacity Diagnostic's pages (0294), in the client portal's look
+   (Jason, 2026-10-29): white rounded cards on the sand, the title in
+   navy with its count beside it and its main action top right, tables
+   with a sand header row, and status chips in their own tone. */
 
 .card {
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
+  /* A wide table scrolls inside the card instead of widening the page. */
+  min-width: 0;
+}
+
+.card > *,
+.body > * {
+  min-width: 0;
 }
 
 .card + .card {
@@ -17,26 +25,28 @@
 .cardHeader {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--aims-navy-tint);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--border);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .cardTitle {
   font: var(--text-h3);
+  font-size: 18px;
   color: var(--text-heading);
   margin: 0;
 }
 
+/* The count beside a card's title. */
 .cardMeta {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: var(--aims-navy);
   font: var(--text-caption);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .headerAction {
@@ -48,7 +58,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4);
+  padding: var(--space-5);
 }
 
 .cardFooter {
@@ -56,24 +66,23 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--border);
+  border-radius: 0 0 14px 14px;
+  background: var(--bg);
 }
 
-/* A section heading inside a card, on the cobalt band the meeting
-   uses. */
+/* A section heading inside a card: navy on white, a hairline above. */
 .subhead {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-2);
   margin: 0;
-  padding: var(--space-3) var(--space-4) var(--space-2);
-  background: var(--aims-cobalt-tint);
+  padding: var(--space-5) var(--space-5) var(--space-2);
   border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  font: var(--text-body);
-  font-weight: 600;
+  font: var(--text-h3);
+  font-size: 15px;
   color: var(--text-heading);
 }
 
@@ -96,7 +105,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--border);
   font: var(--text-body);
 }
@@ -116,37 +125,46 @@
 
 .empty {
   margin: 0;
-  padding: var(--space-4);
+  padding: var(--space-5);
   color: var(--text-muted);
   font: var(--text-body);
 }
 
-/* The step pills in the hero, as the weekly meeting's. */
+/* The tabs on the hero's blue band: the current one white, the rest
+   light text that lifts on hover. A step not reached yet is quieter. */
 .steps {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 6px;
   margin-top: var(--space-5);
 }
 
 .step {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  color: color-mix(in srgb, var(--aims-white) 72%, transparent);
-  background: color-mix(in srgb, var(--aims-white) 8%, transparent);
-  font: var(--text-body);
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-btn);
+  color: color-mix(in srgb, var(--aims-white) 62%, transparent);
+  font: var(--text-body-sm);
+  font-size: 14px;
+  font-weight: 500;
   text-decoration: none;
 }
 
 .step[data-done="true"] {
-  color: var(--aims-white);
+  color: var(--aims-sky-tint);
+}
+
+.step:hover {
+  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
 }
 
 .step[aria-current="step"],
 .step[aria-current="page"] {
   background: var(--aims-white);
   color: var(--aims-navy);
+  font-weight: 600;
 }
 
 .step:focus-visible {
@@ -182,6 +200,16 @@
   gap: var(--space-3);
 }
 
+/* The add-a-row inputs share one line and wrap at phone width. */
+.formRow > .cellInput {
+  width: auto;
+  flex: 1 1 9rem;
+}
+
+.formRow > .cellWide {
+  flex: 3 1 14rem;
+}
+
 .status {
   font: var(--text-body-sm);
   color: var(--text-muted);
@@ -192,8 +220,11 @@
   color: var(--aims-danger);
 }
 
-/* Tables that scroll inside their card at phone width. */
+/* Tables that scroll inside their card at phone width. Positioned so
+   a column's hidden label (.srOnly, absolute) stays inside the scroll
+   too: without it the label escaped to the page and widened it. */
 .tableWrap {
+  position: relative;
   overflow-x: auto;
 }
 
@@ -205,17 +236,33 @@
 
 .table th,
 .table td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border);
   text-align: left;
   vertical-align: middle;
 }
 
+.table th:first-child,
+.table td:first-child {
+  padding-left: var(--space-5);
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: var(--space-5);
+}
+
 .table thead th {
   border-top: 0;
+  background: var(--bg);
   color: var(--text-muted);
-  font-weight: 600;
+  font: var(--text-caption);
+  font-weight: 500;
   white-space: nowrap;
+}
+
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--aims-cobalt-tint) 45%, transparent);
 }
 
 .num {
@@ -379,13 +426,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 .figureValue {
-  font: var(--text-h2);
+  font: var(--text-h1);
+  font-size: 30px;
   color: var(--text-heading);
   font-variant-numeric: tabular-nums;
 }
@@ -397,18 +446,36 @@
 
 .chip {
   display: inline-block;
-  padding: 0 var(--space-2);
+  padding: 3px 10px;
   border-radius: var(--radius-pill);
   background: var(--aims-success-tint);
-  color: var(--text-heading);
+  color: var(--aims-success);
   font: var(--text-caption);
   font-weight: 600;
   white-space: nowrap;
 }
 
+/* The chip tones: good (the default), in progress, waiting, needs a
+   look, and nothing yet. The tints stay light in dark mode, so the
+   text keeps its light-mode colour on them. */
+.chipInfo {
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt-hover);
+}
+
+.chipWarn {
+  background: var(--aims-warning-tint);
+  color: var(--aims-warning);
+}
+
+.chipBad {
+  background: var(--aims-danger-tint);
+  color: var(--aims-danger);
+}
+
 .chipMuted {
-  background: var(--surface-inset);
-  color: var(--text-muted);
+  background: var(--aims-navy-tint);
+  color: #5B6472;
 }
 
 /* Buttons: the house look (#216), one kind for every action. */

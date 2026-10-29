@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
 import { listClients, type ClientListRow } from "@/lib/diagnostics/service";
-import { decisionLabel, statusLabel } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { SectionNav } from "../SectionNav";
 import { ClientButton } from "../ClientDrawer";
+import { DecisionChip, StatusChip } from "../Chips";
 import styles from "../diagnostics.module.css";
 
 export const metadata = { title: "Diagnostic clients" };
@@ -79,7 +79,16 @@ function ClientTable({ rows }: { rows: ClientListRow[] }) {
               <td className={styles.num}>{c.employee_count ?? ""}</td>
               <td>{[c.city, c.country].filter(Boolean).join(", ")}</td>
               <td className={styles.num}>{c.diagnostics}</td>
-              <td>{c.latest ? `${statusLabel(c.latest.status)}, ${decisionLabel(c.latest.decision).toLowerCase()}` : "None yet"}</td>
+              <td>
+                {c.latest ? (
+                  <span className={styles.formRow}>
+                    <StatusChip status={c.latest.status} />
+                    <DecisionChip decision={c.latest.decision} />
+                  </span>
+                ) : (
+                  "None yet"
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
