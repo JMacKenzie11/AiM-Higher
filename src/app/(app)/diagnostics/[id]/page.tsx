@@ -8,6 +8,8 @@ import { statusLabel, toTask, toWin } from "@/lib/diagnostics/types";
 import { candidateGroups, capacityMap, summarize, topNextWins } from "@/lib/diagnostics/hours-back";
 import { snapshotOf } from "@/lib/diagnostics/systems-snapshot";
 import { assembleReadout } from "@/lib/diagnostics/readout";
+import { suggestAgentTeam } from "@/lib/diagnostics/agents";
+import { STEP_STATE_LABEL, stepStates } from "@/lib/diagnostics/progress";
 import { PageShell } from "@/components/ui/PageShell";
 import { ArchiveButton } from "../ActionButtons";
 import { StepFooter } from "./StepFooter";
@@ -57,6 +59,7 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
   );
 
   const tasks = bundle.tasks.map(toTask);
+  const states = stepStates(bundle);
   const win = toWin(bundle.firstWin);
 
   let content: ReactNode = null;
@@ -90,6 +93,14 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
         next={topNextWins(tasks, win)}
         points={capacityMap(tasks)}
         snapshot={snapshotOf(bundle)}
+        agentTeam={{
+          saved: diagnostic.agent_team,
+          suggested: suggestAgentTeam(tasks, {
+            systemName: new Map(bundle.systems.map((s) => [s.id, s.name])),
+            neverAlone: diagnostic.never_alone ?? [],
+            neverAloneOther: diagnostic.never_alone_other,
+          }),
+        }}
         footer={footer}
       />
     );
@@ -100,7 +111,7 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
 
   return (
     <PageShell
-      eyebrow={`Capacity Diagnostic, ${statusLabel(diagnostic.status).toLowerCase()}${diagnostic.archived_at ? ", archived" : ""}`}
+      eyebrow={`Capacity Diagnostic · ${DIAGNOSTIC_STEPS[index].label}${diagnostic.archived_at ? ", archived" : ""}`}
       title={client.name}
       subtitle={DIAGNOSTIC_STEPS[index].lead}
       backHref={`/diagnostics/clients/${client.id}`}
@@ -108,7 +119,8 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
       flush
     >
       {/* The steps as tabs, on the sand under the hero, never in it
-          (Jason, 2026-10-29). A step not reached yet is quieter. */}
+          (Jason, 2026-10-29), each with where it stands (0309,
+          lib/diagnostics/progress.ts). A step not reached yet is quieter. */}
       <nav className={styles.tabRow} aria-label="Diagnostic steps">
         {DIAGNOSTIC_STEPS.map((s, i) => (
           <Link
@@ -119,6 +131,9 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
             data-ahead={i > reached ? "true" : undefined}
           >
             {s.label}
+            <span className={styles.tabState} data-state={states[s.key]}>
+              {STEP_STATE_LABEL[states[s.key]]}
+            </span>
           </Link>
         ))}
       </nav>

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { addWalkthroughTaskAction, deleteTaskAction, updateTaskAction, type TaskPatch } from "@/lib/diagnostics/actions";
 import { formatHours, hoursChecked, isCandidate } from "@/lib/diagnostics/hours-back";
-import { toTask, type SystemLinkRow, type SystemRow, type TaskRow } from "@/lib/diagnostics/types";
+import { AGENT_TYPES, BUILD_EFFORTS, TASK_FREQUENCIES, toTask, type SystemLinkRow, type SystemRow, type TaskRow } from "@/lib/diagnostics/types";
+import { taskEffort } from "@/lib/diagnostics/hours-back";
 import { useDxAction } from "../useDxAction";
 import { Cell } from "./TaskGrid";
 import styles from "../diagnostics.module.css";
@@ -12,9 +13,11 @@ import styles from "../diagnostics.module.css";
 // walkthrough, while the people interviews are hidden. The lead enters
 // each recurring task as the IT or admin contact describes it: what it
 // is, the role that does it, the system it happens in, the link it
-// copies information along, and its hours. The volume check, data risk
-// and build hours go in the same row. Each cell saves when the cursor
-// leaves it.
+// copies information along, and its hours. The volume check and the
+// scoring (0309: how often, data risk, build effort, whether a person
+// must approve it, and the kind of agent that would do it) go in the
+// same row. Each cell saves when the cursor leaves it, each choice at
+// once.
 
 export function WalkthroughTasks({
   diagnosticId,
@@ -43,7 +46,7 @@ export function WalkthroughTasks({
         <span className={styles.cardMeta}>{tasks.length}</span>
       </div>
       <p className={styles.status}>
-        Each recurring task: who does it, where, and how many hours a week. Check the biggest with units a week and minutes per unit.
+        Each recurring task: who does it, where, and how many hours a week. Check the biggest with units a week and minutes per unit: that is its measured baseline. Then score each one, which ranks the candidates on Build.
       </p>
       {tasks.length === 0 ? (
         <p className={styles.empty}>No tasks yet.</p>
@@ -59,9 +62,12 @@ export function WalkthroughTasks({
                 <th className={styles.num}>Hours a week</th>
                 <th className={styles.num}>Units a week</th>
                 <th className={styles.num}>Minutes per unit</th>
-                <th className={styles.num}>Checked hours</th>
+                <th className={styles.num}>Baseline (measured)</th>
+                <th>How often</th>
                 <th>Data risk</th>
-                <th className={styles.num}>Build hours</th>
+                <th>Build effort</th>
+                <th>Needs approval</th>
+                <th>Agent type</th>
                 <th>Candidate</th>
                 <th>
                   <span className={styles.srOnly}>Remove</span>
@@ -142,6 +148,9 @@ function TaskEditor({ task, systems, pairs }: { task: TaskRow; systems: SystemRo
       </td>
       <td className={styles.num}>{checked == null ? "" : formatHours(checked)}</td>
       <td>
+        <Choice label={`How often for ${name}`} value={task.frequency} options={TASK_FREQUENCIES} onChange={(v) => save({ frequency: v })} />
+      </td>
+      <td>
         <select className={styles.cellInput} aria-label={`Data risk for ${name}`} value={task.data_risk ?? ""} onChange={(e) => save({ data_risk: e.target.value || null })}>
           <option value="">Not set</option>
           <option value="low">Low</option>
@@ -150,7 +159,22 @@ function TaskEditor({ task, systems, pairs }: { task: TaskRow; systems: SystemRo
         </select>
       </td>
       <td>
-        <Cell value={s(task.build_effort_hours)} label={`Build hours for ${name}`} numeric onSave={(v) => save({ build_effort_hours: v })} />
+        <Choice label={`Build effort for ${name}`} value={taskEffort(toTask(task))} options={BUILD_EFFORTS} onChange={(v) => save({ build_effort: v })} />
+      </td>
+      <td>
+        <select
+          className={styles.cellInput}
+          aria-label={`Needs approval for ${name}`}
+          value={task.needs_approval == null ? "" : task.needs_approval ? "yes" : "no"}
+          onChange={(e) => save({ needs_approval: e.target.value === "" ? null : e.target.value === "yes" })}
+        >
+          <option value="">Not set</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </td>
+      <td>
+        <Choice label={`Agent type for ${name}`} value={task.agent_type} options={AGENT_TYPES} onChange={(v) => save({ agent_type: v })} />
       </td>
       <td>
         <select
@@ -210,8 +234,32 @@ function AddWalkthroughTask({ diagnosticId, systems }: { diagnosticId: string; s
         >
           Add a task
         </button>
-        {error ? <span className={styles.error} role="alert">{error}</span> : null}
+        {error ? <span className={styles.error} role="alert">{error}</span> : !f.title.trim() ? <span className={styles.status}>Enter a task name to add it.</span> : null}
       </div>
     </div>
+  );
+}
+
+// One of the scoring choices, saved at once.
+function Choice({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string | null | undefined;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onChange: (v: string | null) => void;
+}) {
+  return (
+    <select className={styles.cellInput} aria-label={label} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)}>
+      <option value="">Not set</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 }

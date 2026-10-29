@@ -100,3 +100,41 @@ describe("a readout with the interviews hidden (0305)", () => {
     expect(showsPrivacyLine({ sections: undefined })).toBe(true);
   });
 });
+
+describe("the owner's week, the voice and limits, and the agent team (0309)", () => {
+  const r = assembleReadout(
+    readoutBundle({
+      owner_wish_list: "Chasing late invoices",
+      owner_away_breaks: null,
+      owner_bottlenecks: "Approving every quote over 5,000",
+      brand_voice: "Friendly and direct",
+      never_alone: ["send_messages"],
+      never_alone_other: null,
+      agent_team: [{ agentType: "reporting", name: "Numbers agent", role: "Sends the Monday report", routine: "Weekly", connectors: "Acumatica", limits: "" }],
+    }),
+    TODAY
+  );
+
+  it("carries the owner's answered questions, the voice, the limits and the team", () => {
+    expect(r.ownerWeek).toEqual({ wishList: "Chasing late invoices", awayBreaks: null, bottlenecks: "Approving every quote over 5,000" });
+    expect(r.guardrails).toMatchObject({ voice: "Friendly and direct", neverAlone: "Never alone: send messages" });
+    expect(r.agentTeam?.map((a) => a.name)).toEqual(["Numbers agent"]);
+  });
+
+  it("lets the narrative use the numbers in the owner's words", () => {
+    expect(readoutFigures(r)).toContain("5000");
+  });
+
+  it("puts the owner's week and the agent team in the Markdown", () => {
+    const md = readoutMarkdown(r);
+    expect(md).toContain("### The owner's week");
+    expect(md).toContain("- Where does work wait on you to decide or approve? Approving every quote over 5,000");
+    expect(md).not.toContain("What breaks or waits");
+    expect(md).toContain("## Recommended agent team");
+    expect(md).toContain("### Numbers agent");
+  });
+
+  it("leaves the owner's week out when nothing was answered", () => {
+    expect(assembleReadout(readoutBundle(), TODAY).ownerWeek).toBeUndefined();
+  });
+});

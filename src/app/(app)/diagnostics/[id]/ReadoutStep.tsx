@@ -68,7 +68,7 @@ export function ReadoutStep({ diagnostic, readout, footer }: { diagnostic: Diagn
             Decision: {decisionLabel(diagnostic.decision)}
             {diagnostic.decided_at ? `, recorded ${shortDate(diagnostic.decided_at.slice(0, 10))}` : ""}. Recording it changes nothing else on AiMS HQ; a sprint is set up by hand.
           </p>
-          <DecisionButtons diagnosticId={id} decision={diagnostic.decision} />
+          <DecisionButtons diagnosticId={id} decision={diagnostic.decision} published={published} />
         </div>
       </StepCard>
     </>

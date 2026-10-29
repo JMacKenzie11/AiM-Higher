@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ClientRow, DiagnosticRow, ParticipantRow } from "@/lib/diagnostics/types";
 import { draftPledge } from "@/lib/diagnostics/pledge";
+import { OWNER_WEEK_QUESTIONS } from "@/lib/diagnostics/readout";
 import { INTERVIEWS_SHOWN } from "@/lib/diagnostics/steps";
 import { StepCard } from "./StepCard";
 import { DxField } from "./DxField";
@@ -8,9 +9,9 @@ import { AddPeople } from "./AddPeople";
 import { Pledge } from "./Pledge";
 import styles from "../diagnostics.module.css";
 
-// 2. KICKOFF. Day one with the owner: the scope, the Capacity
-// Destination, the people in scope, and the pledge the owner sends the
-// team the same day. Each person added here gets an empty survey for
+// 2. KICKOFF. Day one with the owner: the owner's own week (0309), the
+// scope, the Capacity Destination, the dates and the guarantee, the
+// people in scope, and the pledge the owner sends the team the same day. Each person added here gets an empty survey for
 // the assessor to fill in on the next step. While the interviews are
 // hidden (steps.ts) the people and the pledge are too.
 export function KickoffStep({
@@ -30,6 +31,14 @@ export function KickoffStep({
   const draft = draftPledge({ ownerName: client.owner_name, leadName, destination: diagnostic.capacity_destination });
   return (
     <StepCard id="step-kickoff" title="Kickoff" footer={footer}>
+      <h3 className={styles.subhead}>The owner&rsquo;s week</h3>
+      <div className={styles.body}>
+        <p className={styles.status}>Where the owner&rsquo;s own time goes. It shows on the readout under The Capacity Destination.</p>
+        <DxField diagnosticId={id} field="owner_wish_list" label={OWNER_WEEK_QUESTIONS.wishList} value={diagnostic.owner_wish_list} multiline maxLength={2000} />
+        <DxField diagnosticId={id} field="owner_away_breaks" label={OWNER_WEEK_QUESTIONS.awayBreaks} value={diagnostic.owner_away_breaks} multiline maxLength={2000} />
+        <DxField diagnosticId={id} field="owner_bottlenecks" label={OWNER_WEEK_QUESTIONS.bottlenecks} value={diagnostic.owner_bottlenecks} multiline maxLength={2000} />
+      </div>
+      <h3 className={styles.subhead}>Dates, guarantee and scope</h3>
       <div className={styles.body}>
         <div className={styles.grid2}>
           <DxField diagnosticId={id} field="kickoff_at" label="Kickoff date" type="date" value={diagnostic.kickoff_at} />
@@ -37,10 +46,10 @@ export function KickoffStep({
           <DxField
             diagnosticId={id}
             field="guarantee_hours"
-            label="Guarantee, hours a week"
+            label="Guarantee, hours a week (default: 3, change if needed)"
             type="number"
             value={diagnostic.guarantee_hours}
-            hint="Hours the first win gives one person back, measured."
+            hint="The hours a week the first win promises one person back, measured over its first full week. Set it to what you agreed with the owner."
           />
         </div>
         <DxField

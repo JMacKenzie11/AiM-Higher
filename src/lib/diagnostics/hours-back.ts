@@ -11,6 +11,26 @@ export const DEFAULT_GUARANTEE_HOURS = 3;
 export const MAX_TASKS_PER_PARTICIPANT = 10;
 
 export type DataRisk = "low" | "medium" | "high";
+export type BuildEffortStep = "half_day" | "one_two_days" | "more";
+
+// THE CANDIDATE SCORE (0309; Jason, 2026-10-29), every weight in one
+// place. Hours a week count up; data risk and build effort count down.
+// A candidate not yet scored on one of them takes that one's "unset"
+// weight, so scoring it can move it either way and an unscored task
+// never hides at the top.
+export const SCORE_WEIGHTS = {
+  perHour: 10,
+  dataRisk: { low: 0, medium: -20, high: -50, unset: -15 },
+  buildEffort: { half_day: 0, one_two_days: -15, more: -35, unset: -10 },
+} as const;
+
+export type ScoreBreakdown = { hours: number; dataRisk: number; buildEffort: number };
+
+// A build in hours as the three steps, for a task scored before 0309.
+export function effortFromHours(h: number | null): BuildEffortStep | null {
+  if (h == null) return null;
+  return h <= 4 ? "half_day" : h <= 16 ? "one_two_days" : "more";
+}
 
 export type DiagnosticTask = {
   id: string;
@@ -26,6 +46,11 @@ export type DiagnosticTask = {
   minutesPerUnit: number | null;
   dataRisk: DataRisk | null;
   buildEffortHours: number | null;
+  // 0309. Optional so a task built without them reads as unscored.
+  buildEffort?: BuildEffortStep | null;
+  frequency?: "daily" | "weekly" | "monthly" | "ad_hoc" | null;
+  needsApproval?: boolean | null;
+  agentType?: string | null;
   candidateOverride: boolean | null;
   // 0298. Optional so a task built without them reads as no system and
   // no copying.
@@ -67,13 +92,6 @@ export function isCandidate(t: Pick<DiagnosticTask, "energy" | "judgment" | "can
   return t.energy <= CANDIDATE_ENERGY_MAX && t.judgment <= CANDIDATE_JUDGMENT_MAX;
 }
 
-// An unrated task scores as if rated at the candidate ceiling on both
-// scales, so in a diagnostic with no ratings the order is by hours,
-// and one that mixes the two compares like with like.
-function weight(t: Pick<DiagnosticTask, "energy" | "judgment">): number {
-  return (6 - (t.energy ?? CANDIDATE_ENERGY_MAX)) * (6 - (t.judgment ?? CANDIDATE_JUDGMENT_MAX));
-}
-
 // Who a task belongs to, for counting heads: the person, else the role
 // the lead named, else the task itself.
 function whoKey(t: Pick<DiagnosticTask, "id" | "participantId" | "roleTitle">): string {
@@ -93,6 +111,23 @@ function groupLabel(t: Pick<DiagnosticTask, "title" | "canonicalTitle">): string
 }
 
 const RISK_ORDER: Record<DataRisk, number> = { low: 0, medium: 1, high: 2 };
+const EFFORT_ORDER: Record<BuildEffortStep, number> = { half_day: 0, one_two_days: 1, more: 2 };
+
+// A task's build effort: the three steps, or its hours read as them.
+export function taskEffort(t: Pick<DiagnosticTask, "buildEffort" | "buildEffortHours">): BuildEffortStep | null {
+  return t.buildEffort ?? effortFromHours(t.buildEffortHours);
+}
+
+// The score and its parts, from a candidate's hours, worst data risk and
+// largest build effort (SCORE_WEIGHTS).
+export function scoreCandidate(hours: number, dataRisk: DataRisk | null, effort: BuildEffortStep | null): { score: number; breakdown: ScoreBreakdown } {
+  const breakdown = {
+    hours: hours * SCORE_WEIGHTS.perHour,
+    dataRisk: SCORE_WEIGHTS.dataRisk[dataRisk ?? "unset"],
+    buildEffort: SCORE_WEIGHTS.buildEffort[effort ?? "unset"],
+  };
+  return { score: breakdown.hours + breakdown.dataRisk + breakdown.buildEffort, breakdown };
+}
 
 export type CandidateGroup = {
   key: string;
@@ -102,46 +137,63 @@ export type CandidateGroup = {
   hours: number;
   checkedHours: number;
   score: number;
+  breakdown: ScoreBreakdown;
   // The worst risk and the largest build effort among its tasks; null
-  // while any task is unassessed.
+  // while any task is unassessed on that one.
   dataRisk: DataRisk | null;
+  buildEffort: BuildEffortStep | null;
+  // The largest build in hours, for a readout published before 0309.
   buildEffortHours: number | null;
-  // Low risk and a build under the quick-win ceiling. A filter, never a
-  // weight: a dangerous or slow build never outranks a safe quick one
-  // on hours alone.
+  // Low data risk and a build of half a day or less: what Top 3 Next
+  // Wins is filtered to. A filter on top of the score: a risky or slow
+  // build never makes the Top 3 on hours alone.
   quickWin: boolean;
 };
 
-// Candidate score: hours * (6 - energy) * (6 - judgment), summed across
-// every candidate task sharing a canonical title. Highest first. An
-// unrated task weighs in at the ceiling (weight above).
+// Candidate score (SCORE_WEIGHTS): the group's hours a week weighted up,
+// its worst data risk and largest build effort weighted down. Tasks
+// sharing a canonical title are one group. Highest first.
 export function candidateGroups(tasks: readonly DiagnosticTask[]): CandidateGroup[] {
-  const groups = new Map<string, CandidateGroup & { unassessed: boolean; who: Set<string> }>();
+  type Acc = { key: string; title: string; taskIds: string[]; hours: number; checkedHours: number; who: Set<string>; risk: DataRisk | null; riskUnset: boolean; effort: BuildEffortStep | null; effortUnset: boolean; effortHours: number | null };
+  const groups = new Map<string, Acc>();
   for (const t of tasks) {
     if (!isCandidate(t)) continue;
     const key = groupKey(t);
-    const g =
+    const g: Acc =
       groups.get(key) ??
-      { key, title: groupLabel(t), taskIds: [], people: 0, hours: 0, checkedHours: 0, score: 0, dataRisk: null, buildEffortHours: null, quickWin: false, unassessed: false, who: new Set<string>() };
+      { key, title: groupLabel(t), taskIds: [], hours: 0, checkedHours: 0, who: new Set<string>(), risk: null, riskUnset: false, effort: null, effortUnset: false, effortHours: null };
     const { hours, checked } = taskHours(t);
     g.who.add(whoKey(t));
-    g.people = g.who.size;
     g.taskIds.push(t.id);
     g.hours += hours;
     if (checked) g.checkedHours += hours;
-    g.score += hours * weight(t);
-    if (t.dataRisk == null || t.buildEffortHours == null) g.unassessed = true;
-    else {
-      if (g.dataRisk == null || RISK_ORDER[t.dataRisk] > RISK_ORDER[g.dataRisk]) g.dataRisk = t.dataRisk;
-      g.buildEffortHours = Math.max(g.buildEffortHours ?? 0, t.buildEffortHours);
-    }
+    if (t.dataRisk == null) g.riskUnset = true;
+    else if (g.risk == null || RISK_ORDER[t.dataRisk] > RISK_ORDER[g.risk]) g.risk = t.dataRisk;
+    const effort = taskEffort(t);
+    if (effort == null) g.effortUnset = true;
+    else if (g.effort == null || EFFORT_ORDER[effort] > EFFORT_ORDER[g.effort]) g.effort = effort;
+    if (t.buildEffortHours != null) g.effortHours = Math.max(g.effortHours ?? 0, t.buildEffortHours);
     groups.set(key, g);
   }
   return [...groups.values()]
-    .map(({ unassessed, who: _who, ...g }) => {
-      const out: CandidateGroup = unassessed ? { ...g, dataRisk: null, buildEffortHours: null } : g;
-      out.quickWin = out.dataRisk === "low" && out.buildEffortHours != null && out.buildEffortHours <= QUICK_WIN_BUILD_HOURS_MAX;
-      return out;
+    .map((g): CandidateGroup => {
+      const dataRisk = g.riskUnset ? null : g.risk;
+      const buildEffort = g.effortUnset ? null : g.effort;
+      const { score, breakdown } = scoreCandidate(g.hours, dataRisk, buildEffort);
+      return {
+        key: g.key,
+        title: g.title,
+        taskIds: g.taskIds,
+        people: g.who.size,
+        hours: g.hours,
+        checkedHours: g.checkedHours,
+        score,
+        breakdown,
+        dataRisk,
+        buildEffort,
+        buildEffortHours: g.effortUnset ? null : g.effortHours,
+        quickWin: dataRisk === "low" && buildEffort === "half_day",
+      };
     })
     .sort((a, b) => b.score - a.score || b.hours - a.hours || a.title.localeCompare(b.title));
 }
@@ -182,8 +234,9 @@ export function guaranteeMet(w: DiagnosticWin | null, guaranteeHours: number = D
   return measured == null ? null : measured >= guaranteeHours;
 }
 
-// The top next wins: the highest-scoring quick-win groups, leaving out
-// the group the first win came from.
+// Top 3 Next Wins: candidates with low data risk and a build of half a
+// day or less, highest score first, leaving out the group the first win
+// came from. Fewer than three when fewer qualify.
 export function topNextWins(tasks: readonly DiagnosticTask[], w: DiagnosticWin | null, n = 3): CandidateGroup[] {
   const firstKey = w ? tasks.find((t) => t.id === w.taskId) : undefined;
   const skip = firstKey ? groupKey(firstKey) : null;

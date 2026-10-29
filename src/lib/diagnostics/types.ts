@@ -84,9 +84,22 @@ export type DiagnosticRow = {
   decided_at: string | null;
   // 0305: the one company-level question, what AI tools the team uses.
   ai_tools: string | null;
+  // 0309. The owner's week (Kickoff), where requests come in and what is
+  // written down (Pre-flight), the voice and limits (Build), and the
+  // lead's edited agent team (null until edited: the suggestion shows).
+  owner_wish_list: string | null;
+  owner_away_breaks: string | null;
+  owner_bottlenecks: string | null;
+  intake_channels: IntakeChannel[];
+  intake_other: string | null;
+  knowledge_base: KnowledgeBase | null;
+  brand_voice: string | null;
+  never_alone: NeverAlone[];
+  never_alone_other: string | null;
+  agent_team: AgentCard[] | null;
 };
 export const DIAGNOSTIC_COLUMNS =
-  "id, client_id, status, tools_in_use, it_contact, access_secured, brief_sent, conversations_booked, scope, capacity_destination, pledge_text, pledge_sent_at, kickoff_at, midpoint_at, midpoint_note, readout_at, published_at, guarantee_hours, decision, archived_at, created_at, data_at_risk, guardrail_rules, roadmap, narrative, published_readout, decided_at, ai_tools";
+  "id, client_id, status, tools_in_use, it_contact, access_secured, brief_sent, conversations_booked, scope, capacity_destination, pledge_text, pledge_sent_at, kickoff_at, midpoint_at, midpoint_note, readout_at, published_at, guarantee_hours, decision, archived_at, created_at, data_at_risk, guardrail_rules, roadmap, narrative, published_readout, decided_at, ai_tools, owner_wish_list, owner_away_breaks, owner_bottlenecks, intake_channels, intake_other, knowledge_base, brand_voice, never_alone, never_alone_other, agent_team";
 
 // One line of the 90-day roadmap: a next win, the week of the sprint it
 // is meant to land in, and the person to train as its champion.
@@ -102,6 +115,7 @@ export const READOUT_SECTIONS = [
   { key: "hours_back", title: "Hours Back" },
   { key: "destination", title: "The Capacity Destination" },
   { key: "next_wins", title: "Top 3 Next Wins" },
+  { key: "agent_team", title: "Recommended Agent Team" },
   { key: "guardrails", title: "Guardrails Snapshot" },
   { key: "roadmap", title: "The 90-Day Roadmap" },
 ] as const;
@@ -149,9 +163,85 @@ export type TaskRow = {
   copies_from_system_id: string | null;
   copies_to_system_id: string | null;
   role_title: string | null;
+  // 0309. How often, the build effort in three steps (in place of
+  // build_effort_hours), whether a person must approve its output, and
+  // the kind of agent that would do it.
+  frequency: TaskFrequency | null;
+  build_effort: BuildEffort | null;
+  needs_approval: boolean | null;
+  agent_type: AgentType | null;
 };
 export const TASK_COLUMNS =
-  "id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment, source, volume_units_per_week, minutes_per_unit, data_risk, build_effort_hours, candidate_override, canonical_title, created_at, system_id, copies_from_system_id, copies_to_system_id, role_title";
+  "id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment, source, volume_units_per_week, minutes_per_unit, data_risk, build_effort_hours, candidate_override, canonical_title, created_at, system_id, copies_from_system_id, copies_to_system_id, role_title, frequency, build_effort, needs_approval, agent_type";
+
+// ---- Scoring, voice and agents (0309) -------------------------------
+
+export const TASK_FREQUENCIES = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "ad_hoc", label: "Ad hoc" },
+] as const;
+export type TaskFrequency = (typeof TASK_FREQUENCIES)[number]["value"];
+
+export const BUILD_EFFORTS = [
+  { value: "half_day", label: "Half a day or less" },
+  { value: "one_two_days", label: "1 to 2 days" },
+  { value: "more", label: "More than 2 days" },
+] as const;
+export type BuildEffort = (typeof BUILD_EFFORTS)[number]["value"];
+
+export const AGENT_TYPES = [
+  { value: "inbox_triage", label: "Inbox triage" },
+  { value: "reporting", label: "Reporting" },
+  { value: "content", label: "Content" },
+  { value: "scheduling", label: "Scheduling" },
+  { value: "ops_log", label: "Ops and work log" },
+  { value: "customer_follow_up", label: "Customer follow-up" },
+  { value: "not_suitable", label: "Not suitable for AI" },
+] as const;
+export type AgentType = (typeof AGENT_TYPES)[number]["value"];
+
+export const INTAKE_CHANNELS = [
+  { value: "email", label: "Email" },
+  { value: "chat", label: "Slack or Teams" },
+  { value: "phone", label: "Phone" },
+  { value: "crm", label: "CRM" },
+  { value: "web_forms", label: "Web forms" },
+] as const;
+export type IntakeChannel = (typeof INTAKE_CHANNELS)[number]["value"];
+
+export const KNOWLEDGE_ITEMS = [
+  { value: "company_snapshot", label: "Company snapshot" },
+  { value: "services_pricing", label: "Services and pricing" },
+  { value: "faq", label: "FAQ" },
+  { value: "sops", label: "SOPs" },
+] as const;
+export type KnowledgeItem = (typeof KNOWLEDGE_ITEMS)[number]["value"];
+export type KnowledgeBase = Partial<Record<KnowledgeItem, boolean>> & { where?: string };
+
+export const NEVER_ALONE = [
+  { value: "send_messages", label: "Send messages" },
+  { value: "make_payments", label: "Make payments" },
+  { value: "delete_data", label: "Delete data" },
+  { value: "quote_pricing", label: "Quote pricing" },
+  { value: "commit_dates", label: "Commit to dates" },
+] as const;
+export type NeverAlone = (typeof NEVER_ALONE)[number]["value"];
+
+// One agent in the recommended team. agentType ties a suggested card to
+// the tasks it came from; a card the lead added by hand has none.
+export type AgentCard = {
+  agentType: AgentType | null;
+  name: string;
+  role: string;
+  routine: string;
+  connectors: string;
+  limits: string;
+};
+
+export const labelOf = <T extends { value: string; label: string }>(list: readonly T[], v: string | null | undefined): string =>
+  list.find((x) => x.value === v)?.label ?? "Not set";
 
 // ---- Systems and AI use (0298) -------------------------------------
 
@@ -277,6 +367,10 @@ export function toTask(r: TaskRow): DiagnosticTask {
     minutesPerUnit: num(r.minutes_per_unit),
     dataRisk: r.data_risk,
     buildEffortHours: num(r.build_effort_hours),
+    buildEffort: r.build_effort ?? null,
+    frequency: r.frequency ?? null,
+    needsApproval: r.needs_approval ?? null,
+    agentType: r.agent_type ?? null,
     candidateOverride: r.candidate_override,
     systemId: r.system_id ?? null,
     copiesFromSystemId: r.copies_from_system_id ?? null,
