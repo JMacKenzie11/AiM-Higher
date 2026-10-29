@@ -304,6 +304,18 @@
   text-decoration: underline;
 }
 
+/* A link-styled button that opens a drawer from a table row. */
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: var(--control-h-sm);
+}
+
 /* The conversation guide beside the notes. */
 .conversation {
   display: grid;

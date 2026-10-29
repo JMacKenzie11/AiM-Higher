@@ -11,6 +11,8 @@ import {
   SYSTEM_COLUMNS,
   SYSTEM_LINK_COLUMNS,
   AI_USE_COLUMNS,
+  AUTOMATION_COLUMNS,
+  type AutomationRow,
   type AiUseRow,
   type SystemLinkRow,
   type SystemRow,
@@ -26,6 +28,7 @@ import {
 } from "./types";
 import { assembleReadout, isReadoutData, type ReadoutData } from "./readout";
 import type { AcrossInput } from "./across";
+import { sortAutomations } from "./automations";
 
 // Every read goes through the caller's own client, so row security
 // (system admin only, 0294) is the boundary; the pages' requireRole is
@@ -61,14 +64,35 @@ export async function listClients(): Promise<ClientListRow[]> {
   });
 }
 
-export async function getClient(id: string): Promise<{ client: ClientRow; diagnostics: DiagnosticRow[] } | null> {
+export type ClientBundle = {
+  client: ClientRow;
+  diagnostics: DiagnosticRow[];
+  automations: AutomationRow[];
+  // The newest diagnostic, not archived, with a first win or a roadmap
+  // to start automations from; null when there is none.
+  automationSource: DiagnosticRow | null;
+};
+
+export async function getClient(id: string): Promise<ClientBundle | null> {
   const supabase = await db();
-  const [{ data: client }, { data: dx }] = await Promise.all([
+  const [{ data: client }, { data: dx }, { data: autos }] = await Promise.all([
     supabase.from("diagnostic_clients").select(CLIENT_COLUMNS).eq("id", id).maybeSingle<ClientRow>(),
     supabase.from("diagnostics").select(DIAGNOSTIC_COLUMNS).eq("client_id", id).order("created_at", { ascending: false }),
+    supabase.from("diagnostic_automations").select(AUTOMATION_COLUMNS).eq("client_id", id).limit(500),
   ]);
   if (!client) return null;
-  return { client, diagnostics: (dx ?? []) as DiagnosticRow[] };
+  const diagnostics = (dx ?? []) as DiagnosticRow[];
+  const live = diagnostics.filter((d) => !d.archived_at);
+  const { data: wins } = live.length
+    ? await supabase.from("diagnostic_wins").select("diagnostic_id").eq("is_first_win", true).in("diagnostic_id", live.map((d) => d.id))
+    : { data: [] };
+  const withWin = new Set(((wins ?? []) as Array<{ diagnostic_id: string }>).map((w) => w.diagnostic_id));
+  return {
+    client,
+    diagnostics,
+    automations: sortAutomations((autos ?? []) as AutomationRow[]),
+    automationSource: live.find((d) => withWin.has(d.id) || d.roadmap.length > 0) ?? null,
+  };
 }
 
 export type DiagnosticListRow = DiagnosticRow & {

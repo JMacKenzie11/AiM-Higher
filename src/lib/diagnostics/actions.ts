@@ -7,8 +7,9 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { MAX_TASKS_PER_PARTICIPANT, type DataRisk } from "./hours-back";
 import { winPattern } from "./win-patterns";
 import { isStep, statusAfterVisiting, type DiagnosticStep } from "./steps";
-import { CLIENT_SOURCES, LINK_HOWS, SYSTEM_KINDS, READOUT_SECTIONS, type DiagnosticStatus, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
+import { AUTOMATION_STAGES, CLIENT_SOURCES, LINK_HOWS, SYSTEM_KINDS, READOUT_SECTIONS, type DiagnosticStatus, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
 import { rollUpTitles } from "./titles";
+import { automationsFromDiagnostic } from "./automations";
 import { parseParticipantLines } from "./participants";
 import { getDiagnostic, readoutToday } from "./service";
 import { assembleReadout, publishBlocker } from "./readout";
@@ -908,4 +909,81 @@ export async function recordDecisionAction(id: string, decision: "sprint" | "dec
   if (!data?.length) return refusedOr(error);
   touched(id, data[0].client_id);
   return { ok: true };
+}
+
+// ---- Automations (0306) --------------------------------------------
+
+export type AutomationInput = {
+  title: string;
+  stage: string;
+  build_starts?: string;
+  goes_live?: string;
+  champion?: string;
+  latest_update?: string;
+};
+
+export async function saveAutomationAction(clientId: string, id: string | null, input: AutomationInput): Promise<DxResult> {
+  const supabase = await caller();
+  const title = text(input.title, 300);
+  if (!title) return { ok: false, message: "Give the automation a name." };
+  if (!AUTOMATION_STAGES.some((s) => s.value === input.stage)) return { ok: false, message: "Choose a stage." };
+  const buildStarts = isoDate(input.build_starts);
+  const goesLive = isoDate(input.goes_live);
+  if (buildStarts === "bad" || goesLive === "bad") return { ok: false, message: "That date doesn't look right." };
+  if (buildStarts && goesLive && goesLive < buildStarts) return { ok: false, message: "It goes live on or after the day the build starts." };
+  const update = text(input.latest_update, 2000);
+  const row: Record<string, unknown> = {
+    title,
+    stage: input.stage,
+    build_starts: buildStarts,
+    goes_live: goesLive,
+    champion: text(input.champion, 200),
+    latest_update: update,
+  };
+  // The date beside the update moves only when its words do.
+  let prior: string | null = null;
+  if (id) {
+    const { data: was } = await supabase.from("diagnostic_automations").select("latest_update").eq("id", id).maybeSingle<{ latest_update: string | null }>();
+    prior = was?.latest_update ?? null;
+  }
+  if (!id || update !== prior) row.latest_update_at = update ? new Date().toISOString() : null;
+  const { data } = id
+    ? await supabase.from("diagnostic_automations").update(row).eq("id", id).eq("client_id", clientId).select("id")
+    : await supabase.from("diagnostic_automations").insert({ ...row, client_id: clientId }).select("id");
+  if (!data?.length) return REFUSED;
+  touched(undefined, clientId);
+  return { ok: true, id: data[0].id };
+}
+
+export async function deleteAutomationAction(clientId: string, id: string): Promise<DxResult> {
+  const supabase = await caller();
+  const { data } = await supabase.from("diagnostic_automations").delete().eq("id", id).eq("client_id", clientId).select("id");
+  if (!data?.length) return REFUSED;
+  touched(undefined, clientId);
+  return { ok: true };
+}
+
+// The first win and the roadmap's next wins of one diagnostic, added
+// to its client's automations. A title already there is skipped.
+export async function addAutomationsFromDiagnosticAction(diagnosticId: string): Promise<DxResult & { added?: number }> {
+  const supabase = await caller();
+  const { data: dx } = await supabase
+    .from("diagnostics")
+    .select("client_id, roadmap")
+    .eq("id", diagnosticId)
+    .maybeSingle<{ client_id: string; roadmap: RoadmapItem[] }>();
+  if (!dx) return REFUSED;
+  const [{ data: win }, { data: existing }] = await Promise.all([
+    supabase.from("diagnostic_wins").select("title, in_use_from").eq("diagnostic_id", diagnosticId).eq("is_first_win", true).maybeSingle<{ title: string; in_use_from: string | null }>(),
+    supabase.from("diagnostic_automations").select("title").eq("client_id", dx.client_id).limit(500),
+  ]);
+  const rows = automationsFromDiagnostic(win ?? null, dx.roadmap ?? [], ((existing ?? []) as Array<{ title: string }>).map((a) => a.title));
+  if (rows.length === 0) return { ok: true, added: 0 };
+  const { data } = await supabase
+    .from("diagnostic_automations")
+    .insert(rows.map((r) => ({ ...r, client_id: dx.client_id, diagnostic_id: diagnosticId })))
+    .select("id");
+  if (!data?.length) return REFUSED;
+  touched(undefined, dx.client_id);
+  return { ok: true, added: data.length };
 }
