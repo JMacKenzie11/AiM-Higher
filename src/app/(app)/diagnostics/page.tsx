@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
 import { listAcrossClients, listDiagnostics } from "@/lib/diagnostics/service";
-import { decisionLabel, statusLabel } from "@/lib/diagnostics/types";
+import { INTERVIEWS_SHOWN } from "@/lib/diagnostics/steps";
 import { PageShell } from "@/components/ui/PageShell";
 import { SectionNav } from "./SectionNav";
 import { AcrossClients } from "./AcrossClients";
+import { DecisionChip, StatusChip } from "./Chips";
 import { daysTo, todayUtc } from "./format";
 import styles from "./diagnostics.module.css";
 
@@ -57,7 +58,7 @@ export default async function DiagnosticsPage({ searchParams }: { searchParams: 
                   <th>Client</th>
                   <th>Status</th>
                   <th>Readout</th>
-                  <th>Surveys entered</th>
+                  {INTERVIEWS_SHOWN ? <th>Surveys entered</th> : null}
                   <th>First win</th>
                   <th>Decision</th>
                 </tr>
@@ -70,13 +71,19 @@ export default async function DiagnosticsPage({ searchParams }: { searchParams: 
                         {d.client_name}
                       </Link>
                     </td>
-                    <td>{statusLabel(d.status)}</td>
-                    <td>{daysTo(d.readout_at, today)}</td>
                     <td>
-                      {d.surveys} of {d.participants}
+                      <StatusChip status={d.status} />
                     </td>
-                    <td>{d.first_win_measured ? "Measured" : "Not yet"}</td>
-                    <td>{decisionLabel(d.decision)}</td>
+                    <td>{daysTo(d.readout_at, today)}</td>
+                    {INTERVIEWS_SHOWN ? (
+                      <td>
+                        {d.surveys} of {d.participants}
+                      </td>
+                    ) : null}
+                    <td>{d.first_win_measured ? <span className={styles.chip}>Measured</span> : <span className={`${styles.chip} ${styles.chipMuted}`}>Not yet</span>}</td>
+                    <td>
+                      <DecisionChip decision={d.decision} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

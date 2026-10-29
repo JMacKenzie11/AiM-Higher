@@ -2,11 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
 import { getClient } from "@/lib/diagnostics/service";
-import { CLIENT_SOURCES, decisionLabel, statusLabel } from "@/lib/diagnostics/types";
+import { CLIENT_SOURCES } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { ClientButton } from "../../ClientDrawer";
 import { ArchiveButton, StartDiagnosticButton } from "../../ActionButtons";
 import { shortDate } from "../../format";
+import { DecisionChip, StatusChip } from "../../Chips";
 import styles from "../../diagnostics.module.css";
 
 export const metadata = { title: "Diagnostic client" };
@@ -80,9 +81,10 @@ export default async function DiagnosticClientPage({ params }: PageProps) {
                 <Link href={`/diagnostics/${d.id}`} className={styles.link}>
                   Started {shortDate(d.created_at)}
                 </Link>
-                <span className={styles.muted}>
-                  {statusLabel(d.status)}, {decisionLabel(d.decision).toLowerCase()}
-                  {d.archived_at ? ", archived" : ""}
+                <span className={styles.formRow}>
+                  <StatusChip status={d.status} />
+                  <DecisionChip decision={d.decision} />
+                  {d.archived_at ? <span className={`${styles.chip} ${styles.chipMuted}`}>Archived</span> : null}
                 </span>
               </li>
             ))}
