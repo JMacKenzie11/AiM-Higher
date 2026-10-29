@@ -2,7 +2,7 @@ import path from "node:path";
 import { Circle, Defs, Document, Font, Image, Line, LinearGradient, Page, Polygon, Rect, Stop, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 import { formatHours } from "../hours-back";
 import { MAP, layoutMap, xFor, yFor } from "../map-layout";
-import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, readoutSections, sectionTitle, showsPrivacyLine, type ReadoutData } from "../readout";
+import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, readoutSections, sectionTitle, showsPrivacyLine, type ReadoutData, buildText, ownerWeekLines } from "../readout";
 import type { ReadoutSection } from "../types";
 import { SYSTEMS_MAP, layoutSystemsMap } from "../systems-map-layout";
 
@@ -213,6 +213,13 @@ function SystemsAndAiPdf({ r }: { r: ReadoutData }) {
           {r.guardrails.dataAtRisk}
         </Text>
       ) : null}
+      {r.guardrails.voice ? (
+        <Text style={s.p}>
+          <Text style={s.bold}>How the business sounds: </Text>
+          {r.guardrails.voice}
+        </Text>
+      ) : null}
+      {r.guardrails.neverAlone ? <Text style={s.p}>{r.guardrails.neverAlone}.</Text> : null}
       {r.guardrails.rules.map((rule, i) => (
         <Text key={i} style={s.p}>
           {i + 1}. {rule}
@@ -396,6 +403,17 @@ export function ReadoutPdf({ r }: { r: ReadoutData }) {
           {r.destination.roles.length ? (
             <Rows rows={r.destination.roles.map((role) => [`${role.role}${role.wishes.length ? `: ${joinWishes(role.wishes)}` : ""}`, `${formatHours(role.hours)} hours a week`])} />
           ) : null}
+          {r.ownerWeek ? (
+            <>
+              <Text style={[s.p, s.bold]}>The owner&apos;s week</Text>
+              {ownerWeekLines(r.ownerWeek).map(([q, ans]) => (
+                <Text key={q} style={s.p}>
+                  <Text style={s.bold}>{q} </Text>
+                  {ans}
+                </Text>
+              ))}
+            </>
+          ) : null}
         </Section>
 
         <Section k="next_wins" r={r}>
@@ -405,11 +423,25 @@ export function ReadoutPdf({ r }: { r: ReadoutData }) {
             <Rows
               rows={r.nextWins.map((w, i) => [
                 `${i + 1}. ${w.title}, helps ${w.helps.join(", ") || "the team"}`,
-                `${formatHours(w.hours)} h a week, risk ${w.dataRisk ?? "not set"}, build ${w.buildEffortHours == null ? "not estimated" : `${formatHours(w.buildEffortHours)} h`}`,
+                `${formatHours(w.hours)} h a week, risk ${w.dataRisk ?? "not set"}, build ${w.buildEffort ? buildText(w) : w.buildEffortHours == null ? "not estimated" : `${formatHours(w.buildEffortHours)} h`}`,
               ])}
             />
           )}
         </Section>
+
+        {r.agentTeam?.length ? (
+          <Section k="agent_team" r={r}>
+            {r.agentTeam.map((a, i) => (
+              <View key={i} style={s.cardSand} wrap={false}>
+                <Text style={s.bold}>{a.name}</Text>
+                {a.role ? <Text style={s.p}>{a.role}</Text> : null}
+                {a.routine ? <Text style={[s.p, s.muted]}>Routine: {a.routine}</Text> : null}
+                {a.connectors ? <Text style={[s.p, s.muted]}>Connects to: {a.connectors}</Text> : null}
+                {a.limits ? <Text style={[s.p, s.muted]}>Limits: {a.limits}</Text> : null}
+              </View>
+            ))}
+          </Section>
+        ) : null}
 
         {r.systems ? (
           <Section k="guardrails" r={r} together>
@@ -429,6 +461,13 @@ export function ReadoutPdf({ r }: { r: ReadoutData }) {
               {r.guardrails.dataAtRisk}
             </Text>
           ) : null}
+          {r.guardrails.voice ? (
+            <Text style={s.p}>
+              <Text style={s.bold}>How the business sounds: </Text>
+              {r.guardrails.voice}
+            </Text>
+          ) : null}
+          {r.guardrails.neverAlone ? <Text style={s.p}>{r.guardrails.neverAlone}.</Text> : null}
           {r.guardrails.rules.map((rule, i) => (
             <Text key={i} style={s.p}>
               {i + 1}. {rule}

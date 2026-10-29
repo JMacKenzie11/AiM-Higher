@@ -126,6 +126,8 @@ export function narrativeInput(r: ReadoutData, ownerWords: string | null): strin
               },
               guardrail_rules: guardrails.rules,
               data_at_risk: guardrails.dataAtRisk,
+              how_the_business_sounds: guardrails.voice ?? null,
+              what_an_agent_never_does_alone: guardrails.neverAlone ?? null,
             },
           }
         : { guardrails }),

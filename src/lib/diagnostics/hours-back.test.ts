@@ -12,6 +12,8 @@ import {
   taskHours,
   topNextWins,
   formatHours,
+  effortFromHours,
+  SCORE_WEIGHTS,
   type DiagnosticTask,
   type DiagnosticWin,
 } from "./hours-back";
@@ -83,11 +85,13 @@ describe("candidates", () => {
 });
 
 describe("candidate score", () => {
-  it("rolls tasks up by canonical title and weights hours by drain and routine", () => {
+  it("rolls tasks up by canonical title and scores hours up, data risk and build effort down", () => {
     const groups = candidateGroups(office);
     const quoting = groups.find((g) => g.key === "quoting")!;
-    // 10 checked hours * 5 * 4 + 6 reported hours * 4 * 4.
-    expect(quoting.score).toBe(10 * 5 * 4 + 6 * 4 * 4);
+    // 10 checked hours + 6 reported, low risk, 3 build hours (half a day).
+    expect(quoting.breakdown).toEqual({ hours: 16 * SCORE_WEIGHTS.perHour, dataRisk: 0, buildEffort: 0 });
+    expect(quoting.score).toBe(160);
+    expect(quoting.buildEffort).toBe("half_day");
     expect(quoting.hours).toBe(16);
     expect(quoting.checkedHours).toBe(10);
     expect(quoting.people).toBe(2);
@@ -95,18 +99,26 @@ describe("candidate score", () => {
     expect(groups[0].key).toBe("quoting");
   });
 
-  it("filters on data risk and build effort, never weights by them", () => {
+  it("weights data risk and build effort down, and counts an unscored one at its unset weight", () => {
     const groups = candidateGroups(office);
     const shipping = groups.find((g) => g.key === "shipping report")!;
     const inbox = groups.find((g) => g.key === "shared inbox")!;
     const supplier = groups.find((g) => g.key === "supplier follow-up")!;
-    expect(shipping.quickWin).toBe(false);
-    expect(inbox.quickWin).toBe(false);
-    // Unassessed is not a quick win until the lead assesses it.
-    expect(supplier.dataRisk).toBeNull();
-    expect(supplier.quickWin).toBe(false);
-    // The scores themselves are untouched by either.
-    expect(shipping.score).toBe(4 * 5 * 5);
+    expect(shipping).toMatchObject({ dataRisk: "high", score: 40 + SCORE_WEIGHTS.dataRisk.high, quickWin: false });
+    // 8 build hours read as one to two days.
+    expect(inbox).toMatchObject({ buildEffort: "one_two_days", score: 60 + SCORE_WEIGHTS.buildEffort.one_two_days, quickWin: false });
+    expect(supplier).toMatchObject({ dataRisk: null, score: 30 + SCORE_WEIGHTS.dataRisk.unset, quickWin: false });
+    // Sorted by score, highest first.
+    expect(groups.map((g) => g.score)).toEqual([...groups.map((g) => g.score)].sort((a, b) => b - a));
+  });
+
+  it("prefers the three steps to build hours, and turns hours into steps at 4 and 16", () => {
+    expect(effortFromHours(4)).toBe("half_day");
+    expect(effortFromHours(16)).toBe("one_two_days");
+    expect(effortFromHours(17)).toBe("more");
+    expect(effortFromHours(null)).toBeNull();
+    const g = candidateGroups([task("p1", "Reports", 5, 1, 1, { buildEffortHours: 2, buildEffort: "more" })])[0];
+    expect(g).toMatchObject({ buildEffort: "more", quickWin: false });
   });
 });
 
@@ -163,6 +175,16 @@ describe("top next wins", () => {
   it("are the best quick wins outside the first win's own group", () => {
     const top = topNextWins(office, measuredWin);
     expect(top.map((g) => g.key)).toEqual(["order entry", "meeting notes"]);
+    // Low risk and half a day or less only, highest score first, the
+    // first win's group left out, and at most three.
+    for (const g of top) expect(g).toMatchObject({ dataRisk: "low", buildEffort: "half_day" });
+    const many = [
+      ...office,
+      task("p11", "Timesheets", 9, 1, 1),
+      task("p12", "Purchase orders", 11, 1, 1),
+      task("p13", "Courier bookings", 1, 1, 1),
+    ];
+    expect(topNextWins(many, measuredWin).map((g) => g.key)).toEqual(["order entry", "purchase orders", "timesheets"]);
   });
 });
 
@@ -225,8 +247,8 @@ describe("tasks the lead entered in the walkthrough (0305)", () => {
     ];
     const groups = candidateGroups(tasks);
     expect(groups.map((g) => g.title)).toEqual(["Invoices", "Order entry", "Timesheets"]);
-    // Scored as if rated at the candidate ceiling: hours times 16.
-    expect(groups[0]).toMatchObject({ hours: 6, people: 1, score: 96 });
+    // Unscored on risk and effort: both unset weights.
+    expect(groups[0]).toMatchObject({ hours: 6, people: 1, score: 60 + SCORE_WEIGHTS.dataRisk.unset + SCORE_WEIGHTS.buildEffort.unset });
     expect(groups[2].people).toBe(1);
     expect(capacityMap(tasks)).toEqual([]);
     expect(summarize(tasks, null)).toMatchObject({ tasks: 4, candidates: 4, totalHours: 12 });

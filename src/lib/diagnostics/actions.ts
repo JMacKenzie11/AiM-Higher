@@ -7,7 +7,24 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { MAX_TASKS_PER_PARTICIPANT, type DataRisk } from "./hours-back";
 import { winPattern } from "./win-patterns";
 import { isStep, statusAfterVisiting, type DiagnosticStep } from "./steps";
-import { AUTOMATION_STAGES, CLIENT_SOURCES, LINK_HOWS, SYSTEM_KINDS, READOUT_SECTIONS, type DiagnosticStatus, type Narrative, type ReadoutSection, type RoadmapItem } from "./types";
+import {
+  AGENT_TYPES,
+  AUTOMATION_STAGES,
+  BUILD_EFFORTS,
+  CLIENT_SOURCES,
+  INTAKE_CHANNELS,
+  KNOWLEDGE_ITEMS,
+  LINK_HOWS,
+  NEVER_ALONE,
+  SYSTEM_KINDS,
+  READOUT_SECTIONS,
+  TASK_FREQUENCIES,
+  type AgentCard,
+  type DiagnosticStatus,
+  type Narrative,
+  type ReadoutSection,
+  type RoadmapItem,
+} from "./types";
 import { rollUpTitles } from "./titles";
 import { automationsFromDiagnostic } from "./automations";
 import { BOT_CODE } from "./bots";
@@ -181,7 +198,21 @@ export type DiagnosticPatch = {
   data_at_risk?: string;
   guardrail_rules?: string;
   ai_tools?: string;
+  // 0309.
+  owner_wish_list?: string;
+  owner_away_breaks?: string;
+  owner_bottlenecks?: string;
+  intake_channels?: string[];
+  intake_other?: string;
+  knowledge_base?: Record<string, unknown>;
+  brand_voice?: string;
+  never_alone?: string[];
+  never_alone_other?: string;
 };
+
+// Keeps the values a fixed list allows, once each.
+const pick = (values: unknown, allowed: ReadonlyArray<{ value: string }>): string[] =>
+  Array.isArray(values) ? [...new Set(values.filter((v): v is string => typeof v === "string" && allowed.some((a) => a.value === v)))] : [];
 
 export async function updateDiagnosticAction(id: string, patch: DiagnosticPatch): Promise<DxResult> {
   const supabase = await caller();
@@ -196,8 +227,24 @@ export async function updateDiagnosticAction(id: string, patch: DiagnosticPatch)
     ["data_at_risk", 2000],
     ["guardrail_rules", 2000],
     ["ai_tools", 2000],
+    ["owner_wish_list", 2000],
+    ["owner_away_breaks", 2000],
+    ["owner_bottlenecks", 2000],
+    ["intake_other", 500],
+    ["brand_voice", 2000],
+    ["never_alone_other", 500],
   ];
   for (const [k, max] of limits) if (k in patch) row[k] = text(patch[k], max);
+  if ("intake_channels" in patch) row.intake_channels = pick(patch.intake_channels, INTAKE_CHANNELS);
+  if ("never_alone" in patch) row.never_alone = pick(patch.never_alone, NEVER_ALONE);
+  if ("knowledge_base" in patch) {
+    const kb = patch.knowledge_base ?? {};
+    const out: Record<string, unknown> = {};
+    for (const item of KNOWLEDGE_ITEMS) if (kb[item.value] === true) out[item.value] = true;
+    const where = text(kb.where, 500);
+    if (where) out.where = where;
+    row.knowledge_base = out;
+  }
   for (const k of ["access_secured", "brief_sent", "conversations_booked"] as const) {
     if (k in patch) row[k] = patch[k] === true;
   }
@@ -437,6 +484,11 @@ export type TaskPatch = {
   system_id?: string | null;
   copies_from_system_id?: string | null;
   copies_to_system_id?: string | null;
+  // 0309.
+  frequency?: string | null;
+  build_effort?: string | null;
+  needs_approval?: boolean | null;
+  agent_type?: string | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -477,6 +529,18 @@ function cleanTaskPatch(patch: TaskPatch): Record<string, unknown> | string {
     const r = patch.data_risk;
     row.data_risk = r === "low" || r === "medium" || r === "high" ? (r as DataRisk) : null;
   }
+  const choices: Array<[keyof TaskPatch, ReadonlyArray<{ value: string }>]> = [
+    ["frequency", TASK_FREQUENCIES],
+    ["build_effort", BUILD_EFFORTS],
+    ["agent_type", AGENT_TYPES],
+  ];
+  for (const [k, list] of choices) {
+    if (k in patch) {
+      const v = patch[k];
+      row[k] = typeof v === "string" && list.some((x) => x.value === v) ? v : null;
+    }
+  }
+  if ("needs_approval" in patch) row.needs_approval = typeof patch.needs_approval === "boolean" ? patch.needs_approval : null;
   if ("candidate_override" in patch) {
     row.candidate_override = patch.candidate_override === "yes" ? true : patch.candidate_override === "no" ? false : null;
   }
@@ -902,6 +966,11 @@ export async function recordDecisionAction(id: string, decision: "sprint" | "dec
   const supabase = await caller();
   if (!["sprint", "declined", "pending"].includes(decision)) return REFUSED;
   const decided = decision !== "pending";
+  // A decision follows the readout the owner was given (0309).
+  if (decided) {
+    const { data: d } = await supabase.from("diagnostics").select("published_at").eq("id", id).maybeSingle<{ published_at: string | null }>();
+    if (!d?.published_at) return { ok: false, message: "Publish the readout before recording the decision." };
+  }
   const { data, error } = await supabase
     .from("diagnostics")
     .update({ decision, decided_at: decided ? new Date().toISOString() : null, status: decided ? "decided" : "readout" })
@@ -1068,5 +1137,31 @@ export async function deleteBotAction(clientId: string, botId: string): Promise<
   if (!data?.length) return REFUSED;
   touched(undefined, clientId);
   revalidatePath("/diagnostics/bots");
+  return { ok: true };
+}
+
+// ---- The recommended agent team (0309) ------------------------------
+
+// Saves the lead's agent team. An empty list clears it, so the
+// suggestion shows again.
+export async function saveAgentTeamAction(id: string, cards: AgentCard[]): Promise<DxResult> {
+  const supabase = await caller();
+  if (!Array.isArray(cards) || cards.length > 6) return { ok: false, message: "The team holds up to six agents." };
+  const team: AgentCard[] = [];
+  for (const c of cards) {
+    const name = text(c?.name, 120);
+    if (!name) return { ok: false, message: "Give each agent a name." };
+    team.push({
+      agentType: AGENT_TYPES.some((a) => a.value === c?.agentType) ? c.agentType : null,
+      name,
+      role: text(c?.role, 300) ?? "",
+      routine: text(c?.routine, 500) ?? "",
+      connectors: text(c?.connectors, 300) ?? "",
+      limits: text(c?.limits, 500) ?? "",
+    });
+  }
+  const { data, error } = await supabase.from("diagnostics").update({ agent_team: team.length ? team : null }).eq("id", id).select("id");
+  if (!data?.length) return refusedOr(error);
+  touched(id);
   return { ok: true };
 }

@@ -182,6 +182,63 @@
   outline-offset: 2px;
 }
 
+/* Where a step stands (0309), beside its name on the tab. */
+.tabState {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: #5b6472;
+  font: var(--text-caption);
+  font-weight: 600;
+}
+
+.tabState[data-state="complete"] {
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+}
+
+.tabState[data-state="in_progress"] {
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-cobalt-hover);
+}
+
+/* One agent in the recommended team (0309). */
+.agentCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.agentCard > legend {
+  padding: 0 var(--space-1);
+  font-size: 15px;
+}
+
+/* A question and its answer on the readout (0309). */
+.plainList > li.qa {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.plainList > li.qa > :last-child {
+  margin-left: 0;
+}
+
+/* A list of ticks (0309). */
+.choiceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 @media (max-width: 720px) {
   .tab,
   .tabActive {

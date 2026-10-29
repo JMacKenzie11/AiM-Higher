@@ -8,8 +8,13 @@ import styles from "../diagnostics.module.css";
 
 // One field on the diagnostic row, saved when the cursor leaves it, so
 // the lead can type through a step without pressing Save on each box.
+// Under it, the save status (0309): Unsaved changes while typing,
+// Saving… as it leaves, then Saved.
 
-type Key = Exclude<keyof DiagnosticPatch, "access_secured" | "brief_sent" | "conversations_booked" | "pledge_sent">;
+type Key = Exclude<
+  keyof DiagnosticPatch,
+  "access_secured" | "brief_sent" | "conversations_booked" | "pledge_sent" | "intake_channels" | "never_alone" | "knowledge_base"
+>;
 
 export function DxField({
   diagnosticId,
@@ -68,7 +73,9 @@ export function DxField({
           {error}
         </span>
       ) : pending ? (
-        <span className={styles.status}>Saving</span>
+        <span className={styles.status}>Saving…</span>
+      ) : v !== last ? (
+        <span className={styles.status}>Unsaved changes</span>
       ) : saved ? (
         <span className={styles.status}>Saved</span>
       ) : hint ? (

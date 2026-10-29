@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { formatHours } from "@/lib/diagnostics/hours-back";
-import { hoursBackSentence, joinWishes, percent, PRIVACY_LINE, readoutSections, sectionTitle, showsPrivacyLine, type ReadoutData } from "@/lib/diagnostics/readout";
+import { buildText, hoursBackSentence, joinWishes, ownerWeekLines, percent, PRIVACY_LINE, readoutSections, sectionTitle, showsPrivacyLine, type ReadoutData } from "@/lib/diagnostics/readout";
 import type { ReadoutSection } from "@/lib/diagnostics/types";
 import { CapacityMap } from "../CapacityMap";
 import { SystemsMap } from "../SystemsMap";
@@ -118,6 +118,19 @@ export function ReadoutView({ r }: { r: ReadoutData }) {
             ))}
           </ul>
         ) : null}
+        {r.ownerWeek ? (
+          <>
+            <h3 className={styles.subhead}>The owner&rsquo;s week</h3>
+            <ul className={styles.plainList}>
+              {ownerWeekLines(r.ownerWeek).map(([q, a]) => (
+                <li key={q} className={styles.qa}>
+                  <span className={styles.muted}>{q}</span>
+                  <span>{a}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
       </Section>
 
       <Section k="next_wins" r={r}>
@@ -131,13 +144,27 @@ export function ReadoutView({ r }: { r: ReadoutData }) {
                   <strong>{w.title}</strong>, helps {w.helps.join(", ") || "the team"}
                 </span>
                 <span>
-                  {formatHours(w.hours)} hours a week, data risk {w.dataRisk ?? "not set"}, build {w.buildEffortHours == null ? "not estimated" : `${formatHours(w.buildEffortHours)} hours`}
+                  {formatHours(w.hours)} hours a week, data risk {w.dataRisk ?? "not set"}, build {buildText(w)}
                 </span>
               </li>
             ))}
           </ol>
         )}
       </Section>
+
+      {r.agentTeam?.length ? (
+        <Section k="agent_team" r={r}>
+          {r.agentTeam.map((a, i) => (
+            <div key={i} className={styles.agentCard}>
+              <strong>{a.name}</strong>
+              {a.role ? <span>{a.role}</span> : null}
+              {a.routine ? <span className={styles.muted}>Routine: {a.routine}</span> : null}
+              {a.connectors ? <span className={styles.muted}>Connects to: {a.connectors}</span> : null}
+              {a.limits ? <span className={styles.muted}>Limits: {a.limits}</span> : null}
+            </div>
+          ))}
+        </Section>
+      ) : null}
 
       {r.systems ? (
         <Section k="guardrails" r={r}>
@@ -154,6 +181,7 @@ export function ReadoutView({ r }: { r: ReadoutData }) {
             <strong>Data at risk:</strong> {r.guardrails.dataAtRisk}
           </p>
         ) : null}
+        <VoiceAndLimits r={r} />
         {r.guardrails.rules.length ? (
           <ol className={styles.readoutRules}>
             {r.guardrails.rules.map((rule, i) => (
@@ -181,6 +209,20 @@ export function ReadoutView({ r }: { r: ReadoutData }) {
           </ol>
         )}
       </Section>
+    </>
+  );
+}
+
+// How the business sounds and what an agent never does alone (0309).
+function VoiceAndLimits({ r }: { r: ReadoutData }) {
+  return (
+    <>
+      {r.guardrails.voice ? (
+        <p>
+          <strong>How the business sounds:</strong> {r.guardrails.voice}
+        </p>
+      ) : null}
+      {r.guardrails.neverAlone ? <p>{r.guardrails.neverAlone}.</p> : null}
     </>
   );
 }
@@ -229,6 +271,7 @@ function SystemsAndAi({ r }: { r: ReadoutData }) {
           <strong>Data at risk:</strong> {r.guardrails.dataAtRisk}
         </p>
       ) : null}
+      <VoiceAndLimits r={r} />
       {r.guardrails.rules.length ? (
         <ol className={styles.readoutRules}>
           {r.guardrails.rules.map((rule, i) => (

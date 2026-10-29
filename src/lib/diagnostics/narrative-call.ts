@@ -41,6 +41,12 @@ ${
   r.systems
     ? `- The ${sectionTitle("guardrails", r)} (the "guardrails" entry) covers the client's systems, where information is carried by hand from one to another and the hours a week that takes, how the team uses AI tools today, and the guardrail rules. Hours carried by hand are a separate figure from the hours back: never add them to the measured or projected hours. Describe AI use only as counts and tool names, never who uses which tool.\n`
     : ""
+}${
+  r.ownerWeek ? `- "ownerWeek" is the owner's own answers about their week: what they wish they didn't do, what breaks when they're away, and where work waits on them. Use it in The Capacity Destination, in the owner's own terms.\n` : ""
+}${
+  readoutSections(r).includes("agent_team") && r.agentTeam?.length
+    ? `- The ${sectionTitle("agent_team", r)} ("agent_team") is the set of agents recommended to take the candidate work, each with its role, routine, the systems it connects to and its limits. Describe what the team would take off people's plates and the limits it works within. It is a recommendation the owner decides on.\n`
+    : ""
 }- Name nobody. Refer to roles, never to a person, except that an approved quote may carry the name it was given.
 - When a section has nothing in the input (no quotes yet, no roadmap yet), write one sentence saying what will go there.
 - Plain English, short sentences, no jargon, no sales language, no exclamation marks.

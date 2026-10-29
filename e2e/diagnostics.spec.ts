@@ -67,14 +67,35 @@ test.describe("Capacity Diagnostic", () => {
     await expect(page.getByLabel("Task title for Quotes")).toBeVisible({ timeout: 15_000 });
     await page.getByLabel("Information Quotes copies").selectOption({ label: "Outlook to Epicor" });
     await expect(page.getByLabel("Information Quotes copies")).toHaveValue(/>/, { timeout: 15_000 });
+    // Scoring (0309): each choice saves at once; wait between them, as
+    // server actions run one at a time.
+    for (const [label, value] of [
+      ["How often for Quotes", "daily"],
+      ["Data risk for Quotes", "low"],
+      ["Build effort for Quotes", "half_day"],
+      ["Needs approval for Quotes", "yes"],
+      ["Agent type for Quotes", "customer_follow_up"],
+    ]) {
+      await page.getByLabel(label).selectOption(value);
+      await expect(page.getByLabel(label)).toHaveValue(value, { timeout: 15_000 });
+    }
+    await page.getByLabel("Email", { exact: true }).check();
+    await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0, { timeout: 30_000 });
     const ai = page.getByLabel("AI tools the team uses for work");
     await ai.fill("ChatGPT");
     await ai.blur();
     // Server actions run one at a time: let the save land before Next.
-    await expect(page.getByText("Saving", { exact: true })).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByRole("link", { name: /Pre-flight.*Done/ })).toBeVisible({ timeout: 15_000 });
     await next.click();
     await expect(page).toHaveURL(/step=kickoff$/, { timeout: 15_000 });
     await expect(page.getByText("People in scope")).toHaveCount(0);
+    // The owner's week (0309), and the header names the step.
+    await expect(page.getByText("Capacity Diagnostic · Kickoff")).toBeVisible();
+    const wish = page.getByLabel("What do you personally do every week that you wish you didn't?");
+    await wish.fill("Chasing quotes nobody answered");
+    await wish.blur();
+    await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0, { timeout: 30_000 });
 
     // ---- the systems map ----
     await page.getByRole("button", { name: "Next: Build" }).click();
@@ -93,6 +114,15 @@ test.describe("Capacity Diagnostic", () => {
     await win.getByLabel("Measured week ending").fill("2026-10-16");
     await win.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("button", { name: "Edit first win" })).toBeVisible({ timeout: 15_000 });
+    // The score and how it adds up, the suggested agent team, the voice,
+    // and the readout date shown here, set on Kickoff (0309).
+    await expect(page.getByText("80 for hours, 0 for risk, 0 for build")).toBeVisible();
+    await expect(page.getByLabel("Agent name")).toHaveValue("Customer follow-up agent");
+    await expect(page.getByRole("link", { name: "Edit on Kickoff" })).toBeVisible();
+    const voice = page.getByLabel("How the business sounds when it writes to customers");
+    await voice.fill("Friendly and direct");
+    await voice.blur();
+    await expect(page.getByText("Saving…", { exact: true })).toHaveCount(0, { timeout: 30_000 });
 
     // ---- the readout: publish, the PDF, the Markdown, the decision ----
     await page.goto(page.url().replace(/step=build$/, "step=readout"));
@@ -104,7 +134,9 @@ test.describe("Capacity Diagnostic", () => {
     expect(pdf.status()).toBe(200);
     expect(pdf.headers()["content-type"]).toBe("application/pdf");
     const md = await page.request.get(`${base}/readout/markdown`);
-    expect(await md.text()).toContain("## The Capacity Destination");
+    const mdText = await md.text();
+    expect(mdText).toContain("## The Capacity Destination");
+    expect(mdText).toContain("## Recommended agent team");
     await page.getByRole("link", { name: "Open the readout" }).click();
     await expect(page.getByRole("heading", { name: "Hours Back" })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("6 hours a week, measured.")).toBeVisible();
@@ -112,8 +144,12 @@ test.describe("Capacity Diagnostic", () => {
     await expect(page.getByText("8 hours a week by hand", { exact: true })).toBeVisible();
     await expect(page.getByText("ChatGPT")).toBeVisible();
     await expect(page.getByRole("heading", { name: "In Their Words" })).toHaveCount(0);
+    await expect(page.getByText("Chasing quotes nobody answered")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recommended Agent Team" })).toBeVisible();
+    await expect(page.getByText("How the business sounds:")).toBeVisible();
     await page.getByRole("link", { name: /Readout step/ }).click();
     await page.getByRole("button", { name: "They chose the sprint" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Record it" }).click();
     await expect(page.getByRole("button", { name: "Set back to pending" })).toBeVisible({ timeout: 15_000 });
 
     // ---- across clients ----

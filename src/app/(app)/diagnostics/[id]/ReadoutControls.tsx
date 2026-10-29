@@ -154,18 +154,36 @@ export function PublishButton({ diagnosticId, blocker }: { diagnosticId: string;
   );
 }
 
-export function DecisionButtons({ diagnosticId, decision }: { diagnosticId: string; decision: Decision }) {
+// The owner's decision (0309): only once the readout is published, and
+// asked once before it is recorded.
+export function DecisionButtons({ diagnosticId, decision, published }: { diagnosticId: string; decision: Decision; published: boolean }) {
   const { pending, error, run } = useDxAction();
+  const [asking, setAsking] = useState<"sprint" | "declined" | null>(null);
   return (
     <span className={styles.formRow}>
       {decision === "pending" ? (
         <>
-          <button type="button" className={styles.primary} disabled={pending} onClick={() => run(() => recordDecisionAction(diagnosticId, "sprint"))}>
+          <button type="button" className={styles.primary} disabled={pending || !published} onClick={() => setAsking("sprint")}>
             They chose the sprint
           </button>
-          <button type="button" className={styles.secondary} disabled={pending} onClick={() => run(() => recordDecisionAction(diagnosticId, "declined"))}>
+          <button type="button" className={styles.secondary} disabled={pending || !published} onClick={() => setAsking("declined")}>
             They declined
           </button>
+          {published ? null : <span className={styles.status}>Publish the readout first. The decision follows the readout the owner was given.</span>}
+          <ConfirmDialog
+            open={asking !== null}
+            tone="primary"
+            title={asking === "sprint" ? "Record that they chose the sprint?" : "Record that they declined?"}
+            message="This marks the diagnostic decided. You can set it back to pending."
+            confirmLabel="Record it"
+            pending={pending}
+            onConfirm={() => {
+              const d = asking;
+              setAsking(null);
+              if (d) run(() => recordDecisionAction(diagnosticId, d));
+            }}
+            onCancel={() => setAsking(null)}
+          />
         </>
       ) : (
         <button type="button" className={styles.secondary} disabled={pending} onClick={() => run(() => recordDecisionAction(diagnosticId, "pending"))}>

@@ -1,6 +1,7 @@
 import { capacityMap, formatHours, summarize, topNextWins, type MapPoint } from "./hours-back";
+import { agentTeam, limitsText, suggestAgentTeam } from "./agents";
 import { winPattern } from "./win-patterns";
-import { READOUT_SECTIONS, toTask, toWin, type DiagnosticBundle, type Narrative, type ReadoutSection, type RoadmapItem, type TaskRow } from "./types";
+import { BUILD_EFFORTS, READOUT_SECTIONS, labelOf, toTask, toWin, type AgentCard, type DiagnosticBundle, type Narrative, type ReadoutSection, type RoadmapItem, type TaskRow } from "./types";
 import { INTERVIEWS_SHOWN } from "./steps";
 import { bundleHasSystemsData, snapshotOf, type AiSummary, type Connection, type SnapshotSystem, type SystemsSnapshot } from "./systems-snapshot";
 
@@ -106,8 +107,16 @@ export type ReadoutData = {
     roles: Array<{ role: string; hours: number; wishes: string[] }>;
     assignedHours: number;
   };
-  nextWins: Array<{ title: string; hours: number; people: number; helps: string[]; dataRisk: string | null; buildEffortHours: number | null }>;
-  guardrails: { tools: string[]; dataAtRisk: string | null; rules: string[] };
+  // buildEffort (0309) is the build in three steps, as a label; a readout
+  // published before it carries buildEffortHours alone.
+  nextWins: Array<{ title: string; hours: number; people: number; helps: string[]; dataRisk: string | null; buildEffortHours: number | null; buildEffort?: string | null }>;
+  // voice and neverAlone (0309): how the business sounds, and what an
+  // agent never does alone. Absent on a readout published before.
+  guardrails: { tools: string[]; dataAtRisk: string | null; rules: string[]; voice?: string | null; neverAlone?: string };
+  // 0309. The owner's week, shown under The Capacity Destination.
+  ownerWeek?: { wishList: string | null; awayBreaks: string | null; bottlenecks: string | null };
+  // 0309. The recommended agent team, after Top 3 Next Wins.
+  agentTeam?: AgentCard[];
   roadmap: RoadmapItem[];
   narrative: Narrative;
   // Phase 4. Absent on a readout with no systems data, and on every
@@ -187,7 +196,13 @@ export function assembleReadout(b: DiagnosticBundle, preparedOn: string): Readou
     helps: [...new Set(g.taskIds.map((id) => rowOf.get(id)).filter((t): t is TaskRow => Boolean(t)).map(roleOfTask))],
     dataRisk: g.dataRisk,
     buildEffortHours: g.buildEffortHours,
+    buildEffort: g.buildEffort ? labelOf(BUILD_EFFORTS, g.buildEffort) : null,
   }));
+  const team = agentTeam(
+    d.agent_team,
+    suggestAgentTeam(tasks, { systemName: new Map(b.systems.map((x) => [x.id, x.name])), neverAlone: d.never_alone ?? [], neverAloneOther: d.never_alone_other ?? null })
+  );
+  const ownerWeek = { wishList: d.owner_wish_list ?? null, awayBreaks: d.owner_away_breaks ?? null, bottlenecks: d.owner_bottlenecks ?? null };
 
   return {
     version: 1,
@@ -213,7 +228,15 @@ export function assembleReadout(b: DiagnosticBundle, preparedOn: string): Readou
     },
     destination: { text: d.capacity_destination, roles, assignedHours: roles.reduce((s, r) => s + r.hours, 0) },
     nextWins,
-    guardrails: { tools: splitList(d.tools_in_use), dataAtRisk: d.data_at_risk, rules: splitList(d.guardrail_rules, /\n+/) },
+    guardrails: {
+      tools: splitList(d.tools_in_use),
+      dataAtRisk: d.data_at_risk,
+      rules: splitList(d.guardrail_rules, /\n+/),
+      voice: d.brand_voice ?? null,
+      neverAlone: limitsText(d.never_alone ?? [], d.never_alone_other ?? null),
+    },
+    ...(ownerWeek.wishList || ownerWeek.awayBreaks || ownerWeek.bottlenecks ? { ownerWeek } : {}),
+    agentTeam: team,
     roadmap: (d.roadmap ?? []).filter((r) => r.title?.trim()),
     narrative: d.narrative ?? {},
     ...(bundleHasSystemsData(b) || aiTools.length ? { systems: readoutSystems(snapshotOf(b), aiTools) } : {}),
@@ -288,6 +311,7 @@ export function readoutFigures(r: ReadoutData): string[] {
     add(w.buildEffortHours);
   });
   add(r.nextWins.length);
+  add(r.agentTeam?.length);
   add(r.guardrails.tools.length);
   add(r.guardrails.rules.length);
   if (r.systems) {
@@ -318,6 +342,12 @@ export function readoutFigures(r: ReadoutData): string[] {
     ...r.destination.roles.flatMap((x) => x.wishes),
     ...r.nextWins.map((w) => w.title),
     r.guardrails.dataAtRisk,
+    r.guardrails.voice,
+    r.guardrails.neverAlone,
+    r.ownerWeek?.wishList,
+    r.ownerWeek?.awayBreaks,
+    r.ownerWeek?.bottlenecks,
+    ...(r.agentTeam ?? []).flatMap((a) => [a.name, a.role, a.routine, a.connectors, a.limits]),
     ...r.guardrails.tools,
     ...r.guardrails.rules,
     ...r.roadmap.flatMap((x) => [x.title, x.champion]),
@@ -340,14 +370,28 @@ export function readoutMarkdown(r: ReadoutData): string {
     }
     lines.push("");
   }
+  if (r.ownerWeek) {
+    lines.push("### The owner's week", "");
+    for (const [q, a] of ownerWeekLines(r.ownerWeek)) lines.push(`- ${q} ${a}`);
+    lines.push("");
+  }
   lines.push("## Top 3 next wins", "");
   if (r.nextWins.length === 0) lines.push("None yet.", "");
   r.nextWins.forEach((w, i) => {
-    lines.push(
-      `${i + 1}. ${w.title}: ${formatHours(w.hours)} hours a week, helps ${w.helps.join(", ") || "the team"}; data risk ${w.dataRisk ?? "not set"}; build ${w.buildEffortHours == null ? "not estimated" : `${formatHours(w.buildEffortHours)} hours`}`
-    );
+    lines.push(`${i + 1}. ${w.title}: ${formatHours(w.hours)} hours a week, helps ${w.helps.join(", ") || "the team"}; data risk ${w.dataRisk ?? "not set"}; build ${buildText(w)}`);
   });
   if (r.nextWins.length) lines.push("");
+  if (r.agentTeam?.length) {
+    lines.push("## Recommended agent team", "");
+    for (const a of r.agentTeam) {
+      lines.push(`### ${a.name}`, "");
+      if (a.role) lines.push(`- Role: ${a.role}`);
+      if (a.routine) lines.push(`- Routine: ${a.routine}`);
+      if (a.connectors) lines.push(`- Connects to: ${a.connectors}`);
+      if (a.limits) lines.push(`- Limits: ${a.limits}`);
+      lines.push("");
+    }
+  }
   lines.push("## The 90-day roadmap", "");
   if (r.roadmap.length === 0) lines.push("Not set yet.", "");
   r.roadmap.forEach((item, i) => {
@@ -355,6 +399,25 @@ export function readoutMarkdown(r: ReadoutData): string {
     lines.push(`${i + 1}. ${item.title} (${week})${item.champion?.trim() ? `, champion: ${item.champion.trim()}` : ""}`);
   });
   return lines.join("\n").trimEnd() + "\n";
+}
+
+// A next win's build, in the words the readout prints.
+export function buildText(w: Pick<ReadoutData["nextWins"][number], "buildEffort" | "buildEffortHours">): string {
+  if (w.buildEffort) return w.buildEffort.toLowerCase();
+  return w.buildEffortHours == null ? "not estimated" : `${formatHours(w.buildEffortHours)} hours`;
+}
+
+// The owner's week as question and answer, the answered ones only.
+export const OWNER_WEEK_QUESTIONS = {
+  wishList: "What do you personally do every week that you wish you didn't?",
+  awayBreaks: "What breaks or waits when you're away for a week?",
+  bottlenecks: "Where does work wait on you to decide or approve?",
+} as const;
+
+export function ownerWeekLines(w: NonNullable<ReadoutData["ownerWeek"]>): Array<[string, string]> {
+  return (Object.keys(OWNER_WEEK_QUESTIONS) as Array<keyof typeof OWNER_WEEK_QUESTIONS>)
+    .filter((k) => w[k]?.trim())
+    .map((k) => [OWNER_WEEK_QUESTIONS[k], w[k]!.trim()]);
 }
 
 // What the people in one role would do with the time, as one line.

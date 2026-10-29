@@ -1,7 +1,11 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
-import { formatHours, type CandidateGroup, type CapacitySummary, type MapPoint } from "@/lib/diagnostics/hours-back";
+import { formatHours, SCORE_WEIGHTS, type CandidateGroup, type CapacitySummary, type MapPoint } from "@/lib/diagnostics/hours-back";
 import { winPattern } from "@/lib/diagnostics/win-patterns";
-import { taskWho, type DiagnosticRow, type ParticipantRow, type TaskRow, type WinRow } from "@/lib/diagnostics/types";
+import { BUILD_EFFORTS, NEVER_ALONE, labelOf, taskWho, type AgentCard, type DiagnosticRow, type ParticipantRow, type TaskRow, type WinRow } from "@/lib/diagnostics/types";
+import { limitsText } from "@/lib/diagnostics/agents";
+import { AgentTeam } from "./AgentTeam";
+import { DxMulti } from "./DxChoices";
 import { StepCard } from "./StepCard";
 import { CapacityMap } from "./CapacityMap";
 import { SystemsMap } from "./SystemsMap";
@@ -21,7 +25,13 @@ import styles from "../diagnostics.module.css";
 // (phase 4): the systems map beside the Capacity Map, and the systems
 // and AI card for the assessor. While the people interviews are hidden
 // (steps.ts) nobody rates a task, so there is no Capacity Map: the
-// systems map is the picture, and candidates go by hours.
+// systems map is the picture.
+//
+// 0309: candidates rank by score (SCORE_WEIGHTS: hours up, data risk
+// and build effort down), with the breakdown shown; Top next wins are
+// the low-risk, half-a-day builds among them; the recommended agent
+// team; the voice and limits in the guardrails; and the readout date is
+// set on Kickoff alone.
 
 const RISK: Record<string, string> = { low: "Low", medium: "Medium", high: "High" };
 
@@ -35,6 +45,7 @@ export function BuildStep({
   next,
   points,
   snapshot,
+  agentTeam,
   footer,
 }: {
   diagnostic: DiagnosticRow;
@@ -46,6 +57,7 @@ export function BuildStep({
   next: CandidateGroup[];
   points: MapPoint[];
   snapshot: SystemsSnapshot;
+  agentTeam: { saved: AgentCard[] | null; suggested: AgentCard[] };
   footer: ReactNode;
 }) {
   const names = new Map(participants.map((p) => [p.id, p.name]));
@@ -98,9 +110,10 @@ export function BuildStep({
                   <th className={styles.num}>{who.head}</th>
                   <th className={styles.num}>Hours a week</th>
                   <th className={styles.num}>Checked</th>
-                  {INTERVIEWS_SHOWN ? <th className={styles.num}>Score</th> : null}
                   <th>Data risk</th>
-                  <th className={styles.num}>Build hours</th>
+                  <th>Build effort</th>
+                  <th className={styles.num}>Score</th>
+                  <th>How it adds up</th>
                   <th>
                     <span className={styles.srOnly}>Quick win</span>
                   </th>
@@ -113,9 +126,12 @@ export function BuildStep({
                     <td className={styles.num}>{g.people}</td>
                     <td className={styles.num}>{formatHours(g.hours)}</td>
                     <td className={styles.num}>{formatHours(g.checkedHours)}</td>
-                    {INTERVIEWS_SHOWN ? <td className={styles.num}>{Math.round(g.score)}</td> : null}
                     <td>{g.dataRisk ? RISK[g.dataRisk] : "Not set"}</td>
-                    <td className={styles.num}>{g.buildEffortHours == null ? "Not set" : formatHours(g.buildEffortHours)}</td>
+                    <td>{labelOf(BUILD_EFFORTS, g.buildEffort)}</td>
+                    <td className={styles.num}>{Math.round(g.score)}</td>
+                    <td className={styles.muted}>
+                      {Math.round(g.breakdown.hours)} for hours, {signed(g.breakdown.dataRisk)} for risk, {signed(g.breakdown.buildEffort)} for build
+                    </td>
                     <td>{g.quickWin ? <span className={styles.chip}>Quick win</span> : null}</td>
                   </tr>
                 ))}
@@ -123,9 +139,15 @@ export function BuildStep({
             </table>
           </div>
         )}
+        <p className={`${styles.status} ${styles.cardLead}`}>
+          Score: {SCORE_WEIGHTS.perHour} for each hour a week, less {-SCORE_WEIGHTS.dataRisk.medium} for medium data risk or {-SCORE_WEIGHTS.dataRisk.high} for high, less {-SCORE_WEIGHTS.buildEffort.one_two_days} for a 1 to 2 day build or {-SCORE_WEIGHTS.buildEffort.more} for a longer one. Not scored yet counts as less {-SCORE_WEIGHTS.dataRisk.unset} and {-SCORE_WEIGHTS.buildEffort.unset}.
+        </p>
+        <h3 className={styles.subhead}>Top 3 next wins</h3>
+        {next.length === 0 ? (
+          <p className={styles.empty}>None yet. A next win is a candidate with low data risk and a build of half a day or less, other than the first win.</p>
+        ) : null}
         {next.length > 0 ? (
           <>
-            <h3 className={styles.subhead}>Top next wins</h3>
             <ul className={styles.plainList}>
               {next.map((g) => (
                 <li key={g.key}>
@@ -250,11 +272,31 @@ export function BuildStep({
         </div>
       </StepCard>
 
+      <StepCard id="dx-agent-team" title="Recommended agent team" meta={`${(agentTeam.saved?.length ? agentTeam.saved : agentTeam.suggested).length}`}>
+        <AgentTeam
+          diagnosticId={diagnostic.id}
+          saved={agentTeam.saved}
+          suggested={agentTeam.suggested}
+          defaultLimits={limitsText(diagnostic.never_alone ?? [], diagnostic.never_alone_other)}
+        />
+      </StepCard>
+
       <StepCard id="dx-guardrails" title="Guardrails snapshot">
         <div className={styles.body}>
           <p className={styles.muted}>
-            The tools in use come from pre-flight. Add the kinds of data the builds would touch and three rules to put in place now.
+            The tools in use come from pre-flight. Add how the business sounds, what an agent must never do alone, the kinds of data the builds would touch and three rules to put in place now.
           </p>
+          <DxField
+            diagnosticId={diagnostic.id}
+            field="brand_voice"
+            label="How the business sounds when it writes to customers"
+            value={diagnostic.brand_voice}
+            multiline
+            placeholder="Friendly and direct. First names. Short emails, no jargon."
+            maxLength={2000}
+          />
+          <DxMulti diagnosticId={diagnostic.id} field="never_alone" label="An agent never does these alone" options={NEVER_ALONE} value={diagnostic.never_alone ?? []} />
+          <DxField diagnosticId={diagnostic.id} field="never_alone_other" label="Anything else it never does alone" value={diagnostic.never_alone_other} maxLength={500} />
           <DxField
             diagnosticId={diagnostic.id}
             field="data_at_risk"
@@ -280,7 +322,15 @@ export function BuildStep({
         <div className={styles.body}>
           <div className={styles.grid2}>
             <DxField diagnosticId={diagnostic.id} field="midpoint_at" label="Date" type="date" value={diagnostic.midpoint_at} />
-            <DxField diagnosticId={diagnostic.id} field="readout_at" label="Readout date" type="date" value={diagnostic.readout_at} />
+            <div>
+              <span className={styles.status}>Readout date</span>
+              <p>
+                {diagnostic.readout_at ? shortDate(diagnostic.readout_at) : "Not set"}{" "}
+                <Link href={`/diagnostics/${diagnostic.id}?step=kickoff`} className={styles.link}>
+                  Edit on Kickoff
+                </Link>
+              </p>
+            </div>
           </div>
           <DxField
             diagnosticId={diagnostic.id}
@@ -296,6 +346,9 @@ export function BuildStep({
     </>
   );
 }
+
+// A weight with its sign: "0", "-20".
+const signed = (n: number) => (n > 0 ? `+${Math.round(n)}` : String(Math.round(n)));
 
 function Figure({ value, label }: { value: string; label: string }) {
   return (

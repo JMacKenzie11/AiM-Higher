@@ -5,6 +5,8 @@ import { StepCard } from "./StepCard";
 import { DxCheck, DxField } from "./DxField";
 import { SystemsWalkthrough } from "./SystemsWalkthrough";
 import { WalkthroughTasks } from "./WalkthroughTasks";
+import { DxMulti, KnowledgeBaseField } from "./DxChoices";
+import { INTAKE_CHANNELS } from "@/lib/diagnostics/types";
 import styles from "../diagnostics.module.css";
 
 // 1. PRE-FLIGHT. The five working days before kickoff: the tools the
@@ -46,6 +48,20 @@ export function PreflightStep({
           {INTERVIEWS_SHOWN ? <DxCheck diagnosticId={id} field="conversations_booked" label="Conversations booked" checked={diagnostic.conversations_booked} /> : null}
         </div>
         <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} />
+        {/* Where requests come in, and what is written down (0309). */}
+        <div className={styles.grid2}>
+          <div>
+            <DxMulti
+              diagnosticId={id}
+              field="intake_channels"
+              label="Where do requests come in: email, Slack or Teams, phone, CRM, web forms?"
+              options={INTAKE_CHANNELS}
+              value={diagnostic.intake_channels ?? []}
+            />
+            <DxField diagnosticId={id} field="intake_other" label="Anywhere else" value={diagnostic.intake_other} maxLength={500} placeholder="Walk-ins, text messages" />
+          </div>
+          <KnowledgeBaseField diagnosticId={id} value={diagnostic.knowledge_base} />
+        </div>
         {INTERVIEWS_SHOWN ? null : (
           <>
             <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} />
