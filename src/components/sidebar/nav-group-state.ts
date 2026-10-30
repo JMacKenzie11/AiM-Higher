@@ -85,3 +85,15 @@ export function serializeCollapsedGroups(
   const list = Array.from(groups).filter(Boolean);
   return list.length === 0 ? NO_GROUPS_COLLAPSED : list.join(",");
 }
+
+// HOME IS THE ONE GROUP THAT FORGETS (Jason, 2026-10-30). It starts
+// closed, and once opened it stays open until the browser closes:
+// a session cookie, no max-age, set while it is open and cleared when
+// it is closed again. The year-long set above never holds "Home", so
+// a preference saved there before this cannot keep it open for good.
+export const HOME_GROUP = "Home";
+export const HOME_OPEN_COOKIE = "nav-home-open";
+
+export function homeOpenFrom(cookieValue: string | undefined): boolean {
+  return cookieValue === "1";
+}

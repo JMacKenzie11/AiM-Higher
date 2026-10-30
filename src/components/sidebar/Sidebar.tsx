@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import posthog from "posthog-js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  HOME_GROUP,
+  HOME_OPEN_COOKIE,
   NAV_GROUPS_COOKIE,
   serializeCollapsedGroups,
 } from "./nav-group-state";
@@ -371,6 +373,9 @@ export type SidebarProps = {
   // the parsed list in, so the first paint matches the persisted
   // state instead of flashing all-expanded and snapping shut.
   initialCollapsedGroups?: readonly string[];
+  // Whether Home is open: closed unless opened this browser session
+  // (nav-group-state.ts, HOME_OPEN_COOKIE).
+  initialHomeOpen?: boolean;
 };
 
 export function Sidebar({
@@ -386,12 +391,14 @@ export function Sidebar({
   notifications = [],
   initialCollapsed = false,
   initialCollapsedGroups = [],
+  initialHomeOpen = false,
 }: SidebarProps) {
   const pathname = usePathname() ?? "";
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
     () => new Set(initialCollapsedGroups)
   );
+  const [homeOpen, setHomeOpen] = useState(initialHomeOpen);
   const [mobileOpen, setMobileOpen] = useState(false);
   // Ref to the inner scrollable nav so we can position the current
   // page's link into view when the mobile drawer opens. Without this,
@@ -457,6 +464,15 @@ export function Sidebar({
   }
 
   function toggleGroup(label: string) {
+    if (label === HOME_GROUP) {
+      // A session cookie: no max-age, so it ends with the browser.
+      const next = !homeOpen;
+      document.cookie = next
+        ? `${HOME_OPEN_COOKIE}=1; path=/; samesite=lax`
+        : `${HOME_OPEN_COOKIE}=; path=/; max-age=0; samesite=lax`;
+      setHomeOpen(next);
+      return;
+    }
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
@@ -663,7 +679,8 @@ export function Sidebar({
             // only — the label is hidden and we render all children as
             // icons regardless of the group's collapsed state. Toggling
             // groups only makes sense when the labels are visible.
-            const groupCollapsed = !collapsed && collapsedGroups.has(item.label);
+            const groupCollapsed =
+              !collapsed && (item.label === HOME_GROUP ? !homeOpen : collapsedGroups.has(item.label));
             const panelId = `nav-group-${item.label.toLowerCase().replace(/\s+/g, "-")}`;
             return (
               <div key={item.label} className={styles.section}>

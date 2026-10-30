@@ -3,6 +3,8 @@ import path from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_COLLAPSED_GROUPS,
+  HOME_GROUP,
+  homeOpenFrom,
   NO_GROUPS_COLLAPSED,
   parseCollapsedGroups,
   serializeCollapsedGroups,
@@ -127,5 +129,17 @@ describe("serializeCollapsedGroups", () => {
     const s = serializeCollapsedGroups(DEFAULT_COLLAPSED_GROUPS);
     expect(s).not.toBe(NO_GROUPS_COLLAPSED);
     expect(parseCollapsedGroups(s)).toEqual([...DEFAULT_COLLAPSED_GROUPS]);
+  });
+});
+
+describe("homeOpenFrom", () => {
+  it("is closed unless opened this session", () => {
+    expect(homeOpenFrom(undefined)).toBe(false);
+    expect(homeOpenFrom("")).toBe(false);
+    expect(homeOpenFrom("1")).toBe(true);
+  });
+
+  it("is never one of the year-long defaults", () => {
+    expect(DEFAULT_COLLAPSED_GROUPS).not.toContain(HOME_GROUP);
   });
 });
