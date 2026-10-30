@@ -137,6 +137,7 @@ export const PAGES: readonly PageEntry[] = [
   { pattern: "/diagnostics/clients", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/diagnostics/clients/[id]", roles: ["system_admin"], feature: null, link: false },
   { pattern: "/diagnostics/bots", roles: ["system_admin"], feature: null, link: false },
+  { pattern: "/diagnostics/proposals/[id]", roles: ["system_admin"], feature: null, link: false },
 ];
 
 export function canRoleOpen(entry: PageEntry, role: Role): boolean {

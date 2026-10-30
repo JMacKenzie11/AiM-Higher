@@ -31,6 +31,7 @@ import { assembleReadout, isReadoutData, type ReadoutData } from "./readout";
 import type { AcrossInput } from "./across";
 import { sortAutomations } from "./automations";
 import type { PortalBotData, PortalDiagnostic } from "./portal";
+import { PROPOSAL_COLUMNS, isProposalSections, type ProposalRow } from "./proposals";
 import { BOT_COLUMNS, botHealth, botSavings, type BotHealth, type BotRow, type BotRun, type BotSavings } from "./bots";
 
 // Every read goes through the caller's own client, so row security
@@ -337,4 +338,58 @@ export async function listBots(clientId?: string): Promise<BotView[]> {
       };
     })
   );
+}
+
+// ---- Proposals (0312) ----------------------------------------------
+
+// Every version of every proposal to one client, newest first. System
+// admins only (0312's rules).
+export async function listProposals(clientId: string): Promise<ProposalRow[]> {
+  const supabase = await db();
+  const { data } = await supabase
+    .from("diagnostic_proposals")
+    .select(PROPOSAL_COLUMNS)
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  return ((data ?? []) as ProposalRow[]).map((p) => ({ ...p, sections: isProposalSections(p.sections) ? p.sections : [] }));
+}
+
+export type ProposalBundle = { proposal: ProposalRow; versions: ProposalRow[]; client: ClientRow };
+
+// One version, every version in its series (newest first), and its client.
+export async function getProposal(id: string): Promise<ProposalBundle | null> {
+  const supabase = await db();
+  const { data } = await supabase.from("diagnostic_proposals").select(PROPOSAL_COLUMNS).eq("id", id).maybeSingle<ProposalRow>();
+  if (!data) return null;
+  const [{ data: versions }, { data: client }] = await Promise.all([
+    supabase.from("diagnostic_proposals").select(PROPOSAL_COLUMNS).eq("series_id", data.series_id).order("version", { ascending: false }).limit(100),
+    supabase.from("diagnostic_clients").select(CLIENT_COLUMNS).eq("id", data.client_id).maybeSingle<ClientRow>(),
+  ]);
+  if (!client) return null;
+  const fix = (p: ProposalRow) => ({ ...p, sections: isProposalSections(p.sections) ? p.sections : [] });
+  return { proposal: fix(data), versions: ((versions ?? []) as ProposalRow[]).map(fix), client };
+}
+
+export type PortalProposalListItem = { id: string; title: string; version: number; published_at: string; client_signed_at: string | null };
+
+// The owner's published proposals, through portal_proposals() (0312):
+// their own client's, addressed to their sign-in email.
+export async function getPortalProposals(): Promise<PortalProposalListItem[]> {
+  const supabase = await db();
+  const { data, error } = await supabase.rpc("portal_proposals");
+  // Before 0312 reaches the instance the function is missing: no proposals.
+  if (error || !Array.isArray(data)) return [];
+  return data as PortalProposalListItem[];
+}
+
+export type PortalProposal = Omit<ProposalRow, "client_id" | "created_at" | "updated_at"> & { latest_id: string | null };
+
+export async function getPortalProposal(id: string): Promise<PortalProposal | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const supabase = await db();
+  const { data, error } = await supabase.rpc("portal_proposal", { p_id: id });
+  if (error || !data || typeof data !== "object") return null;
+  const p = data as PortalProposal;
+  return { ...p, sections: isProposalSections(p.sections) ? p.sections : [] };
 }

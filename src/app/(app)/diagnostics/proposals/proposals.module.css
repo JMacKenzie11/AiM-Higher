@@ -1,0 +1,209 @@
+/* Proposals (0312): the editor beside its signing panel, and the
+   proposal as a page, shared by the editor's preview and the portal. */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sectionTitle {
+  font: var(--text-h3);
+  font-size: 16px;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.step {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.stepDone {
+  color: var(--text);
+}
+
+.stepDot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.stepDone .stepDot {
+  background: var(--aims-success);
+  border-color: var(--aims-success);
+}
+
+.stepNow .stepDot {
+  border-color: var(--aims-warning);
+}
+
+.signName {
+  font-size: 18px;
+}
+
+.check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.check input {
+  margin-top: 3px;
+}
+
+.copyRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.copyRow input {
+  flex: 1;
+  min-width: 0;
+}
+
+.versions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.versions li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.current {
+  font-weight: 600;
+}
+
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  font: var(--text-body-sm);
+}
+
+.facts dt {
+  color: var(--text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The proposal as a page. */
+.doc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: var(--space-6) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  color: var(--text);
+}
+
+@media (max-width: 600px) {
+  .doc {
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+.docTop {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--aims-navy);
+}
+
+.docLogo {
+  width: 64px;
+  height: 64px;
+  flex: none;
+}
+
+.docTitle {
+  font: var(--text-h2);
+  color: var(--text-heading);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.docSub {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.docSection p {
+  margin: 0 0 var(--space-2);
+}
+
+.docSection ul,
+.docSection ol {
+  margin: 0 0 var(--space-2);
+  padding-left: 1.25rem;
+}
+
+.docSection li p {
+  margin: 0 0 var(--space-1);
+}
+
+.docHeading {
+  font: var(--text-h3);
+  font-size: 17px;
+  color: var(--text-heading);
+  margin: 0 0 var(--space-2);
+  padding-bottom: var(--space-1);
+  border-bottom: 3px solid var(--aims-chartreuse, #d6e264);
+  display: inline-block;
+}
