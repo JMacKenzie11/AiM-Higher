@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   NAV_GROUPS_COOKIE,
+  HOME_OPEN_COOKIE,
+  homeOpenFrom,
   parseCollapsedGroups,
 } from "@/components/sidebar/nav-group-state";
 import { Sidebar } from "@/components/sidebar/Sidebar";
@@ -148,6 +150,8 @@ export default async function AppLayout({
   const initialCollapsedGroups = parseCollapsedGroups(
     cookieStore.get(NAV_GROUPS_COOKIE)?.value
   );
+  // Home starts closed; opened, it stays open for the browser session.
+  const initialHomeOpen = homeOpenFrom(cookieStore.get(HOME_OPEN_COOKIE)?.value);
 
   const analyticsUser: PostHogUser = {
     id: session.profile.id,
@@ -183,6 +187,7 @@ export default async function AppLayout({
             notifications={bellNotifications}
             initialCollapsed={initialCollapsed}
             initialCollapsedGroups={initialCollapsedGroups}
+            initialHomeOpen={initialHomeOpen}
           />
           {/* What a drawer has open, shared with Aimee's panel (Step 4):
               the page underneath and the panel both sit inside it. */}
