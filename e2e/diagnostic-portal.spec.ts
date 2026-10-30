@@ -86,7 +86,7 @@ test.describe("Diagnostic client portal", () => {
     await expect(client.getByRole("banner").getByText(clientName)).toBeVisible();
     const project = client.getByRole("region", { name: "Your project" });
     await expect(project.getByText("Order entry is being tested with your team. It goes live on Friday, January 2.")).toBeVisible();
-    await expect(project.getByRole("listitem").filter({ has: client.getByText("Building", { exact: true }) })).toHaveAttribute("aria-current", "step");
+    await expect(project.getByRole("listitem").filter({ has: client.getByText("Deployment", { exact: true }) })).toHaveAttribute("aria-current", "step");
     await expect(client.getByText("Order entry will be your first bot")).toBeVisible();
 
     // Then live, with its bot.

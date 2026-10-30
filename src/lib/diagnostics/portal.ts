@@ -220,17 +220,18 @@ export function portalProject(
     },
     {
       key: "building",
-      title: "Building",
-      about: "We build your automations and test them with you.",
+      // Deployment and Support, as the proposal names the stages (0312).
+      title: "Deployment",
+      about: "We build and launch your bots and test them with you.",
       state: state(2),
       when: at === 2 && active.length ? `${active.length} ${active.length === 1 ? "automation" : "automations"} in progress` : "After your readout",
     },
     {
       key: "running",
-      title: "Running",
-      about: "Your bots do the work. You see the hours they save here.",
+      title: "Support",
+      about: "Your bots do the work and we watch every run. You see the hours they save here.",
       state: state(3),
-      when: firstLive ? `First one goes live ${monthDay(firstLive)}` : "After building",
+      when: firstLive ? `First one goes live ${monthDay(firstLive)}` : "After deployment",
     },
   ];
 
