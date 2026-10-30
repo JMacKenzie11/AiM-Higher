@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { portalBanner, portalBot, portalTotals, sortPortalBots, type PortalBotData } from "./portal";
+import { portalBanner, portalBot, portalProject, portalTotals, sortPortalBots, type PortalBotData } from "./portal";
 
 const now = new Date("2026-10-29T12:00:00Z"); // a Thursday; the week began Oct 26
 const data = (over: Partial<PortalBotData> = {}): PortalBotData => ({
@@ -60,5 +60,52 @@ describe("portalTotals and the banner", () => {
 
   it("lists the ones needing a look first", () => {
     expect(sortPortalBots([well, late, stopped]).map((b) => b.name)).toEqual(["Order entry", "Quote follow-ups", "Invoice matching"]);
+  });
+});
+
+describe("portalProject", () => {
+  const dx = { status: "preflight", kickoff_at: "2026-10-20", readout_at: "2026-11-13", published_at: null };
+  const auto = (title: string, stage: string, goes_live: string | null = null, build_starts: string | null = null) =>
+    ({ title, stage, goes_live, build_starts }) as Parameters<typeof portalProject>[1][number];
+
+  it("during the diagnostic: step one, its kickoff, the booked readout, and the readout day in the sentence", () => {
+    const p = portalProject(dx, [], "2026-10-30")!;
+    expect(p.at).toBe(0);
+    expect(p.steps.map((s) => s.state)).toEqual(["current", "todo", "todo", "todo"]);
+    expect(p.steps[0].when).toBe("Started October 20");
+    expect(p.steps[1].when).toBe("Booked for November 13");
+    expect(p.now).toBe("We are mapping your systems and the tasks that take up your team's week. Your readout is on Friday, November 13.");
+  });
+
+  it("a readout in progress is step two", () => {
+    const p = portalProject({ ...dx, status: "readout" }, [], "2026-11-10")!;
+    expect(p.at).toBe(1);
+    expect(p.now).toBe("We are putting your readout together. It is on Friday, November 13.");
+  });
+
+  it("once published, building: the automation nearest to live leads the sentence and the first go-live date shows", () => {
+    const p = portalProject({ ...dx, status: "decided", published_at: "2026-11-14T15:00:00Z" }, [
+      auto("New client intake", "planned", null, "2026-12-01"),
+      auto("Invoice follow-ups", "testing", "2026-12-04"),
+    ], "2026-11-28")!;
+    expect(p.at).toBe(2);
+    expect(p.steps.map((s) => s.state)).toEqual(["done", "done", "current", "todo"]);
+    expect(p.steps[1].when).toBe("Published November 14");
+    expect(p.steps[2].when).toBe("2 automations in progress");
+    expect(p.steps[3].when).toBe("First one goes live December 4");
+    expect(p.now).toBe("Invoice follow-ups is being tested with your team. It goes live on Friday, December 4.");
+    expect(p.next).toEqual({ title: "Invoice follow-ups", goesLive: "2026-12-04" });
+  });
+
+  it("published with nothing planned yet says so, and a past date is left out", () => {
+    expect(portalProject({ ...dx, published_at: "2026-11-14T15:00:00Z" }, [], "2026-11-20")!.now).toBe(
+      "Your readout is ready. Your first automations are being planned."
+    );
+    expect(portalProject(dx, [], "2026-11-20")!.now).toBe("We are mapping your systems and the tasks that take up your team's week.");
+  });
+
+  it("with no diagnostic it still shows, and once anything is live it gives way to the dashboard", () => {
+    expect(portalProject(null, [], "2026-10-30")!.steps[0].when).toBe("Starting soon");
+    expect(portalProject(dx, [auto("Invoice follow-ups", "live")], "2026-10-30")).toBeNull();
   });
 });

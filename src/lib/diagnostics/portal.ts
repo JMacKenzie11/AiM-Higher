@@ -1,4 +1,5 @@
 import { botHealth, botSchedule, botStatusLabel, weekStartUtc, type BotRow, type BotRun, type BotStatus } from "./bots";
+import type { AutomationRow } from "./types";
 
 // THE CLIENT DASHBOARD'S FIGURES (0310; Jason, 2026-10-29, the approved
 // portal mockup). From what portal_dashboard() returns: each bot's
@@ -149,3 +150,109 @@ export function sortPortalBots(bots: PortalBot[]): PortalBot[] {
 
 // The four stages a client's automation moves through, for the stepper.
 export const BUILD_STEPS = ["planned", "building", "testing", "live"] as const;
+
+// WHERE THE PROJECT STANDS (0311; Jason, 2026-10-30, the approved
+// mockup). Shown until the first automation goes live: the four
+// stages, the current one, a date for each, and one sentence on what
+// is happening now. Everything comes from what the lead already
+// enters: the diagnostic's status and dates, and the automations'
+// stages and dates. Nothing is typed for it.
+
+export type PortalDiagnostic = { status: string; kickoff_at: string | null; readout_at: string | null; published_at: string | null };
+
+export type ProjectStepKey = "diagnostic" | "readout" | "building" | "running";
+export type ProjectStep = { key: ProjectStepKey; title: string; about: string; state: "done" | "current" | "todo"; when: string };
+export type PortalProject = {
+  steps: ProjectStep[];
+  at: number;
+  now: string;
+  // The automation nearest to going live, for the bots placeholder.
+  next: { title: string; goesLive: string | null } | null;
+};
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const day = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return { y, m, d, w: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };
+};
+// "October 20"
+export const monthDay = (iso: string) => {
+  const { m, d } = day(iso);
+  return `${MONTHS[m - 1]} ${d}`;
+};
+// "Friday, November 14"
+export const weekdayDate = (iso: string) => `${DAYS[day(iso).w]}, ${monthDay(iso)}`;
+
+const STAGE_ORDER: Record<string, number> = { testing: 0, building: 1, planned: 2 };
+
+export function portalProject(
+  dx: PortalDiagnostic | null,
+  automations: Array<Pick<AutomationRow, "title" | "stage" | "build_starts" | "goes_live">>,
+  today: string
+): PortalProject | null {
+  if (automations.some((a) => a.stage === "live")) return null;
+  const active = automations
+    .filter((a) => a.stage in STAGE_ORDER)
+    .sort((a, b) => STAGE_ORDER[a.stage] - STAGE_ORDER[b.stage] || (a.goes_live ?? "9999").localeCompare(b.goes_live ?? "9999"));
+  const published = Boolean(dx?.published_at);
+  const started = active.some((a) => a.stage !== "planned");
+  const at = published || started ? 2 : dx?.status === "readout" ? 1 : 0;
+  const state = (i: number) => (i < at ? "done" : i === at ? "current" : "todo") as ProjectStep["state"];
+  const nearest = active[0] ?? null;
+  const firstLive = active.map((a) => a.goes_live).filter((x): x is string => Boolean(x)).sort()[0] ?? null;
+  const kickoff = dx?.kickoff_at ?? null;
+
+  const steps: ProjectStep[] = [
+    {
+      key: "diagnostic",
+      title: "Capacity Diagnostic",
+      about: "We map your systems and find where the hours go.",
+      state: state(0),
+      when: kickoff ? `${kickoff <= today ? "Started" : "Starts"} ${monthDay(kickoff)}` : "Starting soon",
+    },
+    {
+      key: "readout",
+      title: "Your readout",
+      about: "What we found, your first win and a 90-day plan.",
+      state: state(1),
+      when: dx?.published_at ? `Published ${monthDay(dx.published_at)}` : dx?.readout_at ? `Booked for ${monthDay(dx.readout_at)}` : "Date to come",
+    },
+    {
+      key: "building",
+      title: "Building",
+      about: "We build your automations and test them with you.",
+      state: state(2),
+      when: at === 2 && active.length ? `${active.length} ${active.length === 1 ? "automation" : "automations"} in progress` : "After your readout",
+    },
+    {
+      key: "running",
+      title: "Running",
+      about: "Your bots do the work. You see the hours they save here.",
+      state: state(3),
+      when: firstLive ? `First one goes live ${monthDay(firstLive)}` : "After building",
+    },
+  ];
+
+  let now: string;
+  if (at === 0) {
+    now = "We are mapping your systems and the tasks that take up your team's week.";
+    if (dx?.readout_at && dx.readout_at >= today) now += ` Your readout is on ${weekdayDate(dx.readout_at)}.`;
+  } else if (at === 1) {
+    now = "We are putting your readout together.";
+    if (dx?.readout_at && dx.readout_at >= today) now += ` It is on ${weekdayDate(dx.readout_at)}.`;
+  } else if (nearest) {
+    now =
+      nearest.stage === "testing"
+        ? `${nearest.title} is being tested with your team.`
+        : nearest.stage === "building"
+          ? `${nearest.title} is being built.`
+          : `${nearest.title} is planned.`;
+    if (nearest.goes_live && nearest.goes_live >= today) now += ` It goes live on ${weekdayDate(nearest.goes_live)}.`;
+    else if (nearest.stage === "planned" && nearest.build_starts && nearest.build_starts >= today) now += ` Building starts on ${weekdayDate(nearest.build_starts)}.`;
+  } else {
+    now = "Your readout is ready. Your first automations are being planned.";
+  }
+
+  return { steps, at, now, next: nearest ? { title: nearest.title, goesLive: nearest.goes_live } : null };
+}

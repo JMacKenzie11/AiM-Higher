@@ -13415,11 +13415,16 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 //             client's bot is not in it; portal_readout() gives its
 //             published readout. A system admin and a pending person
 //             get nothing from either.
+//   project   (0311) the dashboard's 'diagnostic' is its own client's
+//             diagnostic as status, kickoff, readout and published
+//             dates only; the other client's diagnostic dates are not
+//             in it.
 // Red before 0307: the role does not exist (profiles_role_check). Red
-// before 0310: portal_dashboard() does not exist.
+// before 0310: portal_dashboard() does not exist. Red before 0311: no
+// 'diagnostic' in the dashboard.
 async function diagnosticClientOwnClientProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "diagnostic client · own client only";
-  const CL = randomUUID(), CL2 = randomUUID(), DX = randomUUID(), AU = randomUUID(), AU2 = randomUUID();
+  const CL = randomUUID(), CL2 = randomUUID(), DX = randomUUID(), DX2 = randomUUID(), AU = randomUUID(), AU2 = randomUUID();
   const P = randomUUID(), PEND = randomUUID(), BAD = randomUUID();
   const BT = randomUUID(), BT2 = randomUUID();
   const user = (id: string) =>
@@ -13431,7 +13436,8 @@ insert into auth.users (id, instance_id, aud, role, email, encrypted_password, e
 values ${user(P)}, ${user(PEND)}, ${user(BAD)};
 insert into public.diagnostic_clients (id, name, owner_email, notes) values
   ('${CL}', 'Harness 0307 client', 'owner@example.invalid', 'lead notes'), ('${CL2}', 'Harness 0307 other client', null, null);
-insert into public.diagnostics (id, client_id) values ('${DX}', '${CL}');
+insert into public.diagnostics (id, client_id, kickoff_at, readout_at) values ('${DX}', '${CL}', '2026-10-20', '2026-11-14');
+insert into public.diagnostics (id, client_id, kickoff_at, readout_at) values ('${DX2}', '${CL2}', '2031-01-01', '2031-02-02');
 insert into public.diagnostic_automations (id, client_id, title, stage) values
   ('${AU}', '${CL}', 'Harness own automation', 'live'), ('${AU2}', '${CL2}', 'Harness other automation', 'live');
 insert into public.profiles (id, company_id, full_name, role, status) values
@@ -13473,6 +13479,9 @@ begin
   insert into _p select 'dash_items', public.portal_dashboard() -> 'bots' -> 0 ->> 'total_items_worked';
   insert into _p select 'dash_leak', (public.portal_dashboard()::text ~ 'Harness secret failure reason|harness-own-|harness-other-|"note"')::text;
   insert into _p select 'dash_readout', (public.portal_dashboard() ->> 'readout_published_at' is not null)::text;
+  insert into _p select 'dash_dx', coalesce(public.portal_dashboard() -> 'diagnostic' ->> 'kickoff_at', 'none') || ' ' || coalesce(public.portal_dashboard() -> 'diagnostic' ->> 'readout_at', 'none');
+  insert into _p select 'dash_dx_keys', coalesce((select string_agg(k, ',' order by k) from jsonb_object_keys(public.portal_dashboard() -> 'diagnostic') k), 'none');
+  insert into _p select 'dash_dx_leak', (public.portal_dashboard()::text ~ '2031-0')::text;
   insert into _p select 'readout', coalesce(public.portal_readout() ->> 'clientName', 'none');
   begin
     insert into public.diagnostic_automations (client_id, title) values ('${CL}', 'By the client');
@@ -13518,19 +13527,21 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   const dashOk =
     r.dash_bots === "1" && r.dash_runs === "2" && r.dash_items === "12" && r.dash_leak === "false" && r.dash_readout === "true" &&
     r.readout === "Harness 0310" && r.pending_dash === "none" && r.admin_dash === "none / none";
+  const projectOk = r.dash_dx === "2026-10-20 2026-11-14" && r.dash_dx_keys === "kickoff_at,published_at,readout_at,status" && r.dash_dx_leak === "false";
   const grantedOk = r.own_auto === "1" && r.own_member === "1" && r.portal === "1 Harness 0307 client" && dashOk;
   const withheldOk =
     r.other_auto === "0" && r.other_member === "0" && r.clients === "0" && r.diagnostics === "0" && r.companies === "0" && r.profiles === "0" &&
     r.auto_insert === "error 42501" && r.auto_update === "0" && r.member_insert === "error 42501" && r.pending_auto === "0" &&
     r.non_client_member === "error 23514" && r.with_company === "error 23514" && r.admin_member_delete === "1" && r.member_auto === "0";
   const offPrimaryOk = r.not_primary_auto === "0" && r.not_primary_portal === "0";
-  const ok = grantedOk && withheldOk && offPrimaryOk;
+  const ok = grantedOk && withheldOk && offPrimaryOk && projectOk;
   return [{
     name,
     granted:
       `reads its own automation ${r.own_auto}, its membership ${r.own_member}, portal_client ${r.portal} (want 1, 1, "1 Harness 0307 client") | ` +
       `dashboard: bots ${r.dash_bots}, runs ${r.dash_runs}, items ${r.dash_items}, note or code in it ${r.dash_leak}, readout date ${r.dash_readout}; readout ${r.readout} (want 1, 2, 12, false, true; "Harness 0310") | ` +
-      `pending person's dashboard ${r.pending_dash}, a system admin's dashboard and readout ${r.admin_dash} (want none, none / none)`,
+      `pending person's dashboard ${r.pending_dash}, a system admin's dashboard and readout ${r.admin_dash} (want none, none / none) | ` +
+      `project: its diagnostic ${r.dash_dx}, fields ${r.dash_dx_keys}, the other client's dates in it ${r.dash_dx_leak} (want "2026-10-20 2026-11-14", "kickoff_at,published_at,readout_at,status", false)`,
     withheld:
       `the other client's automation ${r.other_auto}, another member ${r.other_member}, client rows ${r.clients}, diagnostics ${r.diagnostics}, companies ${r.companies}, other profiles ${r.profiles} (want 0 each) | ` +
       `adds an automation ${r.auto_insert}, updates its own ${r.auto_update}, adds a member ${r.member_insert} (want error 42501, 0, error 42501) | ` +
@@ -13540,7 +13551,9 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
     ok,
     detail: ok
       ? "a diagnostic client reads its own client's automations and name, and nothing else; only a system admin adds or removes one"
-      : !grantedOk
+      : !projectOk
+        ? "THE DASHBOARD'S PROJECT IS MISSING, CARRIES MORE THAN THE DATES AND STATUS, OR SHOWS ANOTHER CLIENT'S (is 0311 applied?)"
+        : !grantedOk
         ? dashOk
           ? "A DIAGNOSTIC CLIENT CANNOT SEE ITS OWN CLIENT (is 0307 applied? is the clone marked primary?)"
           : "THE CLIENT DASHBOARD SHOWS THE WRONG BOTS, A FAILURE NOTE OR A BOT CODE, OR OPENS TO SOMEONE ELSE (is 0310 applied?)"
