@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
-import { getClient, listBots, listClientPeople } from "@/lib/diagnostics/service";
+import { getClient, listBots, listClientPeople, listProposals } from "@/lib/diagnostics/service";
 import { CLIENT_SOURCES } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { ClientButton } from "../../ClientDrawer";
@@ -10,6 +10,7 @@ import { shortDate } from "../../format";
 import { DecisionChip, StatusChip } from "../../Chips";
 import { Automations } from "./Automations";
 import { People } from "./People";
+import { Proposals } from "./Proposals";
 import styles from "../../diagnostics.module.css";
 
 export const metadata = { title: "Diagnostic client" };
@@ -17,14 +18,16 @@ export const metadata = { title: "Diagnostic client" };
 type PageProps = { params: Promise<{ id: string }> };
 
 // One client: their details, the automations being built for them
-// (0306), the people who sign in to see them (0307), and every
-// diagnostic run for them.
+// (0306), the people who sign in to see them (0307), their proposals
+// (0312), and every diagnostic run for them.
 export default async function DiagnosticClientPage({ params }: PageProps) {
   await requireDiagnostics();
   const { id } = await params;
-  const [found, people, bots] = await Promise.all([getClient(id), listClientPeople(id), listBots(id)]);
+  const [found, people, bots, proposals] = await Promise.all([getClient(id), listClientPeople(id), listBots(id), listProposals(id)]);
   if (!found) notFound();
   const { client, diagnostics, automations, automationSource } = found;
+  const ownerEmail = client.owner_email?.trim().toLowerCase() || null;
+  const ownerHasLogin = Boolean(ownerEmail && people.some((p) => p.email?.toLowerCase() === ownerEmail));
   const source = CLIENT_SOURCES.find((s) => s.value === client.source)?.label;
   const details: Array<[string, string | null]> = [
     ["Owner", [client.owner_name, client.owner_email].filter(Boolean).join(", ") || null],
@@ -75,6 +78,14 @@ export default async function DiagnosticClientPage({ params }: PageProps) {
       />
 
       <People clientId={client.id} people={people} archived={Boolean(client.archived_at)} />
+
+      <Proposals
+        clientId={client.id}
+        proposals={proposals}
+        ownerEmail={ownerEmail}
+        ownerHasLogin={ownerHasLogin}
+        archived={Boolean(client.archived_at)}
+      />
 
       <section className={styles.card} aria-labelledby="client-dx">
         <div className={styles.cardHeader}>

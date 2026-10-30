@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getPortal } from "@/lib/diagnostics/service";
+import { getPortal, getPortalProposals } from "@/lib/diagnostics/service";
 import { BUILD_STEPS, portalBanner, portalBot, portalProject, portalTotals, sortPortalBots } from "@/lib/diagnostics/portal";
 import { weekStartUtc } from "@/lib/diagnostics/bots";
 import { stageLabel, type AutomationRow } from "@/lib/diagnostics/types";
@@ -15,7 +15,9 @@ import styles from "./portal.module.css";
 // readout. Read as the person: portal_client() and portal_dashboard()
 // return their own client's rows and never a failure's reason. Until
 // the first automation goes live, "Your project" (0311) leads instead:
-// the four stages and what is happening now.
+// the four stages and what is happening now. A proposal waiting for
+// the owner's signature (0312) comes before everything else on the page
+// but that card, so it is the first thing they see after signing in.
 
 const hours = (h: number) => (Math.round(h * 10) / 10).toLocaleString("en-CA");
 
@@ -27,7 +29,7 @@ function dates(a: AutomationRow): string {
 }
 
 export default async function PortalPage() {
-  const view = await getPortal();
+  const [view, proposals] = await Promise.all([getPortal(), getPortalProposals()]);
   if (!view) {
     return (
       <main className={styles.main}>
@@ -63,6 +65,25 @@ export default async function PortalPage() {
       </div>
       <main className={`${styles.main} ${project ? styles.mainOverlap : ""}`}>
         {project ? <ProjectCard project={project} readoutPublished={Boolean(view.readoutPublishedAt)} /> : null}
+
+        {proposals
+          .filter((p) => !p.client_signed_at)
+          .map((p) => (
+            <section key={p.id} className={`${styles.card} ${styles.readoutCard} ${styles.proposalCard}`} aria-labelledby={`proposal-${p.id}`}>
+              <div>
+                <p className={styles.proposalKick}>Ready for your signature</p>
+                <h2 id={`proposal-${p.id}`} className={styles.cardTitle}>
+                  {p.title}
+                </h2>
+                <p className={styles.muted}>Version {p.version}, sent {shortDate(p.published_at.slice(0, 10))}. Read it through, then sign it on the same page.</p>
+              </div>
+              <span className={styles.actions}>
+                <Link href={`/portal/proposals/${p.id}`} className={styles.primaryLink}>
+                  Review and sign
+                </Link>
+              </span>
+            </section>
+          ))}
 
         {bots.length ? (
           <section className={styles.totals} aria-label="Totals">
@@ -169,6 +190,27 @@ export default async function PortalPage() {
             })}
           </section>
         ) : null}
+
+        {proposals
+          .filter((p) => p.client_signed_at)
+          .map((p) => (
+            <section key={p.id} className={`${styles.card} ${styles.readoutCard}`} aria-labelledby={`proposal-${p.id}`}>
+              <div>
+                <h2 id={`proposal-${p.id}`} className={styles.cardTitle}>
+                  {p.title}
+                </h2>
+                <p className={styles.muted}>Signed {shortDate(p.client_signed_at!.slice(0, 10))}. Version {p.version}.</p>
+              </div>
+              <span className={styles.actions}>
+                <Link href={`/portal/proposals/${p.id}`} className={styles.secondaryLink}>
+                  Read it here
+                </Link>
+                <a href={`/portal/proposals/${p.id}/pdf`} className={styles.primaryLink}>
+                  Download the PDF
+                </a>
+              </span>
+            </section>
+          ))}
 
         {view.readoutPublishedAt ? (
           <section className={`${styles.card} ${styles.readoutCard}`} aria-labelledby="portal-readout">

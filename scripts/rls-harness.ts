@@ -13689,6 +13689,185 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- Proposals: the lead writes and signs, the owner signs (0312) ---
+//
+// A widening for the diagnostic_client role: its one write. Seeded as
+// postgres inside the transaction: two diagnostic clients, the first
+// with an owner email; three diagnostic_client people (the owner,
+// someone else at the same client, someone at the other client). Then:
+//   granted   a system admin adds a draft (version 1, its own series),
+//             edits it, and publishes it with a typed name, which
+//             stamps the signature time, copies the owner's email and
+//             fingerprints it (64 hex); a second version in the series
+//             is numbered 2. The owner lists it (1), opens it, and
+//             signs it with the fingerprint it was shown; the
+//             signature is recorded with their email. A system admin
+//             withdraws it once; the owner still opens it, marked
+//             withdrawn, and no longer lists it. Removing the owner's
+//             account keeps the signature (the typed name and email).
+//   withheld  a published proposal's title cannot change (42501), it
+//             cannot be deleted (0 rows), and a system admin cannot
+//             write the owner's signature (42501); a second draft in a
+//             series is refused (23505); withdrawal cannot be undone
+//             (42501). Someone else at the same client and someone at
+//             the other client list 0, open nothing and cannot sign
+//             (P0002); the owner opens no draft, reads 0 rows of the
+//             table and updates 0; a wrong fingerprint is refused
+//             (proposal_changed) and a second signature too
+//             (proposal_signed); a team member reads 0 rows and lists
+//             0; off the primary instance the owner lists 0.
+// Red before 0312: the table and the functions do not exist.
+async function diagnosticProposalProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "diagnostic proposals · the owner signs";
+  const CL = randomUUID(), CL2 = randomUUID(), PR = randomUUID(), V2 = randomUUID(), V3 = randomUUID();
+  const OWNER = randomUUID(), PEER = randomUUID(), OUT = randomUUID();
+  const user = (id: string) =>
+    `('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now())`;
+  const as = (id: string) => `perform set_config('request.jwt.claims', '{"sub":"${id}","role":"authenticated"}', true);`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ${user(OWNER)}, ${user(PEER)}, ${user(OUT)};
+insert into public.diagnostic_clients (id, name, owner_name, owner_email) values
+  ('${CL}', 'Harness 0312 client', 'Harness Owner', ' ${OWNER.toUpperCase()}@example.invalid '), ('${CL2}', 'Harness 0312 other client', null, null);
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${OWNER}', null, 'Harness 0312 owner', 'diagnostic_client', 'active'),
+  ('${PEER}', null, 'Harness 0312 peer', 'diagnostic_client', 'active'),
+  ('${OUT}', null, 'Harness 0312 outsider', 'diagnostic_client', 'active');
+insert into public.diagnostic_client_members (profile_id, client_id) values ('${OWNER}', '${CL}'), ('${PEER}', '${CL}'), ('${OUT}', '${CL2}');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare n int; o text; h text;
+begin
+  ${as(ids.systemAdmin)}
+  insert into public.diagnostic_proposals (id, client_id, title, sections) values ('${PR}', '${CL}', 'Harness proposal', '[{"key":"objective","title":"Objective","doc":{"type":"doc"}}]');
+  insert into _p select 'draft', version::text || ' ' || (series_id = id)::text from public.diagnostic_proposals where id = '${PR}';
+  update public.diagnostic_proposals set sections = '[{"key":"objective","title":"Objective","doc":{"type":"doc","content":[{"type":"paragraph"}]}}]' where id = '${PR}';
+  get diagnostics n = row_count; insert into _p values ('draft_edit', n::text);
+  update public.diagnostic_proposals set lead_signed_name = ' Harness Lead ', lead_signed_ip = '203.0.113.1', published_at = now() where id = '${PR}';
+  get diagnostics n = row_count; insert into _p values ('publish', n::text);
+  insert into _p select 'published', length(content_hash)::text || ' ' || owner_email || ' ' || lead_signed_name || ' ' || (lead_signed_by = '${ids.systemAdmin}')::text
+    from public.diagnostic_proposals where id = '${PR}';
+  begin
+    update public.diagnostic_proposals set title = 'Changed' where id = '${PR}';
+    get diagnostics n = row_count; insert into _p values ('frozen_title', n::text);
+  exception when others then insert into _p values ('frozen_title', 'error ' || sqlstate); end;
+  delete from public.diagnostic_proposals where id = '${PR}';
+  get diagnostics n = row_count; insert into _p values ('delete_published', n::text);
+  begin
+    update public.diagnostic_proposals set client_signed_name = 'Forged', client_signed_at = now(), client_signed_by = '${ids.systemAdmin}' where id = '${PR}';
+    get diagnostics n = row_count; insert into _p values ('admin_signs', n::text);
+  exception when others then insert into _p values ('admin_signs', 'error ' || sqlstate); end;
+  insert into public.diagnostic_proposals (id, client_id, series_id, title) values ('${V2}', '${CL}', '${PR}', 'Harness proposal');
+  insert into _p select 'v2', version::text from public.diagnostic_proposals where id = '${V2}';
+  begin
+    insert into public.diagnostic_proposals (id, client_id, series_id, title) values ('${V3}', '${CL}', '${PR}', 'Harness proposal');
+    insert into _p values ('second_draft', 'added');
+  exception when others then insert into _p values ('second_draft', 'error ' || sqlstate); end;
+
+  ${as(PEER)}
+  insert into _p select 'peer', jsonb_array_length(public.portal_proposals())::text || ' ' || coalesce(public.portal_proposal('${PR}')::text, 'none');
+  begin perform public.portal_sign_proposal('${PR}', 'Harness Peer', 'x', null, null); o := 'signed';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('peer_sign', o);
+  ${as(OUT)}
+  insert into _p select 'outsider', jsonb_array_length(public.portal_proposals())::text || ' ' || coalesce(public.portal_proposal('${PR}')::text, 'none');
+  begin perform public.portal_sign_proposal('${PR}', 'Harness Outsider', 'x', null, null); o := 'signed';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('outsider_sign', o);
+
+  ${as(OWNER)}
+  insert into _p select 'owner_list', jsonb_array_length(public.portal_proposals())::text;
+  insert into _p select 'owner_open', coalesce(public.portal_proposal('${PR}') ->> 'title', 'none') || ' ' || coalesce(public.portal_proposal('${PR}') ->> 'latest_id', 'none');
+  insert into _p select 'owner_draft', coalesce(public.portal_proposal('${V2}')::text, 'none');
+  select count(*) into n from public.diagnostic_proposals; insert into _p values ('owner_table', n::text);
+  update public.diagnostic_proposals set title = 'By the owner' where id = '${PR}';
+  get diagnostics n = row_count; insert into _p values ('owner_update', n::text);
+  h := public.portal_proposal('${PR}') ->> 'content_hash';
+  begin perform public.portal_sign_proposal('${PR}', 'Harness Owner', 'not-the-hash', null, null); o := 'signed';
+  exception when others then o := 'error ' || sqlerrm; end;
+  insert into _p values ('wrong_hash', o);
+  insert into _p select 'sign', (public.portal_sign_proposal('${PR}', ' Harness Owner ', h, '198.51.100.7', 'Harness browser') ->> 'client_signed_name');
+  begin perform public.portal_sign_proposal('${PR}', 'Harness Owner', h, null, null); o := 'signed';
+  exception when others then o := 'error ' || sqlerrm; end;
+  insert into _p values ('sign_again', o);
+
+  ${as(ids.systemAdmin)}
+  insert into _p select 'signed_row', client_signed_email || ' ' || client_signed_ip || ' ' || (client_signed_by = '${OWNER}')::text
+    from public.diagnostic_proposals where id = '${PR}';
+  update public.diagnostic_proposals set withdrawn_at = now() where id = '${PR}';
+  get diagnostics n = row_count; insert into _p values ('withdraw', n::text);
+  begin
+    update public.diagnostic_proposals set withdrawn_at = null where id = '${PR}';
+    get diagnostics n = row_count; insert into _p values ('unwithdraw', n::text);
+  exception when others then insert into _p values ('unwithdraw', 'error ' || sqlstate); end;
+
+  ${as(OWNER)}
+  insert into _p select 'owner_after', jsonb_array_length(public.portal_proposals())::text || ' ' || (public.portal_proposal('${PR}') ->> 'withdrawn_at' is not null)::text;
+  ${as(ids.member)}
+  select count(*) into n from public.diagnostic_proposals; insert into _p values ('member_table', n::text);
+  insert into _p select 'member_list', jsonb_array_length(public.portal_proposals())::text;
+end $$;
+reset role;
+do $$
+begin
+  begin
+    delete from public.profiles where id = '${OWNER}';
+    insert into _p select 'removed', coalesce(client_signed_by::text, 'null') || ' ' || client_signed_name from public.diagnostic_proposals where id = '${PR}';
+  exception when others then insert into _p values ('removed', 'error ' || sqlstate || ' ' || sqlerrm); end;
+end $$;
+insert into public.profiles (id, company_id, full_name, role, status) values ('${OWNER}', null, 'Harness 0312 owner', 'diagnostic_client', 'active');
+insert into public.diagnostic_client_members (profile_id, client_id) values ('${OWNER}', '${CL}');
+update public.instance_settings set is_primary = false;
+set local role authenticated;
+do $$
+begin
+  ${as(OWNER)}
+  insert into _p select 'not_primary', coalesce(jsonb_array_length(public.portal_proposals())::text, 'none');
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 140);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0312 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const ownerEmail = `${OWNER}@example.invalid`;
+  const grantedOk =
+    r.draft === "1 true" && r.draft_edit === "1" && r.publish === "1" && r.published === `64 ${ownerEmail} Harness Lead true` && r.v2 === "2" &&
+    r.owner_list === "1" && r.owner_open === `Harness proposal ${PR}` && r.sign === "Harness Owner" && r.signed_row === `${ownerEmail} 198.51.100.7 true` &&
+    r.withdraw === "1" && r.owner_after === "0 true" && r.removed === "null Harness Owner";
+  const withheldOk =
+    r.frozen_title === "error 42501" && r.delete_published === "0" && r.admin_signs === "error 42501" && r.second_draft === "error 23505" &&
+    r.unwithdraw === "error 42501" &&
+    r.peer === "0 none" && r.peer_sign === "error P0002" && r.outsider === "0 none" && r.outsider_sign === "error P0002" &&
+    r.owner_draft === "none" && r.owner_table === "0" && r.owner_update === "0" &&
+    r.wrong_hash === "error proposal_changed" && r.sign_again === "error proposal_signed" &&
+    r.member_table === "0" && r.member_list === "0" && r.not_primary === "0";
+  const ok = grantedOk && withheldOk;
+  return [{
+    name,
+    granted:
+      `admin: draft ${r.draft}, edit ${r.draft_edit}, publish ${r.publish}, stamped ${r.published === `64 ${ownerEmail} Harness Lead true` ? "yes" : r.published}, version two ${r.v2} (want "1 true", 1, 1, yes, 2) | ` +
+      `owner: lists ${r.owner_list}, opens ${r.owner_open === `Harness proposal ${PR}` ? "yes" : r.owner_open}, signs as ${r.sign}, recorded ${r.signed_row === `${ownerEmail} 198.51.100.7 true` ? "yes" : r.signed_row} (want 1, yes, Harness Owner, yes) | ` +
+      `withdraw ${r.withdraw}, owner then lists and sees it withdrawn ${r.owner_after} (want 1, "0 true") | account removed, signature kept ${r.removed} (want "null Harness Owner")`,
+    withheld:
+      `published: title change ${r.frozen_title}, delete ${r.delete_published}, admin writes the signature ${r.admin_signs}, a second draft ${r.second_draft}, undo withdrawal ${r.unwithdraw} (want error 42501, 0, error 42501, error 23505, error 42501) | ` +
+      `peer at the client ${r.peer} sign ${r.peer_sign}, other client ${r.outsider} sign ${r.outsider_sign} (want "0 none", error P0002 each) | ` +
+      `owner: a draft ${r.owner_draft}, the table ${r.owner_table}, an update ${r.owner_update}, a wrong fingerprint ${r.wrong_hash}, signing twice ${r.sign_again} (want none, 0, 0, error proposal_changed, error proposal_signed) | ` +
+      `team member reads ${r.member_table}, lists ${r.member_list}; off primary the owner lists ${r.not_primary} (want 0, 0, 0)`,
+    ok,
+    detail: ok
+      ? "a system admin writes and publishes; the published proposal is frozen; only the owner it is addressed to reads and signs it, once"
+      : !grantedOk
+        ? "THE LEAD CANNOT PUBLISH, OR THE OWNER CANNOT READ OR SIGN THEIR PROPOSAL (is 0312 applied? is the clone marked primary?)"
+        : "A PUBLISHED PROPOSAL CHANGES, A SIGNATURE IS FORGED, OR SOMEONE OTHER THAN THE OWNER READS OR SIGNS IT",
+  }];
+}
+
 async function commitmentsForColleagueProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "commitments · for a colleague";
   const M = ids.member, CO = ids.memberCompany, OTHER = ids.otherCompany;
@@ -15625,6 +15804,7 @@ async function main(): Promise<void> {
   const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
   const diagnosticClient = await diagnosticClientOwnClientProbes(run, ids, pendingSql);
   const diagnosticBots = await diagnosticBotRunProbes(run, ids, pendingSql);
+  const diagnosticProposals = await diagnosticProposalProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -15652,7 +15832,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

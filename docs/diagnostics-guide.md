@@ -34,6 +34,16 @@ A bot is **Late** when its next run is half an interval overdue, **Stopped** aft
 
 The people at a client can sign in and see their own dashboard: the hours and money their bots have saved, each bot's status and runs, the automations being built, and their published readout. They never see why a run failed or a bot's code. On the client's page, under **People who can sign in**, enter a name and email and select **Send invite**. They get the usual AiMS HQ invite, set a password, and from then on land on their dashboard at the usual address. They see nothing else in AiMS HQ. Each person shows when they last signed in, or that they haven't yet, with **Send again**. **Remove access** deletes their account.
 
+## Proposals
+
+On the client's page, under **Proposals**, select **New proposal**. It starts a Capacity Unlocking Engagement from the template, with the client's owner and your name filled in, and the plan's four stages (Capacity Diagnostic, Your readout, Deployment, Support) already written. Each section has its own editor and saves when you click away. Fill in every bracketed placeholder, such as the investment and the term: until they are gone, the proposal can't be published.
+
+The owner signs with the login for the owner email on the client, so add that email under Details and invite the same email under **People who can sign in** first. The Proposals card tells you when either is missing.
+
+To publish, type your name, tick that you are signing for AiMS Institute, and select **Sign and publish**. That is your signature, and the version locks. The owner sees **Ready for your signature** at the top of their dashboard when they sign in, reads the proposal, and signs it by typing their name. You can also copy the link from the proposal's page and send it. Either of you can download the PDF, which carries both signatures and the signing record (each name, the time, the IP address and the version's fingerprint).
+
+To change a published proposal, select **Make version 2 to change it**. When you sign and publish the new version, it replaces the old one, and the owner signs again. A draft can be deleted; a published version can't.
+
 ## Start a diagnostic
 
 On the client's page, select **Start a diagnostic**. It opens on the first screen of Pre-flight.
