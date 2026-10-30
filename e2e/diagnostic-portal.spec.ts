@@ -63,21 +63,10 @@ test.describe("Diagnostic client portal", () => {
 
     // As the invite link would: a password, and the profile active.
     const admin = devAdmin();
-    // A bot on Order entry and its runs, as record_bot_run would write
-    // them: 24 and 12 orders this week at 5 minutes, and a failed run
-    // whose reason the client must never see.
+    // Before anything is live (0311): Order entry back in testing, so
+    // the person sees "Your project" and what is happening now.
     const { data: orderEntry } = await admin.from("diagnostic_automations").select("id, client_id").eq("title", "Order entry").order("created_at", { ascending: false }).limit(1).single();
-    const { data: bot } = await admin
-      .from("diagnostic_bots")
-      .insert({ automation_id: orderEntry!.id, client_id: orderEntry!.client_id, code: `e2e-portal-${stamp}`, kind: "triggered", trigger_text: "A new order arrives", minutes_per_item: 5, hourly_rate: 45, currency: "CAD" })
-      .select("id")
-      .single();
-    const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
-    await admin.from("diagnostic_bot_runs").insert([
-      { bot_id: bot!.id, ran_at: minutesAgo(30), result: "worked", items: 24 },
-      { bot_id: bot!.id, ran_at: minutesAgo(60), result: "failed", items: 0, note: "E2E secret reason" },
-      { bot_id: bot!.id, ran_at: minutesAgo(90), result: "worked", items: 12 },
-    ]);
+    await admin.from("diagnostic_automations").update({ stage: "testing", goes_live: "2099-01-02" }).eq("id", orderEntry!.id);
     const { data: profile } = await admin.from("profiles").select("id, role").eq("full_name", personName).single();
     expect(profile?.role).toBe("diagnostic_client");
     await admin.auth.admin.updateUserById(profile!.id, { password, email_confirm: true });
@@ -95,6 +84,29 @@ test.describe("Diagnostic client portal", () => {
     await expect(client.getByRole("heading", { level: 1, name: "Your automations" })).toBeVisible({ timeout: 30_000 });
     // The client's name beside the AiMS HQ logo in the top bar.
     await expect(client.getByRole("banner").getByText(clientName)).toBeVisible();
+    const project = client.getByRole("region", { name: "Your project" });
+    await expect(project.getByText("Order entry is being tested with your team. It goes live on Friday, January 2.")).toBeVisible();
+    await expect(project.getByRole("listitem").filter({ has: client.getByText("Building", { exact: true }) })).toHaveAttribute("aria-current", "step");
+    await expect(client.getByText("Order entry will be your first bot")).toBeVisible();
+
+    // Then live, with its bot.
+    await admin.from("diagnostic_automations").update({ stage: "live", goes_live: "2026-08-04" }).eq("id", orderEntry!.id);
+    // A bot on Order entry and its runs, as record_bot_run would write
+    // them: 24 and 12 orders this week at 5 minutes, and a failed run
+    // whose reason the client must never see.
+    const { data: bot } = await admin
+      .from("diagnostic_bots")
+      .insert({ automation_id: orderEntry!.id, client_id: orderEntry!.client_id, code: `e2e-portal-${stamp}`, kind: "triggered", trigger_text: "A new order arrives", minutes_per_item: 5, hourly_rate: 45, currency: "CAD" })
+      .select("id")
+      .single();
+    const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+    await admin.from("diagnostic_bot_runs").insert([
+      { bot_id: bot!.id, ran_at: minutesAgo(30), result: "worked", items: 24 },
+      { bot_id: bot!.id, ran_at: minutesAgo(60), result: "failed", items: 0, note: "E2E secret reason" },
+      { bot_id: bot!.id, ran_at: minutesAgo(90), result: "worked", items: 12 },
+    ]);
+    await client.reload();
+    await expect(client.getByRole("region", { name: "Your project" })).toHaveCount(0, { timeout: 15_000 });
     // The dashboard (0310): the totals, the bot card and its details,
     // the stepper, and never the failure's reason or the bot's code.
     await expect(client.getByText("Hours saved this week")).toBeVisible();

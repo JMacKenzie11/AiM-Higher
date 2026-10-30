@@ -30,7 +30,7 @@ import {
 import { assembleReadout, isReadoutData, type ReadoutData } from "./readout";
 import type { AcrossInput } from "./across";
 import { sortAutomations } from "./automations";
-import type { PortalBotData } from "./portal";
+import type { PortalBotData, PortalDiagnostic } from "./portal";
 import { BOT_COLUMNS, botHealth, botSavings, type BotHealth, type BotRow, type BotRun, type BotSavings } from "./bots";
 
 // Every read goes through the caller's own client, so row security
@@ -249,6 +249,9 @@ export type PortalView = {
   // 0310: the bots through portal_dashboard(), as the person.
   bots: PortalBotData[];
   readoutPublishedAt: string | null;
+  // 0311: the newest diagnostic's status and dates, for "Your project".
+  // Null before 0311 reaches the instance, or with no diagnostic.
+  diagnostic: PortalDiagnostic | null;
 };
 
 // What a diagnostic client's person sees, read as them: their client
@@ -263,12 +266,13 @@ export async function getPortal(): Promise<PortalView | null> {
     supabase.from("diagnostic_automations").select(AUTOMATION_COLUMNS).eq("client_id", client.id).limit(500),
     supabase.rpc("portal_dashboard"),
   ]);
-  const d = (dash ?? null) as { bots?: PortalBotData[]; readout_published_at?: string | null } | null;
+  const d = (dash ?? null) as { bots?: PortalBotData[]; readout_published_at?: string | null; diagnostic?: PortalDiagnostic | null } | null;
   return {
     client,
     automations: sortAutomations((autos ?? []) as AutomationRow[]),
     bots: d?.bots ?? [],
     readoutPublishedAt: d?.readout_published_at ?? null,
+    diagnostic: d?.diagnostic ?? null,
   };
 }
 

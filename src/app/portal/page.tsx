@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { getPortal } from "@/lib/diagnostics/service";
-import { BUILD_STEPS, portalBanner, portalBot, portalTotals, sortPortalBots } from "@/lib/diagnostics/portal";
+import { BUILD_STEPS, portalBanner, portalBot, portalProject, portalTotals, sortPortalBots } from "@/lib/diagnostics/portal";
 import { weekStartUtc } from "@/lib/diagnostics/bots";
 import { stageLabel, type AutomationRow } from "@/lib/diagnostics/types";
 import { shortDate } from "../(app)/diagnostics/format";
 import { PortalBots } from "./PortalBots";
+import { BotsPlaceholder, ProjectCard } from "./ProjectCard";
 import styles from "./portal.module.css";
 
 // A CLIENT'S DASHBOARD (0307, 0310; Jason, 2026-10-29, the approved
@@ -12,7 +13,9 @@ import styles from "./portal.module.css";
 // the money), a line on any bot needing a look, one card per bot, the
 // automations being built with where each is, and the published
 // readout. Read as the person: portal_client() and portal_dashboard()
-// return their own client's rows and never a failure's reason.
+// return their own client's rows and never a failure's reason. Until
+// the first automation goes live, "Your project" (0311) leads instead:
+// the four stages and what is happening now.
 
 const hours = (h: number) => (Math.round(h * 10) / 10).toLocaleString("en-CA");
 
@@ -48,16 +51,19 @@ export default async function PortalPage() {
   const liveNoBot = view.automations.filter((a) => a.stage === "live" && !withBot.has(a.id));
   const change = totals.hoursThisWeek - totals.hoursLastWeek;
   const weekOf = new Date(weekStartUtc(now)).toLocaleDateString("en-CA", { month: "long", day: "numeric", timeZone: "UTC" });
+  const project = bots.length ? null : portalProject(view.diagnostic, view.automations, now.toISOString().slice(0, 10));
 
   return (
     <>
       <div className={styles.hero}>
-        <div className={styles.heroInner}>
+        <div className={`${styles.heroInner} ${project ? styles.heroOverlap : ""}`}>
           <h1 className={styles.title}>Your automations</h1>
-          <p className={styles.eyebrow}>Week of {weekOf}. Figures update each time a bot runs.</p>
+          <p className={styles.eyebrow}>{project ? "Here is where your project stands." : `Week of ${weekOf}. Figures update each time a bot runs.`}</p>
         </div>
       </div>
-      <main className={styles.main}>
+      <main className={`${styles.main} ${project ? styles.mainOverlap : ""}`}>
+        {project ? <ProjectCard project={project} readoutPublished={Boolean(view.readoutPublishedAt)} /> : null}
+
         {bots.length ? (
           <section className={styles.totals} aria-label="Totals">
             <div className={styles.total}>
@@ -102,7 +108,11 @@ export default async function PortalPage() {
               </span>
             ) : null}
           </div>
-          {bots.length ? <PortalBots bots={bots} /> : <p className={styles.muted}>Your bots appear here as they go live.</p>}
+          {bots.length ? (
+            <PortalBots bots={bots} />
+          ) : liveNoBot.length ? null : (
+            <BotsPlaceholder next={project?.at === 2 ? project.next : null} full={!project || project.at < 2} />
+          )}
           {liveNoBot.length ? (
             <ul className={styles.list}>
               {liveNoBot.map((a) => (

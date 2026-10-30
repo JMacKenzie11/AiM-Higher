@@ -603,3 +603,173 @@
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+
+/* ---- "Your project" (0311, the approved mockup) ------------------ */
+
+/* The hero leaves room for the card, which sits over its lower edge. */
+.heroOverlap {
+  padding-bottom: calc(var(--space-6) + 72px);
+}
+
+.mainOverlap {
+  margin-top: -72px;
+  padding-top: 0;
+}
+
+.projectCard {
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6, 32px);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(31, 51, 82, 0.1);
+}
+
+.journey {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: var(--space-4);
+}
+
+.journey > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.journey > li[data-state="current"] {
+  border: 2px solid var(--aims-cobalt);
+  background: var(--aims-cobalt-tint);
+  color: var(--aims-navy);
+}
+
+.journeyHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.journeyIcon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: #5b6472;
+}
+
+.journey > li[data-state="current"] .journeyIcon {
+  background: var(--aims-cobalt);
+  color: var(--aims-white);
+  box-shadow: 0 0 0 4px var(--aims-chartreuse);
+}
+
+.journey > li[data-state="done"] .journeyIcon {
+  background: var(--aims-success-tint);
+  color: var(--aims-success);
+}
+
+.journeyWord {
+  font: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--aims-cobalt);
+}
+
+.journey > li[data-state="done"] .journeyWord {
+  color: var(--aims-success);
+}
+
+.journeyTitle {
+  font: var(--text-h3);
+  font-size: 17px;
+  color: var(--text-heading);
+}
+
+.journey > li[data-state="current"] .journeyTitle,
+.journey > li[data-state="current"] .muted {
+  color: var(--aims-navy);
+}
+
+.journeyAbout {
+  font: var(--text-body-sm);
+}
+
+.nowLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 12px;
+  background: var(--surface-inset);
+  font: var(--text-body);
+}
+
+.nowLabel {
+  font: var(--text-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.link {
+  color: var(--primary);
+}
+
+.botsEmpty {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.botArt {
+  flex: none;
+  width: 96px;
+  height: 80px;
+}
+
+.botsEmpty[data-full="true"] .botArt {
+  width: 180px;
+  height: 150px;
+}
+
+.botsEmptyText {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ghostTotals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: var(--space-3);
+}
+
+.ghostTotal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+}
+
+.ghostValue {
+  font: var(--text-h2);
+  font-size: 28px;
+  color: var(--text-muted);
+}
