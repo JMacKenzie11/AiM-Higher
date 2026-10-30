@@ -21,10 +21,15 @@ test.describe("sidebar sections", () => {
     await expect(page).toHaveURL(/\/commitments$/);
   });
 
-  test("Ask Aimee is in the account menu", async ({ page }) => {
+  test("Ask Aimee is in the sidebar, right after Home", async ({ page }) => {
     test.setTimeout(120_000);
     await signIn(page, users.member());
+    const nav = page.getByRole("navigation", { name: "Primary" }).first();
+    const links = nav.getByRole("link");
+    await expect(nav.getByRole("link", { name: "Ask Aimee", exact: true })).toBeVisible({ timeout: 30_000 });
+    const names = (await links.allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+    expect(names[names.indexOf("Home") + 1]).toBe("Ask Aimee");
     await page.getByTestId("user-menu-trigger").click();
-    await expect(page.getByRole("menuitem", { name: "Ask Aimee" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Ask Aimee" })).toHaveCount(0);
   });
 });
