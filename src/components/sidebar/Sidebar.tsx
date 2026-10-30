@@ -490,15 +490,19 @@ export function Sidebar({
   // for this person is that page's link alone, since a group of one is
   // a disclosure triangle in front of a single destination.
   const navSections = simplifyOn("nav-sections");
-  const sectionItems: NavItem[] = visibleSections(userRole, features).map((sec): NavItem => {
+  const sectionItems: NavItem[] = visibleSections(userRole, features).flatMap((sec): NavItem[] => {
     const pages = visibleTabs(sec, userRole, features).map(
       (t): NavLink => ({ kind: "link", label: t.label, href: t.href, icon: t.icon })
     );
     // Home keeps its own name when it is one page ("This week" is a
     // tab's name, read beside the others).
-    return pages.length === 1
-      ? { ...pages[0], label: sec.key === "home" ? sec.label : pages[0].label, feature: null }
-      : { kind: "group", label: sec.label, feature: null, items: pages };
+    const item: NavItem =
+      pages.length === 1
+        ? { ...pages[0], label: sec.key === "home" ? sec.label : pages[0].label, feature: null }
+        : { kind: "group", label: sec.label, feature: null, items: pages };
+    // Ask Aimee is the first link after Home (Jason, 2026-10-30: back
+    // in the sidebar from the account menu).
+    return sec.key === "home" ? [item, { kind: "link", label: "Ask Aimee", href: "/ask-aimee", icon: "sparkle", feature: null }] : [item];
   });
 
   const subscribedApp = navSections ? sectionItems : APP_ITEMS.flatMap<NavItem>((item) => {
@@ -742,7 +746,6 @@ export function Sidebar({
             personalLinks={
               navSections
                 ? [
-                    { label: "Ask Aimee", href: "/ask-aimee" },
                     ...(features.includes("strengths") ? [{ label: "My strengths", href: "/strengths/welcome" }] : []),
                     ...(features.includes("classroom") ? [{ label: "Classroom", href: "/classroom" }] : []),
                   ]
