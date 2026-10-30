@@ -32,4 +32,15 @@ test.describe("sidebar sections", () => {
     await page.getByTestId("user-menu-trigger").click();
     await expect(page.getByRole("menuitem", { name: "Ask Aimee" })).toHaveCount(0);
   });
+
+  test("where Home is a heading over its pages, Ask Aimee is the first page under it", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page, users.companyAdmin());
+    const nav = page.getByRole("navigation", { name: "Primary" }).first();
+    await expect(nav.getByRole("link", { name: "This week", exact: true })).toBeVisible({ timeout: 30_000 });
+    const names = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim()).filter(Boolean);
+    expect(names.indexOf("Ask Aimee")).toBe(names.indexOf("This week") - 1);
+    // Classroom, when the company has it, is the last page under Home.
+    if (names.includes("Classroom")) expect(names.indexOf("Classroom")).toBe(names.indexOf("AiMS Implementation") + 1);
+  });
 });

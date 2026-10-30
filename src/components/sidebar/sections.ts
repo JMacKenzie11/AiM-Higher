@@ -15,10 +15,10 @@ import { simplifyOn, type SimplifyChange } from "@/lib/ui/simplify";
 // who sees which section and tab is tested by calling these, the same
 // way nav-bands.ts is.
 //
-// Classroom and the Strengths assessment move to the account menu,
-// which is where a person goes for things about themselves rather than
-// the company's work. Ask Aimee is a link of its own in the sidebar,
-// right after Home (Sidebar.tsx; Jason, 2026-10-30).
+// The Strengths assessment moves to the account menu, which is where
+// a person goes for things about themselves rather than the company's
+// work. Ask Aimee and Classroom are in the sidebar, the first and last
+// links under Home (Sidebar.tsx; Jason, 2026-10-30).
 
 export type SectionFeature = "execution" | "strengths" | "classroom";
 

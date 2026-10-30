@@ -496,13 +496,19 @@ export function Sidebar({
     );
     // Home keeps its own name when it is one page ("This week" is a
     // tab's name, read beside the others).
-    const item: NavItem =
-      pages.length === 1
-        ? { ...pages[0], label: sec.key === "home" ? sec.label : pages[0].label, feature: null }
-        : { kind: "group", label: sec.label, feature: null, items: pages };
-    // Ask Aimee is the first link after Home (Jason, 2026-10-30: back
-    // in the sidebar from the account menu).
-    return sec.key === "home" ? [item, { kind: "link", label: "Ask Aimee", href: "/ask-aimee", icon: "sparkle", feature: null }] : [item];
+    // Ask Aimee is the first link after Home and Classroom the last
+    // (Jason, 2026-10-30: both back in the sidebar from the account
+    // menu). Where Home is one page they are the links either side of
+    // nothing but it; where Home is a heading, the first and last
+    // pages under it. Sidebar only: neither is one of Home's tabs.
+    const first: NavLink[] = sec.key === "home" ? [{ kind: "link", label: "Ask Aimee", href: "/ask-aimee", icon: "sparkle" }] : [];
+    const last: NavLink[] =
+      sec.key === "home" && features.includes("classroom") ? [{ kind: "link", label: "Classroom", href: "/classroom", icon: "book" }] : [];
+    if (pages.length === 1) {
+      const item: NavItem = { ...pages[0], label: sec.key === "home" ? sec.label : pages[0].label, feature: null };
+      return [item, ...[...first, ...last].map((l): NavItem => ({ ...l, feature: null }))];
+    }
+    return [{ kind: "group", label: sec.label, feature: null, items: [...first, ...pages, ...last] }];
   });
 
   const subscribedApp = navSections ? sectionItems : APP_ITEMS.flatMap<NavItem>((item) => {
@@ -747,7 +753,6 @@ export function Sidebar({
               navSections
                 ? [
                     ...(features.includes("strengths") ? [{ label: "My strengths", href: "/strengths/welcome" }] : []),
-                    ...(features.includes("classroom") ? [{ label: "Classroom", href: "/classroom" }] : []),
                   ]
                 : []
             }
