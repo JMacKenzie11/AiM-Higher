@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireProfile } from "@/lib/auth/current-user";
-import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getChartFunctionDetail } from "@/lib/chart/service";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { computeReadiness } from "@/lib/role-descriptions/readiness";
 import {
   getCachedRoleDescription,
   isCacheStale,
@@ -21,11 +19,14 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // GET /chart/function/[id]/role-description/export.docx
 //
 // Downloads the assembled Role Description as a Word document.
-// Same access rules as the view page — admins can pull an
-// in-progress preview, everyone else needs allReady. Uses the
-// cache when fresh so the download is instant; regenerates
-// on stale/miss with the same auto-save so the view page
-// benefits from the same warm cache afterward.
+// Same access rules as the view page: anyone who can see the
+// function gets the file, draft or not, because the page shows them
+// the draft and its Download. This route used to refuse non-admins
+// until every readiness gate passed, so a team member's Download on
+// a draft led to an error page. Uses the cache when fresh so the
+// download is instant; regenerates on stale/miss with the same
+// auto-save so the view page benefits from the same warm cache
+// afterward.
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -47,18 +48,6 @@ export async function GET(
   );
   if (!rdEnabled) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const canViewAnytime = isAdminForCompany(
-    session.profile,
-    detail.fn.company_id
-  );
-  const readiness = computeReadiness(detail);
-  if (!canViewAnytime && !readiness.allReady) {
-    return NextResponse.json(
-      { error: "Role description isn't ready yet." },
-      { status: 403 }
-    );
   }
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());

@@ -23,9 +23,8 @@ export const metadata = { title: "Role description" };
 // path.
 //
 // Access: same as the live view page. Feature-gated on
-// role_descriptions; team members can only view versions when
-// the CURRENT live doc's readiness gates pass (same rule that
-// governs whether a non-admin can see the RD at all).
+// role_descriptions; anyone who can see the function can view and
+// download any published version.
 
 type PageProps = {
   params: Promise<{ id: string; version: string }>;

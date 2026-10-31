@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireProfile } from "@/lib/auth/current-user";
-import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getChartFunctionDetail } from "@/lib/chart/service";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { computeReadiness } from "@/lib/role-descriptions/readiness";
 import { mergeRoleDescription } from "@/lib/role-descriptions/generate";
 import { getPublishedVersion } from "@/lib/role-descriptions/versions";
 import { buildRoleDescriptionDocx } from "@/lib/role-descriptions/docx";
+import { buildRoleDescriptionDocxFromDoc } from "@/lib/role-descriptions/docx-from-doc";
+import { versionExportSource } from "@/lib/role-descriptions/version-export";
 import { trackAfter } from "@/lib/analytics/track";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
@@ -17,6 +17,12 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // snapshot's stored document + overrides, so a version's file
 // stays byte-stable forever (unlike the live export which
 // reflects current chart state).
+//
+// Access matches the version page: anyone who can see the function
+// can download any published version. This route used to refuse
+// non-admins until the function's CURRENT readiness gates passed,
+// while the page showed them the version and its Download anyway,
+// so the button led to an error page.
 
 type RouteContext = {
   params: Promise<{ id: string; version: string }>;
@@ -46,20 +52,6 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const canViewAnytime = isAdminForCompany(
-    session.profile,
-    detail.fn.company_id
-  );
-  if (!canViewAnytime) {
-    const readiness = computeReadiness(detail);
-    if (!readiness.allReady) {
-      return NextResponse.json(
-        { error: "Role description isn't ready yet." },
-        { status: 403 }
-      );
-    }
-  }
-
   const snap = await getPublishedVersion(id, versionNumber);
   if (!snap) {
     return NextResponse.json({ error: "Version not found" }, { status: 404 });
@@ -72,15 +64,20 @@ export async function GET(
     .eq("id", detail.fn.company_id)
     .maybeSingle<{ name: string }>();
 
-  const doc = mergeRoleDescription(
-    snap.snapshotDocument,
-    snap.snapshotOverrides
-  );
-  const buffer = await buildRoleDescriptionDocx({
-    detail,
-    companyName: company?.name ?? null,
-    doc,
-  });
+  // A Creator-written version is built from its own document, the
+  // same one the version page renders.
+  const source = versionExportSource(snap);
+  const buffer =
+    source.kind === "agent"
+      ? await buildRoleDescriptionDocxFromDoc({
+          doc: source.doc,
+          companyName: company?.name ?? null,
+        })
+      : await buildRoleDescriptionDocx({
+          detail,
+          companyName: company?.name ?? null,
+          doc: mergeRoleDescription(source.doc, snap.snapshotOverrides),
+        });
 
   const filename = `Role Description - ${sanitizeFilename(detail.fn.title)} - v${snap.versionNumber}.docx`;
 
