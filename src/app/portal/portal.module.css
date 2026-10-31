@@ -870,3 +870,21 @@
   font: var(--text-body-sm);
   color: var(--aims-danger);
 }
+
+/* ---- A system admin's preview (0313) ------------------------------ */
+
+.previewBack {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.previewStrip {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--aims-chartreuse, #d6e264);
+  color: var(--aims-navy);
+  font: var(--text-body-sm);
+  font-weight: 600;
+  text-align: center;
+}

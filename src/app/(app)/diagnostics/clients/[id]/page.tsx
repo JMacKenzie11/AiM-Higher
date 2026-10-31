@@ -52,6 +52,10 @@ export default async function DiagnosticClientPage({ params }: PageProps) {
           </h2>
           <span className={styles.headerAction}>
             <span className={styles.formRow}>
+              {/* Their portal as they see it, read only (0313). */}
+              <Link href={`/portal-preview/${client.id}`} className={`${styles.secondary} ${styles.small}`}>
+                See their portal
+              </Link>
               <ClientButton client={client} label="Edit" />
               <ArchiveButton kind="client" id={client.id} archived={Boolean(client.archived_at)} />
             </span>

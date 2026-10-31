@@ -277,6 +277,57 @@ export async function getPortal(): Promise<PortalView | null> {
   };
 }
 
+// A client's dashboard as the client sees it, for a system admin
+// (0313): the same body as portal_dashboard(), through
+// portal_preview_dashboard(), and the proposals the owner would see
+// (published, not replaced). Read as the admin. Also the newest
+// published diagnostic, for the readout links to point at the admin's
+// own readout page. Null for an unknown client.
+export type PortalPreview = { view: PortalView; proposals: PortalProposalListItem[]; readoutDiagnosticId: string | null };
+
+export async function getPortalPreview(clientId: string): Promise<PortalPreview | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(clientId)) return null;
+  const supabase = await db();
+  const { data: client } = await supabase
+    .from("diagnostic_clients")
+    .select("id, name, country")
+    .eq("id", clientId)
+    .maybeSingle<PortalView["client"]>();
+  if (!client) return null;
+  const [{ data: autos }, { data: dash }, { data: props }, { data: readout }] = await Promise.all([
+    supabase.from("diagnostic_automations").select(AUTOMATION_COLUMNS).eq("client_id", clientId).limit(500),
+    supabase.rpc("portal_preview_dashboard", { p_client: clientId }),
+    supabase
+      .from("diagnostic_proposals")
+      .select("id, title, version, published_at, client_signed_at")
+      .eq("client_id", clientId)
+      .not("published_at", "is", null)
+      .is("withdrawn_at", null)
+      .order("published_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("diagnostics")
+      .select("id")
+      .eq("client_id", clientId)
+      .not("published_at", "is", null)
+      .is("archived_at", null)
+      .order("published_at", { ascending: false })
+      .limit(1),
+  ]);
+  const d = (dash ?? null) as { bots?: PortalBotData[]; readout_published_at?: string | null; diagnostic?: PortalDiagnostic | null } | null;
+  return {
+    view: {
+      client,
+      automations: sortAutomations((autos ?? []) as AutomationRow[]),
+      bots: d?.bots ?? [],
+      readoutPublishedAt: d?.readout_published_at ?? null,
+      diagnostic: d?.diagnostic ?? null,
+    },
+    proposals: (props ?? []) as PortalProposalListItem[],
+    readoutDiagnosticId: ((readout ?? []) as Array<{ id: string }>)[0]?.id ?? null,
+  };
+}
+
 // The client's newest published readout, as published, through
 // portal_readout() (0310). Null when there is none.
 export async function getPortalReadout(): Promise<ReadoutData | null> {

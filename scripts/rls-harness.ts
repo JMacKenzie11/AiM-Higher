@@ -13689,6 +13689,72 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// 0313: a system admin sees a client's dashboard as the client does,
+// through portal_preview_dashboard(); nobody else does, the client's
+// own portal_dashboard() still answers them alone, and the body both
+// share is not callable directly.
+async function portalPreviewProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "portal preview · system admins only";
+  const CL = randomUUID(), CL2 = randomUUID(), AU = randomUUID(), BOT = randomUUID(), OWNER = randomUUID();
+  const as = (id: string) => `perform set_config('request.jwt.claims', '{"sub":"${id}","role":"authenticated"}', true);`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${OWNER}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${OWNER}@example.invalid', '', now(), now(), now());
+insert into public.diagnostic_clients (id, name) values ('${CL}', 'Harness 0313 client'), ('${CL2}', 'Harness 0313 other client');
+insert into public.diagnostic_automations (id, client_id, title, stage) values ('${AU}', '${CL}', 'Harness 0313 automation', 'live');
+insert into public.diagnostic_bots (id, client_id, automation_id, code, kind, every, minutes_per_item, hourly_rate, currency)
+values ('${BOT}', '${CL}', '${AU}', 'harness-0313-${BOT.slice(0, 8)}', 'scheduled', 'day', 5, 50, 'CAD');
+insert into public.profiles (id, company_id, full_name, role, status) values ('${OWNER}', null, 'Harness 0313 client login', 'diagnostic_client', 'active');
+insert into public.diagnostic_client_members (profile_id, client_id) values ('${OWNER}', '${CL2}');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare o text;
+begin
+  ${as(ids.systemAdmin)}
+  insert into _p select 'admin', coalesce(jsonb_array_length(public.portal_preview_dashboard('${CL}') -> 'bots')::text, 'none');
+  ${as(OWNER)}
+  insert into _p select 'client_other', coalesce(public.portal_preview_dashboard('${CL}')::text, 'none');
+  insert into _p select 'client_own', coalesce(jsonb_array_length(public.portal_dashboard() -> 'bots')::text, 'none');
+  begin perform public.portal_dashboard_of('${CL}'); o := 'answered';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('client_direct', o);
+  ${as(ids.companyAdmin)}
+  insert into _p select 'company_admin', coalesce(public.portal_preview_dashboard('${CL}')::text, 'none');
+  ${as(ids.member)}
+  insert into _p select 'member', coalesce(public.portal_preview_dashboard('${CL}')::text, 'none');
+end $$;
+reset role;
+update public.instance_settings set is_primary = false;
+set local role authenticated;
+do $$
+begin
+  ${as(ids.systemAdmin)}
+  insert into _p select 'not_primary', coalesce(public.portal_preview_dashboard('${CL}')::text, 'none');
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 140);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0313 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const grantedOk = r.admin === "1" && r.client_own === "0";
+  const withheldOk =
+    r.client_other === "none" && r.client_direct === "error 42501" && r.company_admin === "none" && r.member === "none" && r.not_primary === "none";
+  return [{
+    name,
+    granted: `system admin previews the client's bots ${r.admin}, a client login still gets its own dashboard ${r.client_own} (want 1, 0)`,
+    withheld:
+      `a client login previews another client ${r.client_other}, calls the shared body ${r.client_direct}, company admin ${r.company_admin}, member ${r.member}, system admin off the primary ${r.not_primary} (want none, error 42501, none, none, none)`,
+    ok: grantedOk && withheldOk,
+    detail: grantedOk && withheldOk ? "the preview answers a system admin on the primary instance and nobody else" : JSON.stringify(r).slice(0, 400),
+  }];
+}
+
 // ---- Proposals: the lead writes and signs, the owner signs (0312) ---
 //
 // A widening for the diagnostic_client role: its one write. Seeded as
@@ -15805,6 +15871,7 @@ async function main(): Promise<void> {
   const diagnosticClient = await diagnosticClientOwnClientProbes(run, ids, pendingSql);
   const diagnosticBots = await diagnosticBotRunProbes(run, ids, pendingSql);
   const diagnosticProposals = await diagnosticProposalProbes(run, ids, pendingSql);
+  const portalPreview = await portalPreviewProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -15832,7 +15899,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...portalPreview, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
