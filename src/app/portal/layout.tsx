@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { signOutAction } from "@/lib/auth/actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { PortalBar } from "./PortalBar";
 import styles from "./portal.module.css";
 
 // THE CLIENT PORTAL (0307). Where a Capacity Diagnostic client's people
@@ -25,28 +26,14 @@ export default async function PortalLayout({ children }: { children: ReactNode }
   const client = ((rows ?? []) as Array<{ name: string }>)[0] ?? null;
   return (
     <div className={styles.page}>
-      <header className={styles.bar}>
-        <div className={styles.barInner}>
-          <span className={styles.brand}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/aims-hq-logo-white.png" alt="AiMS HQ" className={styles.logo} />
-            {client ? (
-              <>
-                <span className={styles.brandRule} aria-hidden="true" />
-                <span className={styles.clientName}>{client.name}</span>
-              </>
-            ) : null}
-          </span>
-          <span className={styles.who}>
-            <span className={styles.name}>{session.profile.full_name}</span>
-            <form action={signOutAction}>
-              <button type="submit" className={styles.signOut}>
-                Sign out
-              </button>
-            </form>
-          </span>
-        </div>
-      </header>
+      <PortalBar clientName={client?.name ?? null}>
+        <span className={styles.name}>{session.profile.full_name}</span>
+        <form action={signOutAction}>
+          <button type="submit" className={styles.signOut}>
+            Sign out
+          </button>
+        </form>
+      </PortalBar>
       {children}
     </div>
   );

@@ -123,11 +123,23 @@ test.describe("Diagnostic client portal", () => {
     await expect(client.getByText("Champion: Dana R., Purchasing")).toBeVisible();
     await expect(client.getByRole("img", { name: "AiMS HQ" })).toBeVisible();
     // Every other page sends them back.
-    for (const path of ["/dashboard", "/diagnostics", "/admin/companies", "/"]) {
+    for (const path of ["/dashboard", "/diagnostics", "/admin/companies", `/portal-preview/${orderEntry!.client_id}`, "/"]) {
       await client.goto(path);
       await expect(client).toHaveURL(/\/portal$/, { timeout: 15_000 });
     }
     await context.close();
+
+    // ---- the system admin previews it (0313) ----
+    await page.getByRole("link", { name: "See their portal" }).click();
+    await expect(page).toHaveURL(new RegExp(`/portal-preview/${orderEntry!.client_id}$`), { timeout: 15_000 });
+    await expect(page.getByRole("status").filter({ hasText: /previewing .+ dashboard as they see it/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { level: 1, name: "Your automations" })).toBeVisible();
+    await expect(page.getByRole("banner").getByText(clientName)).toBeVisible();
+    await expect(page.getByText("$135 CAD")).toBeVisible();
+    await expect(page.getByText("E2E secret reason")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+    await page.getByRole("link", { name: "Back to the client" }).click();
+    await expect(page).toHaveURL(new RegExp(`/diagnostics/clients/${orderEntry!.client_id}$`), { timeout: 15_000 });
 
     // ---- remove access, then tidy ----
     await page.reload();

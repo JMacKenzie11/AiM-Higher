@@ -14,7 +14,10 @@ const SRC = path.resolve(__dirname, "../..");
 // The client portal (0307) is part of the module: a diagnostic client's
 // dashboard, outside the (app) group so it has no sidebar.
 const PORTAL_DIR = path.join(SRC, "app/portal");
-const MODULE_DIRS = [path.join(SRC, "lib/diagnostics"), path.join(SRC, "app/(app)/diagnostics"), PORTAL_DIR];
+// A system admin's preview of a client's dashboard (0313): part of the
+// module too, and its page opens for a system admin only, as the rest.
+const PREVIEW_DIR = path.join(SRC, "app/portal-preview");
+const MODULE_DIRS = [path.join(SRC, "lib/diagnostics"), path.join(SRC, "app/(app)/diagnostics"), PORTAL_DIR, PREVIEW_DIR];
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
