@@ -4,7 +4,7 @@ import formStyles from "@/components/auth-shell/AuthForm.module.css";
 import { getCurrentSession } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { mcpOpenTo } from "@/lib/mcp/switch";
+import { botToolsOnly, mcpOpenTo } from "@/lib/mcp/switch";
 import { mcpEnabledHere } from "@/lib/mcp/switch-here";
 import { consentPathFor, isAuthorizationId } from "@/lib/mcp/consent-path";
 import { ConsentForm } from "./ConsentForm";
@@ -105,7 +105,19 @@ export default async function ConsentPage({
       headline={<>Connect {label} to AiMS?</>}
       subtitle={`It will act as ${name}, and only as ${name}.`}
     >
-      {canApprove ? (
+      {canApprove && botToolsOnly(session.profile.role) ? (
+        // An automation account (0314): the connector offers it the bot
+        // tools only, and the page says exactly those.
+        <div className={`${formStyles.helperText} ${consentStyles.copy}`}>
+          <p>This is an automation account. It can report a bot&apos;s runs and list bots and their problems, for the bots this account covers, and nothing else in AiMS.</p>
+          <p>It returns to {returnsTo}.</p>
+          {local ? (
+            <p className={consentStyles.localNote}>
+              Only allow it if you started connecting {details.client.name || "this AI app"} yourself, on this computer, just now.
+            </p>
+          ) : null}
+        </div>
+      ) : canApprove ? (
         <div className={`${formStyles.helperText} ${consentStyles.copy}`}>
           <p>It can read your commitments and your team&apos;s, your company&apos;s plan, priorities, goals and core values, your measures and their recent values, open issues, meeting summaries and the functional chart.</p>
           <p>It can add a commitment of your own with a due date, an issue, or a value for a measure you lead (any measure, if you&apos;re an admin) in a week that has none.</p>

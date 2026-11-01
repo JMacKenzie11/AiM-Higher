@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
-import { listBots } from "@/lib/diagnostics/service";
+import { listAutomationAccounts, listBots } from "@/lib/diagnostics/service";
 import { botSchedule, type BotStatus } from "@/lib/diagnostics/bots";
 import { PageShell } from "@/components/ui/PageShell";
 import { SectionNav } from "../SectionNav";
 import { BotChip } from "../clients/[id]/BotSection";
+import { AutomationAccounts } from "../AutomationAccounts";
 import styles from "../diagnostics.module.css";
 
 export const metadata = { title: "Bots" };
@@ -24,7 +25,8 @@ function lastRun(iso: string | null): string {
 
 export default async function BotsPage() {
   await requireDiagnostics();
-  const bots = (await listBots()).sort(
+  const [allBots, managers] = await Promise.all([listBots(), listAutomationAccounts(null)]);
+  const bots = allBots.sort(
     (a, b) => ORDER[a.health.status] - ORDER[b.health.status] || a.client.name.localeCompare(b.client.name) || a.automation.title.localeCompare(b.automation.title)
   );
   const today = new Date();
@@ -96,6 +98,8 @@ export default async function BotsPage() {
           </div>
         )}
       </section>
+
+      <AutomationAccounts clientId={null} accounts={managers} archived={false} />
     </PageShell>
   );
 }

@@ -45,6 +45,8 @@ export default async function AppLayout({
   // Middleware sends them there first; this is the same rule where the
   // pages are drawn.
   if (role === "diagnostic_client") redirect("/portal");
+  // An automation account has no pages (0314).
+  if (role === "bot_account") redirect("/automation-account");
   const isSystemAdmin = role === "system_admin";
   const isGuide = role === "aims_guide";
   const isPortfolioAdmin = role === "portfolio_admin";

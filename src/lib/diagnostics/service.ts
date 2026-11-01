@@ -242,6 +242,28 @@ export async function listClientPeople(clientId: string): Promise<ClientPerson[]
   );
 }
 
+// The automation accounts on one client (0314), or (clientId null) the
+// management accounts that list every client's bots. System admins only
+// (0314's rules); shaped as the people above.
+export async function listAutomationAccounts(clientId: string | null): Promise<ClientPerson[]> {
+  const supabase = await db();
+  let q = supabase.from("diagnostic_bot_accounts").select("profile_id").limit(50);
+  q = clientId ? q.eq("client_id", clientId) : q.eq("scope", "all");
+  const { data: rows, error } = await q;
+  // Before 0314 reaches the instance the table is missing: none.
+  if (error) return [];
+  const ids = ((rows ?? []) as Array<{ profile_id: string }>).map((r) => r.profile_id);
+  if (ids.length === 0) return [];
+  const { data: profiles } = await supabase.from("profiles").select("id, full_name, status, invited_at").in("id", ids).order("full_name");
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  return Promise.all(
+    ((profiles ?? []) as Array<Omit<ClientPerson, "email" | "last_sign_in_at">>).map(async (p) => {
+      const { data } = await admin.auth.admin.getUserById(p.id);
+      return { ...p, email: data?.user?.email ?? null, last_sign_in_at: data?.user?.last_sign_in_at ?? null };
+    })
+  );
+}
+
 // ---- The portal (0307) ---------------------------------------------
 
 export type PortalView = {

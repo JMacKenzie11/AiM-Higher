@@ -1,6 +1,6 @@
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import { currentRequestOrigin } from "@/lib/instances/origin";
-import { mcpOpenTo } from "@/lib/mcp/switch";
+import { botToolsOnly, mcpOpenTo } from "@/lib/mcp/switch";
 import { mcpEnabledHere } from "@/lib/mcp/switch-here";
 import { isClientApproved } from "@/lib/mcp/client-approval";
 import { z } from "zod";
@@ -119,6 +119,12 @@ async function runTool<A>(
       await log("refused", "not_open");
       return say("AI apps aren't open to your AiMS account yet.");
     }
+    // An automation account (0314) has the bot tools only, wherever the
+    // call came from.
+    if (botToolsOnly(profile.role) && !BOT_TOOLS.has(tool)) {
+      await log("refused", "automation_account");
+      return say("This automation account can only report and list bots.");
+    }
 
     let company: VisibleCompany | null = null;
     if (needsCompany) {
@@ -187,6 +193,54 @@ const company = z
   .max(200)
   .optional()
   .describe("The company, by name or id. Leave it out if you're in only one; list_my_companies shows the choices.");
+
+type McpServer = Parameters<Parameters<typeof createMcpHandler>[0]>[0];
+
+// The Capacity Diagnostic's bot tools (0308), on both servers below.
+function registerBotTools(server: McpServer) {
+  // The Capacity Diagnostic's bots (0308): system admins on HQ only,
+  // which the database functions check. No company.
+  server.registerTool(
+    "record_bot_run",
+    {
+      title: "Report a bot run",
+      description:
+        "For a Capacity Diagnostic bot (such as a Grok Bot) to report one run to AiMS HQ when it finishes. Name the bot by its bot code, which says which bot and client this is. Report every run, including one that failed: result is worked or failed; items is how many things it handled (default 1; a failed run saves nothing whatever it says); note is, for a failed run, one line on why (for example \"Acumatica did not respond\"), which only AiMS system admins see. Only a system admin's sign-in may call this.",
+      inputSchema: z.object({
+        bot: z.string().min(3).max(60).describe("The bot code, such as northline-invoice-match."),
+        result: z.enum(["worked", "failed"]).describe("Whether the run worked."),
+        items: z.number().int().min(0).max(1000000).optional().describe("How many items it handled. Default 1."),
+        note: z.string().max(500).optional().describe("For a failed run, one line on why."),
+      }),
+      annotations: RECORD,
+    },
+    async (args, ctx) => runTool("record_bot_run", false, ctx, args, (c, a) => recordBotRun(c, a))
+  );
+
+  server.registerTool(
+    "list_bots",
+    {
+      title: "List the bots",
+      description:
+        "Every Capacity Diagnostic bot on AiMS HQ: its code, automation, client, schedule, status (Running well, Late, Stopped, Needs attention or Not live yet) and why, last run, and hours saved this week. Only a system admin's sign-in may call this. Read only.",
+      inputSchema: z.object({}),
+      annotations: READ_ONLY,
+    },
+    async (args, ctx) => runTool("list_bots", false, ctx, args, (c) => listBots(c, { problems_only: false }))
+  );
+
+  server.registerTool(
+    "list_bot_problems",
+    {
+      title: "List bots with a problem",
+      description:
+        "Only the Capacity Diagnostic bots that are Late, Stopped or Need attention, with why. Use it to check on bots when no alert has arrived. Only a system admin's sign-in may call this. Read only.",
+      inputSchema: z.object({}),
+      annotations: READ_ONLY,
+    },
+    async (args, ctx) => runTool("list_bot_problems", false, ctx, args, (c) => listBots(c, { problems_only: true }))
+  );
+}
 
 const handler = createMcpHandler(
   (server) => {
@@ -425,57 +479,35 @@ const handler = createMcpHandler(
         runTool("work_with_aimee", true, ctx, args, (c, a) => workWithAimee({ ...c, company: c.company! }, { topic: a.topic }))
     );
 
-    // The Capacity Diagnostic's bots (0308): system admins on HQ only,
-    // which the database functions check. No company.
-    server.registerTool(
-      "record_bot_run",
-      {
-        title: "Report a bot run",
-        description:
-          "For a Capacity Diagnostic bot (such as a Grok Bot) to report one run to AiMS HQ when it finishes. Name the bot by its bot code, which says which bot and client this is. Report every run, including one that failed: result is worked or failed; items is how many things it handled (default 1; a failed run saves nothing whatever it says); note is, for a failed run, one line on why (for example \"Acumatica did not respond\"), which only AiMS system admins see. Only a system admin's sign-in may call this.",
-        inputSchema: z.object({
-          bot: z.string().min(3).max(60).describe("The bot code, such as northline-invoice-match."),
-          result: z.enum(["worked", "failed"]).describe("Whether the run worked."),
-          items: z.number().int().min(0).max(1000000).optional().describe("How many items it handled. Default 1."),
-          note: z.string().max(500).optional().describe("For a failed run, one line on why."),
-        }),
-        annotations: RECORD,
-      },
-      async (args, ctx) => runTool("record_bot_run", false, ctx, args, (c, a) => recordBotRun(c, a))
-    );
-
-    server.registerTool(
-      "list_bots",
-      {
-        title: "List the bots",
-        description:
-          "Every Capacity Diagnostic bot on AiMS HQ: its code, automation, client, schedule, status (Running well, Late, Stopped, Needs attention or Not live yet) and why, last run, and hours saved this week. Only a system admin's sign-in may call this. Read only.",
-        inputSchema: z.object({}),
-        annotations: READ_ONLY,
-      },
-      async (args, ctx) => runTool("list_bots", false, ctx, args, (c) => listBots(c, { problems_only: false }))
-    );
-
-    server.registerTool(
-      "list_bot_problems",
-      {
-        title: "List bots with a problem",
-        description:
-          "Only the Capacity Diagnostic bots that are Late, Stopped or Need attention, with why. Use it to check on bots when no alert has arrived. Only a system admin's sign-in may call this. Read only.",
-        inputSchema: z.object({}),
-        annotations: READ_ONLY,
-      },
-      async (args, ctx) => runTool("list_bot_problems", false, ctx, args, (c) => listBots(c, { problems_only: true }))
-    );
+    registerBotTools(server);
   },
   { serverInfo: { name: "AiMS HQ", version: "0.6.0" } }
 );
+
+// What an automation account sees (0314): the bot tools and nothing
+// else, so a client's bot is never offered a company's plan. The
+// database gate gives the role a menu of its own as well.
+const botHandler = createMcpHandler((server) => registerBotTools(server), { serverInfo: { name: "AiMS HQ", version: "0.6.0" } });
+
+const BOT_TOOLS = new Set(["record_bot_run", "list_bots", "list_bot_problems"]);
+
+// The caller's role, read as them, to choose the server. A token that
+// cannot read its own profile gets the full server, whose every tool
+// then refuses it as before.
+async function callerRole(request: Request): Promise<string | null> {
+  const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const caller = await verifyAssistantToken(bearer);
+  if (!caller) return null;
+  const db = await assistantClient(bearer as string);
+  const { data } = await db.from("profiles").select("role").eq("id", caller.userId).maybeSingle<{ role: string }>();
+  return data?.role ?? null;
+}
 
 async function route(request: Request): Promise<Response> {
   if (!(await mcpEnabledHere())) return new Response("Not found", { status: 404 });
   const origin = await currentRequestOrigin();
   const authed = withMcpAuth(
-    handler,
+    botToolsOnly(await callerRole(request)) ? botHandler : handler,
     async (_req, bearer) => {
       const caller = await verifyAssistantToken(bearer);
       if (!caller) return undefined;

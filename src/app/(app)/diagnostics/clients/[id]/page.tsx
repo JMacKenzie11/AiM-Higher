@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireDiagnostics } from "@/lib/diagnostics/access";
-import { getClient, listBots, listClientPeople, listProposals } from "@/lib/diagnostics/service";
+import { getClient, listAutomationAccounts, listBots, listClientPeople, listProposals } from "@/lib/diagnostics/service";
 import { CLIENT_SOURCES } from "@/lib/diagnostics/types";
 import { PageShell } from "@/components/ui/PageShell";
 import { ClientButton } from "../../ClientDrawer";
@@ -10,6 +10,7 @@ import { shortDate } from "../../format";
 import { DecisionChip, StatusChip } from "../../Chips";
 import { Automations } from "./Automations";
 import { People } from "./People";
+import { AutomationAccounts } from "../../AutomationAccounts";
 import { Proposals } from "./Proposals";
 import styles from "../../diagnostics.module.css";
 
@@ -23,7 +24,7 @@ type PageProps = { params: Promise<{ id: string }> };
 export default async function DiagnosticClientPage({ params }: PageProps) {
   await requireDiagnostics();
   const { id } = await params;
-  const [found, people, bots, proposals] = await Promise.all([getClient(id), listClientPeople(id), listBots(id), listProposals(id)]);
+  const [found, people, bots, proposals, accounts] = await Promise.all([getClient(id), listClientPeople(id), listBots(id), listProposals(id), listAutomationAccounts(id)]);
   if (!found) notFound();
   const { client, diagnostics, automations, automationSource } = found;
   const ownerEmail = client.owner_email?.trim().toLowerCase() || null;
@@ -82,6 +83,8 @@ export default async function DiagnosticClientPage({ params }: PageProps) {
       />
 
       <People clientId={client.id} people={people} archived={Boolean(client.archived_at)} />
+
+      <AutomationAccounts clientId={client.id} accounts={accounts} archived={Boolean(client.archived_at)} />
 
       <Proposals
         clientId={client.id}

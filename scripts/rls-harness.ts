@@ -13689,6 +13689,147 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// 0314: automation accounts. A client's account reports and lists its
+// own client's bots and nothing else; another client's bot code answers
+// as unknown. The management account ('all') lists every client's bots
+// and reports nothing. At the gate both reach only their own profile
+// and the two bot functions; a company table and an add are refused.
+// They read no company, no other profile, no client row. A pending
+// account, and any account off the primary instance, get nothing.
+// Red before 0314: the role does not exist.
+async function automationAccountProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "automation accounts · their own bots only";
+  const CL = randomUUID(), CL2 = randomUUID(), AU = randomUUID(), AU2 = randomUUID(), BT = randomUUID(), BT2 = randomUUID();
+  const ACC = randomUUID(), MGR = randomUUID(), PEND = randomUUID();
+  const CODE = `harness-${BT.slice(0, 8)}`, CODE2 = `harness-${BT2.slice(0, 8)}`;
+  const user = (id: string) =>
+    `('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now())`;
+  const as = (id: string) => `perform set_config('request.jwt.claims', '{"sub":"${id}","role":"authenticated","client_id":"harness-0314"}', true);`;
+  const gate = (k: string, m: string, path: string) => `
+  perform set_config('request.method', '${m}', true);
+  perform set_config('request.path', '${path}', true);
+  begin perform public.assistant_request_gate(); o := 'allowed'; exception when others then o := 'refused ' || sqlstate; end;
+  insert into _p values ('${k}', o);`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+create or replace function public.assistant_session_live() returns boolean language sql as 'select true';
+create or replace function public.assistant_client_trusted(p_client_id text) returns boolean language sql as 'select true';
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ${user(ACC)}, ${user(MGR)}, ${user(PEND)};
+insert into public.diagnostic_clients (id, name) values ('${CL}', 'Harness 0314 client'), ('${CL2}', 'Harness 0314 other client');
+insert into public.diagnostic_automations (id, client_id, title, stage, goes_live) values
+  ('${AU}', '${CL}', 'Harness 0314 automation', 'live', current_date), ('${AU2}', '${CL2}', 'Harness 0314 other automation', 'live', current_date);
+insert into public.diagnostic_bots (id, automation_id, client_id, code, kind, every, minutes_per_item, hourly_rate) values
+  ('${BT}', '${AU}', '${CL}', '${CODE}', 'scheduled', 'day', 5, 45), ('${BT2}', '${AU2}', '${CL2}', '${CODE2}', 'scheduled', 'day', 5, 45);
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${ACC}', null, 'Harness 0314 client account', 'bot_account', 'active'),
+  ('${MGR}', null, 'Harness 0314 management account', 'bot_account', 'active'),
+  ('${PEND}', null, 'Harness 0314 pending account', 'bot_account', 'pending');
+insert into public.diagnostic_bot_accounts (profile_id, scope, client_id) values
+  ('${ACC}', 'client', '${CL}'), ('${MGR}', 'all', null), ('${PEND}', 'client', '${CL}');
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+do $$
+begin
+  begin
+    insert into public.diagnostic_bot_accounts (profile_id, scope, client_id) values ('${ids.member}', 'all', null);
+    insert into _p values ('not_bot_role', 'added');
+  exception when others then insert into _p values ('not_bot_role', 'error ' || sqlstate); end;
+end $$;
+set local role authenticated;
+do $$
+declare n int; j jsonb; o text;
+begin
+  ${as(ACC)}
+  ${gate("acc_gate_record", "POST", "/rpc/assistant_record_bot_run")}
+  ${gate("acc_gate_list", "POST", "/rpc/assistant_bots")}
+  ${gate("acc_gate_profile", "GET", "/profiles")}
+  ${gate("acc_gate_commitments", "GET", "/commitments")}
+  ${gate("acc_gate_companies", "GET", "/companies")}
+  ${gate("acc_gate_add_issue", "POST", "/issues")}
+  ${gate("acc_gate_summaries", "POST", "/rpc/assistant_meeting_summaries")}
+  j := public.assistant_record_bot_run('${CODE}', 'worked', 4, null);
+  insert into _p values ('acc_record', j ->> 'items');
+  begin perform public.assistant_record_bot_run('${CODE2}', 'worked', 1, null); o := 'recorded';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('acc_record_other', o);
+  j := public.assistant_bots();
+  insert into _p select 'acc_list', count(*) filter (where e -> 'bot' ->> 'code' = '${CODE}')::text || ' ' || count(*) filter (where e -> 'bot' ->> 'code' = '${CODE2}')::text
+    from jsonb_array_elements(j) e;
+  select count(*) into n from public.profiles; insert into _p values ('acc_profiles', n::text);
+  select count(*) into n from public.companies; insert into _p values ('acc_companies', n::text);
+  select count(*) into n from public.diagnostic_clients; insert into _p values ('acc_clients', n::text);
+  select count(*) into n from public.diagnostic_bot_runs; insert into _p values ('acc_runs_table', n::text);
+  select count(*) into n from public.diagnostic_bot_accounts; insert into _p values ('acc_accounts', n::text);
+
+  ${as(MGR)}
+  ${gate("mgr_gate_list", "POST", "/rpc/assistant_bots")}
+  ${gate("mgr_gate_plan", "GET", "/priorities")}
+  j := public.assistant_bots();
+  insert into _p select 'mgr_list', count(*) filter (where e -> 'bot' ->> 'code' in ('${CODE}', '${CODE2}'))::text from jsonb_array_elements(j) e;
+  begin perform public.assistant_record_bot_run('${CODE}', 'worked', 1, null); o := 'recorded';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('mgr_record', o);
+
+  ${as(PEND)}
+  begin perform public.assistant_bots(); o := 'listed';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('pending_list', o);
+
+  ${as(ids.systemAdmin)}
+  insert into _p select 'admin_list', count(*) filter (where e -> 'bot' ->> 'code' in ('${CODE}', '${CODE2}'))::text from jsonb_array_elements(public.assistant_bots()) e;
+  ${as(ids.member)}
+  begin perform public.assistant_bots(); o := 'listed';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('member_list', o);
+end $$;
+reset role;
+insert into _p select 'acc_run_row', count(*)::text from public.diagnostic_bot_runs where bot_id = '${BT}' and items = 4 and created_by = '${ACC}';
+update public.instance_settings set is_primary = false;
+set local role authenticated;
+do $$
+declare o text;
+begin
+  ${as(ACC)}
+  begin perform public.assistant_record_bot_run('${CODE}', 'worked', 1, null); o := 'recorded';
+  exception when others then o := 'error ' || sqlstate; end;
+  insert into _p values ('not_primary', o);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 140);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (is 0314 applied?)" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const grantedOk =
+    r.acc_gate_record === "allowed" && r.acc_gate_list === "allowed" && r.acc_gate_profile === "allowed" &&
+    r.acc_record === "4" && r.acc_run_row === "1" && r.acc_list === "1 0" &&
+    r.mgr_gate_list === "allowed" && r.mgr_list === "2" && r.admin_list === "2";
+  const withheldOk =
+    r.not_bot_role === "error 23514" &&
+    r.acc_gate_commitments === "refused 42501" && r.acc_gate_companies === "refused 42501" && r.acc_gate_add_issue === "refused 42501" && r.acc_gate_summaries === "refused 42501" &&
+    r.acc_record_other === "error P0002" &&
+    r.acc_profiles === "1" && r.acc_companies === "0" && r.acc_clients === "0" && r.acc_runs_table === "0" && r.acc_accounts === "0" &&
+    r.mgr_gate_plan === "refused 42501" && r.mgr_record === "error 42501" &&
+    r.pending_list === "error 42501" && r.member_list === "error 42501" && r.not_primary === "error 42501";
+  const ok = grantedOk && withheldOk;
+  return [{
+    name,
+    granted:
+      `client account at the gate: record ${r.acc_gate_record}, list ${r.acc_gate_list}, its profile ${r.acc_gate_profile} | records its bot's run ${r.acc_record}, stamped as it ${r.acc_run_row}, lists own/other ${r.acc_list} (want allowed x3, 4, 1, "1 0") | ` +
+      `management account: gate ${r.mgr_gate_list}, lists both ${r.mgr_list}; system admin lists both ${r.admin_list} (want allowed, 2, 2)`,
+    withheld:
+      `a team member made an automation account ${r.not_bot_role} (want error 23514) | client account at the gate: commitments ${r.acc_gate_commitments}, companies ${r.acc_gate_companies}, add an issue ${r.acc_gate_add_issue}, meeting summaries ${r.acc_gate_summaries} (want refused 42501 each) | ` +
+      `another client's bot ${r.acc_record_other} (want error P0002) | reads profiles ${r.acc_profiles}, companies ${r.acc_companies}, clients ${r.acc_clients}, runs table ${r.acc_runs_table}, account rows ${r.acc_accounts} (want 1, 0, 0, 0, 0: 0270 closes the new table to an assistant token) | ` +
+      `management account: the plan ${r.mgr_gate_plan}, records a run ${r.mgr_record} (want refused 42501, error 42501) | pending account lists ${r.pending_list}, team member lists ${r.member_list}, off the primary ${r.not_primary} (want error 42501 each)`,
+    ok,
+    detail: ok ? "an automation account reaches its own client's bots and nothing else; the management account lists them all and records nothing" : JSON.stringify(r).slice(0, 500),
+  }];
+}
+
 // 0313: a system admin sees a client's dashboard as the client does,
 // through portal_preview_dashboard(); nobody else does, the client's
 // own portal_dashboard() still answers them alone, and the body both
@@ -15872,6 +16013,7 @@ async function main(): Promise<void> {
   const diagnosticBots = await diagnosticBotRunProbes(run, ids, pendingSql);
   const diagnosticProposals = await diagnosticProposalProbes(run, ids, pendingSql);
   const portalPreview = await portalPreviewProbes(run, ids, pendingSql);
+  const automationAccounts = await automationAccountProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
@@ -15899,7 +16041,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...portalPreview, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...portalPreview, ...automationAccounts, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { mcpEnabled, mcpOpenTo } from "./switch";
+import { botToolsOnly, mcpEnabled, mcpOpenTo } from "./switch";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -25,12 +25,19 @@ describe("the outside assistant switches", () => {
     expect(mcpEnabled("@")).toBe(false);
   });
 
-  it("admit every role but portfolio admins", () => {
-    for (const role of ["system_admin", "company_admin", "aims_guide", "team_member"]) {
+  it("admit every role but portfolio admins and diagnostic clients", () => {
+    for (const role of ["system_admin", "company_admin", "aims_guide", "team_member", "bot_account"]) {
       expect(mcpOpenTo(role)).toBe(true);
     }
-    for (const role of ["portfolio_admin", "someone_new", "", null, undefined]) {
+    for (const role of ["portfolio_admin", "diagnostic_client", "someone_new", "", null, undefined]) {
       expect(mcpOpenTo(role)).toBe(false);
+    }
+  });
+
+  it("show an automation account the bot tools only", () => {
+    expect(botToolsOnly("bot_account")).toBe(true);
+    for (const role of ["system_admin", "team_member", "diagnostic_client", "", null, undefined]) {
+      expect(botToolsOnly(role)).toBe(false);
     }
   });
 

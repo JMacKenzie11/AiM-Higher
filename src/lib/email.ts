@@ -29,7 +29,9 @@ export type InviteEmailInput = {
   actionLink: string;
   // "client" for a Capacity Diagnostic client's person (0307), who is
   // given their company's dashboard, not added to a company on AiMS HQ.
-  kind?: "company" | "client";
+  // "automation" for an automation account (0314), which only connects
+  // bots and has no pages.
+  kind?: "company" | "client" | "automation";
 };
 
 // Invite email for the "resend to an existing pending user" path.
@@ -152,7 +154,9 @@ function renderInviteHtml(input: InviteEmailInput): string {
           <div style="color:#8892a6; font-size: 12px; margin-top: 16px;">${
             input.kind === "client"
               ? "You&rsquo;re receiving this because you were given access to your company&rsquo;s dashboard on AiMS HQ."
-              : "You&rsquo;re receiving this because someone added you to a company on AiMS HQ."
+              : input.kind === "automation"
+                ? "You&rsquo;re receiving this because this address was set up as an automation account on AiMS HQ, for connecting bots."
+                : "You&rsquo;re receiving this because someone added you to a company on AiMS HQ."
           }</div>
         </td>
       </tr>

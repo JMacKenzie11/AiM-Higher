@@ -99,3 +99,82 @@ export async function removeClientPersonAction(clientId: string, profileId: stri
   touched(clientId);
   return { ok: true };
 }
+
+// ---- Automation accounts (0314) ------------------------------------
+//
+// The sign-in a client's bots connect through, one client's bots only,
+// or (clientId null) the management account that lists every client's.
+// Allowed roles: system_admin, on every action, as above. Made and
+// removed as a client's person is; the account row goes through the
+// caller's own client, and 0314's rules are the boundary.
+
+const botPath = (clientId: string | null) => (clientId ? `/diagnostics/clients/${clientId}` : "/diagnostics/bots");
+
+export async function inviteAutomationAccountAction(clientId: string | null, input: { name: string; email: string }): Promise<DxResult & { warning?: string }> {
+  const { session, supabase } = await caller();
+  const name = input.name.trim().slice(0, 200);
+  const email = input.email.trim().toLowerCase();
+  if (!name || !email) return { ok: false, message: "Enter a name and email for the account." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { ok: false, message: "That doesn't look like an email address." };
+  if (clientId) {
+    const { data: client } = await supabase.from("diagnostic_clients").select("id, archived_at").eq("id", clientId).maybeSingle<{ id: string; archived_at: string | null }>();
+    if (!client) return { ok: false, message: "That client wasn't found." };
+    if (client.archived_at) return { ok: false, message: "Restore the client before adding an automation account." };
+  }
+
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const created = await createPendingUser({ admin, email, fullName: name, role: "bot_account", companyId: null });
+  if (!created.ok) return created;
+
+  const { data: row } = await supabase
+    .from("diagnostic_bot_accounts")
+    .insert({ profile_id: created.profileId, scope: clientId ? "client" : "all", client_id: clientId })
+    .select("profile_id");
+  if (!row?.length) {
+    await admin.auth.admin.deleteUser(created.profileId).catch(() => {});
+    return { ok: false, message: "That didn't save. Reload the page and try again." };
+  }
+  revalidatePath(botPath(clientId));
+
+  const invite = await dispatchInvite(created.profileId, email, session.profile.id);
+  if (!invite.ok) return { ok: true, warning: `Added, but the invite email didn't send: ${invite.message}` };
+  return { ok: true };
+}
+
+// The account row says what an account covers; reading it through the
+// caller's client proves this account is the one on this page.
+async function accountOf(supabase: Awaited<ReturnType<typeof caller>>["supabase"], clientId: string | null, profileId: string) {
+  let q = supabase.from("diagnostic_bot_accounts").select("profile_id").eq("profile_id", profileId);
+  q = clientId ? q.eq("client_id", clientId) : q.eq("scope", "all");
+  const { data } = await q.maybeSingle<{ profile_id: string }>();
+  if (!data) return null;
+  const { data: profile } = await supabase.from("profiles").select("id, role, status").eq("id", profileId).maybeSingle<{ id: string; role: string; status: string }>();
+  return profile?.role === "bot_account" ? profile : null;
+}
+
+export async function resendAutomationInviteAction(clientId: string | null, profileId: string): Promise<DxResult> {
+  const { session, supabase } = await caller();
+  const account = await accountOf(supabase, clientId, profileId);
+  if (!account) return { ok: false, message: "That account wasn't found." };
+  if (account.status !== "pending") return { ok: false, message: "It has already been set up." };
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const { data: user } = await admin.auth.admin.getUserById(profileId);
+  if (!user?.user?.email) return { ok: false, message: "Couldn't find its email." };
+  const sent = await dispatchInvite(profileId, user.user.email, session.profile.id);
+  if (!sent.ok) return sent;
+  revalidatePath(botPath(clientId));
+  return { ok: true };
+}
+
+// Removing it deletes the account, and every connection signed in with
+// it stops working; its runs stay.
+export async function removeAutomationAccountAction(clientId: string | null, profileId: string): Promise<DxResult> {
+  const { supabase } = await caller();
+  const account = await accountOf(supabase, clientId, profileId);
+  if (!account) return { ok: false, message: "That account wasn't found." };
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const { error } = await admin.auth.admin.deleteUser(profileId);
+  if (error) return { ok: false, message: "Couldn't remove the account. Try again." };
+  revalidatePath(botPath(clientId));
+  return { ok: true };
+}

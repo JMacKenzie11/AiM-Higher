@@ -22,7 +22,13 @@ export type Role =
   // only. No company_id; tied to one diagnostic client by
   // diagnostic_client_members. Added by a system admin inside the
   // diagnostic module, never through the users admin.
-  | "diagnostic_client";
+  | "diagnostic_client"
+  // An automation account (0314): the sign-in a client's bots (or
+  // Jason's Bot Management bot) connect to AiMS HQ through. Reaches the
+  // three bot tools on the connector and nothing else; no page but
+  // /automation-account. No company_id; its scope is a
+  // diagnostic_bot_accounts row a system admin adds.
+  | "bot_account";
 
 // Every role, as a value. For code that has to check a string against
 // the list at runtime, like a help doc's `roles:` frontmatter. The
@@ -35,6 +41,7 @@ export const ROLES = [
   "aims_guide",
   "portfolio_admin",
   "diagnostic_client",
+  "bot_account",
 ] as const satisfies readonly Role[];
 type MissingFromRoles = Exclude<Role, (typeof ROLES)[number]>;
 const rolesAreComplete: MissingFromRoles extends never ? true : never = true;
