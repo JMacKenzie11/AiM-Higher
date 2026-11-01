@@ -439,8 +439,20 @@ export type AutomationRow = {
   champion: string | null;
   latest_update: string | null;
   latest_update_at: string | null;
+  // Tool access for this automation (0315). Absent on an instance 0315
+  // has not reached yet; read as not tracked.
+  access_status?: AutomationAccess | null;
+  access_note?: string | null;
   created_at: string;
 };
 
+export type AutomationAccess = "waiting" | "secured";
+
+export const AUTOMATION_ACCESS: ReadonlyArray<{ value: AutomationAccess | ""; label: string }> = [
+  { value: "", label: "Not tracked" },
+  { value: "waiting", label: "Waiting on access" },
+  { value: "secured", label: "Access secured" },
+];
+
 export const AUTOMATION_COLUMNS =
-  "id, client_id, diagnostic_id, title, stage, build_starts, goes_live, champion, latest_update, latest_update_at, created_at";
+  "id, client_id, diagnostic_id, title, stage, build_starts, goes_live, champion, latest_update, latest_update_at, access_status, access_note, created_at";

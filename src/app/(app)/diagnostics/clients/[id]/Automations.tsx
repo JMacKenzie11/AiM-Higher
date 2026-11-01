@@ -14,7 +14,7 @@ import {
 import { suggestBotCode } from "@/lib/diagnostics/bots";
 import type { BotView } from "@/lib/diagnostics/service";
 import { BotChip, BotSection, seedBot } from "./BotSection";
-import { AUTOMATION_STAGES, stageLabel, type AutomationRow } from "@/lib/diagnostics/types";
+import { AUTOMATION_ACCESS, AUTOMATION_STAGES, stageLabel, type AutomationRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../../useDxAction";
 import { shortDate } from "../../format";
 import admin from "../../../admin/companies/admin.module.css";
@@ -133,7 +133,10 @@ export function Automations({
                     <StageChip stage={a.stage} />
                   </td>
                   <td className={styles.muted}>{buildDates(a)}</td>
-                  <td>{a.champion ?? ""}</td>
+                  <td>
+                    {a.champion ?? ""}
+                    {a.access_status === "waiting" ? <span className={`${styles.chip} ${styles.chipWarn}`}>Waiting on access</span> : null}
+                  </td>
                   <td>{botOf.get(a.id) ? <BotChip status={botOf.get(a.id)!.health.status} /> : <span className={styles.muted}>No bot</span>}</td>
                   <td>
                     {a.latest_update ?? ""}
@@ -167,6 +170,8 @@ function seed(a: AutomationRow | null): AutomationInput {
     goes_live: a?.goes_live ?? "",
     champion: a?.champion ?? "",
     latest_update: a?.latest_update ?? "",
+    access_status: a?.access_status ?? "",
+    access_note: a?.access_note ?? "",
   };
 }
 
@@ -256,6 +261,23 @@ function AutomationDrawer({
           {input("goes_live", "Goes live", { type: "date" })}
         </div>
         {input("champion", "Champion", { maxLength: 200, placeholder: "Name and role" })}
+        {/* Tool access for this automation (0315), secured as the process
+            is taken on rather than up front. */}
+        <div className={styles.grid2}>
+          <div className={admin.field}>
+            <label className={admin.label} htmlFor="automation-access_status">
+              Tool access
+            </label>
+            <select id="automation-access_status" className={admin.select} value={form.access_status} onChange={set("access_status")}>
+              {AUTOMATION_ACCESS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {input("access_note", "What's needed (the client sees this)", { maxLength: 300, placeholder: "Admin login for Acumatica" })}
+        </div>
         <div className={admin.field}>
           <label className={admin.label} htmlFor="automation-latest_update">
             Latest update for the client

@@ -207,7 +207,7 @@ export function portalProject(
     {
       key: "diagnostic",
       title: "Capacity Diagnostic",
-      about: "We map your systems and find where the hours go.",
+      about: "We find where your team's hours go and choose what to automate first.",
       state: state(0),
       when: kickoff ? `${kickoff <= today ? "Started" : "Starts"} ${monthDay(kickoff)}` : "Starting soon",
     },
@@ -237,7 +237,7 @@ export function portalProject(
 
   let now: string;
   if (at === 0) {
-    now = "We are mapping your systems and the tasks that take up your team's week.";
+    now = "We are working through the tasks that take up your team's week and choosing what to automate first.";
     if (dx?.readout_at && dx.readout_at >= today) now += ` Your readout is on ${weekdayDate(dx.readout_at)}.`;
   } else if (at === 1) {
     now = "We are putting your readout together.";

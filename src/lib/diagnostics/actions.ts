@@ -990,6 +990,9 @@ export type AutomationInput = {
   goes_live?: string;
   champion?: string;
   latest_update?: string;
+  // 0315: "", "waiting" or "secured", and what is needed.
+  access_status?: string;
+  access_note?: string;
 };
 
 export async function saveAutomationAction(clientId: string, id: string | null, input: AutomationInput): Promise<DxResult> {
@@ -1009,6 +1012,8 @@ export async function saveAutomationAction(clientId: string, id: string | null, 
     goes_live: goesLive,
     champion: text(input.champion, 200),
     latest_update: update,
+    access_status: input.access_status === "waiting" || input.access_status === "secured" ? input.access_status : null,
+    access_note: text(input.access_note, 300),
   };
   // The date beside the update moves only when its words do.
   let prior: string | null = null;

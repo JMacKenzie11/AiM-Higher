@@ -43,46 +43,16 @@ test.describe("Capacity Diagnostic", () => {
     await page.getByRole("button", { name: "Start a diagnostic" }).click();
     await expect(page).toHaveURL(/\/diagnostics\/[0-9a-f-]{36}\?step=preflight$/, { timeout: 15_000 });
     const base = page.url().replace(/\?step=preflight$/, "");
+    // The work first (Jason, 2026-11-01): systems and access come as
+    // each process is taken on.
     await expect(page.getByText("Pre-flight · 1 of 6")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Tool access and the IT contact" })).toBeVisible();
-    await page.getByLabel(/^Access secured/).check();
-
-    // ---- the systems walkthrough ----
-    await nextTo("Systems", /screen=systems$/);
-    for (const [system, kind] of [["Outlook", "email"], ["Epicor", "erp"]]) {
-      await page.getByRole("button", { name: "Add a system" }).click();
-      const sys = page.getByTestId("drawer-panel");
-      await sys.getByLabel("System name").fill(system);
-      await sys.getByLabel("Kind").selectOption(kind);
-      await sys.getByRole("button", { name: "Save" }).click();
-      await expect(page.getByRole("cell", { name: system, exact: true })).toBeVisible({ timeout: 15_000 });
-    }
-    // A reload stays on the screen, with what was entered.
-    await page.reload();
-    await expect(page.getByText("Pre-flight · 2 of 6")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("cell", { name: "Epicor", exact: true })).toBeVisible();
-    await nextTo("How information moves", /screen=links$/);
-    await page.getByRole("button", { name: "Add a link" }).click();
-    const lk = page.getByTestId("drawer-panel");
-    await lk.getByLabel("From").selectOption({ label: "Outlook" });
-    await lk.getByLabel("To", { exact: true }).selectOption({ label: "Epicor" });
-    await lk.getByLabel("What moves").fill("Orders");
-    await lk.getByLabel("How it gets there").selectOption("retyped");
-    await lk.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("cell", { name: "Typed in again" })).toBeVisible({ timeout: 15_000 });
-    await page.getByLabel("Email", { exact: true }).check();
-
-    // ---- the work done in them ----
-    await nextTo("Tasks", /screen=tasks$/);
+    await expect(page.getByRole("heading", { name: "The recurring work" })).toBeVisible();
     await expect(page.getByText("Enter a task name to add it.")).toBeVisible();
     await page.getByLabel("New task", { exact: true }).fill("Quotes");
     await page.getByLabel("Who does the new task").fill("Estimator");
-    await page.getByLabel("Where the new task happens").selectOption({ label: "Outlook" });
     await page.getByLabel("Hours a week for the new task").fill("8");
     await page.getByRole("button", { name: "Add a task" }).click();
     await expect(page.getByLabel("Task title for Quotes")).toBeVisible({ timeout: 15_000 });
-    await page.getByLabel("Information Quotes copies").selectOption({ label: "Outlook to Epicor" });
-    await expect(page.getByLabel("Information Quotes copies")).toHaveValue(/>/, { timeout: 15_000 });
 
     // ---- scoring as a card, by keyboard ----
     await nextTo("Score tasks", /screen=score$/);
@@ -100,6 +70,45 @@ test.describe("Capacity Diagnostic", () => {
     // The table view shows the same scores, for scoring many at once.
     await page.getByRole("button", { name: "Table view" }).click();
     await expect(page.getByLabel("Agent type for Quotes")).toHaveValue("customer_follow_up", { timeout: 15_000 });
+
+    // ---- the systems walkthrough ----
+    await nextTo("Systems", /screen=systems$/);
+    for (const [system, kind] of [["Outlook", "email"], ["Epicor", "erp"]]) {
+      await page.getByRole("button", { name: "Add a system" }).click();
+      const sys = page.getByTestId("drawer-panel");
+      await sys.getByLabel("System name").fill(system);
+      await sys.getByLabel("Kind").selectOption(kind);
+      await sys.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByRole("cell", { name: system, exact: true })).toBeVisible({ timeout: 15_000 });
+    }
+    // A reload stays on the screen, with what was entered.
+    await page.reload();
+    await expect(page.getByText("Pre-flight · 3 of 6")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("cell", { name: "Epicor", exact: true })).toBeVisible();
+    await nextTo("How information moves", /screen=links$/);
+    await page.getByRole("button", { name: "Add a link" }).click();
+    const lk = page.getByTestId("drawer-panel");
+    await lk.getByLabel("From").selectOption({ label: "Outlook" });
+    await lk.getByLabel("To", { exact: true }).selectOption({ label: "Epicor" });
+    await lk.getByLabel("What moves").fill("Orders");
+    await lk.getByLabel("How it gets there").selectOption("retyped");
+    await lk.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("cell", { name: "Typed in again" })).toBeVisible({ timeout: 15_000 });
+    await page.getByLabel("Email", { exact: true }).check();
+
+    await nextTo("Tool access and contact", /screen=access$/);
+    await expect(page.getByRole("heading", { name: "Tool access and the IT contact" })).toBeVisible();
+    await page.getByLabel(/^Access secured/).check();
+
+    // ---- back to the task, now its systems are known ----
+    await saved();
+    await page.goto(`${base}?step=preflight&screen=tasks`);
+    await page.getByLabel("Where Quotes happens").selectOption({ label: "Outlook" });
+    await saved();
+    await page.getByLabel("Information Quotes copies").selectOption({ label: "Outlook to Epicor" });
+    await expect(page.getByLabel("Information Quotes copies")).toHaveValue(/>/, { timeout: 15_000 });
+    await saved();
+    await page.goto(`${base}?step=preflight&screen=access`);
 
     await nextTo("AI tools", /screen=ai$/);
     const ai = page.getByLabel("AI tools the team uses for work");

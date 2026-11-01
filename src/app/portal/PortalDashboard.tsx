@@ -156,7 +156,11 @@ export function PortalDashboard({ view, proposals, links }: { view: PortalView; 
                     <div className={styles.itemHead}>
                       <span className={styles.itemTitle}>{a.title}</span>
                       {a.stage === "paused" ? <span className={`${styles.chip} ${styles.chipQuiet}`}>Paused</span> : null}
+                      {/* 0315: access is secured per automation, and what is
+                          needed is written for the client. */}
+                      {a.access_status === "waiting" ? <span className={`${styles.chip} ${styles.chipWarn}`}>Waiting on access</span> : null}
                     </div>
+                    {a.access_status === "waiting" && a.access_note ? <p className={styles.update}>What we need: {a.access_note}</p> : null}
                     <p className={styles.muted}>
                       {dates(a)}
                       {a.champion ? ` · Champion: ${a.champion}` : ""}

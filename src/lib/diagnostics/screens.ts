@@ -33,11 +33,15 @@ export type ScreenDef = {
 };
 
 export const SCREENS: readonly ScreenDef[] = [
-  { step: "preflight", key: "access", title: "Tool access and contact", heading: "Tool access and the IT contact", why: "Builds need access on day one. No access by kickoff means the kickoff moves.", required: true },
-  { step: "preflight", key: "systems", title: "Systems", heading: "The systems they work in", why: "Every week's work lives somewhere. These are the boxes on the systems map.", required: true },
-  { step: "preflight", key: "links", title: "How information moves", heading: "How information moves", why: "Information carried by hand between systems is where the hours hide.", required: false },
-  { step: "preflight", key: "tasks", title: "Tasks", heading: "The work done in them", why: "Each recurring task, who does it, where, and its hours a week.", required: true },
+  // The work first (Jason, 2026-11-01): the systems and tool access are
+  // added as each process is taken on, not settled up front, so neither
+  // is required and both come after the tasks. Access is also tracked
+  // on each automation (0315).
+  { step: "preflight", key: "tasks", title: "Tasks", heading: "The recurring work", why: "Each recurring task, who does it, where if you know yet, and its hours a week.", required: true },
   { step: "preflight", key: "score", title: "Score tasks", heading: "Score the tasks", why: "The scores rank the candidates and suggest the agent team. Skip any you're unsure of.", required: true },
+  { step: "preflight", key: "systems", title: "Systems", heading: "The systems they work in", why: "Add each system as you take on a process that touches it. These are the boxes on the systems map.", required: false },
+  { step: "preflight", key: "links", title: "How information moves", heading: "How information moves", why: "Information carried by hand between systems is where the hours hide.", required: false },
+  { step: "preflight", key: "access", title: "Tool access and contact", heading: "Tool access and the IT contact", why: "Secure access for each process as you take it on. Track it on the automation too.", required: false },
   { step: "preflight", key: "ai", title: "AI tools", heading: "AI tools and what's written down", why: "What the team already uses, and what an agent could learn from.", required: false },
   { step: "kickoff", key: "owner", title: "The owner's week", heading: "The owner's week", why: "Where the owner's own time goes. It shows on the readout under The Capacity Destination.", required: false },
   { step: "kickoff", key: "scope", title: "Scope and Capacity Destination", heading: "Scope and the Capacity Destination", why: "What's in scope, and the one priority the freed hours go to.", required: true },

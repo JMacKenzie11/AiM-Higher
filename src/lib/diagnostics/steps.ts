@@ -12,7 +12,7 @@ export const INTERVIEWS_SHOWN = false;
 // the URL, as the weekly meeting's does (meeting/steps.ts). `lead` is
 // the line under the page title.
 const ALL_STEPS = [
-  { key: "preflight", label: "Pre-flight", lead: INTERVIEWS_SHOWN ? "Secure tool access before kickoff. No access by kickoff means the kickoff moves." : "Secure tool access, then walk through the systems and the work done in them." },
+  { key: "preflight", label: "Pre-flight", lead: INTERVIEWS_SHOWN ? "Secure tool access before kickoff. No access by kickoff means the kickoff moves." : "The recurring work and how it scores. Add systems and tool access as you take on each process." },
   { key: "kickoff", label: "Kickoff", lead: INTERVIEWS_SHOWN ? "Scope, the Capacity Destination, the people in scope, and the owner's pledge." : "Dates, the guarantee, the scope and the Capacity Destination." },
   { key: "survey", label: "Survey", lead: "Each person's tasks, hours, energy and judgment, entered one at a time." },
   { key: "conversations", label: "Conversations", lead: "Thirty minutes each, starting from their best work." },

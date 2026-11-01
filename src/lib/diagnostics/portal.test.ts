@@ -74,7 +74,7 @@ describe("portalProject", () => {
     expect(p.steps.map((s) => s.state)).toEqual(["current", "todo", "todo", "todo"]);
     expect(p.steps[0].when).toBe("Started October 20");
     expect(p.steps[1].when).toBe("Booked for November 13");
-    expect(p.now).toBe("We are mapping your systems and the tasks that take up your team's week. Your readout is on Friday, November 13.");
+    expect(p.now).toBe("We are working through the tasks that take up your team's week and choosing what to automate first. Your readout is on Friday, November 13.");
   });
 
   it("a readout in progress is step two", () => {
@@ -101,7 +101,7 @@ describe("portalProject", () => {
     expect(portalProject({ ...dx, published_at: "2026-11-14T15:00:00Z" }, [], "2026-11-20")!.now).toBe(
       "Your readout is ready. Your first automations are being planned."
     );
-    expect(portalProject(dx, [], "2026-11-20")!.now).toBe("We are mapping your systems and the tasks that take up your team's week.");
+    expect(portalProject(dx, [], "2026-11-20")!.now).toBe("We are working through the tasks that take up your team's week and choosing what to automate first.");
   });
 
   it("with no diagnostic it still shows, and once anything is live it gives way to the dashboard", () => {
