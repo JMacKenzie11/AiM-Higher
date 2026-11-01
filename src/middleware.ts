@@ -61,6 +61,12 @@ function pendingAllowsPath(pathname: string): boolean {
   return PENDING_ALLOWED_PATHS.includes(pathname);
 }
 
+// An automation account (0314) signs in only to approve a bot's
+// connection: sign-in, the consent screen, and its own page.
+function automationAllowsPath(pathname: string): boolean {
+  return pathname === "/automation-account" || pathname === "/oauth/consent" || pathname.startsWith("/auth/");
+}
+
 function portalAllowsPath(pathname: string): boolean {
   return pathname === "/portal" || pathname.startsWith("/portal/") || pathname.startsWith("/auth/");
 }
@@ -157,6 +163,10 @@ export async function middleware(request: NextRequest) {
   // root included, sends them there. Row security is the boundary
   // (they have no company, and read only their own client's rows);
   // this keeps them off pages that would only show them empty shells.
+  if (role === "bot_account" && !automationAllowsPath(path)) {
+    return NextResponse.redirect(new URL("/automation-account", request.url));
+  }
+
   if (role === "diagnostic_client" && !portalAllowsPath(path)) {
     return NextResponse.redirect(new URL("/portal", request.url));
   }

@@ -88,6 +88,7 @@ const ROLE_NAMES: Record<Role, string> = {
   system_admin: "a system admin",
   portfolio_admin: "a portfolio admin, who can read inside a company but not change it",
   diagnostic_client: "a Capacity Diagnostic client, who sees only their own dashboard",
+  bot_account: "an automation account, which has no pages",
 };
 
 // THE PERSON'S ROLE, AND WHAT FOLLOWS FROM IT (2026-09-29). A team

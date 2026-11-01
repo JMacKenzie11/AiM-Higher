@@ -26,9 +26,19 @@ Most automations are built as Grok Bots. In an automation's drawer, **Add a bot*
 - **How it starts**: **On a schedule** (how often, and when) or **When something happens** (what sets it off, which the client will read, and if you like how often it should run at least).
 - **One item is a**, **Agreed minutes saved per item**, **Agreed hourly rate** and **Agreed on**: what the savings are worked out from.
 
-The Grok Bot reports each run to AiMS HQ with the `record_bot_run` tool, connected to AiMS HQ through AI apps and signed in as a system admin: the bot code, whether it worked or failed, how many items it handled, and for a failure one line on why. A failed run counts but saves nothing; only system admins see why it failed.
+The Grok Bot reports each run to AiMS HQ with the `record_bot_run` tool, connected to AiMS HQ through AI apps and signed in as the client's automation account (below): the bot code, whether it worked or failed, how many items it handled, and for a failure one line on why. A failed run counts but saves nothing; only system admins see why it failed.
 
 A bot is **Late** when its next run is half an interval overdue, **Stopped** after two missed runs, and **Needs attention** when its last run failed. **Bots**, at the top of the diagnostic pages, lists every client's bots with the ones needing a look first. When a bot changes to or from one of those, AiMS HQ sends a webhook to the Bot Management Grok Bot; `list_bot_problems` gives the same list when no alert came.
+
+## Automation accounts
+
+A client's bots connect to AiMS HQ with an automation account, not with your own sign-in. Have the client create one Gmail address that you both use for Grok. On the client's page, under **Automation account**, enter a name and that address and select **Send invite**, then set its password from the invite. In Grok, add AiMS HQ as a connector and sign in with that account when it asks.
+
+It sees three tools: report a run, list bots and list bot problems, all for that client's bots only. Another client's bot code answers as unknown. It can't read any company or open any page in AiMS HQ; signed in, it only ever sees a page saying it's an automation account. Every run records the account that reported it.
+
+Your Bot Management bot gets its own account under **Management account** on **Bots**. It lists every client's bots and their problems and can't report a run.
+
+Anyone with the Gmail login can open the Grok bots, see why a run failed, and report a run. **Remove access** deletes the account, and every connection signed in with it stops working; its runs stay.
 
 ## People who can sign in
 
@@ -73,4 +83,4 @@ A readout published before the interviews were hidden keeps every section it was
 
 ## Who sees what
 
-Only system admins on AiMS HQ can open these pages. The owner gets the readout PDF, and the people you add under **People who can sign in** see their own dashboard and nothing else.
+Only system admins on AiMS HQ can open these pages. The owner gets the readout PDF, and the people you add under **People who can sign in** see their own dashboard and nothing else. An automation account reaches its own bots through the connector and nothing else.

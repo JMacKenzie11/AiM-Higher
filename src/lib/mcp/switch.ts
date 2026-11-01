@@ -34,8 +34,16 @@ export function mcpEnabled(subdomain?: string): boolean {
 // Every role but portfolio admins (Jason, 2026-10-14; it replaced the
 // system-admins-only MCP_FOR_EVERYONE). The database gate refuses a
 // portfolio admin's assistant token too (0284). Unknown or missing
-// roles are refused: fail closed.
-const OPEN_ROLES = new Set(["system_admin", "company_admin", "aims_guide", "team_member"]);
+// roles are refused: fail closed. An automation account (0314) is open
+// too, to the bot tools only (BOT_ONLY_ROLES); diagnostic clients are
+// not.
+const OPEN_ROLES = new Set(["system_admin", "company_admin", "aims_guide", "team_member", "bot_account"]);
+
+// Roles the connector shows only the bot tools (0314). The database
+// gate gives them a menu of their own as well.
+export function botToolsOnly(role: string | null | undefined): boolean {
+  return role === "bot_account";
+}
 
 export function mcpOpenTo(role: string | null | undefined): boolean {
   return typeof role === "string" && OPEN_ROLES.has(role);

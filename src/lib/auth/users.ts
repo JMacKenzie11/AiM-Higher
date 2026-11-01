@@ -661,7 +661,8 @@ export async function dispatchInvite(
     actionLink: link,
     // A diagnostic client's person is given their company's
     // dashboard (0307), and the email says so.
-    kind: profile?.role === "diagnostic_client" ? "client" : "company",
+    // An automation account (0314) only connects bots, and its email says so.
+    kind: profile?.role === "diagnostic_client" ? "client" : profile?.role === "bot_account" ? "automation" : "company",
   });
 
   if (!sent.ok) {
