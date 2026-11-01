@@ -130,7 +130,7 @@ export function proposalTemplate(input: { ownerName: string | null; leadName: st
         bullets([
           [
             { b: "Capacity Diagnostic, weeks 1 to 3: " },
-            "we secure access to your tools and walk through your systems, how information moves between them, and the recurring work done in them. We agree the scope and your Capacity Destination, where the hours we free up should go. Then we build the first bot, put it in use, and measure what it saves.",
+            "we work through the recurring work in your team's week and agree which processes to automate first. As we take on each one, we map the systems it touches and secure access to them. We agree the scope and your Capacity Destination, where the hours we free up should go. Then we build the first bot, put it in use, and measure what it saves.",
           ],
           [
             { b: "Your readout: " },
@@ -138,7 +138,7 @@ export function proposalTemplate(input: { ownerName: string | null; leadName: st
           ],
           [
             { b: "Deployment: " },
-            "we build and launch the bots on the roadmap. Each one moves from Planned to Building to Testing to Live, with a champion on your team.",
+            "we build and launch the bots on the roadmap, securing access to the tools each one needs as we start it. Each one moves from Planned to Building to Testing to Live, with a champion on your team.",
           ],
           [
             { b: "Support: " },

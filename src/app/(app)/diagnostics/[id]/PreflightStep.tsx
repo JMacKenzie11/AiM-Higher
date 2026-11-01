@@ -11,17 +11,18 @@ import { screenOf } from "@/lib/diagnostics/screens";
 import { INTAKE_CHANNELS } from "@/lib/diagnostics/types";
 import styles from "../diagnostics.module.css";
 
-// 1. PRE-FLIGHT. The five working days before kickoff: the tools the
-// group lives in, one IT contact, and three ticks. Next waits for
-// "access secured": no access by kickoff means the kickoff moves, not
-// the build. Under them, the systems walkthrough (phase 4). While the
-// people interviews are hidden (steps.ts), the work done in the systems
-// is entered here too, with the one company-level AI question.
+// 1. PRE-FLIGHT. The recurring work first, then the systems walkthrough
+// (phase 4) and the tools, the IT contact and the ticks. Systems and
+// access are added as each process is taken on (Jason, 2026-11-01), so
+// neither is required and access is tracked on each automation (0315).
+// While the people interviews are hidden (steps.ts), the work is
+// entered here, with the one company-level AI question.
 //
 // On the guided screens (Jason, 2026-10-29) each part is a screen of
-// its own: tool access and contact, systems, how information moves (and
-// where requests come in), tasks, scoring them, and AI tools (and what
-// is written down). With no screen, every part shows, as before.
+// its own, in screens.ts order: tasks, scoring them, systems, how
+// information moves (and where requests come in), tool access and
+// contact, and AI tools (and what is written down). With no screen,
+// every part shows in the same order.
 export function PreflightStep({
   diagnostic,
   systems,
@@ -42,6 +43,29 @@ export function PreflightStep({
   return (
     <StepCard id="step-preflight" title={screen ? (screenOf("preflight", screen)?.title ?? "Pre-flight") : "Pre-flight"} footer={footer}>
       <div className={styles.body}>
+        {INTERVIEWS_SHOWN ? null : (
+          <>
+            {!screen ? <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} /> : null}
+            {screen === "tasks" ? <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} scoring={false} /> : null}
+            {screen === "score" ? <ScoreCards diagnosticId={id} tasks={tasks} systems={systems} links={links} /> : null}
+          </>
+        )}
+        {!screen ? <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} /> : null}
+        {screen === "systems" ? <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} part="systems" /> : null}
+        {screen === "links" ? <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} part="links" /> : null}
+        {/* Where requests come in (0309). */}
+        {show("links") ? (
+          <div>
+            <DxMulti
+              diagnosticId={id}
+              field="intake_channels"
+              label="Where do requests come in: email, Slack or Teams, phone, CRM, web forms?"
+              options={INTAKE_CHANNELS}
+              value={diagnostic.intake_channels ?? []}
+            />
+            <DxField diagnosticId={id} field="intake_other" label="Anywhere else" value={diagnostic.intake_other} maxLength={500} placeholder="Walk-ins, text messages" />
+          </div>
+        ) : null}
         {show("access") ? (
           <>
             <DxField
@@ -61,27 +85,8 @@ export function PreflightStep({
             </div>
           </>
         ) : null}
-        {!screen ? <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} /> : null}
-        {screen === "systems" ? <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} part="systems" /> : null}
-        {screen === "links" ? <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} part="links" /> : null}
-        {/* Where requests come in (0309). */}
-        {show("links") ? (
-          <div>
-            <DxMulti
-              diagnosticId={id}
-              field="intake_channels"
-              label="Where do requests come in: email, Slack or Teams, phone, CRM, web forms?"
-              options={INTAKE_CHANNELS}
-              value={diagnostic.intake_channels ?? []}
-            />
-            <DxField diagnosticId={id} field="intake_other" label="Anywhere else" value={diagnostic.intake_other} maxLength={500} placeholder="Walk-ins, text messages" />
-          </div>
-        ) : null}
         {INTERVIEWS_SHOWN ? null : (
           <>
-            {!screen ? <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} /> : null}
-            {screen === "tasks" ? <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} scoring={false} /> : null}
-            {screen === "score" ? <ScoreCards diagnosticId={id} tasks={tasks} systems={systems} links={links} /> : null}
             {show("ai") ? (
               <>
                 <DxField

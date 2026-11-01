@@ -49,6 +49,9 @@ test.describe("Diagnostic client portal", () => {
     await second.getByLabel("Automation", { exact: true }).fill("Invoice matching");
     await second.getByLabel("Stage").selectOption("building");
     await second.getByLabel("Champion").fill("Dana R., Purchasing");
+    // Access is secured per automation (0315), and the client reads what is needed.
+    await second.getByLabel("Tool access").selectOption("waiting");
+    await second.getByLabel("What's needed (the client sees this)").fill("An admin login for Epicor");
     await second.getByRole("button", { name: "Save" }).click();
     await expect(automations.getByRole("button", { name: "Invoice matching" })).toBeVisible({ timeout: 15_000 });
 
@@ -121,6 +124,8 @@ test.describe("Diagnostic client portal", () => {
     await expect(client.getByText(`e2e-portal-${stamp}`)).toHaveCount(0);
     await expect(client.getByRole("list", { name: "Stage: Building" })).toBeVisible();
     await expect(client.getByText("Champion: Dana R., Purchasing")).toBeVisible();
+    await expect(client.getByText("Waiting on access")).toBeVisible();
+    await expect(client.getByText("What we need: An admin login for Epicor")).toBeVisible();
     await expect(client.getByRole("img", { name: "AiMS HQ" })).toBeVisible();
     // Every other page sends them back.
     for (const path of ["/dashboard", "/diagnostics", "/admin/companies", `/portal-preview/${orderEntry!.client_id}`, "/"]) {

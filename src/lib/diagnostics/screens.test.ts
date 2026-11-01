@@ -20,7 +20,9 @@ function fresh(): DiagnosticBundle {
 
 describe("the screens", () => {
   it("run six, three, four and four per step, in the mockup's order", () => {
-    expect(screensOf("preflight").map((s) => s.key)).toEqual(["access", "systems", "links", "tasks", "score", "ai"]);
+    expect(screensOf("preflight").map((s) => s.key)).toEqual(["tasks", "score", "systems", "links", "access", "ai"]);
+    // Systems and access are added as each process is taken on.
+    expect(screensOf("preflight").filter((s) => s.required).map((s) => s.key)).toEqual(["tasks", "score"]);
     expect(screensOf("kickoff").map((s) => s.key)).toEqual(["owner", "scope", "dates"]);
     expect(screensOf("build").map((s) => s.key)).toEqual(["candidates", "agents", "guardrails", "midpoint"]);
     expect(screensOf("readout").map((s) => s.key)).toEqual(["roadmap", "narrative", "preview", "publish"]);
@@ -35,13 +37,13 @@ describe("the screens", () => {
 });
 
 describe("screenStates and the next thing to do", () => {
-  it("starts with nothing done, Continue on tool access, and Publish locked", () => {
+  it("starts with nothing done, Continue on the tasks, and Publish locked", () => {
     const b = fresh();
     const states = screenStates(b, { readout: assembleReadout(b, "2026-10-22") });
     expect(states["preflight.access"]).toBe("not_started");
     expect(states["readout.publish"]).toBe("locked");
-    expect(nextScreen(states)?.key).toBe("access");
-    expect(nextAction(nextScreen(states)!, b)).toBe("Secure tool access");
+    expect(nextScreen(states)?.key).toBe("tasks");
+    expect(nextAction(nextScreen(states)!, b)).toBe("Add the recurring tasks");
     expect(stepPercent("preflight", states)).toBe(0);
   });
 
