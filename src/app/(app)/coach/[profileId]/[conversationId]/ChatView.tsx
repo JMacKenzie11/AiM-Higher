@@ -41,6 +41,14 @@ import {
   type AgentAttachedInfo,
 } from "@/components/practices/AgentPicker";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
+import {
+  ATTACHMENT_ACCEPT,
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_FILES,
+  composeMessage,
+  splitAttachments,
+  type Attachment,
+} from "@/lib/coach/attachments";
 import styles from "../../coach.module.css";
 
 // The chat UI. Handles streaming SSE from /api/coach, renders the
@@ -258,6 +266,15 @@ export function ChatView({
   }, [hasUserTurns, onHasUserTurns]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  // Files attached to the next message, already read to text by
+  // /api/coach/attachments (lib/coach/attachments.ts). Agent
+  // conversations only. Read through a ref in sendMessage.
+  const [files, setFiles] = useState<Array<Attachment & { truncated: boolean }>>([]);
+  const filesRef = useRef(files);
+  filesRef.current = files;
+  const [reading, setReading] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [lastUserAttempt, setLastUserAttempt] = useState<string | null>(null);
   const [title, setTitle] = useState(conversation.title);
   const [renaming, setRenaming] = useState(false);
@@ -397,7 +414,8 @@ export function ChatView({
   const sendMessage = useCallback(
     async (text: string, opts: { retry?: boolean } = {}) => {
       const trimmed = text.trim();
-      if ((!trimmed && !opts.retry) || sending) return;
+      const attached = opts.retry ? [] : filesRef.current;
+      if ((!trimmed && attached.length === 0 && !opts.retry) || sending) return;
       setSending(true);
       if (!opts.retry) setLastUserAttempt(trimmed);
 
@@ -412,7 +430,7 @@ export function ChatView({
           {
             id: `local-u-${Date.now()}`,
             role: "user",
-            content: trimmed,
+            content: composeMessage(trimmed, attached),
             created_by: currentUserId,
           },
         ]);
@@ -444,6 +462,7 @@ export function ChatView({
           body: JSON.stringify({
             conversationId: conversation.id,
             userMessage: trimmed,
+            ...(attached.length ? { attachments: attached.map(({ name, text }) => ({ name, text })) } : {}),
             retry: Boolean(opts.retry),
             ...(pageContext ? { pageContext: pageContext() } : {}),
           }),
@@ -555,13 +574,52 @@ export function ChatView({
       } finally {
         if (!controller.signal.aborted) {
           setSending(false);
-          if (!opts.retry) setInput("");
+          if (!opts.retry) {
+            setInput("");
+            // The files went with the message, as the text did.
+            setFiles([]);
+            setFileError(null);
+          }
           textareaRef.current?.focus();
         }
       }
     },
     [conversation.id, sending, currentUserId, isOwner, router, inPanel, pageContext]
   );
+
+  // Read a picked file to text, ready to go with the next message.
+  async function attachFile(file: File) {
+    setFileError(null);
+    if (filesRef.current.length >= ATTACHMENT_MAX_FILES) {
+      setFileError(`Up to ${ATTACHMENT_MAX_FILES} files a message.`);
+      return;
+    }
+    if (file.size > ATTACHMENT_MAX_BYTES) {
+      setFileError("That file is over 4 MB. Attach a smaller one, or paste the part that matters.");
+      return;
+    }
+    setReading(true);
+    try {
+      const form = new FormData();
+      form.set("conversationId", conversation.id);
+      form.set("file", file);
+      const res = await fetch("/api/coach/attachments", { method: "POST", body: form });
+      const data = (await res.json().catch(() => null)) as
+        | { name?: string; text?: string; truncated?: boolean; error?: string }
+        | null;
+      if (!res.ok || !data || typeof data.text !== "string" || typeof data.name !== "string") {
+        setFileError(data?.error ?? "That file couldn't be read. Try again, or paste the text.");
+        return;
+      }
+      const read = { name: data.name, text: data.text, truncated: data.truncated === true };
+      setFiles((prev) => [...prev, read]);
+    } catch {
+      setFileError("That file couldn't be read. Try again, or paste the text.");
+    } finally {
+      setReading(false);
+      textareaRef.current?.focus();
+    }
+  }
 
   function retry() {
     if (!lastUserAttempt) return;
@@ -905,9 +963,65 @@ export function ChatView({
         className={styles.composer}
         onSubmit={(e) => {
           e.preventDefault();
-          void sendMessage(input);
+          if (!reading) void sendMessage(input);
         }}
       >
+        {isPractice && (files.length > 0 || fileError || reading) ? (
+          <div className={styles.composerFiles}>
+            {files.map((f, i) => (
+              <span key={`${f.name}-${i}`} className={styles.fileChip} data-testid="composer-file">
+                <PaperclipIcon />
+                <span className={styles.fileChipName}>{f.name}</span>
+                {f.truncated ? <span className={styles.fileChipNote}>(first part only)</span> : null}
+                <button
+                  type="button"
+                  className={styles.fileChipRemove}
+                  aria-label={`Remove ${f.name}`}
+                  onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                  disabled={sending}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {reading ? (
+              <span className={styles.fileStatus} role="status">
+                Reading the file…
+              </span>
+            ) : null}
+            {fileError ? (
+              <span className={styles.fileError} role="alert">
+                {fileError}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {isPractice ? (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ATTACHMENT_ACCEPT}
+              className={styles.fileInput}
+              data-testid="composer-file-input"
+              onChange={(e) => {
+                const picked = e.target.files?.[0];
+                e.target.value = "";
+                if (picked) void attachFile(picked);
+              }}
+            />
+            <button
+              type="button"
+              className={styles.attachButton}
+              aria-label="Attach a file"
+              title="Attach a file (PDF, Word or text)"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending || reading || files.length >= ATTACHMENT_MAX_FILES}
+            >
+              <PaperclipIcon />
+            </button>
+          </>
+        ) : null}
         {/* Wrapper drives auto-grow via the CSS grid mirror trick — a
             hidden ::after pseudo replicates the textarea's value and
             grows the grid track, and the textarea inherits that track
@@ -927,7 +1041,7 @@ export function ChatView({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                void sendMessage(input);
+                if (!reading) void sendMessage(input);
               }
             }}
             disabled={sending}
@@ -937,7 +1051,7 @@ export function ChatView({
         <button
           type="submit"
           className={styles.sendButton}
-          disabled={sending || !input.trim()}
+          disabled={sending || reading || (!input.trim() && files.length === 0)}
         >
           {sending ? "…" : "Send"}
         </button>
@@ -1012,7 +1126,7 @@ function MessageBubble({
               <span className={styles.bubbleAuthor}>{author.full_name}</span>
             </div>
           ) : null}
-          <div className={styles.bubbleUser}>{message.content}</div>
+          <UserBubbleBody content={message.content} />
         </div>
       </div>
     );
@@ -1343,4 +1457,32 @@ async function consumeSse(
   } finally {
     signal.removeEventListener("abort", onAbort);
   }
+}
+
+function PaperclipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+}
+
+// A sent message: its files as chips (their text went to Aimee and is
+// not shown again), then what was typed.
+function UserBubbleBody({ content }: { content: string }) {
+  const { files, text } = splitAttachments(content);
+  if (files.length === 0) return <div className={styles.bubbleUser}>{content}</div>;
+  return (
+    <div className={styles.bubbleUser}>
+      <span className={styles.bubbleFiles}>
+        {files.map((f, i) => (
+          <span key={`${f.name}-${i}`} className={styles.fileChip} data-testid="bubble-file">
+            <PaperclipIcon />
+            <span className={styles.fileChipName}>{f.name}</span>
+          </span>
+        ))}
+      </span>
+      {text ? <span className={styles.bubbleFilesText}>{text}</span> : null}
+    </div>
+  );
 }

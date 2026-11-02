@@ -665,3 +665,83 @@
   font-weight: 400;
   color: var(--text-muted);
 }
+
+/* Files attached in an agent conversation (lib/coach/attachments.ts).
+   The composer wraps so the chips take their own row above the box. */
+.composer:has(.composerFiles) {
+  flex-wrap: wrap;
+}
+
+.composerFiles {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.fileInput {
+  display: none;
+}
+
+.attachButton {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+  align-self: flex-end;
+  padding: var(--space-2);
+  color: var(--text-muted);
+}
+
+.attachButton:disabled {
+  opacity: 0.5;
+}
+
+.fileChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--text-body-sm);
+}
+
+.fileChipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileChipNote,
+.fileStatus {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+}
+
+.fileChipRemove {
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.fileError {
+  color: var(--aims-danger);
+  font: var(--text-body-sm);
+}
+
+.bubbleFiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.bubbleFilesText {
+  display: block;
+  margin-top: var(--space-2);
+}

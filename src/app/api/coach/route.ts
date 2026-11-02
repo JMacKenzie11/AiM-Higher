@@ -59,6 +59,12 @@ import {
 } from "@/lib/coach/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { callSettings } from "@/lib/transcripts/model";
+import {
+  ATTACHMENT_MAX_FILES,
+  ATTACHMENT_PROMPT_NOTE,
+  composeMessage,
+  type Attachment,
+} from "@/lib/coach/attachments";
 
 // POST /api/coach — streaming chat endpoint for the coaching feature.
 //
@@ -84,6 +90,9 @@ export const runtime = "nodejs"; // Node runtime for fs + Anthropic streaming.
 type IncomingBody = {
   conversationId?: unknown;
   userMessage?: unknown;
+  // Agent conversations only: files the leader attached, as read by
+  // /api/coach/attachments. Saved inside the message (lib/coach/attachments.ts).
+  attachments?: unknown;
   // From Aimee's panel only: { path, record: { pattern, id } | null }.
   // Shape-checked by parsePageContext; never a record's contents.
   pageContext?: unknown;
@@ -144,10 +153,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     typeof body.userMessage === "string" ? body.userMessage.trim() : "";
   const isRetry = body.retry === true;
   const isGenerateOpener = body.generateOpener === true;
+  const attachments = parseAttachments(body.attachments);
   if (!conversationId) {
     return new Response("Missing conversationId", { status: 400 });
   }
-  if (!isRetry && !isGenerateOpener && !userMessage) {
+  if (!isRetry && !isGenerateOpener && !userMessage && attachments.length === 0) {
     return new Response("Missing userMessage", { status: 400 });
   }
 
@@ -170,6 +180,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   );
   if (access !== "owner" && access !== "write") {
     return new Response("Forbidden", { status: 403 });
+  }
+  // Files go in agent conversations only (Jason, 2026-11-02).
+  if (attachments.length > 0 && !convo.practice_id) {
+    return new Response("Files can be attached in agent conversations only", { status: 400 });
   }
 
   // ONE OPENER PER CONVERSATION. A second request to open a
@@ -214,7 +228,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         conversation_id: conversationId,
         created_by: session.profile.id,
         role: "user",
-        content: userMessage,
+        content: composeMessage(userMessage, attachments),
       })
       .select("*")
       .single<CoachingMessage>();
@@ -238,6 +252,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         context_kind: convo.context_kind,
         retry: isRetry,
         message_length: userMessage.length,
+        attachments: attachments.length,
       },
       { company: convo.company_id }
     );
@@ -1020,6 +1035,18 @@ export async function POST(req: NextRequest): Promise<Response> {
 
 // ---- Helpers ----------------------------------------------------
 
+// The attachments in a request, shape-checked. Their text was read by
+// /api/coach/attachments; composeMessage caps each one and the count.
+function parseAttachments(raw: unknown): Attachment[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (a): a is Attachment =>
+        typeof a === "object" && a !== null && typeof (a as Attachment).name === "string" && typeof (a as Attachment).text === "string" && (a as Attachment).text.trim() !== ""
+    )
+    .slice(0, ATTACHMENT_MAX_FILES);
+}
+
 // Takes the RESOLVED CONFIG, not a practice id.
 //
 // It used to re-resolve the agent from the registry, which is now
@@ -1049,8 +1076,9 @@ async function loadSystemPrompt(
   // client renders). The two bases stay on disk and keep their SHA
   // guards — they are the fallback, so they matter more now, not
   // less.
+  // Every agent can be handed files (lib/coach/attachments.ts).
   const composed = config
-    ? `${base}\n\n${config.prompt}`
+    ? `${base}\n\n${config.prompt}\n\n${ATTACHMENT_PROMPT_NOTE}`
     : mode === "about"
       ? base
       : `${GENERAL_MODE_PREAMBLE}\n\n${base}`;

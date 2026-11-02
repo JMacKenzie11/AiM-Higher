@@ -11,6 +11,7 @@ A thinking partner for whatever you're working through: a decision, a conversati
 - **Start a conversation.** Click *New conversation*, type what's on your mind and send.
 - **Ask how to use AiMS.** In a plain conversation, ask where something is or how to do it: "where do I add a quarterly priority?" Aimee answers from the help for your role and links you to the page. She only links to pages you can open.
 - **Use a guided agent.** Inside a conversation, pick an agent from the agent picker beside the title. Each one opens with a few starter questions: click one, or type your own. You can change the agent until you send your first message. After that it stays for the whole conversation.
+- **Attach a file to an agent.** In an agent conversation, click the paperclip beside the message box to attach a PDF, Word (.docx) or text file, up to 4 MB and up to three at a time. Aimee reads the file's text along with your message, and the file shows as a chip on it. The file itself isn't kept. Its text is saved with your message, so Aimee can come back to it later in the conversation, and it's shared along with the conversation if you share it. A scanned PDF has no text to read, so paste the part you need instead.
 - **Pick up where you left off.** Every conversation stays in *Recent conversations*. Ones you started about a person show their name, and open on that person's coaching page.
 - **Share a conversation.** See *Sharing a conversation* below.
 - **Archive a conversation.** Click *Archive* on its row to tuck it out of the way.
