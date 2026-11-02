@@ -110,6 +110,9 @@ export type AgentConfigView = {
   // Which config an agent is RUNNING. "registry" until somebody
   // publishes, which is every agent today.
   liveSource: "registry" | "version";
+  // The live version was published unchanged from the code, so it
+  // runs what the code says now (0317).
+  liveFollowsCode: boolean;
   // True when any version of this agent has ever been published.
   // Delete is refused past that point, because conversations may
   // have run on it and the record has to stay.
@@ -145,8 +148,17 @@ export async function loadAgentConfig(
 
   const practice = PRACTICES.find((p) => p.id === slug) ?? null;
 
+  // Its own query, so the Config tab still loads on an instance 0317
+  // has not reached (the column is missing there, and nothing follows).
+  let liveFollowsCode = false;
+  if (liveId && practice) {
+    const { data: mark, error } = await db.from("agent_versions").select("follows_code").eq("id", liveId).maybeSingle<{ follows_code: boolean }>();
+    liveFollowsCode = !error && mark?.follows_code === true;
+  }
+
   return {
     liveSource: liveId ? "version" : "registry",
+    liveFollowsCode,
     everPublished: rows.some((r) => r.publishedAt !== null),
     live: rows.find((r) => r.isLive) ?? null,
     draft: rows.find((r) => r.isDraft) ?? null,

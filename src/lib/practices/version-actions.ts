@@ -9,6 +9,7 @@ import { PRACTICES, type PracticeToolName } from "./registry";
 import { registryConfig } from "./version-config";
 import { FUNCTION_LEAD_PREDICATE } from "./hub-constants";
 import { isValidAgentModel } from "./models";
+import { matchesCode } from "./follows-code";
 import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { loadCoachingPrinciples } from "@/lib/coach/principles";
@@ -122,38 +123,47 @@ async function insertVersion(
   profileId: string | null,
   // On a publish: the principles check read first, and the reason when
   // it found something (0256).
-  principles: { checkId: string; reason: string | null } | null = null
+  principles: { checkId: string; reason: string | null } | null = null,
+  // Published unchanged from the code (0317).
+  followsCode = false
 ): Promise<{ id: string } | { error: string }> {
   const version_number = await nextVersionNumber(supabase, agentRowId);
-  const { data, error } = await supabase
+  const row: Record<string, unknown> = {
+    agent_id: agentRowId,
+    version_number,
+    prompt: input.prompt,
+    chips: input.chips,
+    base_prompt_mode: input.basePromptMode,
+    skip_setup: input.skipSetup,
+    first_turn: input.firstTurn,
+    scripted_opener: input.scriptedOpener,
+    // Vestigial. The tag -> card map is a code constant now, so
+    // nothing reads this column. Versions are immutable, so old
+    // rows keep whatever they carried; new ones write empty rather
+    // than copying data nothing consumes. The column is a
+    // candidate for a later migration to drop.
+    output_card: {},
+    tools: input.tools,
+    max_tokens: input.maxTokens,
+    model: input.model,
+    publish_notes: publishNotes,
+    published_by: profileId,
+    published_at: publishNotes ? new Date().toISOString() : null,
+    ...(principles
+      ? { principles_check_id: principles.checkId, principles_reason: principles.reason }
+      : {}),
+  };
+  let { data, error } = await supabase
     .from("agent_versions")
-    .insert({
-      agent_id: agentRowId,
-      version_number,
-      prompt: input.prompt,
-      chips: input.chips,
-      base_prompt_mode: input.basePromptMode,
-      skip_setup: input.skipSetup,
-      first_turn: input.firstTurn,
-      scripted_opener: input.scriptedOpener,
-      // Vestigial. The tag -> card map is a code constant now, so
-      // nothing reads this column. Versions are immutable, so old
-      // rows keep whatever they carried; new ones write empty rather
-      // than copying data nothing consumes. The column is a
-      // candidate for a later migration to drop.
-      output_card: {},
-      tools: input.tools,
-      max_tokens: input.maxTokens,
-      model: input.model,
-      publish_notes: publishNotes,
-      published_by: profileId,
-      published_at: publishNotes ? new Date().toISOString() : null,
-      ...(principles
-        ? { principles_check_id: principles.checkId, principles_reason: principles.reason }
-        : {}),
-    })
+    .insert(followsCode ? { ...row, follows_code: true } : row)
     .select("id")
     .single<{ id: string }>();
+  // Before 0317 reaches this instance the column is missing: publish
+  // the version unmarked, as every version was before, rather than
+  // refusing the publish.
+  if (error && followsCode) {
+    ({ data, error } = await supabase.from("agent_versions").insert(row).select("id").single<{ id: string }>());
+  }
   if (error || !data) {
     return {
       error:
@@ -188,17 +198,33 @@ export async function startDraftAction(
 
   let seed: DraftInput;
   if (agent.live_version_id) {
+    // "*" so 0317's follows_code is read where it exists and its
+    // absence is no error where it does not.
     const { data: live } = await supabase
       .from("agent_versions")
-      .select(
-        "prompt, chips, base_prompt_mode, skip_setup, first_turn, " +
-          "scripted_opener, output_card, tools, max_tokens, model"
-      )
+      .select("*")
       .eq("id", agent.live_version_id)
       .maybeSingle();
     const r = live as Record<string, unknown> | null;
     if (!r) return { ok: false, message: "Couldn't read the live version." };
-    seed = {
+    const codePractice = PRACTICES.find((p) => p.id === slug);
+    // A version that follows the code runs the code's wording, so
+    // that is what an edit starts from, not the text it was
+    // published with.
+    if (r.follows_code === true && codePractice) {
+      const c = await registryConfig(codePractice);
+      seed = {
+        prompt: c.prompt,
+        chips: [...c.chips],
+        basePromptMode: c.basePromptMode,
+        skipSetup: c.skipSetup,
+        firstTurn: c.firstTurn,
+        scriptedOpener: c.scriptedOpener,
+        tools: [...c.tools],
+        maxTokens: c.maxTokens,
+        model: c.model,
+      };
+    } else seed = {
       prompt: String(r.prompt ?? ""),
       chips: Array.isArray(r.chips) ? (r.chips as string[]) : [],
       basePromptMode:
@@ -344,13 +370,20 @@ export async function publishDraftAction(
   const checked = await heldToPrinciples(supabase, agentRowId, input.prompt, principles);
   if ("message" in checked) return { ok: false, message: checked.message };
 
+  // Unchanged from the code: mark it, so later code changes reach
+  // it on release (0317). Only for an agent the code defines.
+  const { data: agentRow } = await supabase.from("agents").select("slug").eq("id", agentRowId).maybeSingle<{ slug: string }>();
+  const codePractice = agentRow ? PRACTICES.find((p) => p.id === agentRow.slug) : undefined;
+  const followsCode = codePractice ? matchesCode(input, await registryConfig(codePractice)) : false;
+
   const inserted = await insertVersion(
     supabase,
     agentRowId,
     input,
     trimmed,
     session.profile.id,
-    checked
+    checked,
+    followsCode
   );
   if ("error" in inserted) return { ok: false, message: inserted.error };
 

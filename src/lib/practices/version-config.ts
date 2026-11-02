@@ -124,12 +124,16 @@ type VersionRow = {
   tools: string[] | null;
   max_tokens: number | null;
   model: string | null;
+  // 0317. Absent on an instance the migration has not reached, which
+  // reads as false: the version runs its own text, as before.
+  follows_code?: boolean;
 };
 
-const VERSION_COLUMNS =
-  "id, agent_id, version_number, prompt, chips, base_prompt_mode, " +
-  "skip_setup, first_turn, scripted_opener, output_card, tools, " +
-  "max_tokens, model";
+// "*" rather than a column list, so a column added later (0317's
+// follows_code) cannot make this read fail on an instance it has not
+// reached yet. A failed read here falls every pinned conversation back
+// to the registry, and strands a Hub-built agent on the base prompt.
+const VERSION_COLUMNS = "*";
 
 export const loadVersionRow = cache(async function loadVersionRow(
   versionId: string
@@ -282,6 +286,12 @@ export const resolveRuntimeConfig = cache(async function resolveRuntimeConfig(
         "adopt whatever is current."
     );
     return registryConfig(practice);
+  }
+  // Published unchanged from the code (0317): it runs what the code
+  // says now, so a change to the prompt file reaches it on release.
+  // The version id stays, so the Hub and the logs still name it.
+  if (row.follows_code === true) {
+    return { ...(await registryConfig(practice)), versionId: row.id, versionNumber: row.version_number };
   }
   return configFromVersion(row);
 });

@@ -82,10 +82,8 @@ async function loadSource(agentRowId: string): Promise<
 
   const { data: v } = await db
     .from("agent_versions")
-    .select(
-      "version_number, prompt, chips, base_prompt_mode, skip_setup, " +
-        "first_turn, scripted_opener, tools, max_tokens, model, publish_notes"
-    )
+    // "*" so 0317's follows_code is read where it exists.
+    .select("*")
     .eq("id", a.live_version_id)
     .maybeSingle();
   const row = v as unknown as {
@@ -100,6 +98,7 @@ async function loadSource(agentRowId: string): Promise<
     max_tokens: number | null;
     model: string | null;
     publish_notes: string;
+    follows_code?: boolean;
   } | null;
   if (!row) {
     return { ok: false, message: "Could not read the live version." };
@@ -128,6 +127,7 @@ async function loadSource(agentRowId: string): Promise<
       maxTokens: row.max_tokens,
       model: row.model,
       publishNotes: row.publish_notes,
+      followsCode: row.follows_code === true,
     },
   };
 }

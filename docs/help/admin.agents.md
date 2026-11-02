@@ -32,8 +32,9 @@ An agent starts out on its built-in version. **Edit in Hub** copies that into a 
 - **Checked against the AiMS coaching principles.** Review and publish also checks the prompt against the coaching principles and lists any instruction that pulls against one, quoting the prompt and saying how. It takes a few seconds. It never stops you publishing: when it finds something, or can't run, tell it why you're publishing anyway, and the reason is kept with the version. Some agents work with problems on purpose, and that is a fine reason. *Make live* from History checks the older version the same way.
 - **History** lists every version with its notes, who published it, and any principles warnings with the reason given. *Make live* puts an older one back and asks for its own note.
 - **Revert to code default** goes back to the built-in version.
+- **Publishing without changing anything keeps it on the built-in wording.** If you publish a built-in agent exactly as it is, it keeps following the built-in version, and *Config* says so. When the built-in wording is improved, the agent picks it up with no republishing. Once you change anything (its wording, starters, token ceiling or any other setting) and publish, it keeps your version until you change it again or press *Revert to code default*.
 
-A conversation keeps the version it started with for its whole life. If you publish while someone is mid-chat, they finish on what they started with, and their next conversation picks up the new one.
+A conversation keeps the version it started with for its whole life, except one on a version that follows the built-in wording, which always uses the latest built-in wording. If you publish while someone is mid-chat, they finish on what they started with, and their next conversation picks up the new one.
 
 ## Creating an agent
 
