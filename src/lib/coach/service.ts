@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { messagePreviewText } from "./attachments";
 
 // Read-side helpers for the /coach surface. RLS scopes everything to
 // the current admin's created_by; server helpers here just return the
@@ -115,7 +116,7 @@ export async function listConversationsForSubject(
     if (!bySnippet.has(m.conversation_id)) {
       bySnippet.set(
         m.conversation_id,
-        m.content.length > 120 ? `${m.content.slice(0, 117)}…` : m.content
+        snippetOf(m.content)
       );
     }
   }
@@ -217,7 +218,7 @@ export async function listConversationsForUser(
     if (!bySnippet.has(m.conversation_id)) {
       bySnippet.set(
         m.conversation_id,
-        m.content.length > 120 ? `${m.content.slice(0, 117)}…` : m.content
+        snippetOf(m.content)
       );
     }
   }
@@ -418,7 +419,7 @@ export async function listSharedWithMe(
     if (!bySnippet.has(m.conversation_id)) {
       bySnippet.set(
         m.conversation_id,
-        m.content.length > 120 ? `${m.content.slice(0, 117)}…` : m.content
+        snippetOf(m.content)
       );
     }
   }
@@ -593,4 +594,10 @@ export async function getMessages(
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
   return (data ?? []) as CoachingMessage[];
+}
+
+// A conversation list's one line: a message's files by name, not their text.
+function snippetOf(content: string): string {
+  const t = messagePreviewText(content);
+  return t.length > 120 ? `${t.slice(0, 117)}…` : t;
 }
