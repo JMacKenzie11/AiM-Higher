@@ -81,6 +81,12 @@ describe("get_foundation", () => {
   it("returns the company, the purpose, the vision, the values and the differentiators", async () => {
     reset();
     mocks.single = { companies: { name: "Benson Seafood", industry: "Seafood" } };
+    mocks.tables = {
+      strategic_focus_areas: [
+        { title: "Grow leaders", description: "Every crew lead ready to run an office." },
+        { title: "One standard", description: null },
+      ],
+    };
     mocks.foundation = FULL_FOUNDATION;
 
     const out = (await toolNamed("get_foundation").handler({})) as {
@@ -110,6 +116,14 @@ describe("get_foundation", () => {
       best_fit: ["Family-owned builders, 20 to 80 staff"],
       psychographics: ["Value craft over speed"],
     });
+    // The Vivid Vision Coach names its themes after them (2026-11-02):
+    // this company's, live ones only.
+    expect((out as unknown as { strategic_focus_areas: unknown }).strategic_focus_areas).toEqual([
+      { title: "Grow leaders", description: "Every crew lead ready to run an office." },
+      { title: "One standard", description: null },
+    ]);
+    const read = mocks.filters.find((f) => f[0] === "from:strategic_focus_areas");
+    expect(read).toEqual(expect.arrayContaining(["eq:company_id", "eq:archived"]));
   });
 
   // "Empty sections come back as empty arrays or null, never
@@ -139,6 +153,7 @@ describe("get_foundation", () => {
       "core_values",
       "differentiators",
       "ideal_customer",
+      "strategic_focus_areas",
     ]) {
       expect(Object.keys(out)).toContain(key);
     }
@@ -148,6 +163,7 @@ describe("get_foundation", () => {
     expect(out.core_values).toEqual([]);
     expect(out.differentiators).toEqual([]);
     expect(out.ideal_customer).toEqual({ best_fit: [], psychographics: [] });
+    expect(out.strategic_focus_areas).toEqual([]);
   });
 
   it("takes no input at all", () => {

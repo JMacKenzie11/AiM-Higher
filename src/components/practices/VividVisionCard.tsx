@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { parseVividVision } from "@/lib/foundation/vivid-vision";
+import { parseVividVision, splitBold, type VividVisionDoc } from "@/lib/foundation/vivid-vision";
 import {
   getVividVisionCardStateAction,
   saveVividVisionAction,
@@ -12,11 +12,14 @@ import styles from "./VividVisionCard.module.css";
 
 // The Vivid Vision agent's finished document (lib/foundation/vivid-vision.ts).
 //
-// Shown as it will read on the One-Page Plan's Vision card. Nothing is
-// saved until the leader presses Save, and saving replaces what the
-// Vision card holds, so the card says so when it holds something else.
-// Only the person who started the conversation, and only if they can
-// edit the One-Page Plan, sees Save; anyone else can read and copy it.
+// Shown with its sections and bold lines, as the PDF lays it out.
+// Download PDF is for anyone who can see the card, once the reply has
+// saved (the PDF is read from the saved message). Nothing is saved to
+// the One-Page Plan until the leader presses Save, and saving replaces
+// what the Vision card holds (as plain text), so the card says so when
+// it holds something else. Only the person who started the
+// conversation, and only if they can edit the One-Page Plan, sees
+// Save; anyone else can read, copy and download it.
 
 export function VividVisionCard({
   raw,
@@ -74,12 +77,20 @@ export function VividVisionCard({
   };
 
   const replaces = state?.current && !state.savedThis;
+  const pdfHref = messageId
+    ? `/api/vivid-vision/pdf?conversation=${encodeURIComponent(conversationId)}&message=${encodeURIComponent(messageId)}`
+    : null;
+  const download = pdfHref ? (
+    <a className={styles.secondaryButton} href={pdfHref} download>
+      Download PDF
+    </a>
+  ) : null;
 
   return (
     <article className={styles.card} data-testid="vivid-vision-card">
       <p className={styles.eyebrow}>Vivid Vision</p>
       <h3 className={styles.title}>{vision.title}</h3>
-      {vision.rest ? <p className={styles.body}>{vision.rest}</p> : null}
+      <VisionBody doc={vision.doc} />
       {streaming ? null : (
         <div className={styles.footer}>
           {state?.savedThis ? (
@@ -87,6 +98,14 @@ export function VividVisionCard({
               <strong>Saved to your One-Page Plan.</strong>{" "}
               <Link href="/foundation#vision">Open the One-Page Plan</Link>
             </p>
+          ) : null}
+          {state?.savedThis ? (
+            <div className={styles.actions}>
+              {download}
+              <button type="button" className={styles.secondaryButton} onClick={copy}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
           ) : state ? (
             <>
               {replaces ? (
@@ -96,6 +115,7 @@ export function VividVisionCard({
                 <button type="button" className={styles.primaryButton} onClick={save} disabled={pending}>
                   {pending ? "Saving…" : "Save to the One-Page Plan"}
                 </button>
+                {download}
                 <button type="button" className={styles.secondaryButton} onClick={copy}>
                   {copied ? "Copied" : "Copy"}
                 </button>
@@ -103,6 +123,7 @@ export function VividVisionCard({
             </>
           ) : (
             <div className={styles.actions}>
+              {download}
               <button type="button" className={styles.secondaryButton} onClick={copy}>
                 {copied ? "Copied" : "Copy"}
               </button>
@@ -116,5 +137,91 @@ export function VividVisionCard({
         </div>
       )}
     </article>
+  );
+}
+
+function Rich({ text }: { text: string }) {
+  return (
+    <>
+      {splitBold(text).map((run, n) => (run.bold ? <strong key={n}>{run.text}</strong> : <span key={n}>{run.text}</span>))}
+    </>
+  );
+}
+
+// The document in its parts, in the PDF's order.
+function VisionBody({ doc }: { doc: VividVisionDoc }) {
+  return (
+    <div className={styles.body}>
+      {doc.tagline ? <p className={styles.tagline}>{doc.tagline}</p> : null}
+      {doc.intro.map((p, n) => (
+        <p key={`i${n}`}>
+          <Rich text={p} />
+        </p>
+      ))}
+      {doc.story.map((sec, n) => (
+        <section key={`s${n}`}>
+          <h4 className={styles.sectionHead}>
+            <span className={styles.num}>{String(n + 1).padStart(2, "0")}</span> {sec.headline}
+          </h4>
+          {sec.paragraphs.map((p, m) => (
+            <p key={m}>
+              <Rich text={p} />
+            </p>
+          ))}
+        </section>
+      ))}
+      {doc.proof.groups.length ? (
+        <section>
+          <h4 className={styles.sectionHead}>Proof Points</h4>
+          {doc.proof.groups.map((g, n) => (
+            <div key={n}>
+              {g.name ? <p className={styles.groupName}>{g.name}</p> : null}
+              <ul>
+                {g.items.map((item, m) => (
+                  <li key={m}>
+                    <Rich text={item} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </section>
+      ) : null}
+      {doc.protect.items.length ? (
+        <section>
+          <h4 className={styles.sectionHead}>What We Protect</h4>
+          <ul>
+            {doc.protect.items.map((item, n) => (
+              <li key={n}>
+                <Rich text={item} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {doc.themes.items.length ? (
+        <section>
+          <h4 className={styles.sectionHead}>Strategic Focus Themes</h4>
+          <ol>
+            {doc.themes.items.map((t, n) => (
+              <li key={n}>
+                <strong>{t.name}</strong>
+                {t.subtitle ? <span className={styles.subtitle}> {t.subtitle}</span> : null}
+                {t.body.map((b, m) => (
+                  <p key={m}>
+                    <Rich text={b} />
+                  </p>
+                ))}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+      {doc.closing.map((c, n) => (
+        <p key={`c${n}`} className={styles.closing}>
+          <Rich text={c} />
+        </p>
+      ))}
+    </div>
   );
 }

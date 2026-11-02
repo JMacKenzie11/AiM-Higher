@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseVividVision, vividVisionInMessage, VIVID_VISION_MAX } from "./vivid-vision";
+import { parseVividVision, splitBold, visionYear, vividVisionInMessage, VIVID_VISION_MAX } from "./vivid-vision";
+import { PLAIN_VISION, STRUCTURED_VISION } from "./vivid-vision.fixture";
 import { OUTPUT_CARD_BY_TAG } from "@/lib/practices/output-cards";
 import { readFileSync } from "node:fs";
 
@@ -9,7 +10,7 @@ describe("the vivid vision block", () => {
   it("splits the headline from the rest, and keeps the whole text as saved", () => {
     const v = parseVividVision(`\n${DOC}\n`)!;
     expect(v.title).toBe("Acme in 2036");
-    expect(v.rest.startsWith("Built to last")).toBe(true);
+    expect(v.doc.tagline).toBe("Built to last");
     expect(v.text).toBe(DOC);
   });
 
@@ -36,5 +37,63 @@ describe("the vivid vision block", () => {
     const prompt = readFileSync("prompts/practices/vivid-vision.md", "utf8");
     expect(prompt).toContain("```vivid_vision");
     expect(prompt).toContain("get_foundation");
+  });
+
+  it("reads a plain block written before the structure, and saves it as written", () => {
+    const v = parseVividVision(PLAIN_VISION)!;
+    expect(v.text).toBe(PLAIN_VISION);
+    expect(v.doc.intro).toEqual(["We wake up every day..."]);
+    expect(v.doc.proof.groups).toEqual([{ name: null, items: ["One", "Two"] }]);
+    expect(v.doc.protect.items).toEqual(["Care"]);
+    expect(v.doc.themes.items).toEqual([{ name: "Grow", subtitle: null, body: [] }]);
+  });
+
+  describe("a structured block", () => {
+    const v = parseVividVision(STRUCTURED_VISION)!;
+
+    it("reads the title, tagline and story", () => {
+      expect(v.title).toBe("Built to Be Called");
+      expect(v.doc.tagline).toBe("The firm builders call when it matters.");
+      expect(v.doc.intro).toHaveLength(1);
+      expect(v.doc.story.map((s) => s.headline)).toEqual(["Calm on Every Site", "Leaders From the Crew", "Three Offices, One Standard"]);
+      expect(v.doc.story[1].paragraphs[0]).toContain("\nPeople stay");
+    });
+
+    it("reads each section's heading after the colon", () => {
+      expect(v.doc.proof.heading).toBe("What 2036 Looks Like");
+      expect(v.doc.protect.heading).toBe("Five Things That Don't Change");
+      expect(v.doc.themes.heading).toBe("Where We Put Our Energy");
+    });
+
+    it("groups the proof points, and gives each theme its subtitle", () => {
+      expect(v.doc.proof.groups.map((g) => [g.name, g.items.length])).toEqual([["Clients", 2], ["Team", 2]]);
+      expect(v.doc.protect.items).toHaveLength(5);
+      expect(v.doc.themes.items[0]).toEqual({
+        name: "Grow Leaders",
+        subtitle: "Every crew lead ready to run an office.",
+        body: ["Build the path from apprentice to office lead, and walk people along it."],
+      });
+      expect(v.doc.closing).toEqual(["Calm on site. Leaders from the crew. The call that matters."]);
+    });
+
+    it("saves plain text, with no markers for the Vision card to show", () => {
+      expect(v.text.startsWith("Built to Be Called\nThe firm builders call when it matters.\n")).toBe(true);
+      expect(v.text).not.toMatch(/\*\*|^#/m);
+      expect(v.text).toContain("\nCalm on Every Site\nWalk onto any Harbour site");
+      expect(v.text).toContain("\nProof Points\nClients\n- Clients renew without a pitch, year after year");
+      expect(v.text).toContain("- Grow Leaders: Every crew lead ready to run an office.");
+    });
+  });
+
+  it("splits bold runs", () => {
+    expect(splitBold("a **b** c")).toEqual([
+      { text: "a ", bold: false },
+      { text: "b", bold: true },
+      { text: " c", bold: false },
+    ]);
+  });
+
+  it("dates the vision ten years on from when it was written", () => {
+    expect(visionYear("2026-11-02T10:00:00Z")).toBe(2036);
   });
 });

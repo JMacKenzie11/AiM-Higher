@@ -3,9 +3,10 @@ import type { Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
 // The Vivid Vision Coach (Jason, 2026-10-27): a company admin walks the
-// conversation, the finished vision arrives as a card, nothing is saved
-// until they press Save, and Save puts it on the One-Page Plan's Vision
-// card without touching the purpose beside it.
+// conversation, the finished vision arrives as a card that downloads as
+// a PDF, nothing is saved until they press Save, and Save puts it on the
+// One-Page Plan's Vision card, as plain text, without touching the
+// purpose beside it.
 //
 // Tolerant about the prose and strict about the record, like the other
 // conversation specs. The agent asks one step at a time, so the test
@@ -97,6 +98,16 @@ test.describe("the Vivid Vision Coach", () => {
       .maybeSingle<{ vision: string | null }>();
     expect(unsaved?.vision ?? null, "saved before Save was pressed").toBe(before?.vision ?? null);
 
+    // Download PDF (2026-11-02): the saved message, as a PDF named for
+    // the company. Under the leader's own session, as the link sends it.
+    const pdfLink = card.getByRole("link", { name: "Download PDF" });
+    await expect(pdfLink).toBeVisible({ timeout: 30_000 });
+    const pdf = await page.request.get((await pdfLink.getAttribute("href"))!);
+    expect(pdf.status()).toBe(200);
+    expect(pdf.headers()["content-type"]).toBe("application/pdf");
+    expect(pdf.headers()["content-disposition"]).toContain("Vivid Vision");
+    expect((await pdf.body()).subarray(0, 5).toString()).toBe("%PDF-");
+
     await card.getByRole("button", { name: "Save to the One-Page Plan" }).click();
     await expect(card.getByText("Saved to your One-Page Plan.")).toBeVisible({ timeout: 30_000 });
 
@@ -108,6 +119,7 @@ test.describe("the Vivid Vision Coach", () => {
     const title = (await card.getByRole("heading").first().innerText()).trim();
     expect(saved?.vision?.startsWith(title.slice(0, 20)), "the card's vision, as saved").toBe(true);
     expect(saved?.vision ?? "", "the whole document").toMatch(/Proof Points/);
+    expect(saved?.vision ?? "", "as plain text, no markers").not.toMatch(/\*\*|^#/m);
     expect(saved?.purpose_statement ?? null, "the purpose untouched").toBe(before?.purpose_statement ?? null);
 
     // Reloaded, it is saved, with no Save to press twice.

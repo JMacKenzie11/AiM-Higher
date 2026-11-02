@@ -135,7 +135,7 @@ function makeGetFoundationTool(args: { companyId: string }): CoachTool {
     definition: {
       name: "get_foundation",
       description:
-        "The company's Foundation, from its One-Page Plan: name, industry, purpose (statement and context), vision, core values, strengths and differentiators, and ideal customer profile (best-fit clients and psychographics). " +
+        "The company's Foundation, from its One-Page Plan: name, industry, purpose (statement and context), vision, core values, strengths and differentiators, ideal customer profile (best-fit clients and psychographics), and strategic focus areas (title and description). " +
         "Call this before the first question. " +
         "Every section is always present: a section the company has not filled in comes back as null or an empty array, never missing. An empty Foundation is not an error — say so in one sentence, point at /foundation, and carry on from what the leader tells you.",
       input_schema: { type: "object", properties: {}, required: [] },
@@ -148,13 +148,22 @@ function makeGetFoundationTool(args: { companyId: string }): CoachTool {
       // against cannot drift from the ones the leader is looking at.
       // It fetches the marketing tables too; this tool keeps only the
       // ideal customer profile, which the One-Page Plan shows.
-      const [{ data: company }, foundation] = await Promise.all([
+      // The strategic focus areas are the Plan's, not the One-Page
+      // Plan's; the Vivid Vision Coach names its themes after them
+      // (2026-11-02). Read under the caller's session, as the rest.
+      const [{ data: company }, foundation, { data: focusAreas }] = await Promise.all([
         db
           .from("companies")
           .select("name, industry")
           .eq("id", args.companyId)
           .maybeSingle<{ name: string | null; industry: string | null }>(),
         getFoundation(args.companyId),
+        db
+          .from("strategic_focus_areas")
+          .select("title, description")
+          .eq("company_id", args.companyId)
+          .eq("archived", false)
+          .order("sort_order"),
       ]);
 
       return {
@@ -178,6 +187,10 @@ function makeGetFoundationTool(args: { companyId: string }): CoachTool {
           best_fit: foundation.snippets.icp_best_fit.map((s) => s.content),
           psychographics: foundation.snippets.icp_psychographic.map((s) => s.content),
         },
+        strategic_focus_areas: ((focusAreas ?? []) as Array<{ title: string; description: string | null }>).map((f) => ({
+          title: f.title,
+          description: f.description ?? null,
+        })),
       };
     },
   };
