@@ -434,6 +434,12 @@ export function ChatView({
             created_by: currentUserId,
           },
         ]);
+        // The files are on the sent message now; the composer lets
+        // them go at once, so nothing looks queued for the next one.
+        if (attached.length) {
+          setFiles([]);
+          setFileError(null);
+        }
       }
       const assistantId = `local-a-${Date.now()}`;
       setMessages((prev) => [
@@ -574,12 +580,7 @@ export function ChatView({
       } finally {
         if (!controller.signal.aborted) {
           setSending(false);
-          if (!opts.retry) {
-            setInput("");
-            // The files went with the message, as the text did.
-            setFiles([]);
-            setFileError(null);
-          }
+          if (!opts.retry) setInput("");
           textareaRef.current?.focus();
         }
       }
