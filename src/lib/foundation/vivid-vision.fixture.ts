@@ -46,7 +46,11 @@ The first firm builders ring when it goes wrong.
 Earn the hard jobs by finishing them well.
 
 ## Closing
-Calm on site. Leaders from the crew. The call that matters.`;
+Calm on site. Leaders from the crew. The call that matters.
+
+## One-Page Plan Summary
+It's 2036. Harbour Build is the firm builders call when a job goes wrong, **calm on every site** and led by people who came up from the crew.
+Three offices run one standard, and the owner can step away.`;
 
 // A block written before the structure: plain text, as the Vision card shows it.
 export const PLAIN_VISION =

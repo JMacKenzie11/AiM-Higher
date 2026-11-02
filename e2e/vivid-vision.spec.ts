@@ -118,7 +118,12 @@ test.describe("the Vivid Vision Coach", () => {
       .single<{ purpose_statement: string | null; vision: string | null }>();
     const title = (await card.getByRole("heading").first().innerText()).trim();
     expect(saved?.vision?.startsWith(title.slice(0, 20)), "the card's vision, as saved").toBe(true);
-    expect(saved?.vision ?? "", "the whole document").toMatch(/Proof Points/);
+    // The summary when the card has one (2026-11-02), else the whole document.
+    if ((await card.getByTestId("vivid-vision-summary").count()) > 0) {
+      expect(saved?.vision ?? "", "the summary, not the document").not.toMatch(/Proof Points/);
+    } else {
+      expect(saved?.vision ?? "", "the whole document").toMatch(/Proof Points/);
+    }
     expect(saved?.vision ?? "", "as plain text, no markers").not.toMatch(/\*\*|^#/m);
     expect(saved?.purpose_statement ?? null, "the purpose untouched").toBe(before?.purpose_statement ?? null);
 

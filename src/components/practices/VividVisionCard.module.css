@@ -137,3 +137,13 @@
   font: var(--text-body-sm);
   color: var(--text-muted);
 }
+
+/* The summary Save puts on the One-Page Plan, set apart from the
+   document the PDF carries. */
+.summary {
+  margin-top: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+}

@@ -52,7 +52,8 @@ async function visionSource(
     .maybeSingle<{ id: string; role: string; content: string }>();
   if (!message || message.role !== "assistant") return null;
   const vision = vividVisionInMessage(message.content);
-  return vision ? { companyId: convo.company_id, text: vision.text } : null;
+  // The summary when the vision has one (vivid-vision.ts).
+  return vision ? { companyId: convo.company_id, text: vision.saveText } : null;
 }
 
 async function currentVision(supabase: Db, companyId: string): Promise<string | null> {

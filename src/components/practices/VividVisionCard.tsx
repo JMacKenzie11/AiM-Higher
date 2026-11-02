@@ -64,7 +64,7 @@ export function VividVisionCard({
     setError(null);
     startTransition(async () => {
       const result = await saveVividVisionAction({ conversationId, messageId });
-      if (result.ok) setState({ current: vision.text, savedThis: true });
+      if (result.ok) setState({ current: vision.saveText, savedThis: true });
       else setError(result.message);
     });
   };
@@ -109,7 +109,11 @@ export function VividVisionCard({
           ) : state ? (
             <>
               {replaces ? (
-                <p className={styles.muted}>Saving replaces the vision on your One-Page Plan.</p>
+                <p className={styles.muted}>
+                  {vision.doc.summary.length
+                    ? "Saving puts the summary on your One-Page Plan, replacing the vision there."
+                    : "Saving replaces the vision on your One-Page Plan."}
+                </p>
               ) : null}
               <div className={styles.actions}>
                 <button type="button" className={styles.primaryButton} onClick={save} disabled={pending}>
@@ -222,6 +226,16 @@ function VisionBody({ doc }: { doc: VividVisionDoc }) {
           <Rich text={c} />
         </p>
       ))}
+      {doc.summary.length ? (
+        <section className={styles.summary} data-testid="vivid-vision-summary">
+          <h4 className={styles.sectionHead}>For your One-Page Plan</h4>
+          {doc.summary.map((p, n) => (
+            <p key={n}>
+              <Rich text={p} />
+            </p>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }
