@@ -29,14 +29,20 @@
 //   ## Closing
 //   One closing line.
 //
+//   ## One-Page Plan Summary
+//   A short paragraph or two: what the One-Page Plan saves.
+//
 // A section heading's part after the colon is its display heading; the
 // part before names which section it is. Blocks written before the
 // structure (plain text, section names on their own line) still parse,
 // and save exactly as they did.
 //
 // The One-Page Plan's Vision card shows its field as written
-// (pre-wrap), so what is saved is the plain text (`text`), with the
-// markers taken out. The save reads the block from the saved message
+// (pre-wrap), so what is saved is plain text, with the markers taken
+// out. Since 2026-11-02 the agent also writes a short summary, and the
+// One-Page Plan saves that (`saveText`: title, tagline, summary); the
+// PDF and Copy carry the whole document (`text`). A block with no
+// summary saves the whole document, as before. The save reads the block from the saved message
 // (vivid-vision-actions.ts), never from the browser.
 //
 // No imports: the chat (a client component) parses with it.
@@ -64,6 +70,8 @@ export type VividVisionDoc = {
   protect: { heading: string | null; items: string[] };
   themes: { heading: string | null; items: FocusTheme[] };
   closing: string[];
+  // What the One-Page Plan saves. Never in the PDF.
+  summary: string[];
 };
 
 export type VividVision = {
@@ -71,15 +79,19 @@ export type VividVision = {
   title: string;
   // The document, read into its parts.
   doc: VividVisionDoc;
-  // What the One-Page Plan saves: plain text, no markers.
+  // The whole document as plain text, no markers: Copy.
   text: string;
+  // What Save to the One-Page Plan saves: the summary when there is
+  // one, otherwise `text`.
+  saveText: string;
 };
 
-type SectionKey = "story" | "proof" | "protect" | "themes" | "closing";
+type SectionKey = "story" | "proof" | "protect" | "themes" | "closing" | "summary";
 
 // Which section a heading names, from the part before any colon.
 function sectionKey(name: string): SectionKey | null {
   const n = name.toLowerCase();
+  if (/summary|one-page plan/.test(n)) return "summary";
   if (/story/.test(n)) return "story";
   if (/proof/.test(n)) return "proof";
   if (/protect/.test(n)) return "protect";
@@ -119,6 +131,7 @@ function emptyDoc(title: string): VividVisionDoc {
     protect: { heading: null, items: [] },
     themes: { heading: null, items: [] },
     closing: [],
+    summary: [],
   };
 }
 
@@ -147,6 +160,7 @@ function readDoc(lines: string[]): VividVisionDoc {
     para = [];
     if (section === "story") (story ? story.paragraphs : doc.intro).push(p);
     else if (section === "closing") doc.closing.push(p);
+    else if (section === "summary") doc.summary.push(p);
     else if (section === "themes" && theme) {
       // A theme's first line is its subtitle; the rest is its body.
       if (theme.subtitle === null && theme.body.length === 0) {
@@ -216,7 +230,7 @@ function readDoc(lines: string[]): VividVisionDoc {
       continue;
     }
     const bullet = /^\s*(?:[-*•]|\d+[.)])\s+/.test(line) && !/^\*\*/.test(t);
-    if (bullet && section !== "story" && section !== "closing") {
+    if (bullet && section !== "story" && section !== "closing" && section !== "summary") {
       flush();
       const item = stripBullet(t);
       if (section === "proof") addProof(item);
@@ -266,6 +280,12 @@ export function visionPlainText(doc: VividVisionDoc): string {
   return out.join("\n").trim();
 }
 
+// What the One-Page Plan saves when the document has a summary: the
+// title, the tagline, the summary.
+export function visionSummaryText(doc: VividVisionDoc): string {
+  return [[doc.title, doc.tagline].filter(Boolean).join("\n"), ...doc.summary.map(stripBold)].join("\n\n").trim();
+}
+
 // Null while nothing has arrived, or if what arrived is empty.
 export function parseVividVision(raw: string): VividVision | null {
   const clean = raw.replace(/\r\n/g, "\n").trim().slice(0, VIVID_VISION_MAX);
@@ -275,7 +295,8 @@ export function parseVividVision(raw: string): VividVision | null {
   // A block with no markers is the plain text it always was, and saves
   // exactly as written, so a vision saved before still reads as saved.
   const structured = /^\s*#{1,3}\s/m.test(clean) || /\*\*.+?\*\*/.test(clean.slice(clean.indexOf("\n") + 1));
-  return { title: doc.title, doc, text: structured ? visionPlainText(doc) : clean };
+  const text = structured ? visionPlainText(doc) : clean;
+  return { title: doc.title, doc, text, saveText: doc.summary.length ? visionSummaryText(doc) : text };
 }
 
 // The last vivid_vision block in a saved message, or null. The model is

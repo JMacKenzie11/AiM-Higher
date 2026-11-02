@@ -20,7 +20,7 @@ The links under the page heading jump straight to each section.
 ## What you can do here
 
 - **Edit Purpose and Vision.** Click *Edit* on the card, change the text and press *Save purpose* or *Save vision*. Press *Close* when you're done to go back to reading view.
-- **Write your Vision with Aimee.** Open the *Vivid Vision Coach* under *Strategy* in Ask Aimee. It works from this page, asks you and your team the rest, and saves the finished vision to the Vision card when you click *Save to the One-Page Plan*. *Download PDF* on the same card gives you the finished document to share.
+- **Write your Vision with Aimee.** Open the *Vivid Vision Coach* under *Strategy* in Ask Aimee. It works from this page, asks you and your team the rest, and saves a short summary of the finished vision to the Vision card when you click *Save to the One-Page Plan*. *Download PDF* on the same card gives you the finished document to share.
 - **Add, edit or delete Core Values and Strengths & Differentiators.** Each numbered card has *Edit* and *Delete*, and each section has an add button at the bottom.
 - **Add, edit or remove Ideal Customer Profile entries**, under best-fit and psychographic. Each entry has *Edit* and *Delete*, and each list has its own add button.
 - **Edit Core Values, Strengths & Differentiators and Ideal Customer Profile entries in the card.** *Edit* turns the text into a box you can type in, right where it was. *Save* keeps the change; *Cancel* puts the text back as it was.

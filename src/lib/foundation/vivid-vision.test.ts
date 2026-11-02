@@ -76,6 +76,21 @@ describe("the vivid vision block", () => {
       expect(v.doc.closing).toEqual(["Calm on site. Leaders from the crew. The call that matters."]);
     });
 
+    it("saves the summary to the One-Page Plan, and keeps it out of the document", () => {
+      expect(v.doc.summary).toHaveLength(1);
+      expect(v.saveText).toBe(
+        "Built to Be Called\nThe firm builders call when it matters.\n\nIt's 2036. Harbour Build is the firm builders call when a job goes wrong, calm on every site and led by people who came up from the crew.\nThree offices run one standard, and the owner can step away."
+      );
+      expect(v.text).not.toContain("Three offices run one standard, and the owner");
+      expect(v.doc.closing).toHaveLength(1);
+    });
+
+    it("saves the whole document when there is no summary", () => {
+      const noSummary = parseVividVision(STRUCTURED_VISION.split("\n## One-Page Plan Summary")[0])!;
+      expect(noSummary.saveText).toBe(noSummary.text);
+      expect(parseVividVision(PLAIN_VISION)!.saveText).toBe(PLAIN_VISION);
+    });
+
     it("saves plain text, with no markers for the Vision card to show", () => {
       expect(v.text.startsWith("Built to Be Called\nThe firm builders call when it matters.\n")).toBe(true);
       expect(v.text).not.toMatch(/\*\*|^#/m);
