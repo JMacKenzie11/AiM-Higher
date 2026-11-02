@@ -109,6 +109,48 @@ function Bullet({ text }: { text: string }) {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
+// CONNECTING THE TEAM TO THE VISION (Jason, 2026-11-02). The same on
+// every vision, after the closing line: how the owner takes it to the
+// team. Fixed text, never written by the agent.
+export const TEAM_STEPS: ReadonlyArray<{ step: string; questions?: readonly string[] }> = [
+  { step: "Bring your team together and read your Vivid Vision." },
+  {
+    step: "Ask them these questions:",
+    questions: [
+      "What ideas energized you most?",
+      "What other ideas were emerging that you would also love to see?",
+      "What questions come to mind?",
+    ],
+  },
+  { step: "Give them some time to reflect individually, then ask them to share." },
+  { step: "Tell them you'll incorporate their feedback into the Vision and reshare it with them." },
+];
+
+function TeamSection() {
+  return (
+    <View style={[s.card, { marginTop: 22, paddingBottom: 16 }]} wrap={false}>
+      <Text style={s.eyebrow}>Next Steps</Text>
+      <Text style={s.h2}>Connecting the Team to the Vision</Text>
+      {TEAM_STEPS.map((t, n) => (
+        <View key={n} style={[s.theme, { marginBottom: n === TEAM_STEPS.length - 1 ? 0 : 10 }]}>
+          <View style={s.themeNum}>
+            <Text style={s.themeNumText}>{n + 1}</Text>
+          </View>
+          <View style={{ flex: 1, paddingTop: 2 }}>
+            <Text style={[s.p, { marginBottom: t.questions ? 5 : 0 }]}>{t.step}</Text>
+            {t.questions?.map((q, m) => (
+              <View key={m} style={s.item}>
+                <View style={s.bullet} />
+                <Text style={[s.itemText, s.bold]}>{q}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function VividVisionPdf({ doc, companyName, year }: { doc: VividVisionDoc; companyName: string; year: number }) {
   registerFonts();
   const footerName = `${companyName} · Vivid Vision ${year}`;
@@ -203,6 +245,8 @@ export function VividVisionPdf({ doc, companyName, year }: { doc: VividVisionDoc
             ))}
           </View>
         ) : null}
+
+        <TeamSection />
 
         <View style={s.footer} fixed>
           <Text render={({ pageNumber }) => (pageNumber > 1 ? footerName : "")} />
