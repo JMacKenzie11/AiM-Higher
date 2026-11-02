@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { DiagnosticRow, SystemLinkRow, SystemRow, TaskRow } from "@/lib/diagnostics/types";
+import type { DiagnosticRow, SystemLinkRow, SystemRow, TaskCategoryRow, TaskRow } from "@/lib/diagnostics/types";
 import { INTERVIEWS_SHOWN } from "@/lib/diagnostics/steps";
 import { StepCard } from "./StepCard";
 import { DxCheck, DxField } from "./DxField";
@@ -28,6 +28,7 @@ export function PreflightStep({
   systems,
   links,
   tasks,
+  categories = [],
   footer = null,
   screen,
 }: {
@@ -35,6 +36,7 @@ export function PreflightStep({
   systems: SystemRow[];
   links: SystemLinkRow[];
   tasks: TaskRow[];
+  categories?: TaskCategoryRow[];
   footer?: ReactNode;
   screen?: string;
 }) {
@@ -45,9 +47,9 @@ export function PreflightStep({
       <div className={styles.body}>
         {INTERVIEWS_SHOWN ? null : (
           <>
-            {!screen ? <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} /> : null}
-            {screen === "tasks" ? <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} scoring={false} /> : null}
-            {screen === "score" ? <ScoreCards diagnosticId={id} tasks={tasks} systems={systems} links={links} /> : null}
+            {!screen ? <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} categories={categories} /> : null}
+            {screen === "tasks" ? <WalkthroughTasks diagnosticId={id} tasks={tasks} systems={systems} links={links} categories={categories} scoring={false} /> : null}
+            {screen === "score" ? <ScoreCards diagnosticId={id} tasks={tasks} systems={systems} links={links} categories={categories} /> : null}
           </>
         )}
         {!screen ? <SystemsWalkthrough diagnosticId={id} systems={systems} links={links} /> : null}

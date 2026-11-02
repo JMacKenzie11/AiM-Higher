@@ -98,17 +98,35 @@ export function Cell({
   onSave,
   wide = false,
   numeric = false,
+  tall = false,
+  maxLength,
 }: {
   value: string;
   label: string;
   onSave: (v: string) => void;
   wide?: boolean;
   numeric?: boolean;
+  // A few lines high, for longer text; it grows when dragged.
+  tall?: boolean;
+  maxLength?: number;
 }) {
   const [v, setV] = useState(value);
   // A save elsewhere (the title roll-up) changes the row under it.
   useEffect(() => setV(value), [value]);
   useSaveReport({ pending: false, dirty: v !== value });
+  if (tall) {
+    return (
+      <textarea
+        className={`${styles.cellInput} ${styles.cellTall} ${wide ? styles.cellWide : ""}`}
+        aria-label={label}
+        value={v}
+        rows={3}
+        maxLength={maxLength}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => v !== value && onSave(v)}
+      />
+    );
+  }
   return (
     <input
       className={`${styles.cellInput} ${wide ? styles.cellWide : ""}`}

@@ -369,6 +369,45 @@
   min-width: 11rem;
 }
 
+/* A few lines high, for a task described in more than a few words. */
+.cellTall {
+  min-height: 4.5rem;
+  padding: var(--space-2);
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.formRow > .cellTall {
+  align-self: stretch;
+}
+
+/* A category of tasks on the Tasks screen (0316). */
+.category {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.categoryHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.categoryHead > .cellInput {
+  flex: 1 1 14rem;
+  width: auto;
+  font-weight: 600;
+}
+
+.categoryName {
+  margin: 0;
+  font: var(--text-body);
+  font-weight: 600;
+}
+
 .link {
   color: var(--aims-cobalt);
   font-weight: 600;

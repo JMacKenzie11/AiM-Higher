@@ -146,6 +146,7 @@ export function readoutBundle(overrides: Partial<DiagnosticRow> = {}, firstWin: 
     systems: [],
     links: [],
     aiUse: [],
+    categories: [],
     firstWin:
       firstWin === null
         ? null

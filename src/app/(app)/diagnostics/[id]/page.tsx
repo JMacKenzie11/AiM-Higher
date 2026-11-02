@@ -75,7 +75,7 @@ export default async function DiagnosticPage({ params, searchParams }: PageProps
   const screen = step && !legacy ? (screenOf(step, one(sp.screen)) ?? screens[0]) : null;
 
   let content: ReactNode = null;
-  if (step === "preflight") content = <PreflightStep diagnostic={diagnostic} systems={bundle.systems} links={bundle.links} tasks={bundle.tasks} screen={screen!.key} />;
+  if (step === "preflight") content = <PreflightStep diagnostic={diagnostic} systems={bundle.systems} links={bundle.links} tasks={bundle.tasks} categories={bundle.categories} screen={screen!.key} />;
   if (step === "kickoff") {
     content = (
       <KickoffStep

@@ -4,13 +4,13 @@ import { useMemo, useState, type KeyboardEvent } from "react";
 import { updateTaskAction, type TaskPatch } from "@/lib/diagnostics/actions";
 import { taskEffort } from "@/lib/diagnostics/hours-back";
 import { taskScored } from "@/lib/diagnostics/screens";
-import { AGENT_TYPES, BUILD_EFFORTS, TASK_FREQUENCIES, toTask, type SystemLinkRow, type SystemRow, type TaskRow } from "@/lib/diagnostics/types";
+import { AGENT_TYPES, BUILD_EFFORTS, TASK_FREQUENCIES, toTask, type SystemLinkRow, type SystemRow, type TaskCategoryRow, type TaskRow } from "@/lib/diagnostics/types";
 import { useDxAction } from "../useDxAction";
 import { WalkthroughTasks } from "./WalkthroughTasks";
 import styles from "../diagnostics.module.css";
 
 // SCORING THE TASKS AS CARDS (the guided screens; Jason, 2026-10-29,
-// approved mockup). One card per task: name, who, where, hours a week,
+// approved mockup). One card per task: name, its category (0316), who, where, hours a week,
 // and the five scores as rows of chips. Chips are buttons with
 // aria-pressed; each pick saves at once and moves to the next row. In
 // the card, keys 1 to 9 pick in the highlighted row and Enter goes to
@@ -49,11 +49,13 @@ export function ScoreCards({
   tasks,
   systems,
   links,
+  categories = [],
 }: {
   diagnosticId: string;
   tasks: TaskRow[];
   systems: SystemRow[];
   links: SystemLinkRow[];
+  categories?: TaskCategoryRow[];
 }) {
   const [view, setView] = useState<"cards" | "table">("cards");
   // Biggest first, as the table: the scores that matter most come first.
@@ -67,6 +69,7 @@ export function ScoreCards({
   const { pending, error, run } = useDxAction();
 
   const systemName = new Map(systems.map((s) => [s.id, s.name]));
+  const categoryName = new Map(categories.map((c) => [c.id, c.name]));
   const scoredCount = order.filter((t) => isScored(t)).length;
   const cur = order[Math.min(at, order.length - 1)];
 
@@ -131,7 +134,7 @@ export function ScoreCards({
       </div>
 
       {view === "table" ? (
-        <WalkthroughTasks diagnosticId={diagnosticId} tasks={tasks} systems={systems} links={links} />
+        <WalkthroughTasks diagnosticId={diagnosticId} tasks={tasks} systems={systems} links={links} categories={categories} />
       ) : order.length === 0 ? (
         <p className={styles.empty}>No tasks yet. Add them on the Tasks screen.</p>
       ) : (
@@ -145,7 +148,7 @@ export function ScoreCards({
                 <h3 id="score-card-title" className={styles.cardTitle}>
                   {cur.title}
                 </h3>
-                <div className={styles.status}>{[cur.role_title, where(cur)].filter(Boolean).join(" · ")}</div>
+                <div className={styles.status}>{[cur.category_id ? categoryName.get(cur.category_id) : null, cur.role_title, where(cur)].filter(Boolean).join(" · ")}</div>
               </div>
               <div className={styles.scoreHours}>
                 <span className={styles.figureValue}>{Number(cur.hours_per_week)}</span>

@@ -53,10 +53,23 @@ test.describe("Capacity Diagnostic", () => {
     await page.getByLabel("Hours a week for the new task").fill("8");
     await page.getByRole("button", { name: "Add a task" }).click();
     await expect(page.getByLabel("Task title for Quotes")).toBeVisible({ timeout: 15_000 });
+    // Where waits for the systems, on Score tasks' table view.
+    await expect(page.getByLabel("Where the new task happens")).toHaveCount(0);
+    // Categories (0316): none to start; the lead adds them and moves
+    // tasks in. A task with none sits under No category.
+    await expect(page.getByLabel(/^Category name for/)).toHaveCount(0);
+    await page.getByLabel("New category").fill("Outreach");
+    await page.getByRole("button", { name: "Add a category" }).click();
+    await expect(page.getByLabel("Category name for Outreach")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "No category" }).getByLabel("Task title for Quotes")).toBeVisible();
+    await page.getByLabel("Category for Quotes").selectOption({ label: "Outreach" });
+    await expect(page.getByRole("region", { name: "Outreach" }).getByLabel("Task title for Quotes")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "No category" })).toHaveCount(0);
 
     // ---- scoring as a card, by keyboard ----
     await nextTo("Score tasks", /screen=score$/);
     await expect(page.getByText("Scored 0 of 1")).toBeVisible();
+    await expect(page.getByText("Outreach · Estimator")).toBeVisible();
     const card = page.getByRole("region", { name: "Quotes" });
     await card.focus();
     // Daily, low risk, half a day, customer follow-up (the sixth agent
@@ -102,7 +115,8 @@ test.describe("Capacity Diagnostic", () => {
 
     // ---- back to the task, now its systems are known ----
     await saved();
-    await page.goto(`${base}?step=preflight&screen=tasks`);
+    await page.goto(`${base}?step=preflight&screen=score`);
+    await page.getByRole("button", { name: "Table view" }).click();
     await page.getByLabel("Where Quotes happens").selectOption({ label: "Outlook" });
     await saved();
     await page.getByLabel("Information Quotes copies").selectOption({ label: "Outlook to Epicor" });
