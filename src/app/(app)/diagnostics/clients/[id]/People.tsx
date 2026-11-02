@@ -5,11 +5,14 @@ import { inviteClientPersonAction, removeClientPersonAction, resendClientInviteA
 import type { ClientPerson } from "@/lib/diagnostics/service";
 import { useDxAction } from "../../useDxAction";
 import { shortDate } from "../../format";
+import { personStatus } from "@/lib/diagnostics/person-status";
 import styles from "../../diagnostics.module.css";
 
 // The people at a client who sign in to see its dashboard (0307). A
 // system admin invites them by name and email; they get the usual
 // AiMS HQ invite and, once signed in, see only /portal.
+
+const TONE = { good: styles.chip, waiting: `${styles.chip} ${styles.chipWarn}`, bad: `${styles.chip} ${styles.chipBad}`, muted: `${styles.chip} ${styles.chipMuted}` };
 
 export function People({ clientId, people, archived }: { clientId: string; people: ClientPerson[]; archived: boolean }) {
   return (
@@ -30,6 +33,7 @@ export function People({ clientId, people, archived }: { clientId: string; peopl
               <tr>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Status</th>
                 <th>Last signed in</th>
                 <th>
                   <span className={styles.srOnly}>Actions</span>
@@ -52,25 +56,23 @@ export function People({ clientId, people, archived }: { clientId: string; peopl
 function PersonRow({ clientId, person }: { clientId: string; person: ClientPerson }) {
   const { pending, error, saved, run } = useDxAction();
   const [confirming, setConfirming] = useState(false);
-  const waiting = person.status === "pending";
+  const status = personStatus(person);
+  const canResend = person.status !== "inactive" && !!person.email;
   return (
     <tr aria-busy={pending || undefined}>
       <td>{person.full_name}</td>
       <td>{person.email ?? "No email on file"}</td>
-      <td className={waiting ? styles.warnText : undefined}>
-        {waiting
-          ? person.invited_at
-            ? `Invited ${shortDate(person.invited_at)}, not signed in yet`
-            : "Not invited yet"
-          : person.last_sign_in_at
-            ? shortDate(person.last_sign_in_at)
-            : "Not yet"}
+      <td>
+        <span className={TONE[status.tone]} title={status.title} data-testid="person-status">
+          {status.label}
+        </span>
       </td>
+      <td>{person.last_sign_in_at ? shortDate(person.last_sign_in_at) : person.invited_at ? `Invited ${shortDate(person.invited_at)}` : "Not yet"}</td>
       <td className={styles.num}>
         <span className={styles.formRow}>
-          {waiting ? (
+          {canResend ? (
             <button type="button" className={`${styles.secondary} ${styles.small}`} disabled={pending} onClick={() => run(() => resendClientInviteAction(clientId, person.id))}>
-              {saved ? "Sent" : "Send again"}
+              {saved ? "Invite sent" : "Resend invite"}
             </button>
           ) : null}
           {confirming ? (

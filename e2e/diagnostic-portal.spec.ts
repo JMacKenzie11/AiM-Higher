@@ -63,6 +63,9 @@ test.describe("Diagnostic client portal", () => {
     const row = people.getByRole("row").filter({ hasText: personName });
     await expect(row).toBeVisible({ timeout: 15_000 });
     await expect(row.getByText(email)).toBeVisible();
+    // Where they stand, and an invite can go again.
+    await expect(row.getByTestId("person-status")).toHaveText(/Invited|Not invited/);
+    await expect(row.getByRole("button", { name: "Resend invite" })).toBeVisible();
 
     // As the invite link would: a password, and the profile active.
     const admin = devAdmin();

@@ -76,7 +76,10 @@ export async function resendClientInviteAction(clientId: string, profileId: stri
   const { session, supabase } = await caller();
   const person = await memberOf(supabase, clientId, profileId);
   if (!person) return { ok: false, message: "That person wasn't found." };
-  if (person.status !== "pending") return { ok: false, message: "They have already signed in." };
+  // An active person can be sent one again: the link signs them in
+  // and lets them set a new password (acceptInviteAction is
+  // idempotent). A switched-off account cannot.
+  if (person.status === "inactive") return { ok: false, message: "Their account is switched off." };
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const { data: user } = await admin.auth.admin.getUserById(profileId);
   if (!user?.user?.email) return { ok: false, message: "Couldn't find their email." };
