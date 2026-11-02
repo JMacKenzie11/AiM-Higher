@@ -126,6 +126,11 @@ export const TEAM_STEPS: ReadonlyArray<{ step: string; questions?: readonly stri
   { step: "Tell them you'll incorporate their feedback into the Vision and reshare it with them." },
 ];
 
+// Under the steps: where the feedback goes (Jason, 2026-11-02). The
+// agent says the same in the chat after every vision it writes.
+export const TEAM_RETURN_LINE =
+  "When you have their feedback, return to your Vivid Vision conversation in AiMS-HQ and share it there. Aimee will update the vision with you and give you a new PDF.";
+
 function TeamSection() {
   return (
     <View style={[s.card, { marginTop: 22, paddingBottom: 16 }]} wrap={false}>
@@ -147,6 +152,9 @@ function TeamSection() {
           </View>
         </View>
       ))}
+      <View style={[s.protectRule, { marginTop: 14, paddingTop: 10 }]}>
+        <Text style={[s.p, s.bold, { marginBottom: 0 }]}>{TEAM_RETURN_LINE}</Text>
+      </View>
     </View>
   );
 }

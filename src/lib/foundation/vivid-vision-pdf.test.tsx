@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseVividVision } from "./vivid-vision";
-import { TEAM_STEPS, renderVividVisionPdf, vividVisionFileName } from "./vivid-vision-pdf";
+import { TEAM_RETURN_LINE, TEAM_STEPS, renderVividVisionPdf, vividVisionFileName } from "./vivid-vision-pdf";
 import { PLAIN_VISION, STRUCTURED_VISION } from "./vivid-vision.fixture";
 
 // The vivid vision PDF renders from a structured block and from a plain
@@ -30,6 +30,8 @@ describe("the vivid vision PDF", () => {
       "Tell them you'll incorporate their feedback into the Vision and reshare it with them.",
     ]);
     expect(TEAM_STEPS[1].questions).toHaveLength(3);
+    // And where the feedback goes.
+    expect(TEAM_RETURN_LINE).toContain("return to your Vivid Vision conversation in AiMS-HQ");
   });
 
   it("names the file for the company and year", () => {
