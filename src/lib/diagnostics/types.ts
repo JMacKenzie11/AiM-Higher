@@ -170,9 +170,16 @@ export type TaskRow = {
   build_effort: BuildEffort | null;
   needs_approval: boolean | null;
   agent_type: AgentType | null;
+  // 0316. The category the lead put it under; null for none.
+  category_id?: string | null;
 };
 export const TASK_COLUMNS =
-  "id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment, source, volume_units_per_week, minutes_per_unit, data_risk, build_effort_hours, candidate_override, canonical_title, created_at, system_id, copies_from_system_id, copies_to_system_id, role_title, frequency, build_effort, needs_approval, agent_type";
+  "id, diagnostic_id, participant_id, title, hours_per_week, energy, judgment, source, volume_units_per_week, minutes_per_unit, data_risk, build_effort_hours, candidate_override, canonical_title, created_at, system_id, copies_from_system_id, copies_to_system_id, role_title, frequency, build_effort, needs_approval, agent_type, category_id";
+
+// A category of work the lead groups tasks under, in the lead's order
+// (0316). A diagnostic starts with none.
+export type TaskCategoryRow = { id: string; diagnostic_id: string; name: string; position: number; created_at: string };
+export const TASK_CATEGORY_COLUMNS = "id, diagnostic_id, name, position, created_at";
 
 // ---- Scoring, voice and agents (0309) -------------------------------
 
@@ -408,6 +415,7 @@ export type DiagnosticBundle = {
   systems: SystemRow[];
   links: SystemLinkRow[];
   aiUse: AiUseRow[];
+  categories: TaskCategoryRow[];
 };
 
 // ---- Automations (0306) ----------------------------------------------

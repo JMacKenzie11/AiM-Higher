@@ -37,7 +37,7 @@ export const SCREENS: readonly ScreenDef[] = [
   // added as each process is taken on, not settled up front, so neither
   // is required and both come after the tasks. Access is also tracked
   // on each automation (0315).
-  { step: "preflight", key: "tasks", title: "Tasks", heading: "The recurring work", why: "Each recurring task, who does it, where if you know yet, and its hours a week.", required: true },
+  { step: "preflight", key: "tasks", title: "Tasks", heading: "The recurring work", why: "Each recurring task, who does it and its hours a week, grouped under categories of work if you add them.", required: true },
   { step: "preflight", key: "score", title: "Score tasks", heading: "Score the tasks", why: "The scores rank the candidates and suggest the agent team. Skip any you're unsure of.", required: true },
   { step: "preflight", key: "systems", title: "Systems", heading: "The systems they work in", why: "Add each system as you take on a process that touches it. These are the boxes on the systems map.", required: false },
   { step: "preflight", key: "links", title: "How information moves", heading: "How information moves", why: "Information carried by hand between systems is where the hours hide.", required: false },

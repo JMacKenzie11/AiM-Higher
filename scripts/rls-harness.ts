@@ -13157,12 +13157,20 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
 // admin still reads all eight off the primary instance. Red before 0296:
 // published_readout does not exist. Red before 0298: the systems tables
 // do not exist. Red before 0306: diagnostic_automations does not exist.
-// Red before 0308: diagnostic_bots does not exist.
+//   categories (0316) read and written by the system admin alone: one
+//             seeded row counts toward the reads, and each role's add of
+//             one is tried. As the system admin: a task put in another
+//             diagnostic's category is refused (23514), one in its own
+//             saves (1 row), and deleting the category (1 row) leaves
+//             the task with no category
+// Red before 0308: diagnostic_bots does not exist. Red before 0316:
+// diagnostic_task_categories does not exist.
 async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
   const name = "diagnostics · system admin only";
   const CL = randomUUID(), DX = randomUUID(), PT = randomUUID(), TK = randomUUID();
   const DX2 = randomUUID(), S1 = randomUUID(), S2 = randomUUID(), S3 = randomUUID(), LK = randomUUID(), AI = randomUUID();
   const CL2 = randomUUID(), DX3 = randomUUID(), AU = randomUUID(), BT = randomUUID();
+  const CA = randomUUID(), CA2 = randomUUID();
   const reads = `(select count(*) from public.diagnostic_clients where id = '${CL}')
     + (select count(*) from public.diagnostics where id = '${DX}')
     + (select count(*) from public.diagnostic_participants where id = '${PT}')
@@ -13176,7 +13184,8 @@ async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pe
     + (select count(*) from public.diagnostic_ai_use where id = '${AI}')
     + (select count(*) from public.diagnostic_automations where id = '${AU}')
     + (select count(*) from public.diagnostic_bots where id = '${BT}')
-    + (select count(*) from public.diagnostic_bot_runs where bot_id = '${BT}')`;
+    + (select count(*) from public.diagnostic_bot_runs where bot_id = '${BT}')
+    + (select count(*) from public.diagnostic_task_categories where id = '${CA}')`;
   const asRole = (key: string, sub: string) => `
   perform set_config('request.jwt.claims', '{"sub":"${sub}","role":"authenticated"}', true);
   select ${reads} into n; insert into _p values ('${key}_reads', n::text);
@@ -13192,6 +13201,10 @@ async function diagnosticsSystemAdminOnlyProbes(run: Runner, ids: Identities, pe
     insert into public.diagnostic_automations (client_id, title) values ('${CL}', 'Harness 0306 by ${key}');
     get diagnostics n = row_count; insert into _p values ('${key}_auto_insert', n::text);
   exception when others then insert into _p values ('${key}_auto_insert', 'error ' || sqlstate); end;
+  begin
+    insert into public.diagnostic_task_categories (diagnostic_id, name) values ('${DX}', 'Harness 0316 by ${key}');
+    get diagnostics n = row_count; insert into _p values ('${key}_cat_insert', n::text);
+  exception when others then insert into _p values ('${key}_cat_insert', 'error ' || sqlstate); end;
   update public.diagnostic_answers set best_work = 'harness ${key}' where participant_id = '${PT}';
   get diagnostics n = row_count; insert into _p values ('${key}_update', n::text);`;
   let row: Record<string, string> | undefined;
@@ -13224,6 +13237,7 @@ insert into public.diagnostics (id, client_id) values ('${DX3}', '${CL2}');
 insert into public.diagnostic_automations (id, client_id, diagnostic_id, title) values ('${AU}', '${CL}', '${DX}', 'Harness automation');
 insert into public.diagnostic_bots (id, automation_id, client_id, code, kind, every) values ('${BT}', '${AU}', '${CL}', 'harness-${BT.slice(0, 8)}', 'scheduled', 'day');
 insert into public.diagnostic_bot_runs (bot_id, result, items) values ('${BT}', 'worked', 2);
+insert into public.diagnostic_task_categories (id, diagnostic_id, name) values ('${CA}', '${DX}', 'Harness outreach'), ('${CA2}', '${DX2}', 'Harness other');
 create temp table _p (k text, v text) on commit drop;
 grant all on _p to authenticated;
 set local role authenticated;
@@ -13293,6 +13307,20 @@ begin
     delete from public.diagnostic_automations where id = '${AU}';
     get diagnostics n = row_count; insert into _p values ('auto_delete', n::text);
   exception when others then insert into _p values ('auto_delete', 'error ' || sqlstate); end;
+  begin
+    update public.diagnostic_tasks set category_id = '${CA2}' where id = '${TK}';
+    get diagnostics n = row_count; insert into _p values ('cat_cross', n::text);
+  exception when others then insert into _p values ('cat_cross', 'error ' || sqlstate); end;
+  begin
+    update public.diagnostic_tasks set category_id = '${CA}' where id = '${TK}';
+    get diagnostics n = row_count; insert into _p values ('cat_set', n::text);
+  exception when others then insert into _p values ('cat_set', 'error ' || sqlstate); end;
+  begin
+    delete from public.diagnostic_task_categories where id = '${CA}';
+    get diagnostics n = row_count; insert into _p values ('cat_delete', n::text);
+    select count(*) into n from public.diagnostic_tasks where id = '${TK}' and category_id is null;
+    insert into _p values ('cat_task_kept', n::text);
+  exception when others then insert into _p values ('cat_delete', 'error ' || sqlstate); end;
 end $$;
 reset role;
 update public.diagnostics set published_at = now(), published_readout = '{"version":1}'::jsonb where id = '${DX}';
@@ -13338,18 +13366,19 @@ reset role;
 select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   } catch (err) {
     const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
-    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (are 0294, 0298 and 0306 applied?)" }];
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run (are 0294, 0298, 0306 and 0316 applied?)" }];
   }
   const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
   const others = ["company_admin", "guide", "portfolio_admin", "member"];
   const othersOk = others.every(
     (k) =>
       r[`${k}_reads`] === "0" && r[`${k}_insert`] === "error 42501" && r[`${k}_sys_insert`] === "error 42501" &&
-      r[`${k}_auto_insert`] === "error 42501" && r[`${k}_update`] === "0"
+      r[`${k}_auto_insert`] === "error 42501" && r[`${k}_cat_insert`] === "error 42501" && r[`${k}_update`] === "0"
   );
   const adminOk =
-    r.system_admin_reads === "14" && r.system_admin_insert === "1" && r.system_admin_sys_insert === "1" &&
-    r.system_admin_auto_insert === "1" && r.system_admin_update === "1";
+    r.system_admin_reads === "15" && r.system_admin_insert === "1" && r.system_admin_sys_insert === "1" &&
+    r.system_admin_auto_insert === "1" && r.system_admin_cat_insert === "1" && r.system_admin_update === "1";
+  const categoriesOk = r.cat_cross === "error 23514" && r.cat_set === "1" && r.cat_delete === "1" && r.cat_task_kept === "1";
   const automationsOk =
     r.auto_cross_client === "error 23503" && r.auto_update === "1" && r.auto_backwards === "error 23514" &&
     r.auto_delete_with_bot === "error 23503" && r.bot_delete === "1" && r.auto_delete === "1";
@@ -13358,16 +13387,17 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
     r.system_in_use_delete === "error 23503" && r.link_delete === "1" && r.ai_delete === "1";
   const offPrimaryOk = r.not_primary_reads === "0" && r.not_primary_insert === "error 42501";
   const frozenOk = r.published_readout_edit === "error 42501" && r.published_decision === "1";
-  const ok = adminOk && othersOk && systemsOk && automationsOk && r.published_note_update === "0" && frozenOk && r.canary === "1" && offPrimaryOk;
+  const ok = adminOk && othersOk && systemsOk && automationsOk && categoriesOk && r.published_note_update === "0" && frozenOk && r.canary === "1" && offPrimaryOk;
   return [{
     name,
     granted:
-      `system admin reads ${r.system_admin_reads} of 14, adds a client ${r.system_admin_insert}, a system ${r.system_admin_sys_insert} and an automation ${r.system_admin_auto_insert}, updates an answer ${r.system_admin_update} (want 14, 1, 1, 1, 1) | ` +
+      `system admin reads ${r.system_admin_reads} of 15, adds a client ${r.system_admin_insert}, a system ${r.system_admin_sys_insert}, an automation ${r.system_admin_auto_insert} and a category ${r.system_admin_cat_insert}, updates an answer ${r.system_admin_update} (want 15, 1, 1, 1, 1, 1) | ` +
+      `puts a task in a category ${r.cat_set}, deletes the category ${r.cat_delete}, task kept with no category ${r.cat_task_kept} (want 1 each) | ` +
       `whole copy pair ${r.whole_pair}, deletes a link ${r.link_delete} and an AI row ${r.ai_delete} (want 1 each) | ` +
       `moves an automation's stage ${r.auto_update}, deletes its bot (and runs) ${r.bot_delete}, then it ${r.auto_delete} (want 1 each) | deleting an automation with a bot ${r.auto_delete_with_bot} (want error 23503)`,
     withheld:
-      others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]}, ${r[`${k}_sys_insert`]} and ${r[`${k}_auto_insert`]}, updates ${r[`${k}_update`]}`).join(" | ") +
-      ` (want 0, error 42501 three times, 0 each) | an automation on another client's diagnostic ${r.auto_cross_client} (want error 23503), ` +
+      others.map((k) => `${k}: reads ${r[`${k}_reads`]}, adds ${r[`${k}_insert`]}, ${r[`${k}_sys_insert`]}, ${r[`${k}_auto_insert`]} and ${r[`${k}_cat_insert`]}, updates ${r[`${k}_update`]}`).join(" | ") +
+      ` (want 0, error 42501 four times, 0 each) | another diagnostic's category on a task ${r.cat_cross} (want error 23514) | an automation on another client's diagnostic ${r.auto_cross_client} (want error 23503), ` +
       `going live before its build starts ${r.auto_backwards} (want error 23514) | another diagnostic's system on a link ${r.cross_link} and on a task ${r.cross_task}, half a copy pair ${r.half_pair} (want error 23514 each), ` +
       `deleting a system in use ${r.system_in_use_delete} (want error 23503) | note update after publishing ${r.published_note_update} (want 0) | ` +
       `readout edit after publishing ${r.published_readout_edit} (want error 42501), decision after publishing ${r.published_decision} (want 1) | ` +
@@ -13380,6 +13410,8 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
         ? "A SYSTEM ADMIN CANNOT RUN A DIAGNOSTIC (is 0294 applied? is the clone marked primary?)"
         : !systemsOk
           ? "A SYSTEM CROSSES DIAGNOSTICS, a copy pair can be half set, or a delete is wrong (is 0298 applied?)"
+        : !categoriesOk
+          ? "A CATEGORY CROSSES DIAGNOSTICS, or deleting one loses its tasks (is 0316 applied?)"
         : !automationsOk
           ? "AN AUTOMATION CROSSES CLIENTS, its dates run backwards, or it cannot be edited or deleted (is 0306 applied?)"
         : !offPrimaryOk

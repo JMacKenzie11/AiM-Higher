@@ -10,11 +10,13 @@ import {
   TASK_COLUMNS,
   WIN_COLUMNS,
   SYSTEM_COLUMNS,
+  TASK_CATEGORY_COLUMNS,
   SYSTEM_LINK_COLUMNS,
   AI_USE_COLUMNS,
   AUTOMATION_COLUMNS,
   type AutomationRow,
   type AiUseRow,
+  type TaskCategoryRow,
   type SystemLinkRow,
   type SystemRow,
   type AnswerRow,
@@ -158,7 +160,7 @@ export async function getDiagnostic(id: string): Promise<DiagnosticBundle | null
   const supabase = await db();
   const { data: diagnostic } = await supabase.from("diagnostics").select(DIAGNOSTIC_COLUMNS).eq("id", id).maybeSingle<DiagnosticRow>();
   if (!diagnostic) return null;
-  const [client, participants, tasks, quotes, wins, systems, links] = await Promise.all([
+  const [client, participants, tasks, quotes, wins, systems, links, categories] = await Promise.all([
     supabase.from("diagnostic_clients").select(CLIENT_COLUMNS).eq("id", diagnostic.client_id).maybeSingle<ClientRow>(),
     supabase.from("diagnostic_participants").select(PARTICIPANT_COLUMNS).eq("diagnostic_id", id).order("created_at"),
     supabase.from("diagnostic_tasks").select(TASK_COLUMNS).eq("diagnostic_id", id).order("created_at"),
@@ -170,6 +172,7 @@ export async function getDiagnostic(id: string): Promise<DiagnosticBundle | null
     supabase.from("diagnostic_wins").select(WIN_COLUMNS).eq("diagnostic_id", id).eq("is_first_win", true).limit(1),
     supabase.from("diagnostic_systems").select(SYSTEM_COLUMNS).eq("diagnostic_id", id).order("created_at"),
     supabase.from("diagnostic_system_links").select(SYSTEM_LINK_COLUMNS).eq("diagnostic_id", id).order("created_at"),
+    supabase.from("diagnostic_task_categories").select(TASK_CATEGORY_COLUMNS).eq("diagnostic_id", id).order("position").order("created_at"),
   ]);
   if (!client.data) return null;
   const people = (participants.data ?? []) as ParticipantRow[];
@@ -193,6 +196,7 @@ export async function getDiagnostic(id: string): Promise<DiagnosticBundle | null
     systems: (systems.data ?? []) as SystemRow[],
     links: (links.data ?? []) as SystemLinkRow[],
     aiUse: (aiUse.data ?? []) as AiUseRow[],
+    categories: (categories.data ?? []) as TaskCategoryRow[],
   };
 }
 

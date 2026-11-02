@@ -484,6 +484,8 @@ export type TaskPatch = {
   system_id?: string | null;
   copies_from_system_id?: string | null;
   copies_to_system_id?: string | null;
+  // 0316. Null for no category.
+  category_id?: string | null;
   // 0309.
   frequency?: string | null;
   build_effort?: string | null;
@@ -554,6 +556,12 @@ function cleanTaskPatch(patch: TaskPatch): Record<string, unknown> | string {
       row[k] = v || null;
     }
   }
+  // Another diagnostic's category is refused by 0316's trigger.
+  if ("category_id" in patch) {
+    const v = patch.category_id;
+    if (v && !UUID.test(v)) return "That category doesn't exist.";
+    row.category_id = v || null;
+  }
   if (("copies_from_system_id" in row) !== ("copies_to_system_id" in row)) return "Pick both systems it copies between, or neither.";
   if (row.copies_from_system_id && row.copies_from_system_id === row.copies_to_system_id) return "It copies between two different systems.";
   if ((row.copies_from_system_id == null) !== (row.copies_to_system_id == null)) return "Pick both systems it copies between, or neither.";
@@ -598,10 +606,11 @@ export async function addTaskAction(
 }
 
 // A task the lead enters in the systems walkthrough (0305): no person,
-// no ratings, the role that does it and the system it happens in.
+// no ratings, the role that does it, and the category it goes under
+// (0316) or the system it happens in when either is known.
 export async function addWalkthroughTaskAction(
   diagnosticId: string,
-  input: { title: string; role_title?: string; hours_per_week: string | number; system_id?: string | null }
+  input: { title: string; role_title?: string; hours_per_week: string | number; system_id?: string | null; category_id?: string | null }
 ): Promise<DxResult> {
   const supabase = await caller();
   const row = cleanTaskPatch(input);
@@ -621,6 +630,71 @@ export async function deleteTaskAction(id: string): Promise<DxResult> {
   const { data: win } = await supabase.from("diagnostic_wins").select("id").eq("task_id", id).limit(1);
   if (win?.length) return { ok: false, message: "That task has the first win on it. Choose a different task for the win first." };
   const { data } = await supabase.from("diagnostic_tasks").delete().eq("id", id).select("id, diagnostic_id");
+  if (!data?.length) return REFUSED;
+  touched(data[0].diagnostic_id);
+  return { ok: true };
+}
+
+// ---- Task categories (0316) ----------------------------------------
+// The lead's own groups of work, such as Outreach. None are made for
+// them. Removing one keeps its tasks, with no category (ON DELETE SET
+// NULL).
+
+export async function addTaskCategoryAction(diagnosticId: string, name: string): Promise<DxResult> {
+  const supabase = await caller();
+  const n = text(name, 120);
+  if (!n) return { ok: false, message: "Name the category." };
+  const { data: last } = await supabase
+    .from("diagnostic_task_categories")
+    .select("position")
+    .eq("diagnostic_id", diagnosticId)
+    .order("position", { ascending: false })
+    .limit(1);
+  const position = ((last as Array<{ position: number }> | null)?.[0]?.position ?? -1) + 1;
+  const { data } = await supabase.from("diagnostic_task_categories").insert({ diagnostic_id: diagnosticId, name: n, position }).select("id");
+  if (!data?.length) return REFUSED;
+  touched(diagnosticId);
+  return { ok: true, id: data[0].id };
+}
+
+export async function renameTaskCategoryAction(id: string, name: string): Promise<DxResult> {
+  const supabase = await caller();
+  const n = text(name, 120);
+  if (!n) return { ok: false, message: "A category needs a name." };
+  const { data } = await supabase.from("diagnostic_task_categories").update({ name: n }).eq("id", id).select("id, diagnostic_id");
+  if (!data?.length) return REFUSED;
+  touched(data[0].diagnostic_id);
+  return { ok: true };
+}
+
+// One place up (-1) or down (1). The whole order is written again, so
+// categories made at the same position settle into a clean order.
+export async function moveTaskCategoryAction(id: string, by: -1 | 1): Promise<DxResult> {
+  const supabase = await caller();
+  const { data: one } = await supabase.from("diagnostic_task_categories").select("diagnostic_id").eq("id", id).maybeSingle<{ diagnostic_id: string }>();
+  if (!one) return REFUSED;
+  const { data: all } = await supabase
+    .from("diagnostic_task_categories")
+    .select("id")
+    .eq("diagnostic_id", one.diagnostic_id)
+    .order("position")
+    .order("created_at");
+  const ids = ((all ?? []) as Array<{ id: string }>).map((c) => c.id);
+  const at = ids.indexOf(id);
+  const to = at + by;
+  if (at < 0 || to < 0 || to >= ids.length) return { ok: true };
+  [ids[at], ids[to]] = [ids[to], ids[at]];
+  for (const [position, cid] of ids.entries()) {
+    const { data } = await supabase.from("diagnostic_task_categories").update({ position }).eq("id", cid).select("id");
+    if (!data?.length) return REFUSED;
+  }
+  touched(one.diagnostic_id);
+  return { ok: true };
+}
+
+export async function deleteTaskCategoryAction(id: string): Promise<DxResult> {
+  const supabase = await caller();
+  const { data } = await supabase.from("diagnostic_task_categories").delete().eq("id", id).select("id, diagnostic_id");
   if (!data?.length) return REFUSED;
   touched(data[0].diagnostic_id);
   return { ok: true };
