@@ -403,12 +403,16 @@ export function AgentConfigDrawer({
         {view === "config" && config && !draft ? (
           <>
             <p className={admin.fieldHint}>
-              {hasRegistryEntry
-                ? "This agent's wording is set in the code. Editing it here copies that into a draft. Nothing changes for anyone until you publish."
-                : "This agent was built here. Editing starts a new draft from the version that is live now. Nothing changes for anyone until you publish."}
+              {hasRegistryEntry && config.liveSource === "version" && config.liveFollowsCode
+                ? `Version ${config.live?.versionNumber ?? ""} was published unchanged from the code, so it follows the code: when the wording in the code changes, this agent uses the new wording. Editing it here copies the code's wording into a draft.`
+                : hasRegistryEntry && config.liveSource === "version"
+                  ? `Version ${config.live?.versionNumber ?? ""} was edited here, so it keeps its own wording when the code changes. Revert to code default to follow the code again.`
+                  : hasRegistryEntry
+                    ? "This agent's wording is set in the code. Editing it here copies that into a draft. Nothing changes for anyone until you publish."
+                    : "This agent was built here. Editing starts a new draft from the version that is live now. Nothing changes for anyone until you publish."}
             </p>
-            <pre className={styles.promptPreview}>
-              {config.live?.prompt ?? config.registry?.prompt ?? ""}
+            <pre className={styles.promptPreview} data-testid="agent-config-running-prompt">
+              {config.liveFollowsCode ? config.registry?.prompt ?? "" : config.live?.prompt ?? config.registry?.prompt ?? ""}
             </pre>
             <div className={styles.headActions}>
               <button

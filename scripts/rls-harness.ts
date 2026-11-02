@@ -1413,10 +1413,18 @@ async function agentDistributionWall(
      `select
         not has_table_privilege('service_role', 'public.agent_versions', 'insert') as svc_no_insert,
         has_function_privilege('service_role',
-          'public.insert_distributed_agent_version(uuid, integer, text, jsonb, text, boolean, text, text, text[], integer, text, text, uuid)',
+          -- Whichever signature the schema has: 0317 added a
+          -- fourteenth argument (v_follows_code) and dropped the old one.
+          (select p.oid from pg_proc p
+            where p.proname = 'insert_distributed_agent_version'
+              and p.pronamespace = 'public'::regnamespace limit 1),
           'execute') as svc_can_execute,
         not has_function_privilege('authenticated',
-          'public.insert_distributed_agent_version(uuid, integer, text, jsonb, text, boolean, text, text, text[], integer, text, text, uuid)',
+          -- Whichever signature the schema has: 0317 added a
+          -- fourteenth argument (v_follows_code) and dropped the old one.
+          (select p.oid from pg_proc p
+            where p.proname = 'insert_distributed_agent_version'
+              and p.pronamespace = 'public'::regnamespace limit 1),
           'execute') as auth_no_execute;`,
      "rollback;"].join("\n")
   );

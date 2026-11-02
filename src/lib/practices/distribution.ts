@@ -66,6 +66,9 @@ export type DistributionSource = {
   maxTokens: number | null;
   model: string | null;
   publishNotes: string;
+  // 0317: published unchanged from the code, so it runs the code's
+  // wording wherever it lands. Every instance runs the same code.
+  followsCode?: boolean;
 };
 
 export type Target = { subdomain: string; displayName: string };
@@ -492,24 +495,31 @@ export async function distributeToTarget(
 
     // Through the one door (0230). Idempotent in the function itself,
     // so a retry returns the existing row's id rather than failing.
-    const { data: versionId, error: versionErr } = await db.rpc(
+    const args = {
+      target_agent_id: agentId,
+      v_version_number: source.versionNumber,
+      v_prompt: source.prompt,
+      v_chips: source.chips,
+      v_base_prompt_mode: source.basePromptMode,
+      v_skip_setup: source.skipSetup,
+      v_first_turn: source.firstTurn,
+      v_scripted_opener: source.scriptedOpener,
+      v_tools: source.tools,
+      v_max_tokens: source.maxTokens,
+      v_model: source.model,
+      v_publish_notes: source.publishNotes,
+      v_actor: actorId,
+    };
+    let { data: versionId, error: versionErr } = await db.rpc(
       "insert_distributed_agent_version",
-      {
-        target_agent_id: agentId,
-        v_version_number: source.versionNumber,
-        v_prompt: source.prompt,
-        v_chips: source.chips,
-        v_base_prompt_mode: source.basePromptMode,
-        v_skip_setup: source.skipSetup,
-        v_first_turn: source.firstTurn,
-        v_scripted_opener: source.scriptedOpener,
-        v_tools: source.tools,
-        v_max_tokens: source.maxTokens,
-        v_model: source.model,
-        v_publish_notes: source.publishNotes,
-        v_actor: actorId,
-      }
+      source.followsCode ? { ...args, v_follows_code: true } : args
     );
+    // A target 0317 has not reached has the function without the
+    // mark: it gets the version unmarked, running its own text.
+    if (versionErr && source.followsCode) {
+      ({ data: versionId, error: versionErr } = await db.rpc("insert_distributed_agent_version", args));
+      if (!versionErr) base.warnings.push("This instance needs migration 0317 for the version to follow the code. It runs the published text until then.");
+    }
     if (versionErr || !versionId) {
       throw new Error(versionErr?.message ?? "the version was not written");
     }

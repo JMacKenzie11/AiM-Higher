@@ -4,7 +4,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: vi.fn() }));
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: vi.fn() }));
 
-import { configFromVersion } from "./version-config";
+import { configFromVersion, resolveRuntimeConfig } from "./version-config";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { loadPracticePrompt } from "./registry";
 import { isValidAgentModel, VALID_AGENT_MODELS } from "./models";
 import { PRACTICES } from "./registry";
 
@@ -80,6 +82,37 @@ describe("configFromVersion", () => {
   it("nulls an unrecognised first_turn rather than passing it on", () => {
     expect(configFromVersion(row({ first_turn: "sideways" })).firstTurn)
       .toBeNull();
+  });
+});
+
+describe("a version that follows the code (0317)", () => {
+  // The admin client returns this one row for any version read.
+  function serve(stored: Record<string, unknown>) {
+    const chain = { select: () => chain, eq: () => chain, maybeSingle: async () => ({ data: stored, error: null }) };
+    vi.mocked(createSupabaseAdminClient).mockResolvedValue({ from: () => chain } as never);
+  }
+  const practice = PRACTICES.find((p) => p.id === "vivid-vision")!;
+
+  it("runs what the code says now, whatever text it was published with", async () => {
+    serve(row({ id: "v-follow", prompt: "the prompt as it was a week ago", follows_code: true, max_tokens: null, model: null }));
+    const c = await resolveRuntimeConfig(practice, "v-follow");
+    expect(c.prompt).toBe(await loadPracticePrompt(practice));
+    expect(c.prompt).toContain("Question 3 of 9");
+    // Still named, so the Hub and the logs can say which version.
+    expect(c.versionId).toBe("v-follow");
+    expect(c.versionNumber).toBe(3);
+  });
+
+  it("keeps its own text when it was edited in the Hub", async () => {
+    serve(row({ id: "v-edited", prompt: "written in the Hub", follows_code: false }));
+    const c = await resolveRuntimeConfig(practice, "v-edited");
+    expect(c.prompt).toBe("written in the Hub");
+  });
+
+  it("keeps its own text where 0317 has not landed (no column)", async () => {
+    serve(row({ id: "v-old", prompt: "published before 0317" }));
+    const c = await resolveRuntimeConfig(practice, "v-old");
+    expect(c.prompt).toBe("published before 0317");
   });
 });
 
