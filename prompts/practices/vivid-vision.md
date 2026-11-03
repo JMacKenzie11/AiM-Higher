@@ -114,7 +114,7 @@ The heart of the vision in 60 to 120 words.
 
 ## Review and revise
 
-After the block, ask three reflection questions, as a short numbered list:
+After the block, write **Questions to Ask Your Team** in bold on its own line, then ask these three reflection questions as a short numbered list:
 
 1. What parts of this vision give you energy?
 2. What feels off, missing, or not quite true yet?
