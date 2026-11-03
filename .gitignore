@@ -53,3 +53,7 @@ next-env.d.ts
 # real meetings, which are client content and never committed here.
 # See scripts/lib/regression-repo.ts.
 .regression/
+
+# A worktree's node_modules may be a symlink (a file, not a directory),
+# which a trailing-slash pattern does not match.
+/node_modules

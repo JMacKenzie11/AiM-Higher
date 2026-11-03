@@ -2920,6 +2920,94 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
   };
 }
 
+// People assigned to a company see each other (0319).
+//
+// Promise One, 2026-11-03: a team of three portfolio admins, all
+// assigned, none with a company of their own, and each saw only
+// themselves in the owner picker. 0204's read keys on the viewer's own
+// company, which an assigned person has none of.
+//
+// Seeded, as profilesSelectAssigned is. Claims:
+//   1. an assigned portfolio admin reads another PA assigned to the
+//      same company                                    (red before 0319)
+//   2. ... and a guide assigned to it
+//   3. an assigned guide reads a PA assigned to it
+//   4. the PA does NOT read a PA assigned only to another company
+//   5. the PA does NOT read a company-less person with no assignment
+//   6. the read brought no write with it
+async function profilesAssignedSeeAssigned(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const CO = ids.companyAdminCompany;
+  const OTHER = ids.otherCompany;
+  const uid = (tag: string) => `aaaa0319-0000-4000-8000-0000000000${tag}`;
+  const PA1 = uid("01");
+  const PA2 = uid("02");
+  const GUIDE = uid("03");
+  const ELSEWHERE = uid("04");
+  const OUTSIDER = uid("05");
+  const person = (id: string, name: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', null, '${name}', '${role}', 'active');`;
+  const seed = [
+    person(PA1, "Harness PA One", "portfolio_admin"),
+    person(PA2, "Harness PA Two", "portfolio_admin"),
+    person(GUIDE, "Harness Guide", "aims_guide"),
+    person(ELSEWHERE, "Harness PA Elsewhere", "portfolio_admin"),
+    person(OUTSIDER, "Harness Outsider", "portfolio_admin"),
+    `insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin)
+       values ('${PA1}', '${CO}', true), ('${PA2}', '${CO}', true), ('${ELSEWHERE}', '${OTHER}', true)
+       on conflict do nothing;`,
+    `insert into public.guide_assignments (guide_id, company_id) values ('${GUIDE}', '${CO}') on conflict do nothing;`,
+  ].join("\n");
+
+  const visible = async (sub: string, targetId: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        ["begin;", pending, seed, "set local role authenticated;", claims(sub),
+         `select count(*)::int as n from public.profiles where id = '${targetId}';`, "rollback;"].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return -2;
+    }
+  };
+
+  const paSeesPa = await visible(PA1, PA2);
+  const paSeesGuide = await visible(PA1, GUIDE);
+  const guideSeesPa = await visible(GUIDE, PA1);
+  const paSeesElsewhere = await visible(PA1, ELSEWHERE);
+  const paSeesOutsider = await visible(PA1, OUTSIDER);
+  const [renamed] = await run<{ n: number }>(
+    ["begin;", pending, seed, "set local role authenticated;", claims(PA1),
+     `update public.profiles set full_name = 'harness rename' where id = '${PA2}';`,
+     "reset role;",
+     `select count(*)::int as n from public.profiles where id = '${PA2}' and full_name = 'harness rename';`,
+     "rollback;"].join("\n")
+  ).catch(() => [{ n: 0 }]);
+  const writeRefused = (renamed?.n ?? -1) === 0;
+
+  const ok = paSeesPa === 1 && paSeesGuide === 1 && guideSeesPa === 1 && paSeesElsewhere === 0 && paSeesOutsider === 0 && writeRefused;
+  return {
+    name: "profiles-assigned-see-assigned",
+    hazard: "An assigned admin cannot pick a colleague, or sees people from other companies",
+    wrong: `PA sees a PA assigned elsewhere: ${paSeesElsewhere === 1 ? "YES" : "no"}; an unassigned outsider: ${paSeesOutsider === 1 ? "YES" : "no"}`,
+    right: `PA sees co-assigned PA ${paSeesPa}, co-assigned guide ${paSeesGuide}; guide sees co-assigned PA ${guideSeesPa}`,
+    ok,
+    detail: ok
+      ? "People assigned to a company read the others assigned to it, and nobody assigned elsewhere or nowhere. The read brought no write with it."
+      : `pa-sees-pa ${paSeesPa} (want 1), pa-sees-guide ${paSeesGuide} (want 1), guide-sees-pa ${guideSeesPa} (want 1), pa-sees-elsewhere ${paSeesElsewhere} (want 0), pa-sees-outsider ${paSeesOutsider} (want 0), write-refused ${writeRefused} (want true).`,
+  };
+}
+
 // Aimee's counting tables take writes from a company's own people and
 // its ASSIGNED GUIDES, never from an assigned portfolio admin (0244).
 //
@@ -16040,6 +16128,10 @@ async function main(): Promise<void> {
     [
       "profiles-select-assigned",
       (r: Runner, i: Identities) => profilesSelectAssigned(r, i, pendingSql),
+    ],
+    [
+      "profiles-assigned-see-assigned",
+      (r: Runner, i: Identities) => profilesAssignedSeeAssigned(r, i, pendingSql),
     ],
     [
       "portfolio-assignment-company-access",
