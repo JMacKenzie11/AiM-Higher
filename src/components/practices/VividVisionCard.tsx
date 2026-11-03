@@ -8,13 +8,14 @@ import {
   saveVividVisionAction,
   type VividVisionCardState,
 } from "@/lib/foundation/vivid-vision-actions";
+import { GoogleDocButton } from "./GoogleDocButton";
 import styles from "./VividVisionCard.module.css";
 
 // The Vivid Vision agent's finished document (lib/foundation/vivid-vision.ts).
 //
 // Shown with its sections and bold lines, as the PDF lays it out.
-// Download PDF is for anyone who can see the card, once the reply has
-// saved (the PDF is read from the saved message). Nothing is saved to
+// Download PDF and Save to Google Docs (0318) are for anyone who can
+// see the card, once the reply has saved (both read the saved message). Nothing is saved to
 // the One-Page Plan until the leader presses Save, and saving replaces
 // what the Vision card holds (as plain text), so the card says so when
 // it holds something else. Only the person who started the
@@ -80,11 +81,17 @@ export function VividVisionCard({
   const pdfHref = messageId
     ? `/api/vivid-vision/pdf?conversation=${encodeURIComponent(conversationId)}&message=${encodeURIComponent(messageId)}`
     : null;
-  const download = pdfHref ? (
-    <a className={styles.secondaryButton} href={pdfHref} download>
-      Download PDF
-    </a>
-  ) : null;
+  // Download PDF and Save to Google Docs: for anyone who can see the
+  // card, once the reply has saved.
+  const download =
+    pdfHref && messageId ? (
+      <>
+        <a className={styles.secondaryButton} href={pdfHref} download>
+          Download PDF
+        </a>
+        <GoogleDocButton conversationId={conversationId} messageId={messageId} />
+      </>
+    ) : null;
 
   return (
     <article className={styles.card} data-testid="vivid-vision-card">

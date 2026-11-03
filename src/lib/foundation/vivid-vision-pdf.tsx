@@ -3,7 +3,7 @@ import "server-only";
 import path from "node:path";
 import { Document, Font, Page, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import type { Style } from "@react-pdf/types";
-import { splitBold, type VividVisionDoc } from "./vivid-vision";
+import { splitBold, TEAM_STEPS, TEAM_RETURN_LINE, type VividVisionDoc } from "./vivid-vision";
 
 // THE VIVID VISION, AS A PDF (Jason, 2026-11-02).
 //
@@ -109,27 +109,9 @@ function Bullet({ text }: { text: string }) {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-// CONNECTING THE TEAM TO THE VISION (Jason, 2026-11-02). The same on
-// every vision, after the closing line: how the owner takes it to the
-// team. Fixed text, never written by the agent.
-export const TEAM_STEPS: ReadonlyArray<{ step: string; questions?: readonly string[] }> = [
-  { step: "Bring your team together and read your Vivid Vision." },
-  {
-    step: "Ask them these questions:",
-    questions: [
-      "What ideas energized you most?",
-      "What other ideas were emerging that you would also love to see?",
-      "What questions come to mind?",
-    ],
-  },
-  { step: "Give them some time to reflect individually, then ask them to share." },
-  { step: "Tell them you'll incorporate their feedback into the Vision and reshare it with them." },
-];
-
-// Under the steps: where the feedback goes (Jason, 2026-11-02). The
-// agent says the same in the chat after every vision it writes.
-export const TEAM_RETURN_LINE =
-  "When you have their feedback, return to your Vivid Vision conversation in AiMS-HQ and share it there. Aimee will update the vision with you and give you a new PDF.";
+// The team steps and the return line live with the parser, so the
+// Google Doc (lib/google-docs/vision-html.ts) prints the same words.
+export { TEAM_STEPS, TEAM_RETURN_LINE };
 
 function TeamSection() {
   return (

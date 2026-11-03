@@ -104,6 +104,23 @@
   flex-wrap: wrap;
 }
 
+.gdocStatus {
+  flex-basis: 100%;
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.linkButton {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--aims-cobalt);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .primaryButton {
   composes: btnPrimary from "../ui/ui.module.css";
 }
