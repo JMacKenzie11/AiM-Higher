@@ -83,15 +83,11 @@ export function VividVisionCard({
     : null;
   // Download PDF and Save to Google Docs: for anyone who can see the
   // card, once the reply has saved.
-  const download =
-    pdfHref && messageId ? (
-      <>
-        <a className={styles.secondaryButton} href={pdfHref} download>
-          Download PDF
-        </a>
-        <GoogleDocButton conversationId={conversationId} messageId={messageId} />
-      </>
-    ) : null;
+  const download = pdfHref ? (
+    <a className={styles.secondaryButton} href={pdfHref} download>
+      Download PDF
+    </a>
+  ) : null;
 
   return (
     <article className={styles.card} data-testid="vivid-vision-card">
@@ -106,40 +102,28 @@ export function VividVisionCard({
               <Link href="/foundation#vision">Open the One-Page Plan</Link>
             </p>
           ) : null}
-          {state?.savedThis ? (
-            <div className={styles.actions}>
-              {download}
-              <button type="button" className={styles.secondaryButton} onClick={copy}>
-                {copied ? "Copied" : "Copy"}
+          {state && !state.savedThis && replaces ? (
+            <p className={styles.muted}>
+              {vision.doc.summary.length
+                ? "Saving puts the summary on your One-Page Plan, replacing the vision there."
+                : "Saving replaces the vision on your One-Page Plan."}
+            </p>
+          ) : null}
+          {/* One row, whose buttons come and go, so each keeps its place
+              (and its state) as the card's own state arrives. */}
+          <div className={styles.actions}>
+            {state && !state.savedThis ? (
+              <button type="button" className={styles.primaryButton} onClick={save} disabled={pending}>
+                {pending ? "Saving…" : "Save to the One-Page Plan"}
               </button>
-            </div>
-          ) : state ? (
-            <>
-              {replaces ? (
-                <p className={styles.muted}>
-                  {vision.doc.summary.length
-                    ? "Saving puts the summary on your One-Page Plan, replacing the vision there."
-                    : "Saving replaces the vision on your One-Page Plan."}
-                </p>
-              ) : null}
-              <div className={styles.actions}>
-                <button type="button" className={styles.primaryButton} onClick={save} disabled={pending}>
-                  {pending ? "Saving…" : "Save to the One-Page Plan"}
-                </button>
-                {download}
-                <button type="button" className={styles.secondaryButton} onClick={copy}>
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className={styles.actions}>
-              {download}
-              <button type="button" className={styles.secondaryButton} onClick={copy}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-            </div>
-          )}
+            ) : null}
+            {download}
+            <button type="button" className={styles.secondaryButton} onClick={copy}>
+              {copied ? "Copied" : "Copy"}
+            </button>
+            {/* Last, so its status line wraps under the whole row. */}
+            {messageId ? <GoogleDocButton conversationId={conversationId} messageId={messageId} /> : null}
+          </div>
           {error ? (
             <p className={styles.error} role="alert">
               {error}

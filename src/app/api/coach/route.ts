@@ -9,6 +9,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
+import { vividVisionKeepBlock, writesVividVision } from "@/lib/foundation/vivid-vision-keep";
+import { googleDocsConfigured } from "@/lib/google-docs/config";
 import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
 import { makePersonRecordTool } from "@/lib/coach/person-tool";
 import { toolLabel } from "@/lib/coach/tool-labels";
@@ -376,8 +378,14 @@ export async function POST(req: NextRequest): Promise<Response> {
   const aiAppsBlock = plainAimee
     ? aiAppsPromptBlock(helpFeaturesFor(session.profile.role, await currentHelpViewer()))
     : "";
+  // THE VIVID VISION CARD'S BUTTONS (2026-11-03): from the same
+  // setting the card reads, for any agent whose prompt writes the
+  // card, so the agent never offers a button the card does not have.
+  const vividVisionBlock =
+    agentConfig && writesVividVision(agentConfig.prompt) ? vividVisionKeepBlock({ googleDocs: googleDocsConfigured() }) : "";
   const systemPromptText =
     (await loadSystemPrompt(convo.mode, agentConfig)) +
+    (vividVisionBlock ? `\n\n${vividVisionBlock}` : "") +
     (helpIndexBlock ? `\n\n${helpIndexBlock}` : "") +
     (aiAppsBlock ? `\n\n${aiAppsBlock}` : "") +
     (offerBlock ? `\n\n${offerBlock}` : "") +

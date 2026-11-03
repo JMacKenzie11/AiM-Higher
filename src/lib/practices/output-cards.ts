@@ -67,5 +67,36 @@ const CARD_FENCE_MID_LINE = new RegExp(
 );
 
 export function cardFencesOnOwnLine(text: string): string {
-  return text.replace(CARD_FENCE_MID_LINE, "$1\n\n$2");
+  return rejoinVividVisionFence(text.replace(CARD_FENCE_MID_LINE, "$1\n\n$2"));
+}
+
+// A Vivid Vision block closed too early (seen on dev, 2026-11-03): the
+// model ended the fence after the story and wrote Proof Points, What
+// We Protect, the themes and the summary below it as plain text, so
+// the card, the PDF and Save all had the story alone. When a closing
+// fence inside a vivid_vision block is followed by one of the block's
+// own section headings, the fence was premature and is dropped, so the
+// block runs on to the real closing fence (or the end). Used by the
+// chat's display and by the server's reading of a message
+// (vividVisionInMessage), so every consumer sees the same block.
+const VIVID_SECTION_AFTER = /^## (Proof Points|What We Protect|Strategic Focus Themes|Closing|One-Page Plan Summary)\b/m;
+
+export function rejoinVividVisionFence(text: string): string {
+  const open = text.search(/^```vivid_vision\b.*$/m);
+  if (open === -1) return text;
+  let out = text;
+  let from = out.indexOf("\n", open) + 1;
+  for (let guard = 0; guard < 6; guard++) {
+    const close = out.slice(from).search(/^```[ \t]*$/m);
+    if (close === -1) return out;
+    const at = from + close;
+    const lineEnd = out.indexOf("\n", at);
+    const after = lineEnd === -1 ? "" : out.slice(lineEnd + 1);
+    const nextFence = after.search(/^```/m);
+    const between = nextFence === -1 ? after : after.slice(0, nextFence);
+    if (!VIVID_SECTION_AFTER.test(between)) return out;
+    out = out.slice(0, at) + (lineEnd === -1 ? "" : out.slice(lineEnd + 1));
+    from = at;
+  }
+  return out;
 }

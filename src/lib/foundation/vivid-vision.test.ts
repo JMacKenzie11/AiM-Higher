@@ -36,7 +36,8 @@ describe("the vivid vision block", () => {
     expect(OUTPUT_CARD_BY_TAG.vivid_vision).toBe("VividVisionCard");
     const prompt = readFileSync("prompts/practices/vivid-vision.md", "utf8");
     expect(prompt).toContain("```vivid_vision");
-    expect(prompt).toContain("get_foundation");
+    // Its AiMS-HQ facts come in <company_context> every turn (2026-11-03).
+    expect(prompt).toContain("<company_context>");
   });
 
   it("reads a plain block written before the structure, and saves it as written", () => {
@@ -110,5 +111,53 @@ describe("the vivid vision block", () => {
 
   it("dates the vision ten years on from when it was written", () => {
     expect(visionYear("2026-11-02T10:00:00Z")).toBe(2036);
+  });
+});
+
+// Seen on dev, 2026-11-03: the model closed the block after the story
+// and wrote the rest below it.
+describe("a vivid_vision block closed too early", () => {
+  const early = [
+    "Here it is.",
+    "",
+    "```vivid_vision",
+    "# Built to Be Called",
+    "The tagline",
+    "",
+    "## The Story",
+    "### One",
+    "A paragraph.",
+    "```",
+    "",
+    "## Proof Points: What 2036 Looks Like",
+    "### Customers",
+    "- **One** thing",
+    "",
+    "## Strategic Focus Themes: Where We Put Our Energy",
+    "### Win the Guides",
+    "The subtitle.",
+    "A sentence.",
+    "",
+    "## One-Page Plan Summary",
+    "The summary.",
+    "```",
+    "",
+    "1. What parts of this vision give you energy?",
+  ].join("\n");
+
+  it("is read whole, by the server and by the chat's display", async () => {
+    const v = vividVisionInMessage(early)!;
+    expect(v.doc.proof.groups[0].items[0]).toContain("One");
+    expect(v.doc.themes.items[0].name).toBe("Win the Guides");
+    expect(v.doc.summary.join(" ")).toContain("The summary.");
+    const { cardFencesOnOwnLine } = await import("@/lib/practices/output-cards");
+    const shown = cardFencesOnOwnLine(early);
+    expect(shown.match(/^```/gm)?.length).toBe(2);
+    expect(shown).toContain("1. What parts of this vision give you energy?");
+  });
+
+  it("leaves a properly closed block, and the text after it, alone", () => {
+    const fine = "```vivid_vision\n# T\nTag\n\n## Closing\nLine.\n```\n\n1. A question?";
+    expect(vividVisionInMessage(fine)!.doc.closing).toEqual(["Line."]);
   });
 });

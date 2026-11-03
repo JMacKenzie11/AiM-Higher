@@ -123,8 +123,10 @@ describe("the Vivid Vision Coach", () => {
     expect(vv.alsoFunctionLeads).toBeUndefined();
   });
 
-  it("reads the One-Page Plan, and nothing else", () => {
-    expect([...(vv.tools ?? [])]).toEqual(["get_foundation"]);
+  // Its AiMS-HQ facts arrive in <company_context> every turn, so it
+  // has no lookup to forget (2026-11-03).
+  it("has no tools: what it reads comes with every message", () => {
+    expect([...(vv.tools ?? [])]).toEqual([]);
   });
 
   it("is not gated on a company feature", () => {

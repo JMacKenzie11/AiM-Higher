@@ -339,7 +339,11 @@ export const PRACTICES: readonly Practice[] = [
     // The people who can edit the One-Page Plan, which is where the
     // finished vision is saved (Jason, 2026-10-27).
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
-    tools: ["get_foundation"],
+    // No tools (2026-11-03). Everything it reads from AiMS-HQ is in
+    // <company_context> on every turn (coach/context.ts), focus areas
+    // and ideal client included. get_foundation's result lived for
+    // one reply, and by question 8 the agent had lost it.
+    tools: [],
     // The finished document is 1,000 to 1,500 words, and a revision
     // writes it all again.
     maxTokens: 8000,

@@ -2,7 +2,9 @@
 
 import {
   Children,
+  createContext,
   isValidElement,
+  useContext,
   useCallback,
   useEffect,
   useRef,
@@ -1062,6 +1064,78 @@ export function ChatView({
   );
 }
 
+// THE MARKDOWN RENDERERS ARE FIXED COMPONENTS (2026-11-03). They used
+// to be an object built inside MessageBubble on every render, so each
+// render handed ReactMarkdown a new `pre` and React remounted every
+// card under it: any keystroke, streamed token or finished request
+// started each card again from nothing. A Vivid Vision card's state
+// loads then retriggered the remount, twice a second, and its Save and
+// Google Doc buttons never appeared (seen in e2e/vivid-vision-flow).
+// Now the message's details reach them through context, so a card
+// remounts only when its message does.
+type BubbleCardData = {
+  isStreaming: boolean;
+  conversationId: string;
+  onFixProposal?: (nudge: string) => void;
+  truncated: boolean;
+  messageId: string | null;
+  fullSizeHref?: string;
+  settled: boolean;
+  onOpenConversation?: (conversationId: string) => void;
+  openablePatterns?: readonly string[];
+};
+const BubbleCardContext = createContext<BubbleCardData | null>(null);
+
+function MarkdownPre({ children }: { children?: ReactNode }) {
+  const c = useContext(BubbleCardContext);
+  if (!c) return <pre>{children}</pre>;
+  const only = Children.toArray(children)[0];
+  if (isValidElement(only)) {
+    const props = only.props as {
+      className?: string;
+      children?: ReactNode;
+    };
+    const cls = props.className ?? "";
+    const langMatch = cls.match(/language-(\S+)/);
+    const tag = langMatch?.[1];
+    if (tag && OUTPUT_CARD_BY_TAG[tag]) {
+      const raw = extractCodeText(props.children);
+      return renderCard(
+        OUTPUT_CARD_BY_TAG[tag],
+        raw,
+        c.isStreaming,
+        c.conversationId,
+        c.onFixProposal,
+        c.truncated,
+        c.messageId,
+        c.fullSizeHref,
+        { settled: c.settled, onOpenConversation: c.onOpenConversation }
+      );
+    }
+  }
+  return <pre>{children}</pre>;
+}
+
+// LINKS ARE CHECKED WHERE THEY ARE DRAWN. Aimee is told the pages
+// this person can open, and only links to those; this makes it
+// hold whatever she writes. An in-app link to a page outside
+// openablePatterns renders as plain text, so a team member is never
+// offered a door to an admin page. Checked here rather than by
+// rewriting the saved reply because replies stream: the reader
+// sees the link as it arrives. The page itself still refuses anyone
+// it should (its own guard and RLS); this is about not advertising.
+function MarkdownLink({ href, children }: { href?: string; children?: ReactNode }) {
+  const c = useContext(BubbleCardContext);
+  const decision = linkDecision(href, c?.openablePatterns);
+  if (decision === "text") return <span>{children}</span>;
+  if (decision === "in-app") {
+    return <Link href={href as string}>{children}</Link>;
+  }
+  return <a href={href}>{children}</a>;
+}
+
+const MARKDOWN_COMPONENTS: Components = { pre: MarkdownPre, a: MarkdownLink };
+
 function MessageBubble({
   message,
   onRetry,
@@ -1148,51 +1222,16 @@ function MessageBubble({
   // The tag -> card map is global now, not per agent. Any agent
   // whose prompt tells the model to emit one of the known tags gets
   // the card, including one built in the Hub.
-  const outputCard = OUTPUT_CARD_BY_TAG;
-  const markdownComponents: Components = {
-    pre({ children }) {
-      const only = Children.toArray(children)[0];
-      if (isValidElement(only)) {
-        const props = only.props as {
-          className?: string;
-          children?: ReactNode;
-        };
-        const cls = props.className ?? "";
-        const langMatch = cls.match(/language-(\S+)/);
-        const tag = langMatch?.[1];
-        if (tag && outputCard && outputCard[tag]) {
-          const raw = extractCodeText(props.children);
-          return renderCard(
-            outputCard[tag],
-            raw,
-            isStreaming,
-            conversationId,
-            onFixProposal,
-            message.truncated === true,
-            message.savedId ?? (message.id.startsWith("local-") ? null : message.id),
-            fullSizeHref,
-            { settled, onOpenConversation }
-          );
-        }
-      }
-      return <pre>{children}</pre>;
-    },
-    // LINKS ARE CHECKED WHERE THEY ARE DRAWN. Aimee is told the pages
-    // this person can open, and only links to those; this makes it
-    // hold whatever she writes. An in-app link to a page outside
-    // openablePatterns renders as plain text, so a team member is never
-    // offered a door to an admin page. Checked here rather than by
-    // rewriting the saved reply because replies stream: the reader
-    // sees the link as it arrives. The page itself still refuses anyone
-    // it should (its own guard and RLS); this is about not advertising.
-    a({ href, children }) {
-      const decision = linkDecision(href, openablePatterns);
-      if (decision === "text") return <span>{children}</span>;
-      if (decision === "in-app") {
-        return <Link href={href as string}>{children}</Link>;
-      }
-      return <a href={href}>{children}</a>;
-    },
+  const cardData: BubbleCardData = {
+    isStreaming,
+    conversationId,
+    onFixProposal,
+    truncated: message.truncated === true,
+    messageId: message.savedId ?? (message.id.startsWith("local-") ? null : message.id),
+    fullSizeHref,
+    settled,
+    onOpenConversation,
+    openablePatterns,
   };
 
   return (
@@ -1211,9 +1250,10 @@ function MessageBubble({
             {message.activity ?? "Thinking…"}
           </p>
         ) : (
+          <BubbleCardContext.Provider value={cardData}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            components={markdownComponents}
+            components={MARKDOWN_COMPONENTS}
           >
             {/* Dashes out of every reply as it is shown, streaming
                 included (Jason, 2026-09-29). Run on the whole text so
@@ -1221,6 +1261,7 @@ function MessageBubble({
                 next word arrives; the route saves the same result. */}
             {cardFencesOnOwnLine(stripEmDashes(message.content))}
           </ReactMarkdown>
+          </BubbleCardContext.Provider>
         )}
         {message.streaming && !isThinking ? (
           <span className={styles.cursor} aria-hidden="true" />
