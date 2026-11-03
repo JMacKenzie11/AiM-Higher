@@ -169,6 +169,7 @@ async function main(): Promise<void> {
   console.log(`  Dev clone ${refFromSupabaseUrl(url)}`);
   await scrubOauthCredentials(admin, dryRun);
   await scrubConnections(admin, dryRun);
+  await scrubGoogleDocsConnections(admin, dryRun);
   await checkVaultKey(refFromSupabaseUrl(url) as string, dryRun, rotateKey);
   console.log("");
 }
@@ -273,6 +274,44 @@ async function scrubConnections(admin: Admin, dryRun: boolean): Promise<void> {
     process.exit(1);
   }
   console.log(`  Deleted ${rows.length} connection secret(s). The vault holds none.`);
+}
+
+// Every person's Save to Google Docs connection (0318), through the
+// function that deletes the secret and its row together. One at a time,
+// as above.
+async function scrubGoogleDocsConnections(admin: Admin, dryRun: boolean): Promise<void> {
+  const { data, error } = await admin.from("google_docs_connections").select("profile_id");
+  if (error) {
+    if (/does not exist|schema cache/i.test(error.message)) {
+      console.log("  google_docs_connections is not on this schema (before 0318). Nothing to do.");
+      return;
+    }
+    console.error(`\n  Couldn't read google_docs_connections: ${error.message}\n`);
+    process.exit(1);
+  }
+  const rows = (data ?? []) as Array<{ profile_id: string }>;
+  if (rows.length === 0) {
+    console.log("  No Google Docs connections in the vault.");
+    return;
+  }
+  console.log(`  ${rows.length} Google Docs connection(s) in the vault.`);
+  if (dryRun) {
+    console.log("  --dry-run: nothing was deleted.");
+    return;
+  }
+  for (const r of rows) {
+    const { error: removeError } = await admin.rpc("google_docs_remove_service", { p_profile_id: r.profile_id });
+    if (removeError) {
+      console.error(`\n  Removing a Google Docs connection failed: ${removeError.message}\n`);
+      process.exit(1);
+    }
+  }
+  const { count } = await admin.from("google_docs_connections").select("profile_id", { count: "exact", head: true });
+  if ((count ?? 0) > 0) {
+    console.error(`\n  ${count} Google Docs connection(s) still present after the delete. Stop and look.\n`);
+    process.exit(1);
+  }
+  console.log(`  Deleted ${rows.length} Google Docs connection(s).`);
 }
 
 async function checkVaultKey(devRef: string, dryRun: boolean, rotateKey: boolean): Promise<void> {

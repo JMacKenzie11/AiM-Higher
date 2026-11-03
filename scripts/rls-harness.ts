@@ -10464,6 +10464,97 @@ values ('${seeded[0]}', '${ids.memberCompany}', '${ids.member}', 'opened', null)
   ];
 }
 
+// ---- Save to Google Docs (0318) -----------------------------------
+//
+// A person's Google connection and their saved-doc links are theirs
+// alone: nobody else reads them (a system admin included), nobody
+// writes either table directly, the service functions are closed to
+// signed-in callers, and disconnect removes the caller's own
+// connection and nobody else's.
+async function googleDocsProbes(
+  run: Runner,
+  ids: Identities,
+  pending: string
+): Promise<GrantProbe[]> {
+  const CONVO = "a0318000-0000-4000-8000-000000000001";
+  const setup = `${pending}
+insert into public.coaching_conversations (id, company_id, created_by, title, mode)
+values ('${CONVO}', '${ids.memberCompany}', '${ids.member}', 'harness fixture: google docs', 'general');
+insert into public.google_docs_connections (profile_id, account_email)
+values ('${ids.member}', 'member@example.com'), ('${ids.companyAdmin}', 'admin@example.com');
+insert into public.vivid_vision_google_docs (conversation_id, profile_id, file_id)
+values ('${CONVO}', '${ids.member}', 'file-member'), ('${CONVO}', '${ids.companyAdmin}', 'file-admin');`;
+
+  const ask = async (sub: string, stmt: string): Promise<string> => {
+    try {
+      const rows = await run<Record<string, unknown>>(asCaller(sub, setup, stmt));
+      return JSON.stringify(rows[0] ?? {});
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      if (/row-level security/i.test(msg)) return "refused by policy";
+      if (/permission denied/i.test(msg)) return "refused by privilege";
+      return `ERROR: ${msg.replace(/\s+/g, " ").slice(0, 90)}`;
+    }
+  };
+  const reads = (sub: string) =>
+    ask(
+      sub,
+      `select (select count(*) from public.google_docs_connections where profile_id in ('${ids.member}', '${ids.companyAdmin}'))::int as conns,
+              (select count(*) from public.vivid_vision_google_docs where conversation_id = '${CONVO}')::int as docs;`
+    );
+
+  const memberReads = await reads(ids.member);
+  const sysadminReads = await reads(ids.systemAdmin);
+  const insertConn = await ask(
+    ids.systemAdmin,
+    `insert into public.google_docs_connections (profile_id) values ('${ids.systemAdmin}'); select 'inserted' as outcome;`
+  );
+  const insertDoc = await ask(
+    ids.member,
+    `insert into public.vivid_vision_google_docs (conversation_id, profile_id, file_id) values ('${CONVO}', '${ids.member}', 'x')
+       on conflict do nothing; select 'inserted' as outcome;`
+  );
+  const readSecret = await ask(ids.member, `select public.google_docs_secret('${ids.member}') as secret;`);
+  const putSecret = await ask(ids.member, `select public.google_docs_put_service('${ids.member}', 'x', null) as ok;`);
+  const removeOther = await ask(ids.member, `select public.google_docs_remove_service('${ids.companyAdmin}') as ok;`);
+  // Disconnect as the member, then count as the owner (reset role),
+  // which is the only way to see that the company admin's row stayed.
+  const disconnect = await ask(
+    ids.member,
+    `select public.google_docs_disconnect() as removed;
+     reset role;
+     select (select count(*) from public.google_docs_connections where profile_id = '${ids.member}')::int as mine_left,
+            (select count(*) from public.google_docs_connections where profile_id = '${ids.companyAdmin}')::int as theirs_left;`
+  );
+  const refused = (o: string) => o === "refused by policy" || o === "refused by privilege";
+  const ok =
+    memberReads === '{"conns":1,"docs":1}' &&
+    sysadminReads === '{"conns":0,"docs":0}' &&
+    refused(insertConn) &&
+    refused(insertDoc) &&
+    refused(readSecret) &&
+    refused(putSecret) &&
+    refused(removeOther) &&
+    disconnect === '{"mine_left":0,"theirs_left":1}';
+
+  return [
+    {
+      name: "save to google docs · whose connection",
+      granted: `member reads their own (connections, docs): ${memberReads} | member disconnects their own, the company admin's stays: ${disconnect}`,
+      withheld:
+        `system admin reads them: ${sysadminReads} | system admin inserts a connection: ${insertConn} | ` +
+        `member inserts a doc link: ${insertDoc} | member reads a secret: ${readSecret} | ` +
+        `member calls put_service: ${putSecret} | member removes another's: ${removeOther}`,
+      ok,
+      detail: ok
+        ? "a person sees and removes only their own Google connection; only the server writes either table"
+        : memberReads !== '{"conns":1,"docs":1}'
+          ? "THE GRANT DOES NOT WORK: a person cannot read their own connection (is 0318 applied?)"
+          : "the access is wider than intended",
+    },
+  ];
+}
+
 // ---- What Aimee's panel may read (Step 4) --------------------------
 //
 // The panel sends a record's pattern and id; the chat route loads it
@@ -16078,6 +16169,7 @@ async function main(): Promise<void> {
   const contactChange = await selfServiceContactChangeProbes(run, ids, pendingSql);
   const panelEvents = [
     ...(await aimeePanelEventProbes(run, ids, pendingSql)),
+    ...(await googleDocsProbes(run, ids, pendingSql)),
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];

@@ -813,6 +813,45 @@ category contained and ends `PASS` only if an error event was captured
 and none of them appear. It does not see server or edge events, which
 leave Node directly.
 
+## Save to Google Docs: its own Google app (0318)
+
+The Vivid Vision card's *Save to Google Docs* signs each leader in with
+Google on a **separate Google app** from the transcript one. The
+transcript app asks for `drive.readonly`, which Google classes as
+restricted: client leaders signing in to it would see "Google hasn't
+verified this app" and the app would be capped at 100 people. This app
+asks only for `openid`, `email` and `drive.file` (files AiMS-HQ
+creates), which needs no Google review.
+
+Set up once, in Google Cloud, by Jason:
+
+1. **APIs & Services → Library**: enable the **Google Drive API** in the
+   project the app will live in (a new project keeps it apart from the
+   transcript app).
+2. **OAuth consent screen**: User type **External**. App name
+   **AiMS-HQ**, a support email, the app's home page
+   (`https://www.aims-hq.com`), and `aims-hq.com` under authorised
+   domains. Scopes: `openid`, `.../auth/userinfo.email`,
+   `.../auth/drive.file`. Nothing else.
+3. **Publishing status: In production.** In *Testing*, Google expires
+   every person's permission after 7 days and only listed test users can
+   sign in.
+4. **Credentials → Create credentials → OAuth client ID**, type **Web
+   application**, with these **Authorised redirect URIs** (one per
+   instance, since the sign-in returns to the host it started on):
+   - `https://www.aims-hq.com/api/oauth/google-docs/callback`
+   - `https://promiseone.aims-hq.com/api/oauth/google-docs/callback`
+   - `http://localhost:3200/api/oauth/google-docs/callback` (dev)
+   - a new instance adds its own when it is provisioned.
+5. In Vercel, **Production** (and **Development** for local), set
+   `GOOGLE_DOCS_CLIENT_ID` and `GOOGLE_DOCS_CLIENT_SECRET` from that
+   client, then redeploy. Until both are set the button is hidden
+   everywhere.
+
+Each person's tokens are a Vault secret (`google_docs_connections`),
+readable only by the server; `npm run scrub:dev` removes them from the
+dev clone with the company connections.
+
 ## Moving the Google tokens into the vault (0257)
 
 The move changes where every Sheets pull and every transcript ingest
