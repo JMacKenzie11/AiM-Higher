@@ -1,3 +1,5 @@
+import { rejoinVividVisionFence } from "@/lib/practices/output-cards";
+
 // THE VIVID VISION BLOCK (Jason, 2026-10-27; structured 2026-11-02).
 //
 // The Vivid Vision agent (prompts/practices/vivid-vision.md) writes the
@@ -301,8 +303,11 @@ export function parseVividVision(raw: string): VividVision | null {
 
 // The last vivid_vision block in a saved message, or null. The model is
 // told to write one block per turn; the last one wins if it writes two.
-export function vividVisionInMessage(content: string): VividVision | null {
-  const re = new RegExp("```" + VIVID_VISION_TAG + "[^\\n]*\\n([\\s\\S]*?)\\n```", "g");
+export function vividVisionInMessage(raw: string): VividVision | null {
+  // The same repair the chat's display makes, so the PDF, Google Docs
+  // and Save read the block the card shows.
+  const content = rejoinVividVisionFence(raw);
+  const re = new RegExp("```" + VIVID_VISION_TAG + "[^\\n]*\\n([\\s\\S]*?)(?:\\n```|$(?![\\s\\S]))", "g");
   let last: string | null = null;
   for (const m of content.matchAll(re)) last = m[1];
   return last === null ? null : parseVividVision(last);

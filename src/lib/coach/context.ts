@@ -37,7 +37,11 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // the live database.
 //
 // Design intent (from the coaching feature spec):
-//   - company_context: name, purpose, core values, differentiators
+//   - company_context: name, purpose, vision, core values,
+//                      differentiators, the live strategic focus
+//                      areas and the ideal client profile (2026-11-03:
+//                      an agent that had to look the last two up lost
+//                      them after one reply; see formatCompanyContext)
 //   - person_context: role/position, keep rate this + two prior
 //                     quarters, kept/missed counts this quarter, every
 //                     missed commitment this quarter with description
@@ -118,6 +122,8 @@ export async function buildCoachContext(
     { data: foundationItems },
     subjectBundle,
     partnerContext,
+    { data: focusAreaRows },
+    { data: icpRows },
   ] = await Promise.all([
     supabase
       .from("companies")
@@ -144,6 +150,20 @@ export async function buildCoachContext(
           partnerProfileId: input.partnerProfileId,
         })
       : Promise.resolve(null),
+    supabase
+      .from("strategic_focus_areas")
+      .select("title, description")
+      .eq("company_id", input.companyId)
+      .eq("archived", false)
+      .order("sort_order")
+      .order("created_at"),
+    supabase
+      .from("marketing_snippets")
+      .select("kind, content")
+      .eq("company_id", input.companyId)
+      .in("kind", ["icp_best_fit", "icp_psychographic"])
+      .order("sort_order")
+      .order("created_at"),
   ]);
 
   const tz = company?.timezone ?? "America/Anchorage";
@@ -153,11 +173,15 @@ export async function buildCoachContext(
   const coreValues = items.filter((i) => i.kind === "core_value");
   const differentiators = items.filter((i) => i.kind === "differentiator");
 
+  const icp = (icpRows ?? []) as Array<{ kind: string; content: string }>;
   const companyContext = formatCompanyContext({
     companyName: company?.name ?? "(unknown company)",
     foundation,
     coreValues,
     differentiators,
+    focusAreas: (focusAreaRows ?? []) as Array<{ title: string; description: string | null }>,
+    icpBestFit: icp.filter((r) => r.kind === "icp_best_fit").map((r) => r.content),
+    icpPsychographic: icp.filter((r) => r.kind === "icp_psychographic").map((r) => r.content),
   });
 
   const mode: "about" | "general" = input.subjectProfileId ? "about" : "general";
@@ -842,16 +866,32 @@ async function loadOwnedPlanItems(
 
 // ---- Formatters ------------------------------------------------
 
-function formatCompanyContext({
+// Every turn, for every conversation: the company's own facts, read
+// fresh. A section with nothing in it is left out (an empty heading
+// reads as "this company has none on purpose").
+//
+// THE STRATEGY IS HERE, NOT BEHIND A TOOL (Jason, 2026-11-03). The
+// focus areas and the ideal client profile used to come only from
+// get_foundation, whose result lives for the one reply that calls
+// it. The Vivid Vision Coach looked early, and by its eighth question
+// told a leader AiMS-HQ held no focus areas when it held three.
+// Facts every turn needs belong in the block every turn gets.
+export function formatCompanyContext({
   companyName,
   foundation,
   coreValues,
   differentiators,
+  focusAreas = [],
+  icpBestFit = [],
+  icpPsychographic = [],
 }: {
   companyName: string;
   foundation: CompanyFoundation | null;
   coreValues: FoundationItem[];
   differentiators: FoundationItem[];
+  focusAreas?: ReadonlyArray<{ title: string; description: string | null }>;
+  icpBestFit?: readonly string[];
+  icpPsychographic?: readonly string[];
 }): string {
   const lines: string[] = ["<company_context>"];
   lines.push(`Name: ${companyName}`);
@@ -880,6 +920,20 @@ function formatCompanyContext({
       const body = d.body ? ` — ${d.body.trim()}` : "";
       lines.push(`- ${d.title.trim()}${body}`);
     }
+  }
+  if (focusAreas.length > 0) {
+    lines.push("");
+    lines.push("Strategic focus areas (live, as named on the One-Page Plan):");
+    for (const f of focusAreas) {
+      const body = f.description?.trim() ? `: ${f.description.trim()}` : "";
+      lines.push(`- ${f.title.trim()}${body}`);
+    }
+  }
+  if (icpBestFit.length > 0 || icpPsychographic.length > 0) {
+    lines.push("");
+    lines.push("Ideal client profile:");
+    for (const c of icpBestFit) lines.push(`- Best fit: ${c.trim()}`);
+    for (const c of icpPsychographic) lines.push(`- What they care about: ${c.trim()}`);
   }
   lines.push("</company_context>");
   return lines.join("\n");

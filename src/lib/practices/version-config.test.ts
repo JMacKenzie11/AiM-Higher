@@ -97,7 +97,7 @@ describe("a version that follows the code (0317)", () => {
     serve(row({ id: "v-follow", prompt: "the prompt as it was a week ago", follows_code: true, max_tokens: null, model: null }));
     const c = await resolveRuntimeConfig(practice, "v-follow");
     expect(c.prompt).toBe(await loadPracticePrompt(practice));
-    expect(c.prompt).toContain("Question 3 of 9");
+    expect(c.prompt).toContain("Question 4 of 9");
     // Still named, so the Hub and the logs can say which version.
     expect(c.versionId).toBe("v-follow");
     expect(c.versionNumber).toBe(3);
