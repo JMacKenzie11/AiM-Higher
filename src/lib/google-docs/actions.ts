@@ -18,7 +18,7 @@ import { saveVisionToGoogleDoc } from "./save-vision";
 
 export type GoogleDocsCardState =
   | { enabled: false }
-  | { enabled: true; connectedAs: string | null; connected: boolean; hasDoc: boolean };
+  | { enabled: true; connectedAs: string | null; connected: boolean; hasDoc: boolean; docUrl: string | null };
 
 export type SaveToGoogleDocResult =
   | { ok: true; url: string; updated: boolean }
@@ -35,7 +35,14 @@ export async function getGoogleDocsCardStateAction(conversationId: string): Prom
     supabase.from("google_docs_connections").select("account_email").eq("profile_id", session.profile.id).maybeSingle<{ account_email: string | null }>(),
     supabase.from("vivid_vision_google_docs").select("file_id").eq("conversation_id", conversationId).eq("profile_id", session.profile.id).maybeSingle<{ file_id: string }>(),
   ]);
-  return { enabled: true, connected: Boolean(conn), connectedAs: conn?.account_email ?? null, hasDoc: Boolean(link) };
+  return {
+    enabled: true,
+    connected: Boolean(conn),
+    connectedAs: conn?.account_email ?? null,
+    hasDoc: Boolean(link),
+    // Always shown once there is one, so the card says where it went.
+    docUrl: link ? `https://docs.google.com/document/d/${encodeURIComponent(link.file_id)}/edit` : null,
+  };
 }
 
 export async function saveVisionToGoogleDocAction(input: { conversationId: string; messageId: string }): Promise<SaveToGoogleDocResult> {

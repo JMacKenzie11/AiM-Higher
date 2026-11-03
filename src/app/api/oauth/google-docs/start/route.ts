@@ -22,9 +22,16 @@ export async function GET(req: NextRequest): Promise<Response> {
   await requireProfile();
   if (!googleDocsConfigured()) return new Response("Not found", { status: 404 });
 
-  const back = safeReturnPath(new URL(req.url).searchParams.get("return"));
+  const q = new URL(req.url).searchParams;
+  const back = safeReturnPath(q.get("return"));
+  // The vision to save once connected: the callback saves it on the
+  // server, so nothing depends on the page finishing the job.
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const c = q.get("conversation") ?? "";
+  const m = q.get("message") ?? "";
   const nonce = randomBytes(24).toString("hex");
-  const state = `${nonce}.${Buffer.from(back).toString("base64url")}`;
+  const payload = { back, c: UUID.test(c) ? c : null, m: UUID.test(m) ? m : null };
+  const state = `${nonce}.${Buffer.from(JSON.stringify(payload)).toString("base64url")}`;
 
   const store = await cookies();
   store.set(GOOGLE_DOCS_STATE_COOKIE, state, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 600, path: "/" });
