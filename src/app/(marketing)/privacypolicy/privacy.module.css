@@ -1,0 +1,49 @@
+.page {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.inner {
+  composes: sectionInner from "../marketing.module.css";
+}
+
+.title {
+  font: var(--text-h1);
+  color: var(--aims-navy);
+  margin: 0 0 4px;
+}
+
+.updated {
+  color: var(--text-muted);
+  font: var(--text-body-sm);
+  margin: 0 0 24px;
+}
+
+.inner h2 {
+  font: var(--text-h3);
+  color: var(--aims-navy);
+  margin: 28px 0 8px;
+}
+
+.inner p,
+.inner li {
+  font: var(--text-body);
+  line-height: 1.6;
+}
+
+.inner p {
+  margin: 0 0 12px;
+}
+
+.inner .updated {
+  margin-bottom: 24px;
+}
+
+.inner ul {
+  padding-left: 20px;
+  margin: 0 0 12px;
+}
+
+.inner a {
+  color: var(--aims-cobalt);
+}
