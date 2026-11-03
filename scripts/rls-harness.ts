@@ -2920,6 +2920,86 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
   };
 }
 
+// Ask Aimee for assigned admins (0320).
+//
+// Promise One, 2026-11-03: a portfolio admin switched on as the
+// company's admin was refused a plain Ask Aimee conversation there.
+// 0261 gave the about branch is_content_admin_for() and left the
+// general branch on the caller's own company.
+//
+// Claims, each an INSERT of a general conversation as the caller:
+//   1. a portfolio admin switched on for the company   allowed (red before 0320)
+//   2. an assigned guide                                allowed (red before 0320)
+//   3. a portfolio admin assigned but NOT switched on   refused
+//   4. the switched-on admin, in another company        refused
+//   5. the switched-on admin, filed as someone else     refused
+//   6. a member of the company (control)                allowed
+async function askAimeeAssignedAdmins(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const CO = ids.companyAdminCompany;
+  const OTHER = ids.otherCompany;
+  const uid = (tag: string) => `aaaa0320-0000-4000-8000-0000000000${tag}`;
+  const ON = uid("01");
+  const OFF = uid("02");
+  const GUIDE = uid("03");
+  const person = (id: string, name: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', null, '${name}', '${role}', 'active');`;
+  const seed = [
+    person(ON, "Harness PA switched on", "portfolio_admin"),
+    person(OFF, "Harness PA not switched on", "portfolio_admin"),
+    person(GUIDE, "Harness Guide", "aims_guide"),
+    `insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin)
+       values ('${ON}', '${CO}', true), ('${OFF}', '${CO}', false) on conflict do nothing;`,
+    `insert into public.guide_assignments (guide_id, company_id) values ('${GUIDE}', '${CO}') on conflict do nothing;`,
+  ].join("\n");
+
+  const start = async (sub: string, company: string, createdBy: string = sub): Promise<string> => {
+    try {
+      await run(
+        ["begin;", pending, seed, "set local role authenticated;", claims(sub),
+         `insert into public.coaching_conversations (company_id, created_by, title, mode)
+            values ('${company}', '${createdBy}', 'harness 0320', 'general');`,
+         "rollback;"].join("\n")
+      );
+      return "allowed";
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      return /row-level security|permission denied/i.test(msg) ? "refused" : `ERROR ${msg.slice(0, 80)}`;
+    }
+  };
+
+  const switchedOn = await start(ON, CO);
+  const guide = await start(GUIDE, CO);
+  const notSwitched = await start(OFF, CO);
+  const elsewhere = await start(ON, OTHER);
+  const asSomeoneElse = await start(ON, CO, ids.companyAdmin);
+  const member = await start(ids.companyAdmin, CO);
+
+  const ok =
+    switchedOn === "allowed" && guide === "allowed" && member === "allowed" &&
+    notSwitched === "refused" && elsewhere === "refused" && asSomeoneElse === "refused";
+  return {
+    name: "ask-aimee-assigned-admins",
+    hazard: "An assigned admin cannot use Ask Aimee, or anyone else can file one in a company not theirs",
+    wrong: `not switched on: ${notSwitched}; another company: ${elsewhere}; filed as someone else: ${asSomeoneElse}`,
+    right: `switched-on PA: ${switchedOn}; assigned guide: ${guide}; member: ${member}`,
+    ok,
+    detail: ok
+      ? "A switched-on portfolio admin and an assigned guide start Ask Aimee in their company, as its members do. A portfolio admin not switched on, the same admin in another company, and a row filed as someone else are refused."
+      : `switched-on ${switchedOn} (want allowed), guide ${guide} (want allowed), member ${member} (want allowed), not-switched ${notSwitched} (want refused), elsewhere ${elsewhere} (want refused), as-someone-else ${asSomeoneElse} (want refused).`,
+  };
+}
+
 // People assigned to a company see each other (0319).
 //
 // Promise One, 2026-11-03: a team of three portfolio admins, all
@@ -16132,6 +16212,10 @@ async function main(): Promise<void> {
     [
       "profiles-assigned-see-assigned",
       (r: Runner, i: Identities) => profilesAssignedSeeAssigned(r, i, pendingSql),
+    ],
+    [
+      "ask-aimee-assigned-admins",
+      (r: Runner, i: Identities) => askAimeeAssignedAdmins(r, i, pendingSql),
     ],
     [
       "portfolio-assignment-company-access",
