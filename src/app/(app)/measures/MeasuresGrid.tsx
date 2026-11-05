@@ -17,6 +17,7 @@ import {
   type MeasureEntryInput,
 } from "@/lib/measures/actions";
 import { storageWeekFor } from "@/lib/measures/frequency";
+import { mergeServerValues } from "@/lib/measures/grid-values";
 import { anyWeekOpen, isEntryWeekOpen } from "@/lib/measures/entry-window";
 import { monthKeyOf, monthLabel, weekLabel, weekOfMonth } from "@/lib/measures/months";
 import type { GridData, GridRow,
@@ -473,22 +474,38 @@ export function MeasuresGrid({
     [data.groups, chasedWeek]
   );
 
-  // Keyed by measure AND week, because two weeks are editable.
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      data.groups.flatMap((g) =>
-        g.rows.flatMap((r) =>
-          // Keyed by where the value LIVES, not by the column it is
-          // shown in, so a monthly measure's four boxes are one entry
-          // in this map and typing in any of them fills all four.
-          editableWeeks.map((w) => {
-            const own = storageWeekFor(r.frequency, w);
-            return [cellKey(r.id, own), valueAt(r, own)];
-          })
+  // What the server holds for every editable box, keyed by measure AND
+  // week.
+  const serverValues = useMemo<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        data.groups.flatMap((g) =>
+          g.rows.flatMap((r) =>
+            // Keyed by where the value LIVES, not by the column it is
+            // shown in, so a monthly measure's four boxes are one entry
+            // in this map and typing in any of them fills all four.
+            editableWeeks.map((w) => {
+              const own = storageWeekFor(r.frequency, w);
+              return [cellKey(r.id, own), valueAt(r, own)];
+            })
+          )
         )
-      )
-    )
+      ),
+    [data.groups, editableWeeks]
   );
+  const [values, setValues] = useState<Record<string, string>>(serverValues);
+  // FOLLOWS THE SERVER (2026-11-05). The copy above was taken once, so
+  // Pull now refreshed the page's data and the box kept showing the
+  // old value until a reload. When the server's values change, every
+  // box the person has not changed takes the new value; one they have
+  // typed in and not saved keeps what they typed (mergeServerValues).
+  const lastServerValues = useRef(serverValues);
+  useEffect(() => {
+    const previous = lastServerValues.current;
+    if (previous === serverValues) return;
+    lastServerValues.current = serverValues;
+    setValues((current) => mergeServerValues(current, previous, serverValues));
+  }, [serverValues]);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null
