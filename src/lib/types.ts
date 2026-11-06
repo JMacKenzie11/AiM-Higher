@@ -6,6 +6,10 @@ import type { NotesDoc } from "@/lib/notes/clean";
 export type Role =
   | "system_admin"
   | "company_admin"
+  // Works the team's commitments and the Critical Success Factors in
+  // their own company, and is otherwise a team member: never people,
+  // the plan, the chart or settings (0321).
+  | "facilitator"
   | "team_member"
   | "aims_guide"
   // A PE operating partner who owns this instance's portfolio.
@@ -37,6 +41,7 @@ export type Role =
 export const ROLES = [
   "system_admin",
   "company_admin",
+  "facilitator",
   "team_member",
   "aims_guide",
   "portfolio_admin",
@@ -46,6 +51,15 @@ export const ROLES = [
 type MissingFromRoles = Exclude<Role, (typeof ROLES)[number]>;
 const rolesAreComplete: MissingFromRoles extends never ? true : never = true;
 void rolesAreComplete;
+
+// The roles a company's own people hold, and the only ones a company
+// admin, an assigned guide or a portfolio admin may grant (0321 added
+// facilitator). The profiles insert, update and delete rules carry the
+// same list.
+export const COMPANY_ROLES = ["company_admin", "facilitator", "team_member"] as const satisfies readonly Role[];
+export function isCompanyRole(role: string): role is (typeof COMPANY_ROLES)[number] {
+  return (COMPANY_ROLES as readonly string[]).includes(role);
+}
 
 // A single (guide -> company) assignment. Guides have no primary
 // company_id on their profile; their access is derived from these

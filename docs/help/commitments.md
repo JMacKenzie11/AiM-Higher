@@ -39,7 +39,7 @@ Anyone who can see the commitment can read its notes. Whoever can change the com
 - **Change your mind.** After you close one out or delete one, *Undo* stays on screen for 30 seconds.
 :::
 
-::: role company_admin,aims_guide,system_admin
+::: role company_admin,aims_guide,system_admin,facilitator
 ## What you can do here
 
 Everything a team member can do with their own commitments, for anyone's:
@@ -51,7 +51,7 @@ Everything a team member can do with their own commitments, for anyone's:
 - **Add a commitment for anyone on the team.** The owner list includes the AiMS Guides and portfolio admins assigned to the company, whoever is looking, including when you are one of them yourself.
 - **Open the source meeting.** *From meeting* on a commitment opens the meeting it came from.
 
-Everyone's commitments for the week are in one list under *This week*, so you can go through them together in the meeting. With no open quarter, *Open this quarter* takes you to Quarters.
+Everyone's commitments for the week are in one list under *This week*, so you can go through them together in the meeting. With no open quarter, a company admin's *Open this quarter* takes them to Quarters.
 :::
 
 ::: role portfolio_admin

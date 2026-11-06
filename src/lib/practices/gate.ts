@@ -48,7 +48,12 @@ export function practiceRoleGate(
   companyId: string
 ): PracticeGateResult {
   if (!practice.allowedRoles) return { ok: true };
-  if (!practice.allowedRoles.includes(profile.role)) {
+  // A facilitator reaches what a team member does (0321), and what
+  // names facilitator itself.
+  const roleAllowed =
+    practice.allowedRoles.includes(profile.role) ||
+    (profile.role === "facilitator" && practice.allowedRoles.includes("team_member"));
+  if (!roleAllowed) {
     return {
       ok: false,
       message: "That practice isn't available for your role.",

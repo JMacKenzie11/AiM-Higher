@@ -19,7 +19,7 @@ Everyone at your company, with their position, role, status, open commitments an
 ::: role company_admin,system_admin
 ## What you can do here
 
-- **Add a person.** Press *Add a person* at the top of the roster (or use the form under it) and fill in their name, email, position (optional) and role, *Member* or *Company Admin*. Tick *Send invite email now* to invite them straight away, or leave it unticked to add them as *pending* and invite them later.
+- **Add a person.** Press *Add a person* at the top of the roster (or use the form under it) and fill in their name, email, position (optional) and role: *Member*, *Facilitator* or *Company Admin*. A facilitator works everyone's commitments and the critical success factors, and is otherwise a member: they can't change people, the plan, the chart or settings. Tick *Send invite email now* to invite them straight away, or leave it unticked to add them as *pending* and invite them later.
 - **Send an invite or copy the invite link** from the *⋯* menu on a pending person's row.
 - **Edit anyone's Details and Strengths** on their scorecard. The cards at the top become editable, with a Save button.
 - **Coach anyone at the company.** Click *Coach* on their row or their scorecard.
@@ -46,7 +46,7 @@ In your own coaching company, if you have one, you're on this list as *company a
 ## What you can do here
 
 - **See everyone on the team** and open anyone's scorecard.
-- **Add a person.** Press *Add a person* at the top of the roster (or use the form under it) and fill in their name, email, position and role. You can add a *Member* or a *Company Admin*. Tick *Send invite email now* to invite them straight away, or leave it unticked to add them as *pending*.
+- **Add a person.** Press *Add a person* at the top of the roster (or use the form under it) and fill in their name, email, position and role. You can add a *Member*, a *Facilitator* or a *Company Admin*. Tick *Send invite email now* to invite them straight away, or leave it unticked to add them as *pending*.
 - **Coach anyone at the company,** where a system admin has made you its admin. Click *Coach* on their row or their scorecard.
 
 Editing, deactivating and deleting people is done by the company's own admins. Portfolio admins and system admins are set up by a system admin.

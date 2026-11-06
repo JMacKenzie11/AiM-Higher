@@ -135,6 +135,9 @@ vi.mock("@/lib/auth/current-user", () => ({
 vi.mock("@/lib/auth/permissions", () => ({
   canWriteOwnedRow: mocks.canWriteOwnedRow,
   isAdminForCompany: mocks.isAdminForCompany,
+  // A facilitator is an admin on this surface (0321); these cases have none.
+  worksTeamIn: (...args: Parameters<typeof mocks.isAdminForCompany>) => mocks.isAdminForCompany(...args),
+  isFacilitatorFor: () => false,
 }));
 
 vi.mock("@/lib/admin/scope", () => ({

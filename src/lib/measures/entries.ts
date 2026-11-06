@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionProfile } from "@/lib/auth/current-user";
-import { isAdminForCompany } from "@/lib/auth/permissions";
+import { worksTeamIn } from "@/lib/auth/permissions";
 import { thisFriday } from "@/lib/dates";
 import type { MetricValueType, UpdateFrequency } from "@/lib/types";
 import { checkEntryWeek } from "./entry-window";
@@ -163,7 +163,8 @@ export async function writeMeasureEntries(
       createdAt: measure.created_at,
       week: row.week_ending,
       currentWeek: thisFriday(timezoneOf.get(measure.company_id) ?? "America/Anchorage"),
-      isAdmin: isAdminForCompany(profile, measure.company_id),
+      // Any week the page shows: an admin, or a facilitator (0321).
+      isAdmin: worksTeamIn(profile, measure.company_id),
     });
     if (!check.ok) return { ok: false, message: check.message };
     const stored = { ...row, week_ending: check.storageWeek };

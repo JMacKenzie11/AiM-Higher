@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { trackAfter } from "@/lib/analytics/track";
-import { isAdminForCompany } from "@/lib/auth/permissions";
+import { isAdminForCompany, worksTeamIn } from "@/lib/auth/permissions";
 import type { requireProfile, SessionProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -231,7 +231,9 @@ export async function insertCommitment(
   // someone else on its roster (Jason, 2026-10-20; RLS 0293, which
   // says the same). Anyone else, a portfolio admin not switched on as
   // the company's admin among them, owns what they add.
-  const isAdmin = isAdminForCompany(profile, companyId);
+  // A facilitator (0321) works the team's commitments, so is treated
+  // as an admin here too.
+  const isAdmin = worksTeamIn(profile, companyId);
   const mayAssign = isAdmin || profile.company_id === companyId;
   let ownerId = profile.id;
   if (mayAssign && input.ownerId && input.ownerId !== profile.id) {

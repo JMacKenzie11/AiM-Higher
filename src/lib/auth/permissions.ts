@@ -81,6 +81,40 @@ export function canCoachAbout(
 }
 
 /**
+ * true if the caller is a facilitator and this is their own company
+ * (0321; Jason, 2026-11-06). A facilitator works everyone's
+ * commitments and the Critical Success Factors, and nothing else an
+ * admin does: never people, the plan, the chart or settings.
+ *
+ * RLS SAYS THE SAME: is_facilitator_for() in the facilitator rules on
+ * commitments, commitment_occurrences, success_measures and
+ * success_measure_entries.
+ */
+export function isFacilitatorFor(
+  profile: SessionProfileLike,
+  companyId: string
+): boolean {
+  return profile.role === "facilitator" && profile.company_id === companyId;
+}
+
+/**
+ * true if the caller may work the TEAM's commitments and Critical
+ * Success Factors here: create for anyone, resolve, reschedule,
+ * reassign, edit and delete commitments; record any week's values and
+ * author measures. Everyone isAdminForCompany admits, and a
+ * facilitator in their own company.
+ *
+ * Use it only on those two surfaces. Everywhere else a facilitator is
+ * a team member, and the admin checks stay isAdminForCompany.
+ */
+export function worksTeamIn(
+  profile: SessionProfileLike,
+  companyId: string
+): boolean {
+  return isAdminForCompany(profile, companyId) || isFacilitatorFor(profile, companyId);
+}
+
+/**
  * true if the session role is portfolio_admin, whatever they are
  * assigned to.
  *
@@ -159,7 +193,7 @@ export function canWriteOwnedRow(
   profile: SessionProfileLike,
   row: { company_id: string; owner_id: string | null }
 ): boolean {
-  if (isAdminForCompany(profile, row.company_id)) return true;
+  if (worksTeamIn(profile, row.company_id)) return true;
   if (row.owner_id === null) return false;
   return row.owner_id === profile.id;
 }

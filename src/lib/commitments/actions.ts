@@ -5,7 +5,8 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { trackAfter } from "@/lib/analytics/track";
 import {
   canWriteOwnedRow,
-  isAdminForCompany,
+  isFacilitatorFor,
+  worksTeamIn,
   type SessionProfileLike,
 } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -108,6 +109,10 @@ function resolverRoleFor(
   ) {
     return "admin";
   }
+  // A facilitator works the team's commitments in their own company
+  // (0321), in the meeting, on someone else's behalf: recorded as an
+  // admin resolution, with the same reason exemptions.
+  if (isFacilitatorFor(profile, commitment.company_id)) return "admin";
   if (commitment.owner_id === profile.id) return "owner";
   return null;
 }
@@ -989,7 +994,7 @@ export async function deleteCommitmentAction(
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
 
-  const isAdmin = isAdminForCompany(session.profile, commitment.company_id);
+  const isAdmin = worksTeamIn(session.profile, commitment.company_id);
   if (!isAdmin) {
     if (commitment.owner_id !== session.profile.id) {
       return { ok: false, message: "Not yours to delete." };
@@ -1027,7 +1032,7 @@ export async function undeleteCommitmentAction(
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const commitment = await loadCommitment(supabase, commitmentId);
   if (!commitment) return { ok: false, message: "Commitment not found." };
-  const isAdmin = isAdminForCompany(session.profile, commitment.company_id);
+  const isAdmin = worksTeamIn(session.profile, commitment.company_id);
   if (!isAdmin && commitment.owner_id !== session.profile.id) {
     return { ok: false, message: "Not yours to bring back." };
   }

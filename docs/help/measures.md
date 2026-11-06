@@ -31,6 +31,19 @@ Everything a function's lead can do, on every function:
 - **Connect any measure to a spreadsheet or to HubSpot**, when your company has External Measures turned on.
 :::
 
+::: role facilitator
+## What you can do here
+
+As a facilitator you keep the whole company's numbers, on every function:
+
+- **Log a value for anyone**, in any week on the page, not just the two open ones.
+- **Add, edit and archive** critical success factors in any functional area, and change their targets.
+- **Reorder rows** within a functional area by dragging the handle.
+- **Connect a measure to a spreadsheet or to HubSpot**, when your company has External Measures turned on. Connected numbers come in on their own each week; *Pull now* is for company admins.
+
+Moving whole functional areas changes the chart, so that stays with your company's admins.
+:::
+
 ::: role portfolio_admin
 ## What you can do here
 
