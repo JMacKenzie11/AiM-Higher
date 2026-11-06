@@ -37,7 +37,7 @@ export function mcpEnabled(subdomain?: string): boolean {
 // roles are refused: fail closed. An automation account (0314) is open
 // too, to the bot tools only (BOT_ONLY_ROLES); diagnostic clients are
 // not.
-const OPEN_ROLES = new Set(["system_admin", "company_admin", "aims_guide", "team_member", "bot_account"]);
+const OPEN_ROLES = new Set(["system_admin", "company_admin", "aims_guide", "facilitator", "team_member", "bot_account"]);
 
 // Roles the connector shows only the bot tools (0314). The database
 // gate gives them a menu of their own as well.

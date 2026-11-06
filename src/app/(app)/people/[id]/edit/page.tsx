@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isCompanyRole } from "@/lib/types";
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -37,7 +38,7 @@ export default async function EditPersonPage({ params }: PageProps) {
     redirect("/people");
   }
   // A guide in their own company is edited by a system admin only.
-  if (isCompanyAdmin && subject.role !== "company_admin" && subject.role !== "team_member") {
+  if (isCompanyAdmin && !isCompanyRole(subject.role)) {
     redirect(`/people/${id}`);
   }
 

@@ -40,7 +40,10 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () => mocks.client }));
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
 vi.mock("@/lib/admin/scope", () => ({ getEffectiveCompanyId: mocks.getEffectiveCompanyId }));
-vi.mock("@/lib/auth/permissions", () => ({ isAdminForCompany: mocks.isAdminForCompany }));
+vi.mock("@/lib/auth/permissions", () => ({
+  isAdminForCompany: mocks.isAdminForCompany,
+  worksTeamIn: (...args: Parameters<typeof mocks.isAdminForCompany>) => mocks.isAdminForCompany(...args),
+}));
 vi.mock("./clarity", () => ({ scoreCommitmentClarity: async () => null }));
 vi.mock("@/lib/people/assignable", () => ({ getAssignablePeople: mocks.roster }));
 vi.mock("@/lib/analytics/track", () => ({ trackAfter: () => {} }));

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { requireProfile } from "@/lib/auth/current-user";
-import { isAdminForCompany } from "@/lib/auth/permissions";
+import { isAdminForCompany, worksTeamIn } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getGridData } from "@/lib/measures/grid";
 import { companyHasFeature } from "@/lib/subscriptions/service";
@@ -26,7 +26,12 @@ type Session = Awaited<ReturnType<typeof requireProfile>>;
 export type MeasuresViewData = Awaited<ReturnType<typeof loadMeasuresView>>;
 
 export async function loadMeasuresView(session: Session, companyId: string) {
-  const isAdmin = isAdminForCompany(session.profile, companyId);
+  // The Critical Success Factors are also a facilitator's to keep
+  // (0321): every week's values and the measures themselves. Pulling
+  // from an outside system and setting one up stay with the admins,
+  // whose definer function (record_external_pull) decides that.
+  const isAdmin = worksTeamIn(session.profile, companyId);
+  const isCompanyAdmin = isAdminForCompany(session.profile, companyId);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: company } = await supabase
@@ -75,11 +80,11 @@ export async function loadMeasuresView(session: Session, companyId: string) {
     ? await loadExternalPanel(supabase, measureIds, weekEnding, timezone)
     : null;
 
-  return { grid, weekEnding, externalPanel, isAdmin };
+  return { grid, weekEnding, externalPanel, isAdmin, isCompanyAdmin };
 }
 
 export function MeasuresView({ data }: { data: MeasuresViewData }) {
-  const { grid, weekEnding, externalPanel, isAdmin } = data;
+  const { grid, weekEnding, externalPanel, isAdmin, isCompanyAdmin } = data;
   if (grid.groups.length === 0) return <EmptyState isAdmin={isAdmin} />;
   if (!grid.hasRows && !isAdmin) {
     return (
@@ -95,12 +100,12 @@ export function MeasuresView({ data }: { data: MeasuresViewData }) {
   return (
     <ExternalMeasuresProvider
       panel={externalPanel}
-      canPull={isAdmin}
+      canPull={isCompanyAdmin}
       // The page-wide default, for anything rendered outside a
       // particular measure. Configuring a source is decided PER
       // MEASURE and the drawer passes that; see canLog, which
       // already means "an admin here, or this function's Lead".
-      canAdminister={isAdmin}
+      canAdminister={isCompanyAdmin}
     >
       <MeasuresGrid data={grid} weekEnding={weekEnding} isAdmin={isAdmin} />
     </ExternalMeasuresProvider>

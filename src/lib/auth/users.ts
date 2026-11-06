@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/provision-user";
 import { trackAfter } from "@/lib/analytics/track";
 import type { Profile, Role } from "@/lib/types";
+import { isCompanyRole } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { recordPortfolioEvent } from "@/lib/portfolio/audit";
 
@@ -78,7 +79,7 @@ function mayManageAccount(
 ): boolean {
   if (caller.role === "system_admin") return true;
   if (subject.id === caller.id) return true;
-  return subject.role === "company_admin" || subject.role === "team_member";
+  return isCompanyRole(subject.role);
 }
 
 // ---- Create a user (no email sent) ----------------------------
@@ -103,8 +104,8 @@ export async function createUserAction(
   if (!email || !fullName) {
     return { ok: false, message: "Name and email are required." };
   }
-  // THE ROLE CEILING. This action can mint a company_admin and a
-  // team_member and nothing else, for any caller — so a
+  // THE ROLE CEILING. This action can mint a company_admin, a
+  // facilitator and a team_member and nothing else, for any caller — so a
   // portfolio_admin cannot create another portfolio_admin or a
   // system_admin through it, and neither can anybody else.
   //
@@ -115,7 +116,7 @@ export async function createUserAction(
   // trusting this line. The platform roles are minted by
   // createSystemAdminAction and createPortfolioAdminAction, both
   // system_admin only, both taking no company at all.
-  if (role !== "company_admin" && role !== "team_member") {
+  if (!isCompanyRole(role)) {
     return { ok: false, message: "Choose a valid role." };
   }
 
@@ -317,8 +318,7 @@ export async function updateUserAction(
   }
   if (
     role !== "system_admin" &&
-    role !== "company_admin" &&
-    role !== "team_member" &&
+    !isCompanyRole(role) &&
     role !== "aims_guide" &&
     role !== "portfolio_admin"
   ) {
@@ -363,8 +363,7 @@ export async function updateUserAction(
   // the form's role field must not be a way out of being a guide.
   if (
     session.profile.role !== "system_admin" &&
-    current.role !== "company_admin" &&
-    current.role !== "team_member" &&
+    !isCompanyRole(current.role) &&
     role !== current.role
   ) {
     return { ok: false, message: "Only a system admin can change a guide's role." };

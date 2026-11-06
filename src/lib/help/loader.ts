@@ -123,7 +123,7 @@ export async function loadAllHelpFor(role: Role, viewer?: HelpViewer): Promise<H
   for (const file of files.sort()) {
     const doc = await readDoc(file.replace(/\.md$/, ""));
     if (!doc) continue;
-    if (doc.roles && !doc.roles.includes(role)) continue;
+    if (!docAdmitsRole(doc.roles, role)) continue;
     docs.push({ ...doc, markdown: withMcpAddress(filterFeatureSections(filterRoleSections(doc.markdown, role), features), v) });
   }
   return docs;
@@ -167,7 +167,30 @@ async function readDoc(slug: string): Promise<HelpDoc | null> {
 const ROLE_BLOCK_OPEN = /^:::\s+role\s+(.+?)\s*$/;
 const ROLE_BLOCK_CLOSE = /^:::\s*$/;
 
+// A FACILITATOR READS A TEAM MEMBER'S HELP (0321), except where a doc
+// says something for facilitators of its own: they are a team member
+// everywhere but commitments and the Critical Success Factors, and
+// those two docs carry facilitator blocks. So a doc with no block
+// naming facilitator shows them its team_member blocks, and a doc
+// with one shows them only what names them.
+function namesFacilitator(markdown: string): boolean {
+  return markdown
+    .split("\n")
+    .some((line) => {
+      const m = line.match(ROLE_BLOCK_OPEN);
+      return !!m && m[1].split(",").map((r) => r.trim()).includes("facilitator");
+    });
+}
+
+// Whether a doc's frontmatter `roles:` list admits this role.
+export function docAdmitsRole(roles: readonly Role[] | null, role: Role): boolean {
+  if (!roles) return true;
+  if (roles.includes(role)) return true;
+  return role === "facilitator" && roles.includes("team_member");
+}
+
 export function filterRoleSections(markdown: string, role: Role): string {
+  if (role === "facilitator" && !namesFacilitator(markdown)) role = "team_member";
   const lines = markdown.split("\n");
   const out: string[] = [];
   let inBlock = false;
@@ -359,7 +382,7 @@ export async function loadHelpForRoute(
   for (const slug of candidateSlugs(pathname)) {
     const doc = await readDoc(slug);
     if (!doc) continue;
-    if (doc.roles && !doc.roles.includes(role)) continue;
+    if (!docAdmitsRole(doc.roles, role)) continue;
     return { ...doc, markdown: withMcpAddress(filterFeatureSections(filterRoleSections(doc.markdown, role), features), v) };
   }
   return null;

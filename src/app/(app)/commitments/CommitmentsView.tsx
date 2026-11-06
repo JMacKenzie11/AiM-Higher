@@ -4,6 +4,7 @@ import {
   canOwnWorkIn,
   canWriteOwnedRow,
   isAdminForCompany,
+  worksTeamIn,
 } from "@/lib/auth/permissions";
 import {
   getCommitmentsPageData,
@@ -62,7 +63,10 @@ export async function CommitmentsView({
   // no Mark kept (on time), a reason asked on every reschedule, no
   // owner picker on a new commitment, and no Open this quarter link,
   // though every action behind them already admitted the guide.
-  const isAdmin = isAdminForCompany(session.profile, companyId);
+  const isCompanyAdmin = isAdminForCompany(session.profile, companyId);
+  // The team's commitments are also a facilitator's to work (0321):
+  // every control above but opening a quarter.
+  const isAdmin = worksTeamIn(session.profile, companyId);
 
   return (
     <>
@@ -96,7 +100,7 @@ export async function CommitmentsView({
           <p className={styles.noticeText}>
             No open quarter yet. Actions live inside a quarter.
           </p>
-          {isAdmin ? (
+          {isCompanyAdmin ? (
             <Link href="/quarters" className={styles.primaryLink}>
               Open this quarter →
             </Link>

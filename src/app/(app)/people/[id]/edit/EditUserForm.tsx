@@ -43,6 +43,7 @@ export function EditUserForm({
   const canGrantAdmin = callerRole === "system_admin";
   const roleOptions: Array<{ value: Role; label: string }> = [
     { value: "team_member", label: "Team member" },
+    { value: "facilitator", label: "Facilitator" },
     { value: "company_admin", label: "Company admin" },
   ];
   // The three company-less roles, offered only to a system_admin.

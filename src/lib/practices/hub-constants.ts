@@ -13,6 +13,7 @@ export const HUB_ROLE_OPTIONS: ReadonlyArray<{
   label: string;
 }> = [
   { value: "team_member", label: "Team member" },
+  { value: "facilitator", label: "Facilitator" },
   { value: "company_admin", label: "Company admin" },
   { value: "aims_guide", label: "Guide" },
   { value: "portfolio_admin", label: "Portfolio admin" },

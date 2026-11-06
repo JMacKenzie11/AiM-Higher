@@ -85,6 +85,7 @@ export function InviteForm({ companyId }: { companyId: string }) {
           disabled={pending}
         >
           <option value="team_member">Member</option>
+          <option value="facilitator">Facilitator</option>
           <option value="company_admin">Company Admin</option>
         </select>
       </div>

@@ -2920,6 +2920,105 @@ values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'ac
   };
 }
 
+// Facilitator: team work, not people (0321).
+//
+// Jason, 2026-11-06: a Facilitator works everyone's commitments and
+// the Critical Success Factors in their company, and cannot edit,
+// deactivate or remove people.
+//
+// Claims, each as the caller, inside a rolled-back transaction:
+//   1. facilitator edits a teammate's commitment        allowed (red before 0321)
+//   2. facilitator deletes a teammate's commitment      allowed (red before 0321)
+//   3. facilitator creates a commitment for a teammate  allowed
+//   4. facilitator records a value on a measure in a
+//      function they do not lead                         allowed (red before 0321)
+//   5. facilitator edits that measure                   allowed (red before 0321)
+//   6. facilitator deactivates a teammate               refused
+//   7. facilitator edits a commitment in another company refused
+//   8. a team member edits a teammate's commitment       refused (control)
+async function facilitatorTeamWork(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const CO = ids.companyAdminCompany;
+  const OTHER = ids.otherCompany;
+  const uid = (tag: string) => `aaaa0321-0000-4000-8000-0000000000${tag}`;
+  const FAC = uid("01");
+  const MATE = uid("02");
+  const MEMBER = uid("03");
+  const FN = uid("10");
+  const MEASURE = uid("11");
+  const COMMIT = uid("20");
+  const ELSEWHERE = uid("21");
+  const person = (id: string, company: string, name: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', '${company}', '${name}', '${role}', 'active');`;
+  const seed = [
+    person(FAC, CO, "Harness Facilitator", "facilitator"),
+    person(MATE, CO, "Harness Teammate", "team_member"),
+    person(MEMBER, CO, "Harness Member", "team_member"),
+    `insert into public.functions (id, company_id, title, lead_id) values ('${FN}', '${CO}', 'Harness 0321 function', '${MATE}');`,
+    `insert into public.success_measures (id, function_id, company_id, description) values ('${MEASURE}', '${FN}', '${CO}', 'Harness 0321 measure');`,
+    `insert into public.commitments (id, company_id, owner_id, description, due_date, week_ending)
+       values ('${COMMIT}', '${CO}', '${MATE}', 'Harness 0321 commitment', '2026-11-06', '2026-11-06'),
+              ('${ELSEWHERE}', '${OTHER}', null, 'Harness 0321 elsewhere', '2026-11-06', '2026-11-06');`,
+  ].join("\n");
+
+  // A write that RLS filters returns no error and touches no row, so
+  // each statement reports its row count and the case reads it.
+  const counted = (stmt: string) =>
+    `do $$ declare n int; begin ${stmt}; get diagnostics n = row_count; raise exception 'rows=%', n; end $$;`;
+  const attempt = async (sub: string, stmt: string, count = true): Promise<string> => {
+    try {
+      await run(
+        ["begin;", pending, seed, "set local role authenticated;", claims(sub),
+         count ? counted(stmt) : `${stmt};`, "rollback;"].join("\n")
+      );
+      return "allowed";
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      const rows = /rows=(\d+)/.exec(msg);
+      if (rows) return rows[1] === "0" ? "refused" : "allowed";
+      return /row-level security|permission denied/i.test(msg) ? "refused" : `ERROR ${msg.slice(0, 80)}`;
+    }
+  };
+
+  const edit = await attempt(FAC, `update public.commitments set description = 'edited' where id = '${COMMIT}'`);
+  const del = await attempt(FAC, `delete from public.commitments where id = '${COMMIT}'`);
+  const create = await attempt(FAC,
+    `insert into public.commitments (company_id, owner_id, description, due_date, week_ending)
+       values ('${CO}', '${MATE}', 'for a teammate', '2026-11-06', '2026-11-06')`, false);
+  const value = await attempt(FAC,
+    `insert into public.success_measure_entries (measure_id, company_id, week_ending, value_number)
+       values ('${MEASURE}', '${CO}', '2026-10-30', 42)`, false);
+  const measure = await attempt(FAC, `update public.success_measures set description = 'edited' where id = '${MEASURE}'`);
+  const deactivate = await attempt(FAC, `update public.profiles set status = 'inactive' where id = '${MATE}'`);
+  const elsewhere = await attempt(FAC, `update public.commitments set description = 'edited' where id = '${ELSEWHERE}'`);
+  const member = await attempt(MEMBER, `update public.commitments set description = 'edited' where id = '${COMMIT}'`);
+
+  const ok =
+    edit === "allowed" && del === "allowed" && create === "allowed" &&
+    value === "allowed" && measure === "allowed" &&
+    deactivate === "refused" && elsewhere === "refused" && member === "refused";
+  return {
+    name: "facilitator-team-work",
+    hazard: "A facilitator cannot work the team's commitments and measures, or can change people or another company",
+    wrong: `deactivate a teammate: ${deactivate}; another company: ${elsewhere}; team member control: ${member}`,
+    right: `edit ${edit}; delete ${del}; create for a teammate ${create}; record a value ${value}; edit a measure ${measure}`,
+    ok,
+    detail: ok
+      ? "A facilitator edits, deletes and creates teammates' commitments and records values and edits measures in a function they do not lead. Deactivating a teammate, a commitment in another company, and a team member editing a teammate's commitment are refused."
+      : `edit ${edit}, delete ${del}, create ${create}, value ${value}, measure ${measure} (all want allowed); deactivate ${deactivate}, elsewhere ${elsewhere}, member ${member} (all want refused).`,
+  };
+}
+
 // Ask Aimee for assigned admins (0320).
 //
 // Promise One, 2026-11-03: a portfolio admin switched on as the
@@ -16216,6 +16315,10 @@ async function main(): Promise<void> {
     [
       "ask-aimee-assigned-admins",
       (r: Runner, i: Identities) => askAimeeAssignedAdmins(r, i, pendingSql),
+    ],
+    [
+      "facilitator-team-work",
+      (r: Runner, i: Identities) => facilitatorTeamWork(r, i, pendingSql),
     ],
     [
       "portfolio-assignment-company-access",

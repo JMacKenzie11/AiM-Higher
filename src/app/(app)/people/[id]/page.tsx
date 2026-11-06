@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isCompanyRole } from "@/lib/types";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { canCoachAbout } from "@/lib/auth/permissions";
@@ -45,8 +46,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   // A guide who belongs to this company (their own coaching business)
   // is edited by a system admin only: their account reaches every
   // client they coach. updateUserAction and 0300 say the same.
-  const subjectIsMember =
-    data.profile.role === "company_admin" || data.profile.role === "team_member";
+  const subjectIsMember = isCompanyRole(data.profile.role);
   const canEditPerson =
     session.profile.role === "system_admin" || (isAdmin && subjectIsMember);
 

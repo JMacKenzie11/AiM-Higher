@@ -5,6 +5,7 @@ import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
+import { isCompanyRole } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
 // People-management actions used by /people (Section 8.6) and /profile.
@@ -46,14 +47,13 @@ export async function updateProfileAction(
     const roleRaw = String(formData.get("role") ?? "").trim();
     if (
       session.profile.role === "company_admin" &&
-      !(roleRaw === "team_member" || roleRaw === "company_admin")
+      !isCompanyRole(roleRaw)
     ) {
       return { ok: false, message: "Company admins can't grant that role." };
     }
     roleToWrite =
       roleRaw === "system_admin" ||
-      roleRaw === "company_admin" ||
-      roleRaw === "team_member"
+      isCompanyRole(roleRaw)
         ? (roleRaw as Profile["role"])
         : "team_member";
   }
