@@ -4,8 +4,9 @@ import type { Page } from "@playwright/test";
 // Reordering on /measures, at both levels.
 //
 // A CRITICAL SUCCESS FACTOR moves within its functional area, by a
-// handle between the Owner and the description. A FUNCTIONAL AREA
-// moves among its siblings, by a handle beside its name.
+// handle beside its name. A FUNCTIONAL AREA moves among its siblings,
+// by a handle on its band. Both handles show on hover or focus; these
+// focus them, which is the keyboard path.
 //
 // ---- WHY THE TWO LEVELS ARE DRIVEN DIFFERENTLY -----------------
 //
@@ -66,8 +67,10 @@ async function pressAndSave(page: Page, key: string) {
   expect(response.ok(), "the reorder save failed").toBe(true);
 }
 
-const ROWS = `Array.from(document.querySelectorAll('#measures-grid-scroll tbody th[scope=row]')).map(e => e.textContent.trim())`;
-const AREAS = `Array.from(document.querySelectorAll('#measures-grid-scroll tbody th[scope=rowgroup]')).map(e => e.textContent.replace(/[^A-Za-z0-9& ]/g,'').trim())`;
+// The name alone, not the whole cell: the cell also carries the
+// frequency and target line, and the band its Lead and count.
+const ROWS = `Array.from(document.querySelectorAll('#measures-grid-scroll tbody [data-measure-name]')).map(e => e.textContent.trim())`;
+const AREAS = `Array.from(document.querySelectorAll('#measures-grid-scroll tbody [data-area-title]')).map(e => e.textContent.trim())`;
 
 test("a critical success factor keeps its new place in its area", async ({
   page,

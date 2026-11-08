@@ -13,6 +13,7 @@ import {
 } from "@/lib/external-measures/actions";
 import { canBackfill, extractFileId, type ExternalMapping, type PullDay } from "@/lib/external-measures/mapping";
 import { monthWeekLabel } from "@/lib/measures/months";
+import { defaultPullWeek } from "@/lib/external-measures/pull-week";
 import type { HubSpotPipeline } from "@/lib/external-measures/hubspot-pull";
 import { EMPTY_HUBSPOT, HubSpotRecipeFields, type HubSpotDraft } from "./HubSpotRecipeFields";
 import uiStyles from "@/components/ui/ui.module.css";
@@ -218,35 +219,9 @@ export function ExternalSourceControls({
   // HubSpot's pipelines as read by the HubSpot fields, for the names a
   // saved mapping carries.
   const [pipelines, setPipelines] = useState<HubSpotPipeline[]>([]);
-  // Which week a pull targets. Always one of the platform's own
-  // week-endings; the select below offers those and nothing else.
-  //
-  // THE DEFAULT FOLLOWS THE MAPPING, and there are three cases rather
-  // than two:
-  //
-  //   week_keyed            this week. The sheet has a row per week
-  //                         and this week's is the one being filled.
-  //   snapshot, no freshness  this week. The mapping means "whatever
-  //                         is in that cell right now", so now is the
-  //                         week it belongs to.
-  //   snapshot + freshness  the last COMPLETED week. A dashboard that
-  //                         carries an as-of date is reporting a
-  //                         closed period, so the current week is the
-  //                         one week its number is certainly not
-  //                         about, and defaulting there would hand a
-  //                         new user a decline on their first press.
-  const mappingForWeek = info?.mapping ?? null;
-  // A HubSpot weekly total is recorded once its week closes, so its
-  // default is the last completed week too.
-  const reportsAClosedPeriod =
-    (mappingForWeek?.connector === "google_sheet" &&
-      mappingForWeek.kind === "snapshot" &&
-      !!mappingForWeek.recipe.freshness) ||
-    (mappingForWeek?.connector === "hubspot" && mappingForWeek.kind === "weekly");
-  const defaultWeek =
-    reportsAClosedPeriod && weeks.length > 1
-      ? weeks[weeks.length - 2]
-      : (weeks[weeks.length - 1] ?? "");
+  // Which week a pull targets: defaultPullWeek, which the row menu's
+  // Pull now asks too, so both buttons pull the same week.
+  const defaultWeek = defaultPullWeek(info?.mapping ?? null, weeks);
   const [week, setWeek] = useState<string>(defaultWeek);
 
   if (!enabled) return null;

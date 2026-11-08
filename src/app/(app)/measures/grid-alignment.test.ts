@@ -51,30 +51,29 @@ describe("one source decides how many week columns there are", () => {
     expect(code).toContain("{columns.map((col) =>");
   });
 
-  it("declares each pinned column once, spanning both header rows", () => {
-    // Declaring them in both rows left a tall blank band across the
-    // top of the table, so each is declared once with rowSpan.
+  it("declares the one pinned column once, spanning both header rows", () => {
+    // Declaring it in both rows left a tall blank band across the top
+    // of the table, so it is declared once with rowSpan.
     //
-    // `styles.gridPin}` with the brace: `gridPinArea` also contains
-    // "styles.gridPin" and would double every count.
+    // `styles.gridPin}` with the brace: `gridPinName` also contains
+    // "styles.gridPin" and would double the count.
     //
-    // COUNTED FROM THE PINNED TABLE, not written down again. This
-    // read `toBe(6)` and went red the moment a seventh column was
-    // added, which is a test reporting its own staleness rather than
-    // a defect — the thing worth pinning is that the header and the
-    // column list agree, whatever the number is today.
-    const pinned = (
-      code.slice(
-        code.indexOf("const PINNED"),
-        code.indexOf("];", code.indexOf("const PINNED"))
-      ).match(/key: "/g) ?? []
-    ).length;
-    expect(pinned).toBeGreaterThan(0);
+    // ONE since Option B (2026-11-06): the functional area and its
+    // Lead moved to a band above the rows, frequency and target to a
+    // line under the name, and the row actions to a hover menu.
     const head = code.slice(code.indexOf("<thead>"), code.indexOf("</thead>"));
-    expect((head.match(/styles\.gridPin\}/g) ?? []).length).toBe(pinned);
+    expect((head.match(/styles\.gridPin\}/g) ?? []).length).toBe(1);
+    expect(head).toContain("data-last-pinned");
     expect(
       (head.match(/rowSpan=\{2\}/g) ?? []).length
-    ).toBeGreaterThanOrEqual(pinned);
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("gives every function a band spanning the whole row", () => {
+    // The band's colSpan is the pinned column plus every week column,
+    // from the same `columns` list the header and the cells use.
+    expect(code).toContain("span={1 + columns.length}");
+    expect(code).toContain("colSpan={span} className={styles.gridBandCell}");
   });
 
   it("has no full-width row left to keep in step with the columns", () => {
@@ -136,29 +135,21 @@ describe("the pinned columns line up with their offsets", () => {
     return css.slice(start, css.indexOf("}", start));
   }
 
-  it("declares the widths once, in the component", () => {
-    // They lived in the stylesheet with their cumulative `left`
-    // offsets written out beside them by hand. Two sets of numbers
-    // that have to agree, and under `table-layout: auto` they could
-    // not: the browser sizes a column to its content, the real widths
-    // drift from the declared ones, and the pinned block shivers as
-    // the weeks scroll under it.
-    expect(src).toContain("const PINNED");
-    expect(src).toContain("<colgroup>");
-    // And nowhere else. A `left` in the stylesheet would be the copy
-    // that goes stale.
-    expect(rule(".gridPinArea")).not.toContain("left:");
-    expect(rule(".gridPinName")).not.toContain("left:");
+  it("declares the pinned width once, in the stylesheet", () => {
+    // In the stylesheet rather than the component because it is the
+    // one width that changes on a phone (320px, then 150px), which a
+    // media query can say and an inline width cannot.
+    expect(src).toContain("<col className={styles.gridColName} />");
+    expect(rule(".gridColName")).toContain("width: 320px");
   });
 
-  it("MEASURES the sticky offsets rather than computing them", () => {
-    // Summing the declared widths was still wrong by a few pixels a
-    // column: cell borders sit outside the width a colgroup declares,
-    // so the running sum is not where the next column starts. The
-    // pinned block drifted as the weeks scrolled under it, by one
-    // pixel at Owner and thirty by Target.
-    expect(src).toContain('thead [data-pin=');
-    expect(src).toContain("cell.style.left");
+  it("pins one column at the left edge, so there is no offset to drift", () => {
+    // With seven pinned columns the offsets had to be MEASURED: cell
+    // borders sit outside the width a colgroup declares, so a running
+    // sum of widths drifted by up to thirty pixels at Target. One
+    // column has no running sum, and `left: 0` is exact.
+    expect(css).toMatch(/\n\.gridPin \{[^}]*left: 0/);
+    expect(src).not.toContain("cell.style.left");
   });
 
   it("fixes the table layout, so those widths are honoured", () => {
@@ -177,9 +168,8 @@ describe("the pinned columns line up with their offsets", () => {
     // The symptom was the pinned block marching off to the right
     // after an add, leaving a white gap where the names had been,
     // with every collapsed month gone.
-    const effect = src.slice(src.indexOf("Measure the pinned offsets"));
+    const effect = src.slice(src.indexOf("Measure the pinned column"));
     const body = effect.slice(0, effect.indexOf("}, ["));
-    const clearsLeft = body.indexOf('cell.style.left = ""');
     const clearsWidth = body.indexOf('col.style.width = ""');
     const resetsScroll = body.indexOf("el.scrollLeft = 0");
     // The measurements that FEED the new offsets all start from
@@ -190,11 +180,9 @@ describe("the pinned columns line up with their offsets", () => {
     // its whole job is to record where the reader was BEFORE the
     // reset moves everything.
     const offsetsMeasuredFrom = body.indexOf("const tableLeft");
-    expect(clearsLeft, "should clear the left values it wrote").toBeGreaterThan(-1);
     expect(clearsWidth, "should clear the widths it wrote").toBeGreaterThan(-1);
     expect(resetsScroll, "should unstick the sticky cells").toBeGreaterThan(-1);
     expect(offsetsMeasuredFrom).toBeGreaterThan(-1);
-    expect(clearsLeft).toBeLessThan(offsetsMeasuredFrom);
     expect(clearsWidth).toBeLessThan(offsetsMeasuredFrom);
     expect(resetsScroll).toBeLessThan(offsetsMeasuredFrom);
   });
@@ -226,7 +214,11 @@ describe("the pinned columns line up with their offsets", () => {
   });
 
   it("scrolls the weeks without scrolling the page", () => {
-    expect(rule(".gridScroll")).toContain("overflow-x: auto");
+    expect(rule(".gridScroll")).toContain("overflow: auto");
+    // And down, inside a height, so the short header can stay put
+    // over a long list of functions.
+    expect(rule(".gridScroll")).toContain("max-height:");
+    expect(css).toMatch(/\.grid thead tr:last-child th \{[^}]*top: 30px/);
   });
 
   it("draws its own scrollbar rather than styling a native one", () => {

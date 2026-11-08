@@ -13,8 +13,8 @@ For example: "Zero lost time incidents" or "Percentage of reports accepted first
 
 - **Read every function.** Everyone at your company can see every function's numbers.
 - **Log your function's numbers.** If you lead a function, you get an input box on its rows: as its lead you hold Lead, Track and Decide, so keeping its numbers is yours. Type this week's value. Click **Save** above the table, or, where it says *Changes save as you go*, just move to the next box.
-- **Run your own function's list.** As a function's lead you can also add a critical success factor, change a target, edit its settings and archive rows you've outgrown. On other functions you see the numbers but no boxes or edit controls.
-- **Reorder your function's rows.** Drag a row by its handle.
+- **Run your own function's list.** As a function's lead you can also add a critical success factor, change a target, edit its settings and archive rows you've outgrown. Click a name to open its settings, or use the **⋯** beside it. On other functions you see the numbers but no boxes, and the names aren't clickable.
+- **Reorder your function's rows.** Point at a row and drag the handle that appears beside its name.
 - **Connect a measure to a spreadsheet or to HubSpot**, for a function you lead, when your company has External Measures turned on.
 
 If you don't lead a function, the page is read only for you.
@@ -27,7 +27,8 @@ Everything a function's lead can do, on every function:
 
 - **Log a value for anyone**, in any week on the page, not just the two open ones. Correcting an old number is something you just do.
 - **Add, edit and archive** critical success factors in any functional area.
-- **Reorder rows** within a functional area, and **reorder whole functional areas** by dragging the handle beside the area's name.
+- **Reorder rows** within a functional area, and **reorder whole functional areas** by dragging the handle on the function's band.
+- **Pull now** from the **⋯** beside a connected measure, to bring in its latest number straight away.
 - **Connect any measure to a spreadsheet or to HubSpot**, when your company has External Measures turned on.
 :::
 
@@ -54,13 +55,17 @@ Where a system admin has made you the company's admin, you can also do everythin
 
 ## Reading the table
 
-It's laid out like a spreadsheet: Functional Area, Owner, Critical Success Factor, Frequency, Target, then one column per week. Functional Area and Owner are written once per function.
+**Each function is a band across the table**, with its Lead (or *No Lead*) and how many measures it has. Its critical success factors are listed under it, one per row.
 
-**Weeks are numbered within the month:** Week 1, Week 2, and so on. Week 1 is the week starting on the month's first Monday, so a month has four or five. Log on whichever day suits your team. A week belongs to the month it starts in, so the week beginning Monday 28 September is Week 4 of September even though it runs into October.
+**The name column stays put while the weeks scroll.** Under each name is a short line: how often it's due, its target (≥ or ≤, or *No target*), and where the number comes from if it's connected to Google Sheets or HubSpot.
 
-**It opens on this week.** You can reach a rolling twelve months. The current month is open, and earlier months are folded to one column each. Click a month to open it, and click again to fold it. A folded month shows only its name.
+**Weeks are numbered within the month:** Wk 1, Wk 2, and so on, with the Monday each week starts on underneath. Week 1 is the week starting on the month's first Monday, so a month has four or five. Log on whichever day suits your team. A week belongs to the month it starts in, so the week beginning Monday 28 September is Week 4 of September even though it runs into October.
 
-**Two weeks are due: this one and the one that just closed.** Both are tinted. A week stays open until the end of the following week, so a number asked for on Tuesday can go in any time up to the next Friday.
+**It opens on this week**, with the last few weeks beside it. You can reach a rolling twelve months. Earlier months are folded to one column each. Click a month to open it, and click again to fold it. A folded month shows only its name.
+
+**Two weeks are due: last week and this week.** Both are tinted lime and labelled *Last week* and *This week* at the top. A week stays open until the end of the following week, so a number asked for on Tuesday can go in any time up to the next Friday.
+
+**Colours tell you how a week went.** A number shaded green was on target that week, and red was off target. A measure with no target isn't shaded. In the two lime weeks, a box shows green or red down its left edge once it has a number. A **·** means the measure wasn't due that week. The key under the table says the same.
 
 ::: feature ui_past_numbers
 **You can correct an older week too.** Any week the table shows can be changed by whoever logs that measure. Every change is recorded: hover over a number that has been changed to see who changed it, when, and what it was before. That includes typing over a number pulled in from HubSpot or Google Sheets.
@@ -70,33 +75,35 @@ It's laid out like a spreadsheet: Functional Area, Owner, Critical Success Facto
 After that it locks and is there to read. An admin can still change an older week. Hover over a number that has been changed to see who changed it, when, and what it was before.
 :::
 
-**The count at the top of the table** only counts your own rows, for the week that just closed, since that's the one with a deadline. For example: *"2 of 6 still to log for Week 5 of August."* If you have nothing to log, it says nothing.
+**The strip above the table** counts only your own rows, in the weeks they're due. For example: *"Last week (Nov 2): 5 of 6 logged"*, *"This week (Nov 9): 2 of 6 entered"* and *"On target last week: 4 of 5"*. If you have nothing to log, it isn't shown.
 
-**The scrollbar sits above the table** and moves only the week columns. Drag it, click the track to jump, or use the arrows at either end to move about a month at a time.
+**Show only what needs a number** narrows the table to your rows still missing a number in last week or this week, and hides functions with nothing owed. Rows you fill in stay on screen until you turn it off, so you can check what you typed. Rows can't be dragged while it's on.
 
-**On a phone the whole table slides.** It opens on the names, so swipe left to reach the current week.
+**The scrollbar sits above the table** and moves only the week columns. Drag it, click the track to jump, or use the arrows at either end to move about a month at a time. The table scrolls down on its own too, and the week labels stay at the top.
+
+**On a phone the name column gets narrower** and the line under each name wraps. Swipe the weeks left and right.
 
 ## How often a measure is expected
 
-Each measure is due **every week**, **every two weeks**, or **every month**. The Frequency column shows which.
+Each measure is due **every week**, **every two weeks**, or **every month**. The line under its name shows which.
 
-- **Monthly** measures get one box that stretches across the month's columns. Put the number in whenever you have it. It's due in the month's last week.
+- **Monthly** measures get one box that stretches across the month's columns, marked with the month (*Nov value*). Put the number in whenever you have it. It's due in the month's last week.
 - **Every two weeks** counts from the week the measure was created, not the calendar.
-- A week a measure wasn't due is shaded, not marked missing, and nobody is chased for it.
+- A week a measure wasn't due shows a **·**, not a gap, and nobody is chased for it.
 
 ## Adding and editing
 
-**Add a critical success factor** opens a panel at the side where you set everything at once: functional area, name, target, value type, direction, units, how often to update, and whether it shows on the company dashboard. Each row has a **pencil** to open the same panel and a **bin** to archive it. You only see these on functions you can change.
+**Add a critical success factor** opens a panel at the side where you set everything at once: functional area, name, target, value type, direction, units, how often to update, and whether it shows on the company dashboard. Click a critical success factor's **name** to open the same panel. Point at a row and click **⋯** for its menu: **Edit settings**, **Pull now** (on a connected measure, for company admins), and **Archive**. With the keyboard, tab to **⋯**, press Enter, move with the arrow keys, and press Escape to close it. You only get these on functions you can change.
 
 Close the panel with **Cancel**, the **✕**, the Escape key, or by clicking outside it.
 
-**Archiving** takes a measure off the page and keeps its past weekly values on file.
+**Archiving** asks you to confirm, then takes the measure off the page and keeps its past weekly values on file.
 
 ## Targets
 
 **A target is optional.** A measure with no target still collects values and still gets a chart, with no target line. A list with several blank targets is usually worth tidying up.
 
-**Changing a target doesn't rewrite the past.** Each week is judged against the target in force when it closed. A change applies from the week you're in. The grid marks the week a target moved with a line down the left of the cell. Hover it to see the old and new target.
+**Changing a target doesn't rewrite the past.** Each week is judged against the target in force when it closed, so its green or red stays as it was. A change applies from the week you're in. Hover the week a target moved to see the old and new target.
 
 ## Value types and units
 
@@ -117,10 +124,10 @@ A Yes/No measure has no direction, so that setting disappears and the target sho
 
 ## Putting things in order
 
-Drag a critical success factor by its handle to move it within its functional area. With the keyboard, focus the handle and press the up or down arrow. The order you set is what everyone sees, on every device.
+Point at a critical success factor and drag the handle beside its name to move it within its functional area. With the keyboard, tab to the handle, press Space to pick it up, the up or down arrow to move it, and Space to drop it. The order you set is what everyone sees, on every device.
 
 ::: role company_admin,aims_guide,system_admin
-Drag a functional area by the handle beside its name to move the whole block. It moves among the areas at the same level of the chart. It can't move to a different level, because that changes the chart itself.
+Drag a functional area by the handle on its band to move the whole block, or tab to the handle and press the up or down arrow. It moves among the areas at the same level of the chart. It can't move to a different level, because that changes the chart itself.
 :::
 
 ## The company dashboard
@@ -165,7 +172,7 @@ Nobody is chased for a number that was logged or came in from a connected spread
 
 **Where do I log a number?** Here, in the row itself. This is the only place values are entered.
 
-**How do I know what I still have to log?** The count at the top of the table, and the notification bell.
+**How do I know what I still have to log?** The strip at the top of the table, and the notification bell. **Show only what needs a number** lists just those rows.
 
 **Why can I see functions I have nothing to do with?** The numbers a company holds itself to are shared with everyone. You can read every function and type only into the ones you can change.
 

@@ -93,8 +93,12 @@ describe("the measures page reads in weeks beginning", () => {
     readFileSync(join(ROOT, "src/app/(app)/measures/page.tsx"), "utf8") +
     readFileSync(join(ROOT, "src/app/(app)/measures/MeasuresView.tsx"), "utf8");
 
-  it("labels a column Week N of its month, not a date", () => {
-    expect(grid).toContain("Week {weekOfMonth(w)}");
+  it("labels a column Wk N of its month, with its Monday under it", () => {
+    // Option B (Jason, 2026-11-06): the week number leads, and the
+    // date it starts sits under it, written without the locale so the
+    // server and the browser agree (weekStartShort).
+    expect(grid).toContain("Wk {weekOfMonth(w)}");
+    expect(grid).toContain("{weekStartShort(w)}");
     expect(grid).not.toContain("mondayOf(w).slice(8)");
   });
 
@@ -103,8 +107,9 @@ describe("the measures page reads in weeks beginning", () => {
   // that week September's Week 4.
   it("names the week as its column does, in the hero, the count and each box", () => {
     expect(page).toContain("{weekLabel(data.weekEnding)} for the functions you lead");
-    expect(grid).toContain("logged for ${weekLabel(chasedWeek)}");
-    expect(grid).toContain("still to log for ${weekLabel(chasedWeek)}");
+    // The strip names its weeks by the same Monday their columns show.
+    expect(grid).toContain("Last week ({weekStartShort(last.week)})");
+    expect(grid).toContain("This week ({weekStartShort(current.week)})");
     expect(grid).toContain("`${row.description}, ${weekLabel(week)}`");
     expect(grid).not.toContain("formatWeekBeginning(");
     expect(page).not.toContain("formatWeekBeginning(");

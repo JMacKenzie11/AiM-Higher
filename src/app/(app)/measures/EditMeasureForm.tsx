@@ -460,55 +460,46 @@ export function EditMeasureForm({
   );
 }
 
-export function ArchiveMeasureButton({ measureId }: { measureId: string }) {
+// ARCHIVING, as a confirmation the grid row's menu opens (Option B,
+// 2026-11-06). It was a bin icon in the row's actions column, with
+// this dialog beside it; the column is gone and Archive is an item in
+// the row's menu, which unmounts as soon as it is chosen. So the
+// dialog lives with the grid, one for the page, and is told which
+// measure. Same action, same confirmation, same refusal message.
+export function ArchiveMeasureDialog({
+  measureId,
+  onClose,
+  onError,
+}: {
+  // The measure being archived, or null when the dialog is shut.
+  measureId: string | null;
+  onClose: () => void;
+  // A refusal, for the grid's message line. The row it would have
+  // sat beside may already be gone.
+  onError: (message: string) => void;
+}) {
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState(false);
 
   function run() {
-    setConfirming(false);
+    if (!measureId) return;
+    const id = measureId;
     startTransition(async () => {
-      const result = await archiveMeasureAction(measureId, true);
-      if (!result.ok) setMessage(result.message);
+      const result = await archiveMeasureAction(id, true);
+      onClose();
+      if (!result.ok) onError(result.message);
     });
   }
 
   return (
-    <>
-      <button
-        type="button"
-        className={styles.iconDeleteButton}
-        onClick={() => setConfirming(true)}
-        disabled={pending}
-        aria-label="Archive this KPI"
-        title="Archive this KPI"
-      >
-        <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden>
-          <path
-            d="M4 5 h8 v8 a1 1 0 0 1 -1 1 h-6 a1 1 0 0 1 -1 -1 z M6.5 5 V3.5 a1 1 0 0 1 1 -1 h1 a1 1 0 0 1 1 1 V5 M3 5 h10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.4}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-      <ConfirmDialog
-        open={confirming}
-        title="Archive this KPI?"
-        message="Historical weekly entries are kept. The KPI disappears from its critical success factor and stops feeding the weekly check."
-        confirmLabel="Archive"
-        tone="danger"
-        onConfirm={run}
-        onCancel={() => setConfirming(false)}
-        pending={pending}
-      />
-      {message ? (
-        <span role="alert" className={styles.rowError}>
-          {message}
-        </span>
-      ) : null}
-    </>
+    <ConfirmDialog
+      open={measureId !== null}
+      title="Archive this critical success factor?"
+      message="Its past weekly values are kept. It comes off this page and out of the weekly check."
+      confirmLabel="Archive"
+      tone="danger"
+      onConfirm={run}
+      onCancel={onClose}
+      pending={pending}
+    />
   );
 }

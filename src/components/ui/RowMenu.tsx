@@ -57,6 +57,7 @@ export function RowMenu({
   disabled,
   testId,
   triggerClassName,
+  caret = true,
 }: {
   label?: ReactNode;
   ariaLabel: string;
@@ -67,6 +68,10 @@ export function RowMenu({
   // main action (Goals & Priorities' Add) and so takes the standard
   // button.
   triggerClassName?: string;
+  // The ▾ after the label. Off for an icon-only trigger (the ⋯ on a
+  // /measures row), where a caret beside the dots is a second icon
+  // saying the same thing.
+  caret?: boolean;
 }) {
   const menu = useMenuButton();
   const { open, setOpen, triggerRef, menuRef } = menu;
@@ -125,9 +130,11 @@ export function RowMenu({
         data-testid={testId}
       >
         {label}
-        <span className={styles.caret} aria-hidden="true">
-          ▾
-        </span>
+        {caret ? (
+          <span className={styles.caret} aria-hidden="true">
+            ▾
+          </span>
+        ) : null}
       </button>
       {open
         ? createPortal(
