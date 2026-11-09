@@ -74,3 +74,13 @@ export function monthWeekLabel(weekEnding: string): string {
   const month = Number(monthKeyOf(weekEnding).slice(5, 7));
   return `${FULL_MONTH_NAMES[month - 1]} Week ${weekOfMonth(weekEnding)}`;
 }
+
+// "Nov 2": the Monday a week begins on, under its column's "Wk 1"
+// (Option B, Jason 2026-11-06). Written out here rather than through
+// toLocaleDateString, whose month order follows the machine's locale:
+// the server and the browser can disagree, and the grid renders on
+// both, so a locale-shaped label is a hydration mismatch waiting.
+export function weekStartShort(weekEnding: string): string {
+  const monday = mondayOf(weekEnding);
+  return `${MONTH_NAMES[Number(monday.slice(5, 7)) - 1]} ${Number(monday.slice(8, 10))}`;
+}

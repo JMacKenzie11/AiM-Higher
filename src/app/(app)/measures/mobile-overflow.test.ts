@@ -83,9 +83,16 @@ describe("the hero's bleed cancels the frame's gutter exactly", () => {
 });
 
 describe("the grid gives up pinning when there is no room for it", () => {
-  it("measures the room and stops the pinned loop when it runs out", () => {
+  it("measures the room and the pinned column against it", () => {
     expect(grid).toMatch(/const roomToPin = el\.clientWidth - \d+/);
-    expect(grid).toMatch(/if \(pinnedRight > roomToPin\) break/);
+    expect(grid).toContain('el.querySelector<HTMLElement>("thead [data-last-pinned]")');
+  });
+
+  it("narrows the pinned column on a phone rather than giving up on it", () => {
+    // 150px leaves a week or two beside the names at 393px, which is
+    // more use than a table whose names scroll away.
+    const phone = css.slice(css.indexOf("@media (max-width: 640px)"));
+    expect(phone).toMatch(/\.gridColName\s*\{\s*width:\s*150px/);
   });
 
   it("zeroes the offset, so nothing downstream is inset by a phantom block", () => {

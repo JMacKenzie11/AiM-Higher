@@ -30,8 +30,9 @@ import type {
 
 // The /measures grid: the spreadsheet, in the app.
 //
-// Functional Area | Owner | Critical Success Factor | Frequency |
-// Target | one column per week.
+// A band per functional area (its Lead, its measures), one pinned
+// Critical Success Factor column carrying frequency and target, then
+// one column per week.
 //
 // ---- WHY THE WEEKS ARE GROUPED BY MONTH ----------------------
 //

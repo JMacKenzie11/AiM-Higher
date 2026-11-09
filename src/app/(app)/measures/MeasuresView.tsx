@@ -15,9 +15,9 @@ import styles from "../admin/companies/admin.module.css";
 // meeting's Numbers step renders it in the meeting, so the two are
 // one surface and cannot drift apart.
 //
-// Functional Area, Owner, Critical Success Factor, Frequency, Target,
-// then a rolling year of weeks with the current month open and the
-// rest collapsed. One surface for both authoring and logging the week. The
+// A band per functional area, then each Critical Success Factor with
+// its frequency and target under its name, then a rolling year of
+// weeks with the latest months open and the rest collapsed. One surface for both authoring and logging the week. The
 // chart page defers the "what are we measuring" question here so it
 // can stay a chart.
 

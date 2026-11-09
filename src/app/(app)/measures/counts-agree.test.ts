@@ -37,29 +37,53 @@ function block(name: string): string {
   return code.slice(start, end);
 }
 
-describe("the outstanding line and the save count one population", () => {
-  it("derives the chased set once", () => {
-    const rows = block("writableRows");
-    expect(rows).toContain("g.canLog");
-    // And only rows actually due in the week being chased. A
-    // fortnightly measure in an off week is not outstanding.
-    expect(rows).toContain("isDueInWeek");
+const strip = readFileSync(
+  join(process.cwd(), "src/lib/measures/grid-strip.ts"),
+  "utf8"
+);
+
+// The strip above the grid (Option B, 2026-11-06) replaced the one
+// line, and holds three counts and a filter. All of them are derived
+// from ONE list, `loggableRows`, by ONE function, summarizeStrip, and
+// the save writes the same list.
+describe("the strip and the save count one population", () => {
+  it("derives the caller's rows once", () => {
+    expect(block("loggableRows")).toContain("g.canLog");
+  });
+
+  it("hands that list, and only that list, to the strip", () => {
+    expect(block("strip")).toContain("summarizeStrip(loggableRows");
+  });
+
+  it("counts a row only in a week it is due", () => {
+    // A fortnightly measure in an off week is not outstanding.
+    expect(strip).toContain("rows.filter((r) => isDueIn(r, lastWeek))");
+    expect(strip).toContain("rows.filter((r) => isDueIn(r, currentWeek))");
+    expect(strip).toContain("isDueIn(r, w) && !hasValue(r, w)");
   });
 
   it("chases the week that just closed, which is the one with a deadline", () => {
     // The Saturday nudge asks about the closed week and makes it due
-    // the coming Friday. Two numbers describing one job must count
-    // the same things, so this counts that week too. The current week
-    // is there to type into as you go and is not late yet.
-    expect(code).toContain(
-      "const chasedWeek = data.previousWeekEnding ?? weekEnding"
-    );
-    expect(block("writableRows")).toContain("chasedWeek");
-    expect(block("outstanding")).toContain("chasedWeek");
+    // the coming Friday, so the strip's first chip is that week.
+    expect(block("strip")).toContain("lastWeek: data.previousWeekEnding");
+    expect(block("strip")).toContain("currentWeek: weekEnding");
   });
 
-  it("counts outstanding from that same set", () => {
-    expect(block("outstanding")).toContain("writableRows");
+  it("reads the live boxes, so a typed number counts at once", () => {
+    expect(block("strip")).toContain('(values[cellKey(r.id, w)] ?? "").trim() !== ""');
+  });
+
+  it("judges on target from the cell's own status, not a second rule", () => {
+    expect(strip).toContain('status === "good"');
+    expect(strip).not.toMatch(/>=\s*target|<=\s*target/);
+  });
+
+  it("is what My week counts too", () => {
+    const toLog = readFileSync(
+      join(process.cwd(), "src/lib/measures/to-log.ts"),
+      "utf8"
+    );
+    expect(toLog).toContain("summarizeStrip(");
   });
 
   it("saves every editable cell it owns, across both open weeks", () => {
@@ -74,16 +98,21 @@ describe("the outstanding line and the save count one population", () => {
     expect(upToTransition).toContain("isDueInWeek");
   });
 
-  it("scopes the line to what the caller can write", () => {
-    // A count spanning other people's functions would tell a leader
-    // they had six things to do when they have none.
-    expect(block("writableRows")).toContain("filter((g) => g.canLog)");
+  it("says nothing at all to somebody with nothing to log", () => {
+    // Silence rather than "0 of 0": the strip shows only when
+    // something is due, and each chip only when its own week is.
+    expect(code).toContain(
+      "const showStrip = strip.current.due > 0 || (strip.last?.due ?? 0) > 0;"
+    );
+    expect(code).toContain("last && last.due > 0 ?");
+    expect(code).toContain("current.due > 0 ?");
   });
 
-  it("says nothing at all to somebody with nothing to log", () => {
-    // Silence rather than "0 of 0". A reader with no functions does
-    // not need a to-do line about other people's numbers.
-    expect(code).toContain("writableRows.length > 0");
+  it("filters to a snapshot, so a row does not vanish while it is typed in", () => {
+    expect(code).toContain("new Set(strip.needsNumber)");
+    // A drag among a filtered handful would save the whole function's
+    // order from part of it.
+    expect(code).toContain("enabled={!needsOnly && group.canLog && rows.length > 1}");
   });
 });
 
@@ -123,7 +152,9 @@ describe("only your own functions get an input", () => {
     // Otherwise an admin sees every column in a year tinted "still
     // open", which says something false about the deadline everyone
     // else is working to.
-    expect(code).toContain("openWeeks.includes(w) && w !== weekEnding");
+    expect(code).toContain("const open = openWeeks.includes(w);");
+    expect(code).toContain("open && w !== weekEnding");
+    expect(code).toContain("open={col.weeks.some((w) => openWeeks.includes(w))}");
     expect(code).not.toContain("editableWeeks.includes(w)");
   });
 
@@ -131,7 +162,7 @@ describe("only your own functions get an input", () => {
     // Sending every editable cell was harmless while that meant two
     // columns. An admin can now edit a year of them.
     expect(code).toContain(
-      '(values[cellKey(r.id, w)] ?? "") !== valueAt(r, w)'
+      '(values[cellKey(r.id, w)] ?? "") !== valueAt(r, cellOf(r, w))'
     );
   });
 
@@ -183,11 +214,20 @@ describe("someone who owns no function gets no authoring controls", () => {
     expect(code).not.toMatch(/\{\s*authoring \?\s*\(\s*<button[^>]*Add a critical/);
   });
 
-  it("hides the pencil and the bin per function", () => {
-    // The actions COLUMN exists if the caller can author anywhere, so
-    // the table does not gain and lose a track as you scroll. What
-    // goes in it is decided per row.
+  it("gives the name button and the row menu only to a function's authors", () => {
+    // The pencil and bin were a column; they are the clickable name
+    // and the ⋯ menu now, and both are decided per function. A reader
+    // gets the name as text.
     expect(code).toContain("{group.canLog ? (");
+    expect(code).toContain("<MeasureRowMenu");
+    expect(code).toContain("className={styles.nameText}");
+  });
+
+  it("offers Pull now in the menu only where the drawer would", () => {
+    // A mapping, and a caller allowed to pull: the same two facts the
+    // drawer's own Pull now checks, and the same default week.
+    expect(code).toContain("if (mapping && canPull) {");
+    expect(code).toContain("defaultPullWeek(mapping, weeks)");
   });
 });
 
@@ -383,7 +423,7 @@ describe("functions but no measures still renders a card", () => {
     // anywhere to add to; addableGroups is every function the caller
     // can log against, which for an admin is all of them.
     expect(code).toContain(
-      "{writableRows.length > 0 || addableGroups.length > 0 ? ("
+      "{loggableRows.length > 0 || addableGroups.length > 0 ? ("
     );
     expect(code).toContain(
       "const addableGroups = data.groups.filter((g) => g.canLog);"
@@ -455,7 +495,7 @@ describe("the yes/no value type", () => {
 
   it("drops the comparison operator from its target in the grid", () => {
     // "≥ Yes" is not a comparison anybody makes.
-    expect(code).toContain('{row.valueType === "text" ? null : (');
+    expect(code).toMatch(/row\.valueType === "text"\s*\?\s*null/);
   });
 });
 
@@ -504,8 +544,9 @@ describe("a monthly measure spans its month", () => {
   });
 
   it("reads and writes the month's own week, not the column's", () => {
-    expect(code).toContain("storageWeekFor(row.frequency, week)");
-    expect(code).toContain("cellKey(row.id, storageWeek(row, col.key))");
+    expect(code).toContain("const own = storageWeekFor(row.frequency, col.key);");
+    expect(code).toContain("const key = cellKey(row.id, own);");
+    expect(code).toContain("cell={cellOf(row, own)}");
   });
 
   it("opens the whole month, or the feature does not exist", () => {
@@ -522,6 +563,7 @@ describe("a monthly measure spans its month", () => {
 
   it("names the month, not a week, for a screen reader", () => {
     // Four weeks announced for one number is worse than none.
-    expect(code).toContain("monthLabel(monthKeyOf(storageWeek))");
+    expect(code).toContain("const month = monthKeyOf(storageWeek);");
+    expect(code).toContain("`${row.description}, ${monthLabel(month)}`");
   });
 });

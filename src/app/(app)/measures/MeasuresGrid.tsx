@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -12,23 +13,37 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   logMeasureEntriesAction,
   type MeasureEntryInput,
 } from "@/lib/measures/actions";
 import { storageWeekFor } from "@/lib/measures/frequency";
 import { mergeServerValues } from "@/lib/measures/grid-values";
+import { summarizeStrip } from "@/lib/measures/grid-strip";
 import { anyWeekOpen, isEntryWeekOpen } from "@/lib/measures/entry-window";
-import { monthKeyOf, monthLabel, weekLabel, weekOfMonth } from "@/lib/measures/months";
+import {
+  monthKeyOf,
+  monthLabel,
+  weekLabel,
+  weekOfMonth,
+  weekStartShort,
+} from "@/lib/measures/months";
 import type { GridData, GridRow,
   GridGroup,
   GridCell,
 } from "@/lib/measures/grid";
-import { EditMeasureForm, ArchiveMeasureButton } from "./EditMeasureForm";
+import { pullExternalMeasureAction } from "@/lib/external-measures/actions";
+import { defaultPullWeek } from "@/lib/external-measures/pull-week";
+import { EditMeasureForm, ArchiveMeasureDialog } from "./EditMeasureForm";
 import { ExternalMeasureNote } from "./external/ExternalMeasureNote";
 import { ExternalSourceControls } from "./external/ExternalSourceControls";
-import { PencilIcon } from "@/components/ui/PencilIcon";
+import {
+  useExternalMeasure,
+  useExternalMeasures,
+} from "./external/ExternalMeasuresContext";
 import { PlusIcon } from "@/components/ui/PlusIcon";
+import { RowMenu, type RowMenuItem } from "@/components/ui/RowMenu";
 import {
   formatMeasureValue,
   parseTypedNumber,
@@ -61,8 +76,22 @@ import { simplifyOn } from "@/lib/ui/simplify";
 
 // The /measures grid.
 //
-// Functional Area | Owner | Critical Success Factor | Frequency |
-// Target | one column per week, a rolling year of them.
+// ---- FUNCTION BANDS (Option B, Jason 2026-11-06) --------------
+//
+// Each functional area is a band across the table: its drag handle,
+// its name, its Lead and how many measures it has. Under it, one row
+// per critical success factor, and ONE pinned column: the CSF's name,
+// with its frequency, target and data source on a line beneath.
+// Then a rolling year of weeks.
+//
+// It was seven pinned columns (Functional Area, Owner, a drag column,
+// an actions column, the name, Frequency, Target), about 770px of a
+// card capped near 1160, which left room for a week or two beside
+// them. The band carries what Functional Area and Owner said once per
+// function anyway; the meta line carries Frequency and Target; the
+// row's own hover carries the handle and a menu in place of the
+// pencil and bin. About 320px is pinned now, so roughly nine weeks
+// are on screen at 1440px and seven at 1280px.
 //
 // ---- WHY A TABLE AND NOT THE CSS GRID THAT WAS HERE ----------
 //
@@ -72,8 +101,8 @@ import { simplifyOn } from "@/lib/ui/simplify";
 // expands to four or five, so the track list changes as you click.
 //
 // A table does the two things that then matter for free: rows stay
-// aligned however many cells a header spans, and the first columns
-// pin with `position: sticky` while the weeks scroll under them. The
+// aligned however many cells a header spans, and the name column
+// pins with `position: sticky` while the weeks scroll under it. The
 // old grid needed a test to catch a row emitting the wrong number of
 // cells (grid-alignment.test.ts); colspan is checked by the browser.
 //
@@ -109,8 +138,9 @@ import { simplifyOn } from "@/lib/ui/simplify";
 // ---- TWO COLUMNS TAKE INPUT, NOT ONE -------------------------
 //
 // A week stays open until the end of the following one. The current
-// column and the one that just closed both accept a value; everything
-// older is read to.
+// column and the one that just closed both accept a value, and both
+// are tinted and labelled ("Last week", "This week") so it is obvious
+// where to type.
 //
 // It was the current column alone, which put the page at odds with
 // the Saturday nudge. That runs on a Saturday, asks for the week that
@@ -122,56 +152,28 @@ import { simplifyOn } from "@/lib/ui/simplify";
 // A week locks when the next Saturday comes round, which is the same
 // moment the nudge stops asking for it. One rule, stated once, in two
 // places that now agree.
-//
-// Older weeks stay read-only. A grid where any of fifty-two cells is
-// editable invites somebody to quietly correct a number from April;
-// fixing one of those is a conversation, not a keystroke.
 
-// THE PINNED COLUMNS' WIDTHS.
+// THE PINNED COLUMN'S WIDTH lives in the stylesheet (.gridColName),
+// because it is the one number that changes at phone width (320px,
+// 150px under 640px) and a media query can say that where an inline
+// width cannot.
 //
-// Applied through a <colgroup> on a `table-layout: fixed` table, so
-// the browser sizes the columns from these rather than from their
-// content.
-//
-// THE STICKY OFFSETS ARE NOT COMPUTED FROM THEM. That was the second
-// attempt and it was still wrong by a few pixels per column: cell
-// borders sit outside the column width the colgroup declares, so the
-// running sum of these numbers is not where the next column actually
-// starts. The pinned block drifted as the weeks scrolled under it,
-// by one pixel at Owner and thirty by Target.
-//
-// So the offsets are MEASURED from the rendered header, once, in the
-// same frame that sizes the weeks. Whatever borders and padding
-// actually do, the sticky positions agree with them by construction.
-const PINNED: ReadonlyArray<{ key: string; width: number }> = [
-  { key: "area", width: 150 },
-  { key: "owner", width: 100 },
-  // The row's drag handle, asked for in this position: "between the
-  // owner and the CSF description". It travels with the authoring
-  // columns, so a reader with no seat anywhere is not given 36px of
-  // permanently empty table.
-  { key: "drag", width: 36 },
-  { key: "actions", width: 64 },
-  { key: "name", width: 240 },
-  { key: "freq", width: 96 },
-  { key: "target", width: 84 },
-];
+// ITS STICKY OFFSET IS ZERO, also in the stylesheet. With seven pinned
+// columns the offsets had to be MEASURED from the rendered header:
+// cell borders sit outside the width a colgroup declares, so a running
+// sum of widths drifted by up to thirty pixels. One column has no
+// running sum, so `left: 0` is exact by construction.
 
-function pinnedColumns(authoring: boolean) {
-  return PINNED.filter(
-    (c) => authoring || (c.key !== "actions" && c.key !== "drag")
-  );
-}
-
-// A collapsed month is one narrow column; a week is sized on mount to
-// fill whatever is left, so the open month lands exactly against the
-// pinned block.
+// A collapsed month is one narrow column.
 const CLOSED_MONTH_WIDTH = 44;
-// Room for seven characters in the value box ("12345.6", "152.73"),
-// with the box's 7ch minimum in measures.module.css: 7ch at 13px is
-// about 55px, plus 10px of box padding and border, plus 8px of cell
-// padding.
-const MIN_WEEK_WIDTH = 74;
+// A week column. Narrow, so the history beside the name reads as a
+// row of numbers (about nine at 1440px). Room for seven characters
+// in the value box ("12345.6", "152.73"), with the box's 7ch minimum
+// in measures.module.css: 7ch at 13px is about 55px, plus 10px of box
+// padding and border, plus 8px of cell padding, plus a little air.
+// When the open weeks are fewer than the track holds, they widen to
+// fill it rather than leave a gap after this week.
+const WEEK_WIDTH = 86;
 
 // A new measure, before anything is typed. The column defaults,
 // restated here so the form has something to control.
@@ -186,6 +188,8 @@ const BLANK_MEASURE = {
   show_on_dashboard: true,
 };
 
+type Message = { ok: boolean; text: string };
+
 export function MeasuresGrid({
   data,
   weekEnding,
@@ -193,38 +197,61 @@ export function MeasuresGrid({
 }: {
   data: GridData;
   weekEnding: string;
-  // Whether this caller administers the whole company. It no longer
-  // decides whether the authoring controls appear: 0217 admits a
-  // function's Lead to their own measures, so that question is asked
-  // per function through `canLog`, which carries the same answer.
-  // This only decides whether the actions COLUMN exists at all, so a
-  // reader with no seat anywhere is not given a permanently empty
-  // 64px of table.
+  // Whether this caller works the whole company's numbers
+  // (worksTeamIn: admins, assigned guides, switched-on portfolio
+  // admins, facilitators). It decides which weeks open for typing
+  // (entry-window.ts). Whether a function's controls appear is asked
+  // per function through `canLog`, which carries the same answer or
+  // the function's own Lead.
   isAdmin: boolean;
 }) {
-  // The actions column shows if this caller can author anywhere.
+  // Whether this caller can author anywhere: decides whether the row
+  // handle keeps its space, so names line up across functions.
   const authoring = isAdmin || data.groups.some((g) => g.canLog);
+
+  // ---- LOOKUPS, BUILT ONCE PER DATA -----------------------------
+  //
+  // Every cell used to find its week with `row.cells.find(...)`: a
+  // linear scan of 53 cells, from each box on screen, from every
+  // editable week the server-values map and the save walk (all 52 of
+  // them for an admin), several times a cell per render. A map per row
+  // makes each of those one lookup, and it is rebuilt only when the
+  // server's data changes.
+  const cellsByRow = useMemo(() => {
+    const out = new Map<string, Map<string, GridCell>>();
+    for (const g of data.groups) {
+      for (const r of g.rows) {
+        out.set(r.id, new Map(r.cells.map((c) => [c.weekEnding, c])));
+      }
+    }
+    return out;
+  }, [data.groups]);
+  const cellOf = useCallback(
+    (row: GridRow, week: string) => cellsByRow.get(row.id)?.get(week),
+    [cellsByRow]
+  );
 
   // ---- DRAG TO REORDER ------------------------------------------
   //
   // Two levels, and they are two different permissions.
   //
-  //   A FUNCTIONAL AREA moves among its SIBLINGS. This page renders
-  //   the chart's hierarchy flattened, so a drag across parents would
-  //   be a chart edit wearing a grid's clothes and the next render
-  //   would undo it. In practice it reads as a flat reorder: every
-  //   company on the fleet nests nearly every function under one
-  //   parent, so the areas people reorder are already siblings.
-  //   It writes through reorderFunctionsAction, which is admin and
-  //   guide only — arranging the chart is not a Lead's call.
+  //   A FUNCTIONAL AREA moves among its SIBLINGS, by the handle on its
+  //   band. This page renders the chart's hierarchy flattened, so a
+  //   drag across parents would be a chart edit wearing a grid's
+  //   clothes and the next render would undo it. In practice it reads
+  //   as a flat reorder: every company on the fleet nests nearly every
+  //   function under one parent, so the areas people reorder are
+  //   already siblings. It writes through reorderFunctionsAction,
+  //   which is admin and guide only: arranging the chart is not a
+  //   Lead's call.
   //
-  //   A CRITICAL SUCCESS FACTOR moves within its own area, and that
-  //   is open to whoever may author it: admin, guide, or the
-  //   function's Lead. Same rule as the pencil beside it, asked
+  //   A CRITICAL SUCCESS FACTOR moves within its own area, by the
+  //   handle beside its name, and that is open to whoever may author
+  //   it: admin, guide, facilitator, or the function's Lead. Asked
   //   through `canLog` rather than restated.
   //
   // Both orders are OPTIMISTIC and revert on refusal, and both take
-  // the server's order verbatim whenever nothing is in flight —
+  // the server's order verbatim whenever nothing is in flight:
   // `data` changes on every unrelated edit to this page.
   const [groupOrder, setGroupOrder] = useState(data.groups);
   const [rowOverrides, setRowOverrides] = useState<Record<string, GridRow[]>>(
@@ -245,11 +272,11 @@ export function MeasuresGrid({
   );
 
   // Only groups that render. An empty area has no rows to drag and
-  // no row to hang an area handle on.
+  // no band worth a handle.
   const areaIds = groupOrder.filter((g) => g.rows.length > 0).map((g) => g.functionId);
 
   // COLLISIONS ARE CONFINED TO THE LEVEL BEING DRAGGED, and this is
-  // not a refinement — without it the area drag does nothing at all.
+  // not a refinement: without it the area drag does nothing at all.
   //
   // Both levels register droppables in the same DndContext, so plain
   // closestCenter answers a dragging <tbody> with whichever <tr> is
@@ -260,7 +287,10 @@ export function MeasuresGrid({
   //
   // Filtering the candidates by what is being dragged makes each
   // gesture see only its own kind.
-  const groupIdSet = new Set(groupOrder.map((g) => g.functionId));
+  const groupIdSet = useMemo(
+    () => new Set(groupOrder.map((g) => g.functionId)),
+    [groupOrder]
+  );
   const collisionDetection = useCallback(
     (args: Parameters<typeof closestCenter>[0]) => {
       const activeIsGroup = groupIdSet.has(String(args.active.id));
@@ -273,10 +303,7 @@ export function MeasuresGrid({
         ),
       });
     },
-    // groupIdSet is rebuilt each render from groupOrder, which is the
-    // only thing that changes what is a group.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groupOrder]
+    [groupIdSet]
   );
 
   function siblingIds(group: GridGroup): string[] {
@@ -329,8 +356,8 @@ export function MeasuresGrid({
   // dnd-kit's KeyboardSensor cannot navigate between <tbody>
   // droppables: picking an area up and pressing Down reports "moved
   // over" the area it started on, every time, on all six. The
-  // pointer drag works — measured, an area moved from first to third
-  // — so the gesture is sound and only its keyboard half is not.
+  // pointer drag works (measured, an area moved from first to third),
+  // so the gesture is sound and only its keyboard half is not.
   // Rather than ship a control a keyboard cannot reach, Up and Down
   // move the area directly while its handle has focus.
   function handleAreaKeyDown(
@@ -402,18 +429,24 @@ export function MeasuresGrid({
   // a Lead gets their own, which is the same rule reaching a
   // different answer rather than a second rule.
   const addableGroups = data.groups.filter((g) => g.canLog);
-  // Open on the current month, with the rest closed. A rolling year
-  // is 52 columns and nobody needs 52 at once; the week you are
-  // filling in should be on screen without scrolling to it.
-  const [openMonths, setOpenMonths] = useState<Set<string>>(
-    () => new Set(data.months.filter((m) => m.isCurrent).map((m) => m.key))
-  );
 
-  // WHERE A TYPED VALUE LANDS. Itself for a weekly measure; the
-  // month's own week for a monthly one, whichever box was used.
-  // Storage does not move — see storageWeekFor.
-  const storageWeek = (row: GridRow, week: string) =>
-    storageWeekFor(row.frequency, week);
+  // OPEN ON THIS MONTH AND THE ONE BEFORE IT, with the rest folded.
+  //
+  // A rolling year is 52 columns and nobody needs 52 at once. It was
+  // the current month alone, which fit the old pinned block's
+  // leftovers exactly. With narrow week columns the track holds about
+  // nine, so one month left the track half empty, and early in a
+  // month it left LAST week, the one with a deadline, inside a folded
+  // column. Two months put both open weeks on screen whatever the
+  // date.
+  const [openMonths, setOpenMonths] = useState<Set<string>>(() => {
+    const current = data.months.findIndex((m) => m.isCurrent);
+    return new Set(
+      data.months
+        .filter((_, i) => current >= 0 && (i === current || i === current - 1))
+        .map((m) => m.key)
+    );
+  });
 
   // WHETHER A BOX IS OPEN is the shared entry rule (measures/
   // entry-window.ts), the same one the server checks before it writes
@@ -428,9 +461,12 @@ export function MeasuresGrid({
   // the weeks this caller may type into.
   //
   // Open means open to everyone: the week that just closed and the
-  // current one. That is what the column tint and its tooltip
-  // describe, and it is the window the Friday nudge and the Saturday
-  // sweep work to. Oldest first, so the grid reads left to right.
+  // current one. That is what the lime tint and the "Last week" and
+  // "This week" labels describe, and it is the window the Friday
+  // nudge and the Saturday sweep work to. An admin's wider reach gets
+  // boxes in other weeks but no tint, so the deadline everyone else
+  // works to is never misstated. Oldest first, so the grid reads left
+  // to right.
   const openWeeks = useMemo(
     () =>
       [data.previousWeekEnding, weekEnding].filter(
@@ -442,10 +478,10 @@ export function MeasuresGrid({
   // AN ADMIN MAY EDIT ANY WEEK ON THE PAGE, decided 2026-09-19.
   //
   // Correcting a number from two months ago was "a conversation
-  // rather than a keystroke" — meaning somebody had to ask an
+  // rather than a keystroke", meaning somebody had to ask an
   // engineer. That is not a rule anybody chose, it is the absence of
   // a control, and the lock was never a boundary anyway: the entry
-  // action has no week check at all, so the window was a disabled
+  // action had no week check at all, so the window was a disabled
   // input and nothing more.
   //
   // The window still exists for everyone else, unless the
@@ -459,19 +495,12 @@ export function MeasuresGrid({
     [wideWindow, data.weeks, openWeeks]
   );
 
-  // WHAT THE COUNT CHASES IS THE WEEK THAT JUST CLOSED, not the
-  // current one, because that is the week with a deadline and the one
-  // the Saturday nudge asks about. Two numbers describing one job
-  // have to count the same things; the nudge counts the closed week,
-  // so this does too. The current week is there to type into as you
-  // go and is not late yet.
-  const chasedWeek = data.previousWeekEnding ?? weekEnding;
-  const writableRows = useMemo(
-    () =>
-      data.groups
-        .filter((g) => g.canLog)
-        .flatMap((g) => g.rows.filter((r) => isDueInWeek(r, chasedWeek))),
-    [data.groups, chasedWeek]
+  // THE ROWS THIS CALLER MAY LOG. The strip counts them, the filter
+  // narrows to them and the save writes them: one list, so the three
+  // cannot disagree about whose numbers are whose.
+  const loggableRows = useMemo(
+    () => data.groups.filter((g) => g.canLog).flatMap((g) => g.rows),
+    [data.groups]
   );
 
   // What the server holds for every editable box, keyed by measure AND
@@ -482,16 +511,16 @@ export function MeasuresGrid({
         data.groups.flatMap((g) =>
           g.rows.flatMap((r) =>
             // Keyed by where the value LIVES, not by the column it is
-            // shown in, so a monthly measure's four boxes are one entry
-            // in this map and typing in any of them fills all four.
+            // shown in, so a monthly measure's month is one entry in
+            // this map whichever of its weeks it was typed against.
             editableWeeks.map((w) => {
               const own = storageWeekFor(r.frequency, w);
-              return [cellKey(r.id, own), valueAt(r, own)];
+              return [cellKey(r.id, own), valueAt(r, cellOf(r, own))];
             })
           )
         )
       ),
-    [data.groups, editableWeeks]
+    [data.groups, editableWeeks, cellOf]
   );
   const [values, setValues] = useState<Record<string, string>>(serverValues);
   // FOLLOWS THE SERVER (2026-11-05). The copy above was taken once, so
@@ -507,12 +536,14 @@ export function MeasuresGrid({
     setValues((current) => mergeServerValues(current, previous, serverValues));
   }, [serverValues]);
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
-    null
-  );
+  const [message, setMessage] = useState<Message | null>(null);
   // Which measure's settings are open in the drawer. One at a time,
   // by construction: it is one drawer.
   const [editing, setEditing] = useState<string | null>(null);
+  // Which measure the archive confirmation is asking about, or null.
+  // One dialog for the page: the row menu that opens it unmounts the
+  // moment Archive is chosen.
+  const [archiving, setArchiving] = useState<string | null>(null);
   // Which function the add panel is open on, or null.
   //
   // ADDING WAS LOST IN THE GRID REWRITE. Deleting FunctionSection
@@ -542,22 +573,32 @@ export function MeasuresGrid({
     return () => document.removeEventListener("keydown", onKey);
   }, [editing, adding]);
 
-  // Open with the CURRENT MONTH against the pinned columns, and
-  // every earlier month scrolled off to the left.
+  // ---- THE STRIP ------------------------------------------------
   //
-  // Scrolling to the far right is not the same thing and was the
-  // first attempt: it puts this week on screen but leaves two or
-  // three collapsed months sitting between the measure names and the
-  // weeks, which is exactly the history the collapse was supposed to
-  // get out of the way.
+  // Last week logged, this week entered, on target last week, and the
+  // rows still owed a number (grid-strip.ts, which My week's count
+  // asks too). Read from the LIVE boxes, so a number counts the moment
+  // it is typed, which is what the line it replaced did.
+  const strip = useMemo(
+    () =>
+      summarizeStrip(loggableRows, {
+        lastWeek: data.previousWeekEnding,
+        currentWeek: weekEnding,
+        hasValue: (r, w) => (values[cellKey(r.id, w)] ?? "").trim() !== "",
+      }),
+    [loggableRows, data.previousWeekEnding, weekEnding, values]
+  );
+
+  // SHOW ONLY WHAT NEEDS A NUMBER, as a SNAPSHOT taken when it is
+  // switched on, not a live filter.
   //
-  // Measured from the rendered element rather than summed from the
-  // pinned widths in CSS. Those widths are already duplicated between
-  // the stylesheet and a test; a third copy here would be the one
-  // that goes stale.
-  const outstanding = writableRows.filter(
-    (r) => !(values[cellKey(r.id, chasedWeek)] ?? "").trim()
-  ).length;
+  // Live, a row would vanish the moment its box got a character: the
+  // input unmounts under the cursor and the rest of the number lands
+  // nowhere. Frozen, the rows you were shown stay until you switch the
+  // filter off, and the count on the button keeps falling as you go.
+  const [needsOnly, setNeedsOnly] = useState<Set<string> | null>(null);
+  const toggleNeedsOnly = () =>
+    setNeedsOnly((prev) => (prev ? null : new Set(strip.needsNumber)));
 
   function toggleMonth(key: string) {
     setOpenMonths((prev) => {
@@ -576,19 +617,26 @@ export function MeasuresGrid({
   const autosave = simplifyOn("autosave");
   const saveRef = useRef<(opts?: { quiet?: boolean }) => void>(() => {});
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function scheduleSave() {
+  // STABLE, so a memoized cell is not re-rendered by a new function
+  // every keystroke. It reads the latest save through saveRef.
+  const scheduleSave = useCallback(() => {
     if (!autosave) return;
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     autosaveTimer.current = setTimeout(() => saveRef.current({ quiet: true }), 300);
-  }
+  }, [autosave]);
   useEffect(() => () => {
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+  }, []);
+  // One box's new text, keyed by where its value lives. Stable for
+  // the same reason as scheduleSave.
+  const setValue = useCallback((key: string, v: string) => {
+    setValues((prev) => ({ ...prev, [key]: v }));
   }, []);
 
   function save(opts?: { quiet?: boolean }) {
     setMessage(null);
     // ONLY WHAT CHANGED, compared against what the server currently
-    // holds rather than against a remembered baseline — `data` is
+    // holds rather than against a remembered baseline. `data` is
     // refreshed after every save, so this corrects itself and there
     // is no second copy of the truth to keep in step.
     //
@@ -601,14 +649,14 @@ export function MeasuresGrid({
       .filter((g) => g.canLog)
       .flatMap((g) =>
         g.rows.flatMap((r) =>
-          // DEDUPED ONTO THE STORAGE WEEK. A monthly measure shows a
-          // box in every week of its month and they are one value, so
+          // DEDUPED ONTO THE STORAGE WEEK. A monthly measure shows one
+          // box across its month and every week of it is one value, so
           // without this a save would carry the same row four times.
           Array.from(
             new Set(editableWeeks.map((w) => storageWeekFor(r.frequency, w)))
           )
-            .filter((w) => isDueInWeek(r, w))
-            .filter((w) => (values[cellKey(r.id, w)] ?? "") !== valueAt(r, w))
+            .filter((w) => isDueInWeek(cellOf(r, w)))
+            .filter((w) => (values[cellKey(r.id, w)] ?? "") !== valueAt(r, cellOf(r, w)))
             .map((w) => ({
               measureId: r.id,
               valueType: r.valueType,
@@ -644,10 +692,6 @@ export function MeasuresGrid({
   type Column =
     | { kind: "week"; key: string; month: string }
     | { kind: "month"; key: string; month: string };
-  // WITH SUCCESS TRACKING OFF THERE ARE NO WEEKS. The page is a
-  // place to write down what each function is held to, which is what
-  // the help has always said it degrades to; rendering a year of
-  // empty columns nobody can type into is not that.
   const visibleMonths = data.months;
 
   const columns = useMemo<Column[]>(
@@ -692,6 +736,12 @@ export function MeasuresGrid({
   // and one that cannot be verified is worse. This is a div whose
   // width and offset are arithmetic on the grid's own scroll, which
   // renders identically everywhere and can be dragged in a test.
+  //
+  // KEPT OVER THE PROTOTYPE'S Earlier / This week / Later buttons.
+  // Those page by a fixed step and say nothing about where you are in
+  // the year; the thumb does both, its arrows already page by about a
+  // month, and it is the part of this page with the most hard-won
+  // decisions behind it.
   useEffect(() => {
     const grid = scrollRef.current;
     const track = trackRef.current;
@@ -724,11 +774,16 @@ export function MeasuresGrid({
     const observer = new ResizeObserver(paint);
     observer.observe(grid);
     observer.observe(track);
+    // The table too: a month opening changes the scroll width without
+    // resizing the container, which is what this used to re-subscribe
+    // on every data change to catch.
+    const table = grid.querySelector("table");
+    if (table) observer.observe(table);
     return () => {
       grid.removeEventListener("scroll", paint);
       observer.disconnect();
     };
-  }, [columns, authoring, data]);
+  }, [data.hasRows]);
 
   // Dragging it, and clicking the track to jump.
   useEffect(() => {
@@ -782,12 +837,11 @@ export function MeasuresGrid({
       window.removeEventListener("pointerup", onUp);
       track.removeEventListener("click", onTrackClick);
     };
-  }, []);
+  }, [data.hasRows]);
 
-  // Measure the pinned offsets, size the open month to the track,
-  // then scroll to the end. In that order, and all in one frame,
-  // because each step depends on the layout the one before it
-  // settles.
+  // Measure the pinned column, size the open weeks to the track, then
+  // scroll. In that order, and all in one frame, because each step
+  // depends on the layout the one before it settles.
   //
   // Re-runs whenever the rows or the open months change, which
   // includes the router.refresh() after a measure is added.
@@ -795,22 +849,12 @@ export function MeasuresGrid({
   // ---- IT RESETS BEFORE IT MEASURES ---------------------------
   //
   // Running a second time, after adding a critical success factor,
-  // tore the table apart: the pinned block marched off to the right
-  // leaving a white gap where the names had been, and every collapsed
-  // month vanished.
-  //
-  // Two faults, both from measuring a table this effect had already
-  // changed, and both pushing the same way, which is why a single
-  // extra pass was enough to wreck it.
-  //
-  //   The inline `left` values from the previous run were still on
-  //   the cells, so reading a cell's position returned the ADJUSTED
-  //   position and the new offset came out as the old one plus
-  //   itself.
-  //
-  //   And the grid was scrolled to the end by then, so the sticky
-  //   cells were STUCK: their box was where the scroll had pinned
-  //   them rather than where the layout puts them.
+  // once tore the table apart: the pinned block marched off to the
+  // right leaving a white gap where the names had been, and every
+  // collapsed month vanished. Both faults came from measuring a table
+  // this effect had already changed: the widths it wrote last time,
+  // and a grid scrolled to the end, whose sticky cells are STUCK where
+  // the scroll pinned them rather than where the layout puts them.
   //
   // So every run starts from nothing: clear what the last one wrote,
   // put the scroll back to zero, and only then look.
@@ -852,10 +896,6 @@ export function MeasuresGrid({
       // 0b. Back to a clean slate. Reading scrollLeft after setting it
       //     forces the reflow, so what follows sees the unstuck
       //     layout rather than the one that was on screen.
-      const pinnedCells = Array.from(
-        el.querySelectorAll<HTMLElement>("[data-pin]")
-      );
-      for (const cell of pinnedCells) cell.style.left = "";
       const weekCols = Array.from(
         el.querySelectorAll<HTMLElement>("col[data-week-col]")
       );
@@ -865,56 +905,65 @@ export function MeasuresGrid({
 
       const tableLeft = table.getBoundingClientRect().left;
 
-      // 1a. IS THERE ROOM TO PIN AT ALL?
-      //
-      //     The pinned block is about 770px. On a phone that is two
-      //     and a half screens: sticking it leaves no room for a
-      //     single week beside it, and insetting the scrollbar by it
-      //     pushed a button to x=828 on a 393px viewport, which made
-      //     the whole PAGE scroll sideways. That is what was wrong on
-      //     mobile, and it took the hero and the drawer with it.
-      //
-      //     So below a threshold nothing is pinned and the table
-      //     scrolls as one piece, which is what a phone wants anyway.
-      const roomToPin = el.clientWidth - 160;
+      // 1a. IS THERE ROOM TO PIN AT ALL? Room, that is, for a week
+      //     beside the name. The name column is 150px on a phone,
+      //     which leaves a week or two; on anything narrower than
+      //     that, pinning leaves nothing beside it, and insetting the
+      //     scrollbar by it once pushed a button past the screen's
+      //     edge and made the whole PAGE scroll sideways. So below
+      //     this nothing is pinned and the table scrolls as one piece.
+      const roomToPin = el.clientWidth - 80;
 
-      // 1b. Where each pinned column actually starts. Measured rather
-      //    than summed from the declared widths: cell borders sit
-      //    outside the width a colgroup gives a column, so a running
-      //    sum is not where the next one begins and the block drifted
-      //    as the weeks scrolled under it.
-      let pinnedRight = 0;
-      for (const col of pinnedColumns(authoring)) {
-        const head = el.querySelector<HTMLElement>(
-          `thead [data-pin="${col.key}"]`
-        );
-        if (!head) continue;
-        const box = head.getBoundingClientRect();
-        const left = Math.round(box.left - tableLeft);
-        pinnedRight = Math.round(box.right - tableLeft);
-        if (pinnedRight > roomToPin) break;
-        for (const cell of pinnedCells) {
-          if (cell.dataset.pin === col.key) cell.style.left = `${left}px`;
-        }
-      }
-      // Nothing was pinned, so nothing is to the left of the weeks.
+      // 1b. Where the weeks start: the pinned column's right edge,
+      //     measured, because borders sit outside a colgroup width.
+      const head = el.querySelector<HTMLElement>("thead [data-last-pinned]");
+      let pinnedRight = head
+        ? Math.round(head.getBoundingClientRect().right - tableLeft)
+        : 0;
       const pinning = pinnedRight <= roomToPin;
       el.dataset.pinned = pinning ? "true" : "false";
       if (!pinning) pinnedRight = 0;
 
-      // 2. Share the whole track beside the pinned block among the
-      //    open month's weeks.
+      // 1c. ON OPENING, ENOUGH MONTHS TO FILL THE TRACK. Two months
+      //     can be six weeks early in a month, and six stretched
+      //     across room for eight or nine is the half-empty track the
+      //     narrow columns were meant to end. So open earlier months
+      //     until the weeks fill it, then come back round: the change
+      //     to `columns` re-runs this effect, which sizes and scrolls
+      //     the table it now has. First run only; after that which
+      //     months are open is the reader's business.
+      if (!openedRef.current && pinning) {
+        // Rounded UP: a part-shown week at the left edge says there
+        // is more to scroll to, where stretched columns say there
+        // is not.
+        const wanted = Math.ceil((el.clientWidth - pinnedRight) / WEEK_WIDTH);
+        const firstOpen = data.months.findIndex(
+          (m) => m.key === columns.find((c) => c.kind === "week")?.month
+        );
+        let count = weekCols.length;
+        const earlier: string[] = [];
+        for (let i = firstOpen - 1; i >= 0 && count < wanted; i -= 1) {
+          earlier.push(data.months[i].key);
+          count += data.months[i].weeks.length;
+        }
+        if (earlier.length > 0) {
+          setOpenMonths((prev) => new Set([...prev, ...earlier]));
+          return;
+        }
+      }
+
+      // 2. The open weeks are WEEK_WIDTH each, or wider when there are
+      //    fewer of them than the track beside the name can hold, so
+      //    this week lands at the right-hand edge rather than short
+      //    of it with blank table after.
       //
       //    NOT minus the collapsed months. They are the thing being
       //    scrolled out of sight, so counting them against the track
-      //    makes the open month narrower by exactly the width it
+      //    makes the open weeks narrower by exactly the width they
       //    needed to push them off, and they stay on screen.
       if (weekCols.length > 0) {
         const track = el.clientWidth - pinnedRight;
-        const width = Math.max(
-          MIN_WEEK_WIDTH,
-          Math.floor(track / weekCols.length)
-        );
+        const width = Math.max(WEEK_WIDTH, Math.floor(track / weekCols.length));
         for (const col of weekCols) col.style.width = `${width}px`;
       }
 
@@ -926,14 +975,12 @@ export function MeasuresGrid({
       // 4. Where to leave it.
       //
       //    FIRST TIME: the end, which is this week, with every
-      //    earlier month off the left edge.
+      //    earlier folded month off the left edge.
       //
-      //    EXCEPT WITH NOTHING PINNED, which is the phone. The names
-      //    scroll away with everything else there, so opening at the
-      //    end opens on a column of numbers with no row labels beside
-      //    them. Start at the names instead and let the reader swipe
-      //    to the week; the other way round there is nothing on
-      //    screen to say what is being read.
+      //    EXCEPT WITH NOTHING PINNED. The names scroll away with
+      //    everything else there, so opening at the end opens on a
+      //    column of numbers with no row labels beside them. Start at
+      //    the names instead and let the reader swipe to the week.
       //
       //    EVERY TIME AFTER: back where the reader was. Opening a
       //    month used to throw them to the current week and closing
@@ -963,7 +1010,7 @@ export function MeasuresGrid({
     return () => cancelAnimationFrame(id);
   }, [columns, authoring, data]);
 
-  // NOTHING LOGGED YET IS NOT NOTHING TO SHOW — not to somebody who
+  // NOTHING LOGGED YET IS NOT NOTHING TO SHOW, not to somebody who
   // can add the first one.
   //
   // This returned null whenever no measure existed, which on a
@@ -971,12 +1018,26 @@ export function MeasuresGrid({
   // a hero and then blank space. The page's own branches cover the
   // reader: no functions gets an empty state, and a non-admin with no
   // measures gets a line explaining where they live. The person the
-  // guard actually caught was the ADMIN — the only one who could fix
-  // it — and it handed them a blank screen with no Add button on it.
+  // guard actually caught was the ADMIN, the only one who could fix
+  // it, and it handed them a blank screen with no Add button on it.
   //
   // Found on the PromiseOne instance, where all thirteen companies
   // have functions and no measures at all.
   if (!data.hasRows && !authoring) return null;
+
+  const shownGroups = groupOrder
+    .map((group) => {
+      const rows = rowOrder(group);
+      return {
+        group,
+        rows: needsOnly ? rows.filter((r) => needsOnly.has(r.id)) : rows,
+      };
+    })
+    // An empty band says nothing, and under the filter a function
+    // with nothing owed is exactly what the reader asked to hide.
+    .filter((g) => g.rows.length > 0);
+
+  const showStrip = strip.current.due > 0 || (strip.last?.due ?? 0) > 0;
 
   return (
     <div className={styles.gridStack}>
@@ -987,29 +1048,25 @@ export function MeasuresGrid({
       ) : null}
 
       {/* ONE TOOLBAR, whichever half of it has anything in it.
- 
+
           Both halves used to be gated on Success Tracking as well,
           which meant a company without the flag got a table it could
           read and never type into. The flag says whether the Saturday
           sweep chases you, not whether you may record a number, so
           what shows here is only ever about what this caller may
           write. */}
-      {writableRows.length > 0 || addableGroups.length > 0 ? (
+      {loggableRows.length > 0 || addableGroups.length > 0 ? (
         <div className={styles.gridToolbar}>
-          {writableRows.length > 0 ? (
-            <p
-              className={
-                outstanding === 0 ? styles.outstandingDone : styles.outstanding
-              }
-            >
-              {outstanding === 0
-                ? `All ${writableRows.length} logged for ${weekLabel(chasedWeek)}.`
-                : `${outstanding} of ${writableRows.length} still to log for ${weekLabel(chasedWeek)}.`}
-            </p>
+          {showStrip ? (
+            <StripView
+              strip={strip}
+              needsOnly={needsOnly !== null}
+              onToggleNeeds={toggleNeedsOnly}
+            />
           ) : !data.hasRows ? (
             // The card still has to read as a card. With no measures
             // there is no count to show, so the title takes the slot
-            // the count normally occupies and the Add button keeps
+            // the strip normally occupies and the Add button keeps
             // its place beside it.
             <h2 className={styles.gridEmptyTitle}>
               Critical Success Factors
@@ -1021,11 +1078,11 @@ export function MeasuresGrid({
             <span />
           )}
           <div className={styles.gridToolbarActions}>
-            {writableRows.length > 0 && autosave ? (
+            {loggableRows.length > 0 && autosave ? (
               <span className={styles.autosaveStatus} role="status" aria-live="polite">
                 {pending ? "Saving…" : "Changes save as you go"}
               </span>
-            ) : writableRows.length > 0 ? (
+            ) : loggableRows.length > 0 ? (
               <button
                 type="button"
                 className={uiStyles.btnPrimary}
@@ -1055,21 +1112,15 @@ export function MeasuresGrid({
       ) : null}
 
       {/* THE SCROLLBAR, LIFTED OUT OF THE TABLE.
- 
+
           The native one spans the whole container, including the
-          pinned columns, which says the names scroll and they do not.
+          pinned column, which says the names scroll and they do not.
           It also sits below a table that can be twenty rows tall, so
-          reaching it means scrolling the page first.
- 
-          This is the same scroll, proxied: an empty strip as wide as
-          the table's content, inset to start where the weeks do,
-          synced both ways. The container's own bar is hidden in CSS.
- 
-          `syncing` is a plain ref rather than state: each element's
-          scroll handler sets the other's scrollLeft, which fires that
-          one's handler, and without the flag the two chase each other
-          for a frame. */}
-      {/* Arrows on both ends, so the bar reads as a control rather
+          reaching it means scrolling the page first. This is the same
+          scroll, proxied, inset to start where the weeks do. The
+          container's own bar is hidden in CSS.
+
+          Arrows on both ends, so the bar reads as a control rather
           than as a decorative rule. They page by roughly a month of
           columns, which is the unit this grid is organised in. */}
       {data.hasRows ? (
@@ -1113,92 +1164,44 @@ export function MeasuresGrid({
           >
           <SortableContext items={areaIds} strategy={verticalListSortingStrategy}>
           <table className={styles.grid}>
-            {/* `table-layout: fixed` honours these exactly, which is
-                what makes the sticky offsets above correct. Week
-                columns carry no width here: the effect sizes them to
-                fill the track so the open month lands flush against the
-                pinned block. */}
+            {/* `table-layout: fixed` honours these exactly. The name
+                column's width is the stylesheet's (.gridColName); the
+                weeks start at WEEK_WIDTH and the effect above widens
+                them when there is track to spare. */}
             <colgroup>
-              {pinnedColumns(authoring).map((c) => (
-                <col key={c.key} style={{ width: c.width }} />
-              ))}
+              <col className={styles.gridColName} />
               {columns.map((col) => (
                 <col
                   key={`${col.kind}-${col.key}`}
                   data-week-col={col.kind === "week" ? "" : undefined}
-                  style={
-                    col.kind === "month"
-                      ? { width: CLOSED_MONTH_WIDTH }
-                      : undefined
-                  }
+                  style={{
+                    width: col.kind === "month" ? CLOSED_MONTH_WIDTH : WEEK_WIDTH,
+                  }}
                 />
               ))}
             </colgroup>
+            {/* A SHORT HEADER THAT STAYS PUT. Two rows, about 78px
+                together where the old one was about 170: the months
+                with their fold buttons, then each week as "Wk 1" with
+                the Monday it starts under it. Both rows are sticky to
+                the top of the table's own scroll area, so the weeks
+                stay labelled however far down the functions run. */}
             <thead>
               <tr>
                 {/* rowSpan, so the week-label row below carries only
-                    week labels. Repeating these as empty cells left a
+                    week labels. Repeating it as an empty cell left a
                     tall blank band across the top of the table. */}
                 <th
                   scope="col"
                   rowSpan={2}
-                  className={`${styles.gridPin} ${styles.gridPinArea}`}
-                        data-pin="area"
-                >
-                  Functional Area
-                </th>
-                <th
-                  scope="col"
-                  rowSpan={2}
-                  className={`${styles.gridPin} ${styles.gridPinOwner}`}
-                        data-pin="owner"
-                >
-                  Owner
-                </th>
-                {authoring ? (
-                  <>
-                    <th
-                      scope="col"
-                      rowSpan={2}
-                      className={`${styles.gridPin} ${styles.gridPinDrag}`}
-                      data-pin="drag"
-                    >
-                      <span className={styles.visuallyHidden}>Reorder</span>
-                    </th>
-                    <th
-                      scope="col"
-                      rowSpan={2}
-                      className={`${styles.gridPin} ${styles.gridPinActions}`}
-                      data-pin="actions"
-                    >
-                      <span className={styles.visuallyHidden}>Actions</span>
-                    </th>
-                  </>
-                ) : null}
-                <th
-                  scope="col"
-                  rowSpan={2}
                   className={`${styles.gridPin} ${styles.gridPinName}`}
-                        data-pin="name"
-                >
-                  Critical Success Factor
-                </th>
-                <th
-                  scope="col"
-                  rowSpan={2}
-                  className={`${styles.gridPin} ${styles.gridPinFreq}`}
-                        data-pin="freq"
-                >
-                  Frequency
-                </th>
-                <th
-                  scope="col"
-                  rowSpan={2}
-                  className={`${styles.gridPin} ${styles.gridPinTarget}`}
-                        data-pin="target"
+                  data-pin="name"
                   data-last-pinned=""
                 >
-                  Target
+                  Critical success factor
+                  <small className={styles.gridHeadSub}>
+                    Frequency, target and source
+                  </small>
                 </th>
                 {visibleMonths.map((m) =>
                   openMonths.has(m.key) ? (
@@ -1215,8 +1218,9 @@ export function MeasuresGrid({
                         className={styles.gridMonthButton}
                         onClick={() => toggleMonth(m.key)}
                         aria-expanded
+                        title="Fold into one column"
                       >
-                        <span aria-hidden>▾</span> {m.label}
+                        <span aria-hidden className={styles.gridMonthCaret}>▾</span> {m.label}
                       </button>
                     </th>
                   ) : (
@@ -1233,8 +1237,9 @@ export function MeasuresGrid({
                         className={styles.gridMonthButton}
                         onClick={() => toggleMonth(m.key)}
                         aria-expanded={false}
+                        title="Show its weeks"
                       >
-                        <span aria-hidden>▸</span> {m.label}
+                        <span aria-hidden className={styles.gridMonthCaret}>▸</span> {m.label}
                       </button>
                     </th>
                   )
@@ -1244,30 +1249,40 @@ export function MeasuresGrid({
                 {visibleMonths
                   .filter((m) => openMonths.has(m.key))
                   .flatMap((m) =>
-                    m.weeks.map((w) => (
-                      <th
-                        key={w}
-                        scope="col"
-                        className={
-                          w === weekEnding
-                            ? `${styles.gridWeekHead} ${styles.gridWeekHeadCurrent}`
-                            : openWeeks.includes(w)
+                    m.weeks.map((w) => {
+                      const open = openWeeks.includes(w);
+                      return (
+                        <th
+                          key={w}
+                          scope="col"
+                          className={
+                            open
                               ? `${styles.gridWeekHead} ${styles.gridWeekHeadOpen}`
                               : styles.gridWeekHead
-                        }
-                        title={
-                          openWeeks.includes(w) && w !== weekEnding
-                            ? "Still open: closes when the next week does"
-                            : undefined
-                        }
-                      >
-                        {/* Week 1, Week 2 … of the month, not a date, so
-                            the day it gets logged is the team's call. The
-                            column is still keyed by the Friday underneath
-                            — that is what every value is stored against. */}
-                        Week {weekOfMonth(w)}
-                      </th>
-                    ))
+                          }
+                          title={
+                            open && w !== weekEnding
+                              ? "Still open: closes when this week does"
+                              : undefined
+                          }
+                        >
+                          {/* Wk 1, Wk 2 … of the month, with the Monday
+                              it starts on under it (Option B, Jason
+                              2026-11-06). The column is still keyed by
+                              the Friday underneath: that is what every
+                              value is stored against. */}
+                          Wk {weekOfMonth(w)}
+                          <small className={styles.gridHeadSub}>
+                            {weekStartShort(w)}
+                          </small>
+                          {open ? (
+                            <span className={styles.gridWeekTag}>
+                              {w === weekEnding ? "This week" : "Last week"}
+                            </span>
+                          ) : null}
+                        </th>
+                      );
+                    })
                   )}
               </tr>
             </thead>
@@ -1275,179 +1290,162 @@ export function MeasuresGrid({
                 rendered area; the sibling rule is enforced on drop
                 rather than by splitting this into a context per parent,
                 because dnd-kit will not drag between contexts at all
-                and the useful half of the gesture — seeing the row lift
-                and follow the pointer — should still happen when
-                somebody tries. */}
-            {groupOrder
-              .filter((g) => g.rows.length > 0)
-              .map((group) => {
-              const rows = rowOrder(group);
+                and the useful half of the gesture (seeing the band lift
+                and follow the pointer) should still happen when
+                somebody tries.
+
+                Not while the filter is on. A drag among a filtered
+                handful would be saved as the whole function's order,
+                with the hidden rows' places decided by nobody. */}
+            {shownGroups.map(({ group, rows }) => {
               return (
                 <SortableGroupBody
                   key={group.functionId}
                   id={group.functionId}
-                  enabled={areaIds.length > 1 && siblingIds(group).length > 1}
+                  enabled={
+                    !needsOnly && areaIds.length > 1 && siblingIds(group).length > 1
+                  }
                   rowIds={rows.map((r) => r.id)}
                   onKeyDown={(e) => handleAreaKeyDown(e, group.functionId)}
                 >
-                  {rows.map((row, i) => (
+                  <FunctionBand
+                    group={group}
+                    span={1 + columns.length}
+                  />
+                  {rows.map((row) => (
                     <SortableMeasureRow
                       key={row.id}
                       id={row.id}
-                      enabled={authoring && group.canLog && rows.length > 1}
-                      first={i === 0}
+                      enabled={!needsOnly && group.canLog && rows.length > 1}
                       label={row.description}
-                      showDragCell={authoring}
-                      lead={
-                        i === 0 ? (
-                          <>
-                          {/* Written once per group, spanning its rows, the
-                              way the merged Owner and Functional Area cells
-                              in the spreadsheet already read. */}
-                          {i === 0 ? (
-                            <>
-                              <th
-                                scope="rowgroup"
-                                rowSpan={group.rows.length}
-                                className={`${styles.gridPin} ${styles.gridPinArea} ${styles.gridAreaCell}`}
-                            data-pin="area"
-                              >
-                                <span className={styles.areaCellInner}>
-                                  <AreaDragHandle title={group.functionTitle} />
-                                  <Link
-                                    href={`/chart/function/${group.functionId}`}
-                                    className={styles.fnTitleLink}
-                                  >
-                                    {group.functionTitle}
-                                  </Link>
-                                </span>
-                              </th>
-                              <td
-                                rowSpan={group.rows.length}
-                                className={`${styles.gridPin} ${styles.gridPinOwner} ${styles.gridOwnerCell}`}
-                            data-pin="owner"
-                              >
-                                {group.ownerName ?? (
-                                  <span className={styles.gridNoOwner}>No Lead</span>
-                                )}
-                              </td>
-                            </>
-                          ) : null}
-                          </>
-                        ) : null
-                      }
+                      reserveHandle={authoring}
                     >
-                        {authoring ? (
-                          <td
-                            className={`${styles.gridPin} ${styles.gridPinActions} ${styles.gridActionsCell}`}
-                          data-pin="actions"
+                      {(handle) => (
+                        <>
+                          <th
+                            scope="row"
+                            className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
+                            data-pin="name"
                           >
-                            {group.canLog ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className={styles.gridIconButton}
-                                  onClick={() => setEditing(row.id)}
-                                  aria-label={`Edit ${row.description}`}
-                                  title="Edit"
-                                >
-                                  <PencilIcon />
-                                </button>
-                                <ArchiveMeasureButton measureId={row.id} />
-                              </>
-                            ) : null}
-                          </td>
-                        ) : null}
-                        <th
-                          scope="row"
-                          className={`${styles.gridPin} ${styles.gridPinName} ${styles.gridNameCell}`}
-                          data-pin="name"
-                        >
-                          {row.description}
-                          <ExternalMeasureNote measureId={row.id} />
-                        </th>
-                        <td className={`${styles.gridPin} ${styles.gridPinFreq} ${styles.gridFreqCell}`}
-                          data-pin="freq">
-                          {row.frequencyLabel}
-                        </td>
-                        <td className={`${styles.gridPin} ${styles.gridPinTarget} ${styles.gridTargetCell}`}
-                          data-pin="target">
-                          {row.target ? (
-                            <>
-                              {/* NO ≥ ON A YES/NO MEASURE. "≥ Yes" is
-                                  not a comparison anybody makes, and
-                                  the direction it came from is not
-                                  asked for on a text measure either.
-                                  A target of "Yes" stands alone. */}
-                              {row.valueType === "text" ? null : (
-                                <>
-                                  <span className={styles.gridDir} aria-hidden>
-                                    {row.direction === "higher_is_better"
-                                      ? "≥"
-                                      : "≤"}
-                                  </span>{" "}
-                                </>
-                              )}
-                              {formatMeasureValue(
-                                row.valueType,
-                                row.scale,
-                                { number: parseTypedNumber(row.target), text: row.target },
-                                row.target
-                              )}
-                            </>
-                          ) : (
-                            <span className={styles.gridNoTarget}>Not set</span>
-                          )}
-                        </td>
-                        {cellUnits(row, columns).map((col) =>
-                          col.kind === "month" ? (
-                            <td
-                              key={`${row.id}-${col.key}`}
-                              className={styles.gridClosedCell}
-                            />
-                          ) : (
-                            <GridCellView
-                              key={`${row.id}-${col.key}`}
-                              row={row}
-                              week={col.key}
-                              span={col.span}
-                              isCurrent={col.key === weekEnding}
-                              editable={cellEditable(row, col.key)}
-                              canLog={group.canLog}
-                              storageWeek={storageWeek(row, col.key)}
-                              value={
-                                values[
-                                  cellKey(row.id, storageWeek(row, col.key))
-                                ] ?? ""
-                              }
-                              onChange={(v) =>
-                                setValues((prev) => ({
-                                  ...prev,
-                                  [cellKey(row.id, storageWeek(row, col.key))]: v,
-                                }))
-                              }
-                              onCommit={scheduleSave}
-                              // Not while autosaving: the next cell has
-                              // to stay typeable while the last saves.
-                              disabled={pending && !autosave}
-                            />
-                          )
-                        )}
+                            <div className={styles.nameCellInner}>
+                              {handle}
+                              <div className={styles.nameBlock}>
+                                {/* THE NAME OPENS ITS SETTINGS, where the
+                                    pencil in the actions column did.
+                                    Only for somebody who can change it:
+                                    to a reader it is the name, nothing
+                                    to press. */}
+                                {group.canLog ? (
+                                  <button
+                                    type="button"
+                                    className={styles.nameButton}
+                                    onClick={() => setEditing(row.id)}
+                                    title="Edit its settings"
+                                    data-measure-name=""
+                                  >
+                                    {row.description}
+                                  </button>
+                                ) : (
+                                  <span className={styles.nameText} data-measure-name="">
+                                    {row.description}
+                                  </span>
+                                )}
+                                <MeasureMeta row={row} />
+                                <ExternalMeasureNote measureId={row.id} />
+                              </div>
+                              {group.canLog ? (
+                                <MeasureRowMenu
+                                  row={row}
+                                  onEdit={setEditing}
+                                  onArchive={setArchiving}
+                                  onMessage={setMessage}
+                                />
+                              ) : null}
+                            </div>
+                          </th>
+                          {cellUnits(row, columns).map((col) => {
+                            if (col.kind === "month") {
+                              return (
+                                <td
+                                  key={`${row.id}-${col.key}`}
+                                  className={styles.gridClosedCell}
+                                />
+                              );
+                            }
+                            const own = storageWeekFor(row.frequency, col.key);
+                            const key = cellKey(row.id, own);
+                            return (
+                              <GridCellView
+                                key={`${row.id}-${col.key}`}
+                                row={row}
+                                cell={cellOf(row, own)}
+                                week={col.key}
+                                span={col.span}
+                                open={col.weeks.some((w) => openWeeks.includes(w))}
+                                editable={cellEditable(row, col.key)}
+                                canLog={group.canLog}
+                                storageWeek={own}
+                                valueKey={key}
+                                value={values[key] ?? ""}
+                                onValue={setValue}
+                                onCommit={scheduleSave}
+                                // Not while autosaving: the next cell has
+                                // to stay typeable while the last saves.
+                                disabled={pending && !autosave}
+                              />
+                            );
+                          })}
+                        </>
+                      )}
                     </SortableMeasureRow>
                   ))}
-                  </SortableGroupBody>
-                );
-              })}
+                </SortableGroupBody>
+              );
+            })}
+            {needsOnly && shownGroups.length === 0 ? (
+              <tbody>
+                <tr>
+                  <td colSpan={1 + columns.length} className={styles.gridFilterEmpty}>
+                    Everything due last week and this week has a number.
+                  </td>
+                </tr>
+              </tbody>
+            ) : null}
           </table>
           </SortableContext>
           </DndContext>
         </div>
+
+        <ul className={styles.gridLegend} aria-label="Key">
+          <li>
+            <i className={`${styles.gridLegendSwatch} ${styles.gridLegendOpen}`} aria-hidden />
+            Open for entry: last week and this week
+          </li>
+          <li>
+            <i className={`${styles.gridLegendSwatch} ${styles.gridLegendGood}`} aria-hidden />
+            On target
+          </li>
+          <li>
+            <i className={`${styles.gridLegendSwatch} ${styles.gridLegendOff}`} aria-hidden />
+            Off target
+          </li>
+          <li>
+            <b aria-hidden>·</b> Not due that week
+          </li>
+          <li>A folded month shows only its name. Click it to open its weeks.</li>
+        </ul>
         </>
       ) : (
         <p className={styles.gridEmptyLine}>
           No Critical Success Factors have been created yet.
         </p>
       )}
+
+      <ArchiveMeasureDialog
+        measureId={archiving}
+        onClose={() => setArchiving(null)}
+        onError={(text) => setMessage({ ok: false, text })}
+      />
 
       {editingRow || adding ? (
         <Drawer
@@ -1499,17 +1497,17 @@ export function MeasuresGrid({
 
           {/* CONNECTING A MEASURE TO A SPREADSHEET, back where it
               can be reached.
- 
+
               It used to live in the row's settings strip, and
               deleting ManagedMeasureRow for the grid took it with
               it: the import survived in this form and nothing
               rendered it, so for several commits a company with
               external_measures on had no way to map a measure at
               all. Same shape as the add control disappearing.
- 
+
               Edit only. A mapping needs a measure to hang off,
               and there is no id until the row exists.
- 
+
               It gates itself on the flag through the provider
               this drawer already sits inside, so nothing here
               needs to know whether the company has it. */}
@@ -1538,6 +1536,217 @@ export function MeasuresGrid({
   );
 }
 
+// ---- The strip ---------------------------------------------------
+//
+// What do I still owe? Three chips and a filter, in place of the one
+// line that said "2 of 6 still to log for Week 5 of August". Each chip
+// is shown only when something in it is due: a caller with nothing to
+// log this week is not told "0 of 0".
+function StripView({
+  strip,
+  needsOnly,
+  onToggleNeeds,
+}: {
+  strip: ReturnType<typeof summarizeStrip>;
+  needsOnly: boolean;
+  onToggleNeeds: () => void;
+}) {
+  const { last, current, onTargetLast, needsNumber } = strip;
+  return (
+    <div className={styles.strip}>
+      {last && last.due > 0 ? (
+        <span
+          className={`${styles.stripChip} ${last.logged < last.due ? styles.stripChipTodo : ""}`}
+          data-strip="last"
+        >
+          <span className={styles.stripDot} aria-hidden />
+          Last week ({weekStartShort(last.week)}):{" "}
+          <b>
+            {last.logged} of {last.due}
+          </b>{" "}
+          logged
+        </span>
+      ) : null}
+      {current.due > 0 ? (
+        <span
+          className={`${styles.stripChip} ${current.entered < current.due ? styles.stripChipTodo : ""}`}
+          data-strip="current"
+        >
+          <span className={styles.stripDot} aria-hidden />
+          This week ({weekStartShort(current.week)}):{" "}
+          <b>
+            {current.entered} of {current.due}
+          </b>{" "}
+          entered
+        </span>
+      ) : null}
+      {onTargetLast && onTargetLast.judged > 0 ? (
+        <span className={styles.stripChip} data-strip="on-target">
+          <span
+            className={`${styles.stripDot} ${onTargetLast.good < onTargetLast.judged ? styles.stripDotOff : ""}`}
+            aria-hidden
+          />
+          On target last week:{" "}
+          <b>
+            {onTargetLast.good} of {onTargetLast.judged}
+          </b>
+        </span>
+      ) : null}
+      {needsOnly || needsNumber.length > 0 ? (
+        <button
+          type="button"
+          className={needsOnly ? uiStyles.btnPrimary : uiStyles.btnSecondary}
+          onClick={onToggleNeeds}
+          aria-pressed={needsOnly}
+        >
+          {needsOnly ? "Showing only what needs a number" : "Show only what needs a number"}{" "}
+          ({needsNumber.length})
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ---- The band above a function's rows ----------------------------
+//
+// Handle, name, Lead and how many measures, once per function. The
+// label sticks to the left of the table's scroll area, so it stays
+// beside the names while the weeks slide under the rest of the band.
+function FunctionBand({ group, span }: { group: GridGroup; span: number }) {
+  const count = group.rows.length;
+  return (
+    <tr className={styles.gridBand}>
+      <th scope="rowgroup" colSpan={span} className={styles.gridBandCell}>
+        <div className={styles.gridBandInner}>
+          <AreaDragHandle title={group.functionTitle} />
+          <Link
+            href={`/chart/function/${group.functionId}`}
+            className={styles.bandName}
+            data-area-title=""
+          >
+            {group.functionTitle}
+          </Link>
+          {group.ownerName ? (
+            <span className={styles.bandLead}>Lead: {group.ownerName}</span>
+          ) : (
+            <span className={styles.bandNoLead}>No Lead</span>
+          )}
+          <span className={styles.bandCount}>
+            {count} {count === 1 ? "measure" : "measures"}
+          </span>
+        </div>
+      </th>
+    </tr>
+  );
+}
+
+// The outside systems a value can be pulled from (0259), as people
+// know them.
+const SOURCE_NAMES: Record<string, string> = { hubspot: "HubSpot", google_sheet: "Google Sheets" };
+const sourceName = (origin: string) => SOURCE_NAMES[origin] ?? origin;
+
+// "Weekly · ≥ 200,000 · Google Sheets": what the Frequency and Target
+// columns said, plus where the number comes from when it is connected.
+function MeasureMeta({ row }: { row: GridRow }) {
+  const info = useExternalMeasure(row.id);
+  const source = info?.mapping ? sourceName(info.mapping.connector) : null;
+  return (
+    <div className={styles.nameMeta}>
+      {row.frequencyLabel}
+      {" · "}
+      {row.target ? (
+        <span className={styles.nameMetaTarget}>
+          {/* NO ≥ ON A YES/NO MEASURE. "≥ Yes" is not a comparison
+              anybody makes, and the direction it came from is not
+              asked for on a text measure either. A target of "Yes"
+              stands alone. */}
+          {row.valueType === "text"
+            ? null
+            : row.direction === "higher_is_better"
+              ? "≥ "
+              : "≤ "}
+          {formatMeasureValue(
+            row.valueType,
+            row.scale,
+            { number: parseTypedNumber(row.target), text: row.target },
+            row.target
+          )}
+        </span>
+      ) : (
+        "No target"
+      )}
+      {source ? (
+        <>
+          {" · "}
+          <span className={styles.nameMetaSource}>{source}</span>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+// The ⋯ on a row: Edit settings, Pull now when the measure is
+// connected and this caller may pull, and Archive. It replaced the
+// pencil and bin in their own pinned column. No Move up or Move down:
+// the handle beside the name does that, by pointer or by keyboard.
+//
+// PULL NOW IS THE DRAWER'S PULL NOW, the same action on the same
+// default week (defaultPullWeek), without the week picker. Refreshes
+// the page on success for the same reason the drawer does: the value,
+// its status and its receipt change together, and re-deriving any of
+// them here would be a second source of truth for a number.
+function MeasureRowMenu({
+  row,
+  onEdit,
+  onArchive,
+  onMessage,
+}: {
+  row: GridRow;
+  onEdit: (id: string) => void;
+  onArchive: (id: string) => void;
+  onMessage: (m: Message) => void;
+}) {
+  const info = useExternalMeasure(row.id);
+  const { canPull, weeks } = useExternalMeasures();
+  const router = useRouter();
+  const [pulling, startPull] = useTransition();
+  const mapping = info?.mapping ?? null;
+
+  const items: RowMenuItem[] = [
+    { label: "Edit settings", onSelect: () => onEdit(row.id) },
+  ];
+  if (mapping && canPull) {
+    items.push({
+      label: pulling ? "Pulling…" : "Pull now",
+      disabled: pulling,
+      onSelect: () =>
+        startPull(async () => {
+          const result = await pullExternalMeasureAction(
+            row.id,
+            defaultPullWeek(mapping, weeks)
+          );
+          onMessage({ ok: result.ok, text: result.message });
+          if (result.ok) router.refresh();
+        }),
+    });
+  }
+  items.push({
+    label: "Archive",
+    separatorBefore: true,
+    onSelect: () => onArchive(row.id),
+  });
+
+  return (
+    <RowMenu
+      ariaLabel={`More for ${row.description}`}
+      label={<span aria-hidden>⋯</span>}
+      caret={false}
+      items={items}
+      triggerClassName={styles.rowMenuButton}
+    />
+  );
+}
+
 // WHAT A ROW ACTUALLY DRAWS, which is not always one cell per column.
 //
 // A weekly measure draws the columns as they are. A MONTHLY one
@@ -1547,8 +1756,8 @@ export function MeasuresGrid({
 // values that happen to match.
 //
 // It also solves a problem the per-week version could not. A monthly
-// value lands on the last week beginning in its month — September's
-// ends 2 October — which is a week the grid has not drawn yet. A cell
+// value lands on the last week beginning in its month (September's
+// ends 2 October), which is a week the grid has not drawn yet. A cell
 // addressed by MONTH does not care: it spans whatever columns of its
 // month are on screen and writes to the month's own week either way,
 // so no future column has to appear on the page.
@@ -1557,7 +1766,7 @@ export function MeasuresGrid({
 // this changes nothing there.
 type CellUnit =
   | { kind: "month"; key: string; span: 1 }
-  | { kind: "week"; key: string; span: number };
+  | { kind: "week"; key: string; span: number; weeks: string[] };
 
 function cellUnits(
   row: GridRow,
@@ -1569,7 +1778,7 @@ function cellUnits(
     return columns.map((c) =>
       c.kind === "month"
         ? { kind: "month", key: c.key, span: 1 }
-        : { kind: "week", key: c.key, span: 1 }
+        : { kind: "week", key: c.key, span: 1, weeks: [c.key] }
     );
   }
   const out: CellUnit[] = [];
@@ -1585,53 +1794,61 @@ function cellUnits(
       monthKeyOf(last.key) === monthKeyOf(col.key)
     ) {
       last.span += 1;
+      last.weeks.push(col.key);
       continue;
     }
-    out.push({ kind: "week", key: col.key, span: 1 });
+    out.push({ kind: "week", key: col.key, span: 1, weeks: [col.key] });
   }
   return out;
 }
 
-function GridCellView({
+// MEMOIZED, and every prop it takes is stable unless its own value
+// changed: the row and cell come from `data`, the callbacks are
+// useCallback'd, and the value is this box's string. Typing used to
+// re-render every cell on the page on every keystroke (rows times
+// visible weeks, because each got fresh closures); now it re-renders
+// the one being typed in.
+const GridCellView = memo(function GridCellView({
   row,
+  cell,
   week,
   span,
   storageWeek,
-  isCurrent,
+  open,
   editable,
   canLog,
+  valueKey,
   value,
-  onChange,
+  onValue,
   onCommit,
   disabled,
 }: {
   row: GridRow;
+  // This box's week as the server sees it, at its storage week.
+  cell: GridCell | undefined;
   week: string;
   // How many week columns this cell covers. Always 1 except on a
   // monthly measure, where one cell spans its month.
   span: number;
   // WHERE THIS CELL'S VALUE ACTUALLY LIVES. The same week for a
   // weekly measure. For a monthly one it is the month's own week, so
-  // every box across the month reads and writes one number — which is
-  // also why they all show the same figure and the same status.
+  // the one box across the month reads and writes one number.
   storageWeek: string;
-  isCurrent: boolean;
+  // One of the two weeks open to everyone: tinted lime, whoever is
+  // looking and whether or not they can type in it.
+  open: boolean;
   // Whether this cell still accepts a value. For a monthly measure
   // that is true across its whole month, not only on the week the
   // value lands in.
   editable: boolean;
   canLog: boolean;
+  valueKey: string;
   value: string;
-  onChange: (v: string) => void;
+  onValue: (key: string, v: string) => void;
   // Leaving the cell, for autosave.
-  onCommit?: () => void;
+  onCommit: () => void;
   disabled: boolean;
 }) {
-  const cell = row.cells.find((c) => c.weekEnding === storageWeek);
-  // A monthly measure is ONE cell across its month, so the block is
-  // said by the cell itself rather than by bracketing four of them.
-  // NO LABEL — the Frequency column already says "Monthly", and there
-  // is no room for words in a cell that is mostly input.
   const monthly = row.frequency === "monthly";
   // NO LONGER DRAWN. This used to put a 2px amber rule down the left
   // edge of the cell where a new target took effect. It read as an
@@ -1639,31 +1856,38 @@ function GridCellView({
   // and it drew the eye to the one thing on the row that was not a
   // value. Removed at Jason's request, 2026-09-19.
   //
-  // The change is still KNOWN, and still explains itself on hover —
-  // "Target changed from 98% to 0" — which is the honest half of what
-  // this was for. A cell going from green to red because the target
-  // moved, with nothing anywhere saying so, is the thing worth
-  // avoiding; a coloured rule down the table was not the way.
+  // The change is still KNOWN, and still explains itself on hover
+  // ("Target changed from 98% to 0"), which is the honest half of what
+  // this was for.
   const change = row.targetChanges.get(storageWeek);
   const [focused, setFocused] = useState(false);
 
-  // Not expected: render nothing at all. Not a dash, not a zero, not
-  // a muted dot. A monthly row is blank three weeks in four and any
-  // mark in those cells reads as a week somebody skipped.
+  // Not expected: a muted dot (Option B). A fortnightly measure's off
+  // week, or a week before the measure existed. It used to render as
+  // nothing at all, because a monthly row was blank three weeks in
+  // four and any mark there read as a skipped week; a monthly row is
+  // one cell across its month now, so the dot only ever lands where
+  // "not due" is the true and useful thing to say.
   if (!cell || !cell.expected) {
     return (
-      <td className={styles.gridNotDue} colSpan={span} aria-hidden />
+      <td
+        className={`${styles.gridNotDue} ${open ? styles.gridCellOpen : ""}`}
+        colSpan={span}
+        title="Not due this week"
+      >
+        <span aria-hidden>·</span>
+      </td>
     );
   }
 
+  // STATUS COLOUR, from the cell's own status: cellStatus in grid.ts,
+  // judged against the target in force that week. Green on target,
+  // red off it, nothing for no target or no value. The open weeks
+  // keep their lime; a box there shows its status on its left edge.
   const className = [
     styles.gridCell,
     styles[`gridCell_${cell.status}`],
-    isCurrent ? styles.gridCellCurrent : "",
-    // The just-closed week reads as open too, more quietly than this
-    // week: it is the one with a deadline, not the one you are
-    // filling in as you go.
-    editable && !isCurrent ? styles.gridCellOpen : "",
+    open ? styles.gridCellOpen : "",
     monthly ? styles.gridMonthBlock : "",
   ]
     .filter(Boolean)
@@ -1679,27 +1903,33 @@ function GridCellView({
   const title = [targetTitle, changeTitle].filter(Boolean).join(". ") || undefined;
 
   if (editable && canLog) {
+    const month = monthKeyOf(storageWeek);
     return (
       <td className={className} colSpan={span} title={title}>
         <input
           className={styles.gridInput}
           // TEXT, NOT NUMBER, so a resting box can read "12,500" or
-          // "95%" — a number input will not hold a comma. While the box
+          // "95%": a number input will not hold a comma. While the box
           // has focus it shows the bare figure, which is what gets typed
           // and saved; the formatting is display only.
           type="text"
           inputMode={row.valueType === "text" ? undefined : "decimal"}
           value={focused ? value : entryDisplay(row, value)}
+          // ONE VALUE FOR THE MONTH, and the box says so: it spans the
+          // month's weeks and reads "Nov value" until it has one, so
+          // it is not mistaken for one week's box that happens to be
+          // wide.
+          placeholder={monthly ? `${monthLabel(month).slice(0, 3)} value` : undefined}
           onFocus={() => setFocused(true)}
           onBlur={() => {
             setFocused(false);
-            onCommit?.();
+            onCommit();
           }}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onValue(valueKey, e.target.value)}
           disabled={disabled}
           aria-label={
             monthly
-              ? `${row.description}, ${monthLabel(monthKeyOf(storageWeek))}`
+              ? `${row.description}, ${monthLabel(month)}`
               : `${row.description}, ${weekLabel(week)}`
           }
         />
@@ -1707,17 +1937,15 @@ function GridCellView({
     );
   }
 
+  // A due week with no value is BLANK, not a dot: the dot means "not
+  // due" (the key under the table says so), and a week somebody still
+  // owes is not that.
   return (
     <td className={className} colSpan={span} title={title}>
-      {cell.displayValue || <span className={styles.gridEmpty} aria-hidden />}
+      {cell.displayValue}
     </td>
   );
-}
-
-// The outside systems a value can be pulled from (0259), as people
-// know them.
-const SOURCE_NAMES: Record<string, string> = { hubspot: "HubSpot", google_sheet: "Google Sheets" };
-const sourceName = (origin: string) => SOURCE_NAMES[origin] ?? origin;
+});
 
 // "Changed by Sam on Oct 19, 2:14 PM. Was 12 (pulled from HubSpot)."
 function describeChange(c: NonNullable<GridCell["lastChange"]>): string {
@@ -1736,8 +1964,10 @@ function cellKey(measureId: string, week: string): string {
   return `${measureId}|${week}`;
 }
 
-function isDueInWeek(row: GridRow, week: string): boolean {
-  return row.cells.find((c) => c.weekEnding === week)?.expected ?? false;
+// Given the cell rather than the row and week, so the caller looks it
+// up once in the grid's per-row map.
+function isDueInWeek(cell: GridCell | undefined): boolean {
+  return cell?.expected ?? false;
 }
 
 // What goes IN the input box, which is the measure's own unit rather
@@ -1749,8 +1979,7 @@ function isDueInWeek(row: GridRow, week: string): boolean {
 // typed: the sheet pull stores whole units. Rounded to 152.73 by
 // toEntryText, the same as everywhere else the value appears
 // (formatMeasureValue). Plain numbers keep what was entered.
-function valueAt(row: GridRow, week: string): string {
-  const cell = row.cells.find((c) => c.weekEnding === week);
+function valueAt(row: GridRow, cell: GridCell | undefined): string {
   if (!cell?.value) return "";
   if (row.valueType === "text") return cell.value.text ?? "";
   if (cell.value.number == null || !Number.isFinite(cell.value.number)) return "";
@@ -1774,9 +2003,9 @@ function entryDisplay(row: GridRow, typed: string): string {
 }
 
 function ChevronIcon({ direction }: { direction: "left" | "right" }) {
-  // Same geometry as PlusIcon and the row actions: a 16 viewbox drawn
-  // at 14px, 1.4 stroke, round caps. Anything else reads as a second
-  // icon set at the same size.
+  // Same geometry as PlusIcon: a 16 viewbox drawn at 14px, 1.4
+  // stroke, round caps. Anything else reads as a second icon set at
+  // the same size.
   return (
     <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden focusable="false">
       <path
@@ -1796,11 +2025,13 @@ function ChevronIcon({ direction }: { direction: "left" | "right" }) {
 // A <tbody> per functional area, and a sortable <tr> inside it. The
 // grouping is what makes an AREA draggable at all: an area is a run
 // of rows, and a run of rows is only a DOM node if it has its own
-// tbody. A table may carry as many as it likes.
+// tbody. A table may carry as many as it likes. The band is the
+// tbody's first row, so it travels with its measures.
 //
-// THE AREA HANDLE LIVES IN THE AREA CELL, which the parent renders
-// as `lead`, so its drag props have to reach across. A context is
-// the cheapest way that does not turn every cell into a render prop.
+// THE AREA HANDLE LIVES IN THE BAND, which is a child of the tbody
+// rather than the tbody itself, so its drag props have to reach
+// across. A context is the cheapest way that does not turn every
+// cell into a render prop.
 const GroupDragContext = createContext<{
   enabled: boolean;
   attributes: Record<string, unknown>;
@@ -1808,7 +2039,7 @@ const GroupDragContext = createContext<{
   onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
 }>({ enabled: false, attributes: {}, listeners: {}, onKeyDown: () => {} });
 
-export function AreaDragHandle({ title }: { title: string }) {
+function AreaDragHandle({ title }: { title: string }) {
   const { enabled, attributes, listeners, onKeyDown } =
     useContext(GroupDragContext);
   if (!enabled) return null;
@@ -1870,8 +2101,8 @@ function SortableGroupBody({
         style={{
           transform: CSS.Transform.toString(transform),
           transition,
-          // Not `opacity: 0`: the row has to stay legible while it
-          // moves, because what you are aiming at is the area name.
+          // Not `opacity: 0`: the rows have to stay legible while they
+          // move, because what you are aiming at is the area name.
           opacity: isDragging ? 0.6 : 1,
         }}
         data-dragging={isDragging ? "true" : undefined}
@@ -1887,32 +2118,44 @@ function SortableGroupBody({
 function SortableMeasureRow({
   id,
   enabled,
-  first,
   label,
-  showDragCell,
-  lead,
+  reserveHandle,
   children,
 }: {
   id: string;
   enabled: boolean;
-  first: boolean;
   label: string;
-  // Whether the column exists at all. It travels with the authoring
-  // columns, so a reader is not given 36px of permanently empty
-  // table — but a cell still has to be emitted for every row when it
-  // does exist, or the row runs a column short and every cell after
-  // it slides one place left.
-  showDragCell: boolean;
-  lead: ReactNode;
-  children: ReactNode;
+  // Whether to keep the handle's space when there is no handle, so
+  // names line up between functions this caller can and cannot
+  // reorder. A reader who can author nowhere gets no gap at all.
+  reserveHandle: boolean;
+  // The row's cells, handed the handle to place beside the name. A
+  // render prop because the handle needs this row's drag props and
+  // lives two elements down, inside the pinned name cell.
+  children: (handle: ReactNode) => ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id, disabled: !enabled });
 
+  const handle = enabled ? (
+    <button
+      type="button"
+      className={styles.rowDragHandle}
+      aria-label={`Reorder ${label}`}
+      title="Drag to reorder"
+      {...attributes}
+      {...listeners}
+    >
+      <span aria-hidden="true">⠿</span>
+    </button>
+  ) : reserveHandle ? (
+    <span className={styles.rowDragSpacer} aria-hidden />
+  ) : null;
+
   return (
     <tr
       ref={setNodeRef}
-      className={first ? styles.gridGroupStart : undefined}
+      className={styles.gridRow}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -1920,27 +2163,7 @@ function SortableMeasureRow({
       }}
       data-dragging={isDragging ? "true" : undefined}
     >
-      {lead}
-      {showDragCell ? (
-        <td
-          className={`${styles.gridPin} ${styles.gridPinDrag} ${styles.gridDragCell}`}
-          data-pin="drag"
-        >
-          {enabled ? (
-            <button
-              type="button"
-              className={styles.rowDragHandle}
-              aria-label={`Reorder ${label}`}
-              title="Drag to reorder"
-              {...attributes}
-              {...listeners}
-            >
-              <span aria-hidden="true">⠿</span>
-            </button>
-          ) : null}
-        </td>
-      ) : null}
-      {children}
+      {children(handle)}
     </tr>
   );
 }
