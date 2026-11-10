@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
-import { scopedCompanyId } from "@/lib/auth/permissions";
+import { COMPANY_ADMIN_ROLES, isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
@@ -14,7 +14,7 @@ export async function createGoalAction(
   _prev: PlanResult<AnnualGoal> | undefined,
   formData: FormData
 ): Promise<PlanResult<AnnualGoal>> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -67,7 +67,7 @@ export async function updateGoalAction(
   _prev: PlanResult<AnnualGoal> | undefined,
   formData: FormData
 ): Promise<PlanResult<AnnualGoal>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing goal id." };
 
@@ -118,10 +118,7 @@ export async function updateGoalStatusAction(
     .maybeSingle<AnnualGoal>();
   if (!existing) return { ok: false, message: "Goal not found." };
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    (session.profile.role === "company_admin" &&
-      session.profile.company_id === existing.company_id);
+  const isAdmin = isAdminForCompany(session.profile, existing.company_id);
   const isOwner = existing.owner_id === session.profile.id;
   if (!isAdmin && !isOwner) {
     return { ok: false, message: "You can't change this status." };
@@ -144,7 +141,7 @@ export async function archiveGoalAction(
   goalId: string,
   archived: boolean
 ): Promise<PlanResult<AnnualGoal>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("annual_goals")
@@ -162,7 +159,7 @@ export async function setGoalSfaAction(
   goalId: string,
   sfaId: string | null
 ): Promise<PlanResult<AnnualGoal>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("annual_goals")

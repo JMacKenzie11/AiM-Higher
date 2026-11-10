@@ -72,6 +72,12 @@ export default async function CompanyDetailPage({
   // not, and Delete is the one to look at twice.
   const isPortfolioAdmin = session.profile.role === "portfolio_admin";
   const managesContainer = isSystemAdmin || isPortfolioAdmin;
+  // A portfolio admin a system admin switched on as this company's
+  // admin (0245) does what its company_admin does (Jason, 2026-11-09),
+  // so the company admin cards below are theirs too.
+  const isSwitchedOnPortfolioAdmin =
+    isPortfolioAdmin && isAdminForCompany(session.profile, id);
+  const actsAsCompanyAdmin = isCompanyAdmin || isSwitchedOnPortfolioAdmin;
   // A guide can only view companies they're assigned to; a company
   // admin can only view their own company. isAdminForCompany covers
   // both cases (see src/lib/auth/permissions.ts).
@@ -146,7 +152,7 @@ export default async function CompanyDetailPage({
   // who might see the Planning cycle card (system admin or company
   // admin). Guides never see the card so they skip the query.
   const resetImpact =
-    isSystemAdmin || isCompanyAdmin
+    isSystemAdmin || actsAsCompanyAdmin
       ? await getBulkResetImpact(company.id)
       : { sfaCount: 0, goalCount: 0, priorityCount: 0 };
   // The Quarter card goes to whoever may roll the quarter, which is
@@ -186,7 +192,7 @@ export default async function CompanyDetailPage({
   // people. The membership trigger in 0235 refuses anybody else, so
   // a wider list would be a list of options that cannot be chosen.
   const championCandidates: ChampionCandidate[] =
-    isSystemAdmin || isCompanyAdmin
+    isSystemAdmin || actsAsCompanyAdmin
       ? (
           (
             await supabase
@@ -214,10 +220,10 @@ export default async function CompanyDetailPage({
     mcpOpenTo(session.profile.role) &&
     (isSystemAdmin || isCompanyAdmin || session.profile.role === "aims_guide");
   const connectionsCard = isAdminForCompany(session.profile, company.id);
-  const championCard = isSystemAdmin || isCompanyAdmin;
+  const championCard = isSystemAdmin || actsAsCompanyAdmin;
   const assignedCard = managesContainer || isCompanyAdmin;
   const industryCard = managesContainer || isCompanyAdmin;
-  const startOverCard = (isSystemAdmin || isCompanyAdmin) && hasResettable;
+  const startOverCard = (isSystemAdmin || actsAsCompanyAdmin) && hasResettable;
 
   return (
     <div className={styles.stage}>

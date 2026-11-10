@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
-import { scopedCompanyId } from "@/lib/auth/permissions";
+import { COMPANY_ADMIN_ROLES, isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { trackAfter } from "@/lib/analytics/track";
 import { nullableString } from "@/lib/utils";
@@ -15,7 +15,7 @@ export async function createPriorityAction(
   _prev: PlanResult<Priority> | undefined,
   formData: FormData
 ): Promise<PlanResult<Priority>> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -78,7 +78,7 @@ export async function updatePriorityAction(
   _prev: PlanResult<Priority> | undefined,
   formData: FormData
 ): Promise<PlanResult<Priority>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, message: "Missing priority id." };
 
@@ -133,10 +133,7 @@ export async function updatePriorityStatusAction(
     .maybeSingle<Priority>();
   if (!existing) return { ok: false, message: "Action not found." };
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    (session.profile.role === "company_admin" &&
-      session.profile.company_id === existing.company_id);
+  const isAdmin = isAdminForCompany(session.profile, existing.company_id);
   const isOwner = existing.owner_id === session.profile.id;
   if (!isAdmin && !isOwner) {
     return { ok: false, message: "You can't change this status." };
@@ -167,7 +164,7 @@ export async function archivePriorityAction(
   priorityId: string,
   archived: boolean
 ): Promise<PlanResult<Priority>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("priorities")
@@ -188,7 +185,7 @@ export async function setPriorityParentAction(
   priorityId: string,
   parentValue: string
 ): Promise<PlanResult<Priority>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("priorities")

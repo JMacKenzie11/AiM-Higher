@@ -57,6 +57,27 @@ export function isAdminForCompany(
 }
 
 /**
+ * The roles that can hold a company's admin powers somewhere: the
+ * first door of a company admin action, before the per-company check.
+ *
+ * A switched-on portfolio admin is that company's admin and may do
+ * everything its company_admin can (Jason, 2026-11-09), so the role is
+ * on this list. Passing requireRole(COMPANY_ADMIN_ROLES) answers only
+ * "could this caller be an admin anywhere". The company is decided
+ * after it: by isAdminForCompany in the action, or by RLS, whose
+ * content write rules call is_content_admin_for() (0245) and admit
+ * an assigned guide and a switched-on portfolio admin only. An
+ * action that writes through the service-role client has no RLS
+ * behind it and MUST ask isAdminForCompany itself.
+ */
+export const COMPANY_ADMIN_ROLES: Role[] = [
+  "system_admin",
+  "company_admin",
+  "aims_guide",
+  "portfolio_admin",
+];
+
+/**
  * true if the caller may start a coaching conversation about this
  * person: the Coach button, the action that starts one, and the page
  * that lists them all ask this (open data, phase E; Jason 2026-10-01).

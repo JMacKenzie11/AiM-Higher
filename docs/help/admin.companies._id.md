@@ -47,7 +47,7 @@ Everything on the page:
 - **See who else administers the company** under Assigned access.
 - **See the meeting transcript folders.**
 
-Choosing the AiMS champion, rolling the quarter and starting the strategy again are done by the company's own admins.
+Where a system admin has made you this company's admin, you can also choose the AiMS champion, roll the quarter and start the strategy again, the same as its admins. Otherwise, those are done by the company's own admins.
 :::
 
 ::: role aims_guide

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserStrength } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -48,21 +49,18 @@ export async function saveUserStrengthsAction(
   const userId = String(formData.get("user_id") ?? "");
   if (!userId) return { ok: false, message: "Missing user id." };
 
-  // Authorization: self, system_admin, or same-company company_admin.
-  if (userId !== session.profile.id) {
-    if (session.profile.role === "system_admin") {
-      // ok
-    } else if (session.profile.role === "company_admin") {
-      const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-      const { data: target } = await supabase
-        .from("profiles")
-        .select("company_id")
-        .eq("id", userId)
-        .maybeSingle<{ company_id: string | null }>();
-      if (!target || target.company_id !== session.profile.company_id) {
-        return { ok: false, message: "Not your user to edit." };
-      }
-    } else {
+  // Authorization: self, system_admin, or the subject's company's
+  // admins: its company_admin, an assigned guide, a portfolio admin a
+  // system admin switched on as its admin (Jason, 2026-11-09). RLS
+  // says the same: user_strengths_*_content_admin (0322).
+  if (userId !== session.profile.id && session.profile.role !== "system_admin") {
+    const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+    const { data: target } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", userId)
+      .maybeSingle<{ company_id: string | null }>();
+    if (!target?.company_id || !isAdminForCompany(session.profile, target.company_id)) {
       return { ok: false, message: "You can't edit that user's strengths." };
     }
   }

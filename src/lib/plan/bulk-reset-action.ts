@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
-import { isAdminForCompany } from "@/lib/auth/permissions";
+import { COMPANY_ADMIN_ROLES, isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
@@ -24,7 +24,7 @@ export type BulkResetResult =
 export async function bulkResetPlanAction(
   companyId: string
 ): Promise<BulkResetResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
 
   // isAdminForCompany, not a hand-rolled check on company_admin.
   //
@@ -47,9 +47,9 @@ export async function bulkResetPlanAction(
   // company_admin on their own company, and aims_guide on their
   // assignments — which is the rule this was trying to express, and
   // the one every other write path on these tables already uses.
-  // portfolio_admin is absent from requireRole above and from this
-  // helper, both correctly: archiving a company's plan is a content
-  // write, and that role has none.
+  // It also admits a portfolio_admin a system admin switched on as
+  // this company's admin (0245), who may do what its company_admin
+  // does; one who is only assigned is refused here.
   if (!isAdminForCompany(session.profile, companyId)) {
     return { ok: false, message: "Not your company to reset." };
   }

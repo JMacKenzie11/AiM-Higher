@@ -23,6 +23,10 @@ The AiMS strengths assessment: a short set of questions that gives you a persona
 - **Get a team recommendation.** Click *Recommend a team*, describe a mission and get a suggested team shape.
 :::
 
+::: role portfolio_admin
+- **Build and recommend teams**, where a system admin has made you the company's admin. On *Teams*, use the *Create a team* card or *Recommend a team*, the same as its admins.
+:::
+
 ## How to take the assessment
 
 1. Open *My assessment* and click *Start the assessment*.

@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
 import { isCompanyRole } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { COMPANY_ADMIN_ROLES, isAdminForCompany } from "@/lib/auth/permissions";
 
 // People-management actions used by /people (Section 8.6) and /profile.
 // Editing anyone else's profile is admin-only. Self-edit is allowed for
@@ -188,9 +189,26 @@ export async function setProfileStatusAction(
   personId: string,
   status: "active" | "inactive"
 ): Promise<ProfileResult> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  // The company's admins only, a switched-on portfolio admin among them
+  // (Jason, 2026-11-09). Asked here, not left to RLS: the profiles
+  // guide rules call is_guide_for(), which since 0199 also admits a
+  // portfolio admin who is only assigned.
+  const { data: subject } = await supabase
+    .from("profiles")
+    .select("company_id")
+    .eq("id", personId)
+    .maybeSingle<Pick<Profile, "company_id">>();
+  if (
+    session.profile.role !== "system_admin" &&
+    (!subject?.company_id ||
+      !isAdminForCompany(session.profile, subject.company_id))
+  ) {
+    return { ok: false, message: "Couldn't update that person's status." };
+  }
+
   const { data, error } = await supabase
     .from("profiles")
     .update({ status })

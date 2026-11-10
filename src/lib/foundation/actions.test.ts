@@ -129,9 +129,14 @@ vi.mock("@/lib/auth/current-user", () => ({
   requireRole: mocks.requireRole,
 }));
 
-vi.mock("@/lib/auth/permissions", () => ({
-  scopedCompanyId: mocks.scopedCompanyId,
-}));
+vi.mock("@/lib/auth/permissions", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/auth/permissions")>();
+  return {
+    ...actual,
+    scopedCompanyId: mocks.scopedCompanyId,
+  };
+});
 
 vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,

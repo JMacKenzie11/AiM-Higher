@@ -2,7 +2,7 @@ import Link from "next/link";
 import { isCompanyRole } from "@/lib/types";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
-import { canCoachAbout } from "@/lib/auth/permissions";
+import { canCoachAbout, isAdminForCompany } from "@/lib/auth/permissions";
 import { getPersonScorecard } from "@/lib/people/service";
 import { KeepRateBarChart } from "@/components/charts/KeepRateBarChart";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
@@ -31,9 +31,14 @@ export default async function PersonScorecardPage({ params }: PageProps) {
   if (!data) notFound();
 
   const isSelf = session.profile.id === id;
+  // The person's company's admins: its company_admin, an assigned
+  // guide, a portfolio admin switched on as its admin (Jason,
+  // 2026-11-09). updateUserAction and saveUserStrengthsAction ask the
+  // same.
   const isAdmin =
     session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+    (data.profile.company_id !== null &&
+      isAdminForCompany(session.profile, data.profile.company_id));
   // Coach: anyone in the company, or an admin for it (canCoachAbout;
   // 0261). Never on your own page.
   const canCoach = canCoachAbout(session.profile, { id, company_id: data.profile.company_id });

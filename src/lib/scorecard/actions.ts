@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireProfile, requireRole } from "@/lib/auth/current-user";
-import { scopedCompanyId } from "@/lib/auth/permissions";
+import { COMPANY_ADMIN_ROLES, isAdminForCompany, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { nullableString } from "@/lib/utils";
 import type {
@@ -50,7 +50,7 @@ export async function createAreaAction(
   _prev: AreaResult | undefined,
   formData: FormData
 ): Promise<AreaResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -80,7 +80,7 @@ export async function updateAreaAction(
   _prev: AreaResult | undefined,
   formData: FormData
 ): Promise<AreaResult> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const accountableId = nullableString(formData.get("accountable_id"));
@@ -102,7 +102,7 @@ export async function updateAreaAction(
 export async function deleteAreaAction(
   areaId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("functional_areas")
@@ -121,7 +121,7 @@ export async function createMetricAction(
   _prev: MetricResult | undefined,
   formData: FormData
 ): Promise<MetricResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -165,7 +165,7 @@ export async function updateMetricAction(
   _prev: MetricResult | undefined,
   formData: FormData
 ): Promise<MetricResult> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const target = nullableString(formData.get("target"));
@@ -194,7 +194,7 @@ export async function archiveMetricAction(
   metricId: string,
   archived: boolean
 ): Promise<MetricResult> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data, error } = await supabase
     .from("scorecard_metrics")
@@ -235,11 +235,7 @@ export async function upsertEntryAction(
     >();
   if (!metric) return { ok: false, message: "That metric isn't accessible." };
 
-  const role = session.profile.role;
-  const isAdmin =
-    role === "system_admin" ||
-    (role === "company_admin" &&
-      session.profile.company_id === metric.company_id);
+  const isAdmin = isAdminForCompany(session.profile, metric.company_id);
 
   if (!isAdmin) {
     const { data: area } = await supabase

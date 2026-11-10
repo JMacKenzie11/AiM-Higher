@@ -1,3 +1,4 @@
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import Link from "next/link";
 import { meetingReturn } from "@/lib/meeting/return";
 import { PlusIcon } from "../../../../../components/ui/PlusIcon";
@@ -30,9 +31,9 @@ export default async function GoalDetailPage({ params, searchParams }: PageProps
 
   const openQuarter = await getCurrentQuarter(detail.goal.company_id);
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // A company's admins: its company_admin, an assigned guide, a
+  // portfolio admin a system admin switched on as its admin.
+  const isAdmin = isAdminForCompany(session.profile, detail.goal.company_id);
   const isOwner = detail.goal.owner_id === session.profile.id;
   const owner =
     detail.people.find((p) => p.id === detail.goal.owner_id) ?? null;

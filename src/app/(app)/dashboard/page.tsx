@@ -58,13 +58,11 @@ export default async function DashboardPage({
     return <MyWeek profile={session.profile} companyId={companyId} timezone={data.company.timezone} />;
   }
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
-  // Whether the caller has admin-level authority over *this* company.
-  // Broader than the local isAdmin above because it also admits an
-  // aims_guide when the current company is one of their assignments.
+  // Whether the caller has admin-level authority over *this* company:
+  // its company_admin, an assigned guide, a portfolio admin switched on
+  // as its admin (Jason, 2026-11-09).
   const canManageCompany = isAdminForCompany(session.profile, companyId);
+  const isAdmin = canManageCompany;
 
   // Setup checklist moved to /scorecard (the AiMS Implementation
   // surface). The dashboard is the running-rhythm view; the

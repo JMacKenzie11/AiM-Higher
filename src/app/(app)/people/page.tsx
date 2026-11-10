@@ -117,16 +117,21 @@ export default async function PeoplePage() {
   const canRevise =
     isAdminForCompany(session.profile, companyId) ||
     (await leadsAnyFunction(session.profile.id, companyId));
-  const isAdmin =
+  // The roster controls (edit, invite, deactivate, delete) go to the
+  // company's admins: its company_admin, an assigned guide, and a
+  // portfolio admin a system admin switched on as its admin, who does
+  // what its company_admin does (Jason, 2026-11-09). The actions ask
+  // the same question (canManageProfileIn, setProfileStatusAction).
+  const isAdmin = isAdminForCompany(session.profile, companyId);
+  // Ending somebody's assigned access is the company's own admins' and
+  // a system admin's: portfolio_assignments_delete (0205) admits those
+  // two, and a portfolio admin only for its own row.
+  const canRemoveAssignments =
     session.profile.role === "system_admin" ||
     session.profile.role === "company_admin";
   // Inviting people into company roles is item 3 of portfolio_admin's
-  // closed list (migration 0192), so the Add a person card is theirs.
-  // The ROSTER controls above are not: `isAdmin` stays false for the
-  // role, so no Edit, no Delete, no role change. They can staff a
-  // company and cannot then rewrite the people in it — which is what
-  // profiles_insert_portfolio says in SQL, with no UPDATE or DELETE
-  // policy beside it.
+  // closed list (migration 0192), so the Add a person card is every
+  // portfolio admin's, switched on or not.
   const canInvite = isAdmin || session.profile.role === "portfolio_admin";
   // Coach: anyone in the company, about anyone else in it, or an
   // admin for it (canCoachAbout; 0261). Self is excluded there.
@@ -228,6 +233,7 @@ export default async function PeoplePage() {
                             every company they work in, so only a system
                             admin manages it (0300). */}
                         {isAdmin &&
+                        (!person.viaAssignment || canRemoveAssignments) &&
                         ((person.role !== "aims_guide" && person.role !== "system_admin") ||
                           session.profile.role === "system_admin") ? (
                           <RowActionsMenu

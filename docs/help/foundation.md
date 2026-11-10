@@ -31,7 +31,7 @@ Changes here are seen by everyone at the company, so it's worth a moment's thoug
 ::: role portfolio_admin
 ## What you can do here
 
-Read the whole plan. Changes are made by the company's own people.
+Read the whole plan. Where a system admin has made you this company's admin, you can edit it the same as its admins do. Otherwise, changes are made by the company's own people.
 :::
 
 ## Focus Areas
