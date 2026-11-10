@@ -3490,6 +3490,14 @@ values ('${id}', null, '${name}', '${role}', 'active');`;
 //              or the equality is two empty sets agreeing), the
 //              company's own admin, and a member.
 //
+//              THIS IS A BEFORE/AFTER ONLY ON A SCHEMA WITHOUT 0323.
+//              Under --pending 0323, or once it has landed, the
+//              "before" side already has the new rules and the two
+//              sides are the same rules read twice. The case says
+//              which it was. The comparison that counts is the run
+//              on a schema at 0322, kept in the PR (#575): every
+//              caller the same, 44 rules red on structure.
+//
 // The plan for the assigned guide's read of commitments is reported
 // both ways, so the change this exists for is on the page.
 const GUIDE_READ_TABLES = [
@@ -3650,6 +3658,12 @@ values ('${id}', null, '${name}', '${role}', 'active');`;
   const planBefore = await plan(false);
   const planAfter = await plan(true);
 
+  // Whether "before" was really the old rules: only when the schema
+  // this ran against still had them.
+  const realBefore = (readRules?.n ?? 0) > 0;
+  const comparison = realBefore
+    ? "before = the old rules, after = 0323"
+    : "0323 already applied here, so both sides are the new rules; the old-against-new run is in PR #575";
   const structureOk = (readRules?.n ?? -1) === 0 && readCanary;
   const wallOk = (writeRules?.n ?? -1) === 0 && writeCanary;
   const sameRows = moved.length === 0 && guideMore > 0 && paMore > 0;
@@ -3659,10 +3673,10 @@ values ('${id}', null, '${name}', '${role}', 'active');`;
     name: "guide-reads-ask-once",
     hazard: "A guide read rule is rewritten and who can read a row moves with it",
     wrong: `read rules still calling is_guide_for per row: ${readRules?.n} (planted one counted: ${readCanary}); write rules reaching admin_company_ids: ${writeRules?.n} (planted one counted: ${writeCanary})`,
-    right: `rows readable across the 44 tables, before/after 0323: ${totals.join("; ")}. Assignment lets the guide into ${guideMore} tables and the portfolio admin into ${paMore} that an unassigned guide cannot read. Assigned guide reading commitments, before: ${planBefore}; after: ${planAfter}`,
+    right: `rows readable across the 44 tables, before/after (${comparison}): ${totals.join("; ")}. Assignment lets the guide into ${guideMore} tables and the portfolio admin into ${paMore} that an unassigned guide cannot read. Assigned guide reading commitments, before: ${planBefore}; after: ${planAfter}`,
     ok,
     detail: ok
-      ? "No read rule calls is_guide_for per row and no write rule reaches admin_company_ids(); a planted one of each is counted. Every caller reads exactly the same rows in all 44 tables before and after 0323, compared by row identity on one snapshot, and the assigned callers read more than the unassigned control."
+      ? "No read rule calls is_guide_for per row and no write rule reaches admin_company_ids(); a planted one of each is counted. Every caller reads the same rows in all 44 tables on both sides of the comparison (which, with 0323 already applied, is the new rules twice: see the right shape), by row identity on one snapshot, and the assigned callers read more than the unassigned control."
       : [
           structureOk ? "" : `structure: ${readRules?.n} read rules still call is_guide_for or is_admin_for (want 0), planted one counted: ${readCanary}`,
           wallOk ? "" : `wall: ${writeRules?.n} write rules reach admin_company_ids() (want 0), planted one counted: ${writeCanary}`,
