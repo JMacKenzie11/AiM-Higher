@@ -201,7 +201,11 @@ describe("the pinned columns line up with their offsets", () => {
     // of picking a number went this way before the width became a
     // measurement.
     expect(src).toContain("col[data-week-col]");
-    expect(src).toContain("track / weekCols.length");
+    // Still a measurement: the track divided by the weeks that show.
+    // Since 2026-11-10 that is a WHOLE number of weeks, so the page
+    // never opens on half a box cut off against the names.
+    expect(src).toContain("Math.floor(track / WEEK_WIDTH)");
+    expect(src).toContain("Math.floor(track / shown)");
   });
 
   it("lets the measure name wrap rather than truncate", () => {

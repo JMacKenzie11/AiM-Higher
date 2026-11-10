@@ -712,13 +712,21 @@ export function MeasuresGrid({
   // position belongs to the reader.
   const openedRef = useRef(false);
 
+  // How wide a week column was last laid out, for the arrows.
+  const weekWidthRef = useRef(WEEK_WIDTH);
+
   // One arrow press moves about a month. Smooth, so the eye can
   // follow which columns went by rather than being teleported.
+  //
+  // In whole weeks, so a press from the opening position lands on a
+  // column boundary too, not part-way through a box.
   function nudge(direction: -1 | 1) {
     const grid = scrollRef.current;
     if (!grid) return;
+    const week = weekWidthRef.current;
+    const weeks = Math.max(2, Math.round((grid.clientWidth * 0.4) / week));
     grid.scrollBy({
-      left: direction * Math.max(160, Math.round(grid.clientWidth * 0.4)),
+      left: direction * weeks * week,
       behavior: "smooth",
     });
   }
@@ -933,9 +941,8 @@ export function MeasuresGrid({
       //     the table it now has. First run only; after that which
       //     months are open is the reader's business.
       if (!openedRef.current && pinning) {
-        // Rounded UP: a part-shown week at the left edge says there
-        // is more to scroll to, where stretched columns say there
-        // is not.
+        // Rounded UP, so there is always at least a track's worth of
+        // weeks open. Step 2 then sizes them so a whole number shows.
         const wanted = Math.ceil((el.clientWidth - pinnedRight) / WEEK_WIDTH);
         const firstOpen = data.months.findIndex(
           (m) => m.key === columns.find((c) => c.kind === "week")?.month
@@ -961,11 +968,32 @@ export function MeasuresGrid({
       //    scrolled out of sight, so counting them against the track
       //    makes the open weeks narrower by exactly the width they
       //    needed to push them off, and they stay on screen.
+      //
+      //    WHOLE WEEKS ONLY (Jason, 2026-11-10). With more weeks open
+      //    than fit, each stayed WEEK_WIDTH and the track showed, say,
+      //    eight and a half of them: the page opened on half a box cut
+      //    off against the names. That half was once left on purpose,
+      //    as a hint that there was more to scroll to; the scrollbar
+      //    above the table says that now. So the weeks are widened
+      //    just enough that a whole number of them fills the track
+      //    exactly, and opening at the end (step 4) leaves the left
+      //    edge on a column boundary. The few pixels a division
+      //    leaves over go on the last week, so the visible ones add up
+      //    to the track to the pixel.
+      let weekWidth = WEEK_WIDTH;
       if (weekCols.length > 0) {
         const track = el.clientWidth - pinnedRight;
-        const width = Math.max(WEEK_WIDTH, Math.floor(track / weekCols.length));
-        for (const col of weekCols) col.style.width = `${width}px`;
+        const fits = Math.max(1, Math.floor(track / WEEK_WIDTH));
+        const shown = Math.min(fits, weekCols.length);
+        const width = Math.max(WEEK_WIDTH, Math.floor(track / shown));
+        const spare = pinning ? Math.max(0, track - width * shown) : 0;
+        weekCols.forEach((col, i) => {
+          const last = i === weekCols.length - 1;
+          col.style.width = `${last ? width + spare : width}px`;
+        });
+        weekWidth = width;
       }
+      weekWidthRef.current = weekWidth;
 
       // 3. The scrollbar track begins where the weeks do, so it sits
       //    over the only part of the table that actually moves.
