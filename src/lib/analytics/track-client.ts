@@ -1,6 +1,6 @@
 "use client";
 
-import posthog from "posthog-js";
+import { withPostHog } from "./posthog-lazy";
 
 // Client-side product analytics. src/instrumentation-client.ts initializes
 // the singleton before the app mounts; callers just import this helper and fire.
@@ -10,7 +10,7 @@ export function trackClient(
   properties?: Record<string, unknown>
 ): void {
   try {
-    posthog.capture(event, properties);
+    withPostHog((posthog) => posthog.capture(event, properties));
   } catch {
     // never let a broken analytics call break the interaction
   }

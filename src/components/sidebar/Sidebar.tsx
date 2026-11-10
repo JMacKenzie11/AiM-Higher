@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import posthog from "posthog-js";
+import { resetPostHog } from "@/lib/analytics/posthog-lazy";
+import { IntentLink } from "./IntentLink";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   HOME_GROUP,
@@ -808,7 +809,7 @@ function NavRow({
   collapsed: boolean;
 }) {
   return (
-    <Link
+    <IntentLink
       href={href}
       className={styles.navRow}
       data-active={active ? "true" : undefined}
@@ -819,7 +820,7 @@ function NavRow({
         <Icon name={icon} />
       </span>
       <span className={styles.navLabel}>{label}</span>
-    </Link>
+    </IntentLink>
   );
 }
 
@@ -919,7 +920,7 @@ function SidebarUserMenu({
           ) : null}
           <form
             action={signOutAction}
-            onSubmit={() => posthog.reset()}
+            onSubmit={() => resetPostHog()}
           >
             <button
               type="submit"
