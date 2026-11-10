@@ -3466,6 +3466,226 @@ values ('${id}', null, '${name}', '${role}', 'active');`;
   };
 }
 
+// The guide read rules ask once (0323).
+//
+// 44 read rules called is_guide_for(<the row's company>) for every row
+// an assigned guide or assigned portfolio admin read. 0323 swaps the
+// call for membership of public.admin_company_ids(), worked out once
+// per statement, and claims nothing else moves. Three claims:
+//
+//   structure  no read rule calls is_guide_for or is_admin_for any
+//              more. A planted one is counted, so a zero is the
+//              matcher seeing none rather than seeing nothing.
+//              RED before 0323 (44 of them), green with it.
+//   wall       no write rule reaches admin_company_ids(): it admits
+//              assigned portfolio admins and is for reads only
+//              (CLAUDE.md, Permissions; E19). A planted one is counted.
+//   same rows  for five callers, the exact rows each can read in each
+//              of the 44 tables are the same before the migration and
+//              after it, compared inside ONE transaction on one
+//              snapshot, by row identity and not by count. The callers:
+//              a guide assigned to the company, a portfolio admin
+//              assigned to it, a guide assigned to nothing (the
+//              control: the assigned guide must see MORE than this one
+//              or the equality is two empty sets agreeing), the
+//              company's own admin, and a member.
+//
+//              THIS IS A BEFORE/AFTER ONLY ON A SCHEMA WITHOUT 0323.
+//              Under --pending 0323, or once it has landed, the
+//              "before" side already has the new rules and the two
+//              sides are the same rules read twice. The case says
+//              which it was. The comparison that counts is the run
+//              on a schema at 0322, kept in the PR (#575): every
+//              caller the same, 44 rules red on structure.
+//
+// The plan for the assigned guide's read of commitments is reported
+// both ways, so the change this exists for is on the page.
+const GUIDE_READ_TABLES = [
+  "annual_goals", "assistant_actions", "commitment_occurrences", "commitments", "companies",
+  "company_discipline_snapshots", "company_feature_events", "company_features", "company_foundation",
+  "company_settings_events", "dashboard_ai_briefs", "external_pull_log", "foundation_items",
+  "function_roles", "functional_areas", "functions", "issues", "marketing_snippets",
+  "marketing_strategy", "meeting_analyses", "meeting_attendance", "meeting_checkins",
+  "meeting_headlines", "meetings", "messaging_pillars", "priorities", "profiles", "quarters",
+  "role_description_versions", "role_descriptions", "scorecard_entries", "scorecard_metrics",
+  "session_briefs", "strategic_focus_areas", "strengths_assessments", "strengths_results",
+  "strengths_team_evaluations", "strengths_team_insights", "strengths_team_members", "strengths_teams",
+  "success_measure_entry_changes", "success_measure_targets", "transcript_aliases", "transcript_sources",
+] as const;
+
+async function guideReadsAskOnce(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const migration = readFileSync("supabase/migrations/0323_guide_reads_hoisted.sql", "utf8");
+  const CO = ids.companyAdminCompany;
+  const uid = (tag: string) => `aaaa0323-0000-4000-8000-0000000000${tag}`;
+  const GUIDE = uid("01");
+  const PA = uid("02");
+  const UNASSIGNED = uid("03");
+  const person = (id: string, name: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', null, '${name}', '${role}', 'active');`;
+  const seed = [
+    person(GUIDE, "Harness 0323 Guide", "aims_guide"),
+    person(PA, "Harness 0323 PA", "portfolio_admin"),
+    person(UNASSIGNED, "Harness 0323 Unassigned", "aims_guide"),
+    `insert into public.guide_assignments (guide_id, company_id) values ('${GUIDE}', '${CO}') on conflict do nothing;`,
+    `insert into public.portfolio_assignments (portfolio_admin_id, company_id) values ('${PA}', '${CO}') on conflict do nothing;`,
+  ].join("\n");
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+
+  // ---- structure and wall, on the schema as it stands (with --pending) ----
+  const readRulesSql = `select count(*)::int as n from pg_policies
+     where schemaname='public' and cmd = 'SELECT'
+       and coalesce(qual,'') ~ '(is_guide_for|is_admin_for)\\('`;
+  const writeRulesSql = `select count(*)::int as n from pg_policies
+     where schemaname='public' and cmd in ('INSERT','UPDATE','DELETE','ALL')
+       and (coalesce(qual,'')||' '||coalesce(with_check,'')) ~ 'admin_company_ids\\('`;
+  const [readRules] = await run<{ n: number }>(["begin;", pending, readRulesSql + ";", "rollback;"].join("\n"));
+  const [readPlanted] = await run<{ n: number }>(
+    ["begin;", pending,
+      `create policy harness_planted_0323_read on public.issues for select to authenticated
+         using (public.is_guide_for(company_id));`,
+      readRulesSql + ";", "rollback;"].join("\n")
+  );
+  const [writeRules] = await run<{ n: number }>(["begin;", pending, writeRulesSql + ";", "rollback;"].join("\n"));
+  const [writePlanted] = await run<{ n: number }>(
+    ["begin;", pending,
+      `create policy harness_planted_0323_write on public.issues for insert to authenticated
+         with check (company_id = any ((select public.admin_company_ids())::uuid[]));`,
+      writeRulesSql + ";", "rollback;"].join("\n")
+  );
+  const readCanary = (readPlanted?.n ?? 0) === (readRules?.n ?? 0) + 1;
+  const writeCanary = (writePlanted?.n ?? 0) === (writeRules?.n ?? 0) + 1;
+
+  // ---- same rows: before and after in one transaction, one snapshot ----
+  const visible =
+    "select jsonb_build_object(" +
+    GUIDE_READ_TABLES.map(
+      (t) =>
+        `'${t}', (select count(*)::text || ':' || md5(coalesce(string_agg(x.ctid::text, ',' order by x.ctid), '')) from public.${t} x)`
+    ).join(", ") +
+    ")";
+  type Sides = { before: Record<string, string>; after: Record<string, string> };
+  const parse = (v: unknown): Record<string, string> =>
+    (typeof v === "string" ? JSON.parse(v) : v) as Record<string, string>;
+  const sides = async (sub: string): Promise<Sides | null> => {
+    try {
+      const [r] = await run<{ before: unknown; after: unknown }>(
+        [
+          "begin isolation level repeatable read;",
+          pending,
+          seed,
+          "create temp table _harness_0323 (side text, j jsonb) on commit drop;",
+          "grant all on _harness_0323 to authenticated;",
+          "set local role authenticated;",
+          claims(sub),
+          `insert into _harness_0323 select 'before', (${visible});`,
+          "reset role;",
+          migration,
+          "set local role authenticated;",
+          `insert into _harness_0323 select 'after', (${visible});`,
+          "reset role;",
+          `select (select j from _harness_0323 where side = 'before') as before,
+                  (select j from _harness_0323 where side = 'after') as after;`,
+          "rollback;",
+        ].join("\n")
+      );
+      if (!r?.before || !r?.after) return null;
+      return { before: parse(r.before), after: parse(r.after) };
+    } catch {
+      return null;
+    }
+  };
+  const callers: Array<[string, string]> = [
+    ["assigned guide", GUIDE],
+    ["assigned portfolio admin", PA],
+    ["unassigned guide", UNASSIGNED],
+    ["company admin", ids.companyAdmin],
+    ["member", ids.member],
+  ];
+  const seen: Record<string, Sides | null> = {};
+  for (const [label, sub] of callers) seen[label] = await sides(sub);
+
+  const rowsOf = (v: string | undefined) => Number((v ?? "0:").split(":")[0]);
+  const moved: string[] = [];
+  const totals: string[] = [];
+  for (const [label] of callers) {
+    const s = seen[label];
+    if (!s) {
+      moved.push(`${label}: NOT PROVEN, the comparison did not run`);
+      continue;
+    }
+    let before = 0;
+    let after = 0;
+    for (const t of GUIDE_READ_TABLES) {
+      before += rowsOf(s.before[t]);
+      after += rowsOf(s.after[t]);
+      if (s.before[t] !== s.after[t]) moved.push(`${label} on ${t}: ${s.before[t]} -> ${s.after[t]}`);
+    }
+    totals.push(`${label} ${before}/${after}`);
+  }
+  // The control: tables where assignment is what lets the guide in.
+  const g = seen["assigned guide"];
+  const u = seen["unassigned guide"];
+  const p = seen["assigned portfolio admin"];
+  const more = (a: Sides | null) =>
+    a && u ? GUIDE_READ_TABLES.filter((t) => rowsOf(a.after[t]) > rowsOf(u.after[t])).length : 0;
+  const guideMore = more(g);
+  const paMore = more(p);
+
+  // ---- the plan, for the page ----
+  const plan = async (withMigration: boolean): Promise<string> => {
+    try {
+      const rows = await run<Record<string, string>>(
+        ["begin;", pending, seed, withMigration ? migration : "", "set local role authenticated;", claims(GUIDE),
+          "explain (analyze, costs off) select count(*) from public.commitments;", "rollback;"].join("\n")
+      );
+      const text = rows.map((r) => Object.values(r)[0]).filter(Boolean).join("\n");
+      const f = planFacts(text);
+      return `per-row is_guide_for ${/is_guide_for/.test(text) ? "yes" : "no"}, InitPlan ${f.initPlan ? "yes" : "no"}, ${f.ms} ms`;
+    } catch {
+      return "plan not read";
+    }
+  };
+  const planBefore = await plan(false);
+  const planAfter = await plan(true);
+
+  // Whether "before" was really the old rules: only when the schema
+  // this ran against still had them.
+  const realBefore = (readRules?.n ?? 0) > 0;
+  const comparison = realBefore
+    ? "before = the old rules, after = 0323"
+    : "0323 already applied here, so both sides are the new rules; the old-against-new run is in PR #575";
+  const structureOk = (readRules?.n ?? -1) === 0 && readCanary;
+  const wallOk = (writeRules?.n ?? -1) === 0 && writeCanary;
+  const sameRows = moved.length === 0 && guideMore > 0 && paMore > 0;
+  const ok = structureOk && wallOk && sameRows;
+
+  return {
+    name: "guide-reads-ask-once",
+    hazard: "A guide read rule is rewritten and who can read a row moves with it",
+    wrong: `read rules still calling is_guide_for per row: ${readRules?.n} (planted one counted: ${readCanary}); write rules reaching admin_company_ids: ${writeRules?.n} (planted one counted: ${writeCanary})`,
+    right: `rows readable across the 44 tables, before/after (${comparison}): ${totals.join("; ")}. Assignment lets the guide into ${guideMore} tables and the portfolio admin into ${paMore} that an unassigned guide cannot read. Assigned guide reading commitments, before: ${planBefore}; after: ${planAfter}`,
+    ok,
+    detail: ok
+      ? "No read rule calls is_guide_for per row and no write rule reaches admin_company_ids(); a planted one of each is counted. Every caller reads the same rows in all 44 tables on both sides of the comparison (which, with 0323 already applied, is the new rules twice: see the right shape), by row identity on one snapshot, and the assigned callers read more than the unassigned control."
+      : [
+          structureOk ? "" : `structure: ${readRules?.n} read rules still call is_guide_for or is_admin_for (want 0), planted one counted: ${readCanary}`,
+          wallOk ? "" : `wall: ${writeRules?.n} write rules reach admin_company_ids() (want 0), planted one counted: ${writeCanary}`,
+          moved.length ? `SEMANTICS MOVED: ${moved.slice(0, 8).join("; ")}${moved.length > 8 ? ` and ${moved.length - 8} more` : ""}` : "",
+          guideMore > 0 && paMore > 0 ? "" : `NOT PROVEN: the assigned guide reads more than the unassigned one in ${guideMore} tables and the portfolio admin in ${paMore} (want more than 0 for each)`,
+        ].filter(Boolean).join("; "),
+  };
+}
+
 // A portfolio admin keeps what any owner can do with its own work
 // (0246, Jason 2026-09-29).
 //
@@ -16476,6 +16696,10 @@ async function main(): Promise<void> {
     [
       "portfolio-admin-acts-as-company-admin",
       (r: Runner, i: Identities) => portfolioAdminActsAsCompanyAdmin(r, i, pendingSql),
+    ],
+    [
+      "guide-reads-ask-once",
+      (r: Runner, i: Identities) => guideReadsAskOnce(r, i, pendingSql),
     ],
   ] as const;
 
