@@ -43,10 +43,24 @@ export default async function CoachChatPage({ params }: PageProps) {
   // a non-participant would already have hit notFound() above via
   // getConversation returning null — this branch decides which UI
   // state to render (write vs. read).
-  const access = await getAccessForConversation(
-    conversation.id,
-    session.profile.id
-  );
+  //
+  // Read together with the subject, the messages and the shares below:
+  // four reads that used to run one after another. Row security decides
+  // each on its own, and the page still answers 404 before using any.
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const [access, { data: subject }, messages, shares, companyFeatures] = await Promise.all([
+    getAccessForConversation(conversation.id, session.profile.id),
+    supabase
+      .from("profiles")
+      .select("id, full_name, position, company_id")
+      .eq("id", profileId)
+      .maybeSingle<
+        Pick<Profile, "id" | "full_name" | "position" | "company_id">
+      >(),
+    getMessages(conversationId),
+    listSharesForConversation(conversationId),
+    getCompanyFeatures(conversation.company_id),
+  ]);
   if (access === null) notFound();
   // No scope alignment, and nothing here needed one.
   //
@@ -61,19 +75,7 @@ export default async function CoachChatPage({ params }: PageProps) {
   //
   // See the note on the /ask-aimee page for why a request must not
   // change who the caller is acting as.
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data: subject } = await supabase
-    .from("profiles")
-    .select("id, full_name, position, company_id")
-    .eq("id", profileId)
-    .maybeSingle<
-      Pick<Profile, "id" | "full_name" | "position" | "company_id">
-    >();
   if (!subject) notFound();
-
-  const messages = await getMessages(conversationId);
-
-  const shares = await listSharesForConversation(conversationId);
   const senderIds = new Set<string>();
   senderIds.add(conversation.created_by);
   for (const s of shares) senderIds.add(s.profile_id);
@@ -101,7 +103,7 @@ export default async function CoachChatPage({ params }: PageProps) {
         conversation={conversation}
         openablePatterns={openablePatternsFor(
           session.profile.role,
-          await getCompanyFeatures(conversation.company_id)
+          companyFeatures
         )}
         subjectName={subject.full_name}
         subjectPosition={subject.position ?? null}

@@ -157,7 +157,9 @@ describe("the board lives on the dashboard, under the brief", () => {
     // own recorded numbers from it. The flag is about the Saturday
     // sweep now, so the board is not allowed to consult it.
     expect(dashboard).not.toContain("performance_tracking");
-    expect(dashboard).toMatch(/const board = await getBoardData\(/);
+    // Read unconditionally (alongside the insights since the 2026-11-10
+    // audit), never behind a flag or a ternary.
+    expect(dashboard).toMatch(/^\s{4}getBoardData\(companyId, data\.company\.timezone\),$/m);
   });
 
   it("is gone from /measures", () => {

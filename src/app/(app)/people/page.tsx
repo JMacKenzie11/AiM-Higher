@@ -95,7 +95,14 @@ export default async function PeoplePage() {
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
 
-  const { people } = await getPeopleRoster(companyId);
+  // The roster, the saved role descriptions and the "heads up a
+  // function" check, together: none needs another's answer.
+  const isAdmin = isAdminForCompany(session.profile, companyId);
+  const [{ people }, savedRoles, leadsAFunction] = await Promise.all([
+    getPeopleRoster(companyId),
+    listRoleDescriptions(companyId),
+    isAdmin ? Promise.resolve(false) : leadsAnyFunction(session.profile.id, companyId),
+  ]);
 
   // Saved role descriptions live here rather than on a page of
   // their own: a role description is about a seat, the people are
@@ -108,21 +115,17 @@ export default async function PeoplePage() {
   // not carry is how somebody saves into a list they cannot see.
   // The card renders empty for a company that has written none,
   // which is the honest state rather than a hidden one.
-  const savedRoles = await listRoleDescriptions(companyId);
 
   // One answer for the page: an admin or assigned guide may revise
   // any of their company's, and so may anyone who heads up a
   // function. Heading up a function is the threshold rather than a
   // claim over one row, so this no longer varies by role.
-  const canRevise =
-    isAdminForCompany(session.profile, companyId) ||
-    (await leadsAnyFunction(session.profile.id, companyId));
+  const canRevise = isAdmin || leadsAFunction;
   // The roster controls (edit, invite, deactivate, delete) go to the
   // company's admins: its company_admin, an assigned guide, and a
   // portfolio admin a system admin switched on as its admin, who does
   // what its company_admin does (Jason, 2026-11-09). The actions ask
   // the same question (canManageProfileIn, setProfileStatusAction).
-  const isAdmin = isAdminForCompany(session.profile, companyId);
   // Ending somebody's assigned access is the company's own admins' and
   // a system admin's: portfolio_assignments_delete (0205) admits those
   // two, and a portfolio admin only for its own row.

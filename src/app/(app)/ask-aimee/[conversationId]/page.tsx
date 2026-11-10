@@ -77,10 +77,50 @@ export default async function AskAimeeChatPage({
   // row. RLS already blocks the SELECT for anyone else, but explicit
   // check gives us the right UI branch (owner vs. write vs. read)
   // and a friendly 404 instead of a silent empty state.
-  const access = await getAccessForConversation(
-    conversation.id,
-    session.profile.id
-  );
+  //
+  // EVERYTHING THE PAGE NEEDS ONCE IT HAS THE CONVERSATION, READ
+  // TOGETHER. These were ten reads one after another, and none of them
+  // needs another's answer except where chained below (an agent's
+  // pinned version needs the agent; the two seat checks need the agent
+  // list). Each read is decided by row security on its own, exactly as
+  // before: the messages of a conversation this caller cannot open
+  // come back empty whether or not the access check has returned yet,
+  // and the page still answers 404 before it uses any of it.
+  const revisingRoleId = conversation.revising_role_id ?? null;
+  const [
+    access,
+    messages,
+    shares,
+    { registryAgent, runtime },
+    revisingDoc,
+    companyFeatures,
+    { agents, isFunctionLead, isAimsChampionHere },
+  ] = await Promise.all([
+    getAccessForConversation(conversation.id, session.profile.id),
+    getMessages(conversationId),
+    listSharesForConversation(conversationId),
+    (async () => {
+      const agent = await resolveAgent(conversation.practice_id);
+      const config = agent
+        ? await resolveRuntimeConfig(agent, conversation.agent_version_id ?? null)
+        : null;
+      return { registryAgent: agent, runtime: config };
+    })(),
+    revisingRoleId ? getCurrentRoleDescription(revisingRoleId) : Promise.resolve(null),
+    getCompanyFeatures(conversation.company_id),
+    (async () => {
+      const list = await listAgents();
+      const [leads, champion] = await Promise.all([
+        list.some((p) => p.alsoFunctionLeads)
+          ? leadsAnyFunction(session.profile.id, conversation.company_id)
+          : Promise.resolve(false),
+        list.some((p) => p.alsoAimsChampion)
+          ? isAimsChampion(session.profile.id, conversation.company_id)
+          : Promise.resolve(false),
+      ]);
+      return { agents: list, isFunctionLead: leads, isAimsChampionHere: champion };
+    })(),
+  ]);
   if (access === null) notFound();
   // THE CHAT'S OWN COMPANY, not the caller's ambient scope.
   //
@@ -105,7 +145,6 @@ export default async function AskAimeeChatPage({
   // losing the cookie: it is the more correct argument. The question
   // is "may this caller run this practice on THIS chat's company",
   // and the chat's company is the answer whatever the cookie says.
-  const messages = await getMessages(conversationId);
 
   // Build the sender lookup once, server-side, from the union of
   // (message authors, share list, owner). The client uses it to
@@ -113,7 +152,6 @@ export default async function AskAimeeChatPage({
   // shares. Owner is included so their own past messages have a
   // display record even before shares appear — cheap and keeps the
   // client logic simple.
-  const shares = await listSharesForConversation(conversationId);
   const senderIds = new Set<string>();
   senderIds.add(conversation.created_by);
   for (const s of shares) senderIds.add(s.profile_id);
@@ -126,7 +164,6 @@ export default async function AskAimeeChatPage({
   // the practice's own header + opening chips. Backend for optional
   // partner context is still in place (columns + action + partner
   // context builder) but no longer surfaced in the UI.
-  const registryAgent = await resolveAgent(conversation.practice_id);
 
   // The chips and output-card contract ChatView renders come from
   // the version PINNED to this conversation, not from the registry
@@ -138,12 +175,6 @@ export default async function AskAimeeChatPage({
   // separates the two halves for exactly this reason, and spreading
   // the whole config into a prop would put an agent's prompt in the
   // browser for anyone to read.
-  const runtime = registryAgent
-    ? await resolveRuntimeConfig(
-        registryAgent,
-        conversation.agent_version_id ?? null
-      )
-    : null;
   const practice =
     registryAgent && runtime
       ? {
@@ -169,30 +200,15 @@ export default async function AskAimeeChatPage({
   // file, so asking the model to reproduce it would cost a call, add
   // latency, and eventually produce something that is nearly the
   // document.
-  const revisingRoleId =
-    conversation.revising_role_id ??
-    null;
-  const revisingDoc = revisingRoleId
-    ? await getCurrentRoleDescription(revisingRoleId)
-    : null;
-
-  const companyFeatures = await getCompanyFeatures(conversation.company_id);
   // Asked once, and only when some practice actually admits leads,
   // so a company with no such agent pays nothing for the concept.
   // Merged, so the Hub's renames, reordering and access edits reach
   // the picker. Archived agents are already dropped by listAgents.
-  const agents = await listAgents();
-  const isFunctionLead =
-    agents.some((p) => p.alsoFunctionLeads) &&
-    (await leadsAnyFunction(session.profile.id, conversation.company_id));
   // Same shape, same reason. A champion who is a team_member is
   // admitted by practiceGate and would otherwise find the debrief
   // agent only by guessing its URL — which is exactly what they do
   // NOT do, because they arrive from a notification and then look
   // for it again a week later.
-  const isAimsChampionHere =
-    agents.some((p) => p.alsoAimsChampion) &&
-    (await isAimsChampion(session.profile.id, conversation.company_id));
   const agentPickerPractices =
     access === "owner"
       ? agents.filter((p) => {

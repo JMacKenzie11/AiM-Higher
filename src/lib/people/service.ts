@@ -51,7 +51,16 @@ export async function getPeopleRoster(
   // an engagement is a different thing from membership. They can
   // still own commitments (decision 10); being assignable and being
   // on the team are separate questions.
-  const [{ data: profiles }, { data: assignmentRows }] = await Promise.all([
+  //
+  // The open counts and the keep rates are read alongside the roster:
+  // they need the company and nothing the roster reads. This was nine
+  // reads one after another.
+  const [
+    { data: profiles },
+    { data: assignmentRows },
+    { data: openRows },
+    keepRateByOwner,
+  ] = await Promise.all([
     supabase
       .from("profiles")
       .select("*")
@@ -61,6 +70,14 @@ export async function getPeopleRoster(
       .from("portfolio_assignments")
       .select("portfolio_admin_id, acts_as_company_admin")
       .eq("company_id", companyId),
+    // "Open" counts EVERY still-open commitment for the person (not
+    // just this-week), matching the dashboard's read of the same signal.
+    supabase
+      .from("commitments")
+      .select("owner_id")
+      .eq("company_id", companyId)
+      .eq("status", "open"),
+    keepRatesForOpenQuarter(supabase, companyId),
   ]);
 
   const members = (profiles ?? []) as Profile[];
@@ -90,15 +107,7 @@ export async function getPeopleRoster(
 
   const assignedSet = new Set(assigned.map((p) => p.id));
   const roster = [...members, ...assigned];
-  const openQuarter = await getCurrentQuarter(companyId);
 
-  // "Open" counts EVERY still-open commitment for the person (not
-  // just this-week), matching the dashboard's read of the same signal.
-  const { data: openRows } = await supabase
-    .from("commitments")
-    .select("owner_id")
-    .eq("company_id", companyId)
-    .eq("status", "open");
   const openByOwner = new Map<string, number>();
   for (const row of (openRows ?? []) as Pick<Commitment, "owner_id">[]) {
     // Person open-count skips unassigned rows — they show under the
@@ -106,31 +115,6 @@ export async function getPeopleRoster(
     // company level, not any individual's page.
     if (!row.owner_id) continue;
     openByOwner.set(row.owner_id, (openByOwner.get(row.owner_id) ?? 0) + 1);
-  }
-
-  // Keep rate for the open quarter (kept / (kept+missed)) per person.
-  // Same rule as above: unassigned commitments are excluded from
-  // any individual's keep rate.
-  const keepRateByOwner = new Map<string, number | null>();
-  if (openQuarter) {
-    const { data: priorityRows } = await supabase
-      .from("priorities")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("quarter_id", openQuarter.id);
-    const priorityIds = (priorityRows ?? []).map((row) => row.id);
-    if (priorityIds.length > 0) {
-      const { data: cRows } = await supabase
-        .from("commitments")
-        .select("owner_id, status")
-        .in("priority_id", priorityIds);
-      const rows = ((cRows ?? []) as Pick<Commitment, "owner_id" | "status">[])
-        .filter((row) => row.owner_id !== null);
-      const buckets = bucketKeepRates(rows, (row) => row.owner_id as string);
-      for (const [ownerId, bucket] of buckets) {
-        keepRateByOwner.set(ownerId, bucket.keepRate);
-      }
-    }
   }
 
   const people: PeopleRosterRow[] = roster.map((profile) => ({
@@ -142,6 +126,35 @@ export async function getPeopleRoster(
   }));
 
   return { people };
+}
+
+// Keep rate for the open quarter (kept / (kept+missed)) per person.
+// Unassigned commitments are excluded from any individual's keep rate.
+async function keepRatesForOpenQuarter(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  companyId: string
+): Promise<Map<string, number | null>> {
+  const keepRateByOwner = new Map<string, number | null>();
+  const openQuarter = await getCurrentQuarter(companyId);
+  if (!openQuarter) return keepRateByOwner;
+  const { data: priorityRows } = await supabase
+    .from("priorities")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("quarter_id", openQuarter.id);
+  const priorityIds = (priorityRows ?? []).map((row) => row.id);
+  if (priorityIds.length === 0) return keepRateByOwner;
+  const { data: cRows } = await supabase
+    .from("commitments")
+    .select("owner_id, status")
+    .in("priority_id", priorityIds);
+  const rows = ((cRows ?? []) as Pick<Commitment, "owner_id" | "status">[])
+    .filter((row) => row.owner_id !== null);
+  const buckets = bucketKeepRates(rows, (row) => row.owner_id as string);
+  for (const [ownerId, bucket] of buckets) {
+    keepRateByOwner.set(ownerId, bucket.keepRate);
+  }
+  return keepRateByOwner;
 }
 
 // ================ Person scorecard ================
