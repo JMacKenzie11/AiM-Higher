@@ -1432,7 +1432,6 @@ export function MeasuresGrid({
           <li>
             <b aria-hidden>·</b> Not due that week
           </li>
-          <li>A folded month shows only its name. Click it to open its weeks.</li>
         </ul>
         </>
       ) : (
