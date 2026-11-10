@@ -209,7 +209,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Skip static and image assets; only run for real routes.
+  //
+  // `monitoring` is the Sentry tunnel (tunnelRoute in next.config.ts):
+  // the browser posts error reports, traces and replay segments there
+  // and Next forwards them to Sentry. It is not a page and reads
+  // nothing from a database, but without this it went through the
+  // whole of the above, so every report cost a hostname lookup, a call
+  // to the auth server and a profiles read. Sentry's own setup notes
+  // ask for the tunnel to be kept out of middleware.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|brand/.*\\.(?:png|jpg|jpeg|svg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|monitoring(?:$|[/?])|brand/.*\\.(?:png|jpg|jpeg|svg|gif|webp)$).*)",
   ],
 };

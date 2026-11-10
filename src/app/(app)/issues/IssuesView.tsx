@@ -11,6 +11,7 @@ import { AddIssueButton } from "./AddIssueButton";
 import { FilterPills } from "./FilterPills";
 import { ResolvedIssuesList } from "./ResolvedIssuesList";
 import commitmentStyles from "../commitments/commitments.module.css";
+import { getCompanyBasics } from "@/lib/companies/basics";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { simplifyOn } from "@/lib/ui/simplify";
 import issueStyles from "./issues.module.css";
@@ -46,11 +47,7 @@ export async function IssuesView({
   };
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data: company } = await supabase
-    .from("companies")
-    .select("timezone")
-    .eq("id", companyId)
-    .maybeSingle<{ timezone: string }>();
+  const company = await getCompanyBasics(companyId);
   const timezone = company?.timezone ?? "America/Anchorage";
   const { iso: todayIso } = todayInTimezone(timezone);
 

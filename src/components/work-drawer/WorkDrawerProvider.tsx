@@ -15,7 +15,7 @@ import {
 } from "react";
 import { Drawer } from "@/components/ui/Drawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { NotesEditor } from "@/components/notes/NotesEditor";
+import { NotesEditorLazy as NotesEditor } from "@/components/notes/NotesEditorLazy";
 import { NotesView } from "@/components/notes/NotesView";
 import { CommitmentResolutionChip } from "@/components/plan/CommitmentResolutionChip";
 import { CommitmentRow } from "@/app/(app)/commitments/CommitmentRow";

@@ -6,6 +6,7 @@ import { isAdminForCompany } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getAssignablePeople } from "@/lib/people/assignable";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCompanyBasics } from "@/lib/companies/basics";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { todayInTimezone, formatWeekBeginning, thisFriday, addDays } from "@/lib/dates";
 import { simplifyOn } from "@/lib/ui/simplify";
@@ -78,12 +79,7 @@ export default async function MeetingPage({ searchParams }: PageProps) {
     redirect(`/meeting?step=${step}&started=${encodeURIComponent(new Date().toISOString())}`);
   }
 
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name, timezone")
-    .eq("id", companyId)
-    .maybeSingle<{ name: string; timezone: string }>();
+  const company = await getCompanyBasics(companyId);
   const timezone = company?.timezone ?? "America/Anchorage";
   const { iso: todayIso } = todayInTimezone(timezone);
   const isAdmin = isAdminForCompany(session.profile, companyId);

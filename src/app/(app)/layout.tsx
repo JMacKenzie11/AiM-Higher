@@ -14,16 +14,18 @@ import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { deriveCompanyContext } from "@/lib/companies/context-label";
-import { getHeaderNotifications } from "@/lib/notifications/service";
+import {
+  getHeaderNotifications,
+  type NotificationItem,
+} from "@/lib/notifications/service";
+import { getCompanyBasics } from "@/lib/companies/basics";
 import { splitNotifications } from "@/lib/notifications/kinds";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   PostHogProvider,
   type PostHogUser,
 } from "@/lib/analytics/PostHogProvider";
 import { InstanceProvider } from "@/lib/instances/InstanceProvider";
 import { toPublicInstanceConfig } from "@/lib/instances/current";
-import type { Company } from "@/lib/types";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
 import styles from "./layout.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -81,16 +83,11 @@ export default async function AppLayout({
     : session.profile.company_id;
 
   const [companyRow, features] = await Promise.all([
+    // Shared with the page: most pages want this company's timezone,
+    // and a cross-company caller's scope check has already read the
+    // row (lib/companies/basics.ts). One read per request for all.
     effectiveCompanyId
-      ? (async () => {
-          const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-          const { data } = await supabase
-            .from("companies")
-            .select("name, timezone")
-            .eq("id", effectiveCompanyId)
-            .maybeSingle<Pick<Company, "name" | "timezone">>();
-          return data;
-        })()
+      ? getCompanyBasics(effectiveCompanyId)
       : Promise.resolve(null),
     // Feature entitlements gate module-specific nav links. Cross-company
     // roles with no scoped company see no module links either way.
@@ -125,17 +122,28 @@ export default async function AppLayout({
   // persistence yet (see lib/notifications/service.ts). Cross-company
   // roles with no scoped company get an empty list; nothing
   // company-level to notify on.
-  const notifications = effectiveCompanyId
-    ? await getHeaderNotifications({
+  //
+  // NOT AWAITED. This layout is above every page and every loading
+  // skeleton, so anything it waits for holds up the whole product. The
+  // read is started here and handed to the bell and to Aimee's icon as
+  // a promise; the page is sent without it and the counts arrive on
+  // the same response a moment later (notifications/use-arriving.ts).
+  // A failed read is an empty list and a log line, not a failed page.
+  const notifications: Promise<NotificationItem[]> = effectiveCompanyId
+    ? getHeaderNotifications({
         userId: session.profile.id,
         companyId: effectiveCompanyId,
         timezone: companyTimezone ?? "America/Anchorage",
         features,
+      }).catch((err) => {
+        console.error("[layout] header notifications failed", err);
+        return [] as NotificationItem[];
       })
-    : [];
+    : Promise.resolve([]);
   // Aimee's kinds (invitations and shared chats) go to her icon, the
   // rest stay in the bell. One query, split (notifications/kinds.ts).
-  const { bell: bellNotifications, aimee: aimeeNotifications } = splitNotifications(notifications);
+  const bellNotifications = notifications.then((n) => splitNotifications(n).bell);
+  const aimeeNotifications = notifications.then((n) => splitNotifications(n).aimee);
 
   // Read persisted collapse state so the initial render matches the
   // user's preference (no post-hydration jump). Sidebar writes these

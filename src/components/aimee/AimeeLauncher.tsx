@@ -1,13 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Drawer } from "@/components/ui/Drawer";
 import { trackClient } from "@/lib/analytics/track-client";
 import { recordPanelEventAction } from "@/lib/aimee/panel-actions";
 import { AimeeIcon } from "./AimeeIcons";
-import { AimeePanelChat } from "./AimeePanelChat";
 import type { NotificationItem } from "@/lib/notifications/service";
+import { useArriving } from "@/lib/notifications/use-arriving";
 import styles from "./AimeeLauncher.module.css";
 
 // AIMEE'S ICON AND PANEL, replacing the "?" help button in the same
@@ -43,6 +44,20 @@ import styles from "./AimeeLauncher.module.css";
 // The e2e spec checks the keypress reaches the page in Chromium,
 // Firefox and WebKit.
 
+// ---- THE CONVERSATION IS FETCHED ON FIRST OPEN -------------------------
+//
+// This launcher is in the (app) layout, so what it imports is
+// downloaded on every page. The conversation brings ChatView and the
+// markdown renderer with it (about 62 kB compressed), and most page
+// loads never open the panel. So it is its own file: fetched when the
+// pointer or keyboard focus reaches the button (so it is usually there
+// before the click), drawn from the first open on, and kept mounted
+// after that exactly as before.
+const loadPanelChat = () => import("./AimeePanelChat");
+const AimeePanelChat = dynamic(() => loadPanelChat().then((m) => m.AimeePanelChat), {
+  ssr: false,
+});
+
 const PHONE = "(max-width: 768px)";
 
 function usePhone(): boolean {
@@ -64,9 +79,25 @@ export function isAimeeShortcut(e: Pick<KeyboardEvent, "ctrlKey" | "metaKey" | "
 // notifications: Aimee's own (invitations to debrief a meeting, and
 // shared chats), split from the bell's by the layout
 // (notifications/kinds.ts). Their count is the icon's badge.
-export function AimeeLauncher({ notifications = [] }: { notifications?: NotificationItem[] }) {
+//
+// They may come as a promise: the layout sends the page before they are
+// read, and the badge fills in when they land (use-arriving.ts).
+const NO_NOTIFICATIONS: NotificationItem[] = [];
+
+export function AimeeLauncher({
+  notifications: notificationsSource = NO_NOTIFICATIONS,
+}: {
+  notifications?: NotificationItem[] | Promise<NotificationItem[]>;
+}) {
+  const notifications = useArriving(notificationsSource, NO_NOTIFICATIONS);
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
+  // True from the first open on. The conversation is not drawn before
+  // that; after it, it stays mounted with the panel (keepMounted).
+  const [everOpened, setEverOpened] = useState(false);
+  useEffect(() => {
+    if (open) setEverOpened(true);
+  }, [open]);
   const phone = usePhone();
   // The message box, where focus goes on a computer. Not on a phone:
   // focusing it there throws the keyboard up the moment the panel opens.
@@ -120,6 +151,8 @@ export function AimeeLauncher({ notifications = [] }: { notifications?: Notifica
         aria-expanded={open}
         aria-controls="aimee-panel"
         title="Aimee (Ctrl+.)"
+        onPointerEnter={() => void loadPanelChat()}
+        onFocus={() => void loadPanelChat()}
         onClick={() => {
           setOpen((prev) => {
             const next = !prev;
@@ -148,7 +181,9 @@ export function AimeeLauncher({ notifications = [] }: { notifications?: Notifica
         fill
       >
         <div id="aimee-panel" className={styles.body}>
-          <AimeePanelChat active={open} notifications={notifications} composerRef={composer} focusOnLoad={!phone} />
+          {open || everOpened ? (
+            <AimeePanelChat active={open} notifications={notifications} composerRef={composer} focusOnLoad={!phone} />
+          ) : null}
         </div>
       </Drawer>
     </>

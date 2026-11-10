@@ -33,7 +33,9 @@ describe("Aimee's notifications and the bell's (Step 5)", () => {
 
   it("is split in the layout, with each half going to its own place", async () => {
     const src = await fs.readFile(path.join(process.cwd(), "src/app/(app)/layout.tsx"), "utf8");
-    expect(src).toMatch(/splitNotifications\(notifications\)/);
+    // Split once the read lands: the layout no longer waits for it.
+    expect(src).toMatch(/splitNotifications\(n\)\.bell/);
+    expect(src).toMatch(/splitNotifications\(n\)\.aimee/);
     expect(src).toMatch(/notifications=\{bellNotifications\}/);
     expect(src).toMatch(/<AimeeLauncher notifications=\{aimeeNotifications\}/);
   });

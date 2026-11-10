@@ -15,6 +15,9 @@ import { signOutAction } from "@/lib/auth/actions";
 import { exitCompanyScopeAction } from "@/lib/admin/scope-actions";
 import { NotificationBell } from "@/components/nav-band/NotificationBell";
 import type { NotificationItem } from "@/lib/notifications/service";
+import { useArriving } from "@/lib/notifications/use-arriving";
+
+const NO_NOTIFICATIONS: readonly NotificationItem[] = [];
 import styles from "./Sidebar.module.css";
 import type { Role } from "@/lib/types";
 import { navBandsFor, type NavBand } from "./nav-bands";
@@ -364,7 +367,9 @@ export type SidebarProps = {
   // one. Only the portfolio band uses it, to build the settings link.
   scopedCompanyId?: string | null;
   features?: readonly string[];
-  notifications?: readonly NotificationItem[];
+  // The bell's items, or a promise of them: the layout sends the page
+  // before they are read (notifications/use-arriving.ts).
+  notifications?: readonly NotificationItem[] | Promise<readonly NotificationItem[]>;
   // Initial collapsed state read from cookie server-side so first
   // paint matches the persisted preference — no post-hydration flicker.
   initialCollapsed?: boolean;
@@ -388,12 +393,13 @@ export function Sidebar({
   scopedCompanyName,
   scopedCompanyId = null,
   features = [],
-  notifications = [],
+  notifications: notificationsSource = NO_NOTIFICATIONS,
   initialCollapsed = false,
   initialCollapsedGroups = [],
   initialHomeOpen = false,
 }: SidebarProps) {
   const pathname = usePathname() ?? "";
+  const notifications = useArriving(notificationsSource, NO_NOTIFICATIONS);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(
     () => new Set(initialCollapsedGroups)

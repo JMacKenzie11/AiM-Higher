@@ -114,39 +114,65 @@ export async function getHeaderNotifications({
   // count — one round trip per trigger returns everything we need to
   // render either the rich single-item shape (show the description)
   // or the aggregate shape (show "N items").
-  if (features.includes("execution")) {
+  // THREE INDEPENDENT READS, STARTED TOGETHER. The commitment counts,
+  // Friday's pending numbers and the saved notifications do not depend
+  // on one another. They used to run one after the other, and the
+  // whole product waits on this function. The items are still built in
+  // the same order below, so the list reads as it always did.
+  const commitmentsWork = features.includes("execution")
+    ? Promise.all([
+        // deleted_at / parked_at are REQUIRED here. Without them the
+        // bell counted soft-deleted and parked commitments as overdue,
+        // so a user who tidied up their list still saw the badge. These
+        // two filters also make commitments_owner_open_due_idx an exact
+        // match for the query.
+        supabase
+          .from("commitments")
+          .select("id, description", { count: "exact" })
+          .eq("owner_id", userId)
+          .eq("company_id", companyId)
+          .eq("status", "open")
+          .is("deleted_at", null)
+          .is("parked_at", null)
+          .lt("due_date", todayIso)
+          .order("due_date", { ascending: true })
+          .limit(1),
+        supabase
+          .from("commitments")
+          .select("id, description", { count: "exact" })
+          .eq("owner_id", userId)
+          .eq("company_id", companyId)
+          .eq("status", "open")
+          .is("deleted_at", null)
+          .is("parked_at", null)
+          .eq("due_date", todayIso)
+          .order("due_date", { ascending: true })
+          .limit(1),
+      ])
+    : null;
+  const pendingWork =
+    isFriday && features.includes("performance_tracking")
+      ? getPendingMeasuresForUser({ supabase, companyId, userId, weekEnding: thisFri })
+      : null;
+  const persistedWork = supabase
+    .from("notifications")
+    .select("id, kind, eyebrow, title, href, created_at, payload")
+    .eq("recipient_id", userId)
+    .eq("company_id", companyId)
+    .is("read_at", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const [commitmentCounts, pending, { data: persistedRows }] = await Promise.all([
+    commitmentsWork,
+    pendingWork,
+    persistedWork,
+  ]);
+
+  if (commitmentCounts) {
     const [
       { data: overdueRows, count: overdue },
       { data: dueTodayRows, count: dueToday },
-    ] = await Promise.all([
-      // deleted_at / parked_at are REQUIRED here. Without them the
-      // bell counted soft-deleted and parked commitments as overdue,
-      // so a user who tidied up their list still saw the badge. These
-      // two filters also make commitments_owner_open_due_idx an exact
-      // match for the query.
-      supabase
-        .from("commitments")
-        .select("id, description", { count: "exact" })
-        .eq("owner_id", userId)
-        .eq("company_id", companyId)
-        .eq("status", "open")
-        .is("deleted_at", null)
-        .is("parked_at", null)
-        .lt("due_date", todayIso)
-        .order("due_date", { ascending: true })
-        .limit(1),
-      supabase
-        .from("commitments")
-        .select("id, description", { count: "exact" })
-        .eq("owner_id", userId)
-        .eq("company_id", companyId)
-        .eq("status", "open")
-        .is("deleted_at", null)
-        .is("parked_at", null)
-        .eq("due_date", todayIso)
-        .order("due_date", { ascending: true })
-        .limit(1),
-    ]);
+    ] = commitmentCounts;
 
     if ((overdue ?? 0) > 0) {
       const firstDesc = overdueRows?.[0]?.description as string | undefined;
@@ -188,13 +214,7 @@ export async function getHeaderNotifications({
   // reminder. That reading is gone with the flag's: the surface is
   // open to everyone now, so "has measures" says nothing about
   // whether they asked to be chased.
-  if (isFriday && features.includes("performance_tracking")) {
-    const pending = await getPendingMeasuresForUser({
-      supabase,
-      companyId,
-      userId,
-      weekEnding: thisFri,
-    });
+  if (pending) {
     if (pending.count > 0) {
       const isRich = pending.count === 1 && pending.firstDescription !== null;
       items.push({
@@ -216,14 +236,7 @@ export async function getHeaderNotifications({
   // recipient_id = auth.uid() so cross-user leakage is already
   // blocked; the company filter is a UX belt so a scope switch
   // doesn't drag notifications from the other tenant along.
-  const { data: persistedRows } = await supabase
-    .from("notifications")
-    .select("id, kind, eyebrow, title, href, created_at, payload")
-    .eq("recipient_id", userId)
-    .eq("company_id", companyId)
-    .is("read_at", null)
-    .order("created_at", { ascending: false })
-    .limit(20);
+  // (Read above, alongside the other two.)
   const persisted = (persistedRows ?? []) as Array<{
     id: string;
     kind: string;

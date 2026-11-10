@@ -1,9 +1,8 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile, Role } from "@/lib/types";
-import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { getCompanyBasics } from "@/lib/companies/basics";
 
 // Cross-company scoping (Section 7 + 8.9).
 //
@@ -251,14 +250,12 @@ async function resolveCompanyIdInternal(
 // Cheap existence probe. companies_hide_deleted is a restrictive
 // SELECT policy, so a soft-deleted company reads back null even
 // for a sysadmin. Returns true iff the row is visible + live.
+//
+// Through getCompanyBasics, so the layout and the page (which each
+// resolve the effective company) and anything that then wants the
+// company's name or timezone share one read per request.
 async function companyIsLive(companyId: string): Promise<boolean> {
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data } = await supabase
-    .from("companies")
-    .select("id")
-    .eq("id", companyId)
-    .maybeSingle<{ id: string }>();
-  return data !== null;
+  return (await getCompanyBasics(companyId)) !== null;
 }
 
 export async function setScopedCompanyCookie(
