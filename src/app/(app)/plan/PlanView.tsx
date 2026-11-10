@@ -20,6 +20,7 @@ import { goalAnchorId, sfaAnchorId } from "./cascade-anchor";
 import styles from "./plan.module.css";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+import { getCompanyBasics } from "@/lib/companies/basics";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { thisFriday } from "@/lib/dates";
 import { fromMeeting } from "@/lib/meeting/return";
@@ -118,11 +119,7 @@ export async function PlanView({
   ];
 
   // This Friday in the COMPANY's timezone, not the reader's laptop's.
-  const { data: companyRow } = await supabase
-    .from("companies")
-    .select("timezone")
-    .eq("id", companyId)
-    .maybeSingle<{ timezone: string | null }>();
+  const companyRow = await getCompanyBasics(companyId);
   const defaultDueDate = thisFriday(companyRow?.timezone ?? "America/Anchorage");
 
   const sfaOptions = cascade.sfas.map((sfa) => ({ id: sfa.id, title: sfa.title }));

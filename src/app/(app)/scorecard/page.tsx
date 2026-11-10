@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { isAdminForCompany } from "@/lib/auth/permissions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   loadCompanyScorecard,
   trajectoryFor,
@@ -17,7 +16,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { Sparkline } from "./Sparkline";
 import { formatShortDate } from "@/lib/dates";
 import styles from "./scorecard.module.css";
-import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { getCompanyBasics } from "@/lib/companies/basics";
 import { simplifyOn } from "@/lib/ui/simplify";
 
 export const metadata = { title: "AiMS Implementation" };
@@ -45,12 +44,7 @@ export default async function ScorecardPage() {
   const scorecard = await loadCompanyScorecard(companyId);
   const overallTrend = overallTrajectory(scorecard);
 
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data: companyRow } = await supabase
-    .from("companies")
-    .select("name")
-    .eq("id", companyId)
-    .maybeSingle<{ name: string }>();
+  const companyRow = await getCompanyBasics(companyId);
   const companyName = companyRow?.name ?? "your company";
 
   // First-run setup checklist. Rendered as the top card for any

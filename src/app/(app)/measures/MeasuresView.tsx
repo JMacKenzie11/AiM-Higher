@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getGridData } from "@/lib/measures/grid";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { loadExternalPanel } from "@/lib/external-measures/service";
+import { getCompanyBasics } from "@/lib/companies/basics";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { ExternalMeasuresProvider } from "./external/ExternalMeasuresContext";
 import { MeasuresGrid } from "./MeasuresGrid";
@@ -34,11 +35,7 @@ export async function loadMeasuresView(session: Session, companyId: string) {
   const isCompanyAdmin = isAdminForCompany(session.profile, companyId);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data: company } = await supabase
-    .from("companies")
-    .select("timezone")
-    .eq("id", companyId)
-    .maybeSingle<{ timezone: string }>();
+  const company = await getCompanyBasics(companyId);
   const timezone = company?.timezone ?? "America/Anchorage";
 
   // The tree only. The Board moved to /dashboard, so this page no
