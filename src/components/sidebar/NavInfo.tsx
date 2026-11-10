@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink } from "./IntentLink";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, type ReactNode } from "react";
 import type { Role } from "@/lib/types";
@@ -36,14 +36,14 @@ export function SectionTabs() {
   return (
     <nav className={styles.tabs} aria-label={`${section.label} pages`}>
       {tabs.map((t) => (
-        <Link
+        <IntentLink
           key={t.href}
           href={t.href}
           className={styles.tab}
           aria-current={current?.href === t.href ? "page" : undefined}
         >
           {t.label}
-        </Link>
+        </IntentLink>
       ))}
     </nav>
   );
