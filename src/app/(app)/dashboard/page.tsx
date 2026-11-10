@@ -77,10 +77,13 @@ export default async function DashboardPage({
   // these read numbers people have already recorded, and Success
   // Tracking is about what the Saturday sweep does, not about who
   // may look at their own values.
-  const measureInsights = await getMeasureInsights(
-    companyId,
-    data.company.timezone
-  );
+  //
+  // Read TOGETHER with the board below. Neither needs the other, each
+  // is three reads deep, and they used to run back to back.
+  const [measureInsights, board] = await Promise.all([
+    getMeasureInsights(companyId, data.company.timezone),
+    getBoardData(companyId, data.company.timezone),
+  ]);
 
   // The 13-week board, which used to sit on /measures.
   //
@@ -96,7 +99,7 @@ export default async function DashboardPage({
   // anything. One real point is sparse and true, and shows. That is
   // the whole gate now — it used to also require Success Tracking,
   // which hid a company's own recorded numbers from it.
-  const board = await getBoardData(companyId, data.company.timezone);
+  // (Read above, alongside the insights.)
   // Coach: anyone in the company, about anyone else in it, or an
   // admin for it (canCoachAbout; 0261). The column shows when at least
   // one row has the button.

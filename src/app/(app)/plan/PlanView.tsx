@@ -68,17 +68,18 @@ export async function PlanView({
     quarters[0] ||
     null;
 
-  const cascade = await getCascade(
-    companyId,
-    selectedQuarter ? selectedQuarter.id : null
-  );
-
+  // The cascade, the roster and the company's timezone, together: the
+  // last two need only the company.
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data: people } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .eq("company_id", companyId)
-    .order("full_name");
+  const [cascade, { data: people }, companyRow] = await Promise.all([
+    getCascade(companyId, selectedQuarter ? selectedQuarter.id : null),
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("company_id", companyId)
+      .order("full_name"),
+    getCompanyBasics(companyId),
+  ]);
   const roster = (people ?? []) as Pick<Profile, "id" | "full_name">[];
 
   // A company's admins: its company_admin, an assigned guide, a
@@ -119,7 +120,6 @@ export async function PlanView({
   ];
 
   // This Friday in the COMPANY's timezone, not the reader's laptop's.
-  const companyRow = await getCompanyBasics(companyId);
   const defaultDueDate = thisFriday(companyRow?.timezone ?? "America/Anchorage");
 
   const sfaOptions = cascade.sfas.map((sfa) => ({ id: sfa.id, title: sfa.title }));

@@ -219,28 +219,27 @@ export async function loadMeasuresSpine(
 
   const measureIds = csfIds;
 
-  const targetRows =
+  // The target history and the entries, together: both hang off the
+  // measure ids and neither needs the other.
+  const [targetRows, entryRows] =
     measureIds.length === 0
-      ? []
-      : (((
-          await supabase
+      ? [[] as TargetHistoryRow[], [] as SpineEntry[]]
+      : await Promise.all([
+          supabase
             .from("success_measure_targets")
             .select(TARGET_COLS)
             .in("measure_id", measureIds)
             .order("effective_from", { ascending: false })
-        ).data ?? []) as TargetHistoryRow[]);
-  const entryRows =
-    measureIds.length === 0
-      ? []
-      : (((
-          await supabase
+            .then((r) => (r.data ?? []) as TargetHistoryRow[]),
+          supabase
             .from("success_measure_entries")
             .select(ENTRY_COLS)
             .in("measure_id", measureIds)
             .gte("week_ending", weeks[0])
             .lte("week_ending", dataWeekEnd)
             .order("week_ending", { ascending: false })
-        ).data ?? []) as SpineEntry[]);
+            .then((r) => (r.data ?? []) as SpineEntry[]),
+        ]);
 
   return {
     weekEnding,

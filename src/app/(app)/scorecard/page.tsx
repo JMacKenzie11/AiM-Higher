@@ -41,10 +41,15 @@ export default async function ScorecardPage() {
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) redirect("/admin/companies");
 
-  const scorecard = await loadCompanyScorecard(companyId);
+  // The scorecard, the company's name and the setup checklist,
+  // together: each needs only the company.
+  const canManageCompany = isAdminForCompany(session.profile, companyId);
+  const [scorecard, companyRow, setup] = await Promise.all([
+    loadCompanyScorecard(companyId),
+    getCompanyBasics(companyId),
+    loadCompanySetupIfAdmin(companyId, session, canManageCompany),
+  ]);
   const overallTrend = overallTrajectory(scorecard);
-
-  const companyRow = await getCompanyBasics(companyId);
   const companyName = companyRow?.name ?? "your company";
 
   // First-run setup checklist. Rendered as the top card for any
@@ -53,12 +58,6 @@ export default async function ScorecardPage() {
   // after every step ticks off so admins have a permanent "here's
   // the map" reference on the implementation surface. Nothing about
   // completion is persisted — steps derive per render.
-  const canManageCompany = isAdminForCompany(session.profile, companyId);
-  const setup = await loadCompanySetupIfAdmin(
-    companyId,
-    session,
-    canManageCompany
-  );
 
   return (
     <PageShell
