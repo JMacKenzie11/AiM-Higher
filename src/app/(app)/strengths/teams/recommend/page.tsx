@@ -1,3 +1,4 @@
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { redirect } from "next/navigation";
 import RecommendPage from "@/components/strengths/teams/RecommendPage";
 import { PageShell } from "@/components/ui/PageShell";
@@ -15,7 +16,8 @@ export default async function RecommendRoute() {
   if (
     me.role !== "company_admin" &&
     me.role !== "system_admin" &&
-    me.role !== "aims_guide"
+    me.role !== "aims_guide" &&
+    me.role !== "portfolio_admin"
   ) {
     redirect("/");
   }
@@ -25,6 +27,14 @@ export default async function RecommendRoute() {
     me.role === "system_admin" ? null : await getEffectiveCompanyId(session);
   if (me.role === "aims_guide" && !effectiveCompanyId) {
     redirect("/admin/companies");
+  }
+  // A portfolio admin builds teams only where a system admin switched
+  // it on as the company's admin (Jason, 2026-11-09).
+  if (
+    me.role === "portfolio_admin" &&
+    (!effectiveCompanyId || !isAdminForCompany(me, effectiveCompanyId))
+  ) {
+    redirect("/strengths/teams");
   }
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());

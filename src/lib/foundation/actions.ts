@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
-import { scopedCompanyId } from "@/lib/auth/permissions";
+import { COMPANY_ADMIN_ROLES, scopedCompanyId } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { nullableString } from "@/lib/utils";
 import type {
@@ -30,7 +30,7 @@ export async function upsertFoundationAction(
   _prev: Result<CompanyFoundation> | undefined,
   formData: FormData
 ): Promise<Result<CompanyFoundation>> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -63,7 +63,7 @@ export async function createFoundationItemAction(
   _prev: Result<FoundationItem> | undefined,
   formData: FormData
 ): Promise<Result<FoundationItem>> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -112,7 +112,7 @@ export async function updateFoundationItemAction(
   _prev: Result<FoundationItem> | undefined,
   formData: FormData
 ): Promise<Result<FoundationItem>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const body = nullableString(formData.get("body"));
@@ -134,7 +134,7 @@ export async function updateFoundationItemAction(
 export async function deleteFoundationItemAction(
   itemId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("foundation_items")
@@ -149,7 +149,7 @@ export async function moveFoundationItemAction(
   itemId: string,
   direction: "up" | "down"
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: item } = await supabase
@@ -205,7 +205,7 @@ export async function upsertMarketingAction(
   _prev: Result<MarketingStrategy> | undefined,
   formData: FormData
 ): Promise<Result<MarketingStrategy>> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -238,7 +238,7 @@ export async function createPillarAction(
   _prev: Result<MessagingPillar> | undefined,
   formData: FormData
 ): Promise<Result<MessagingPillar>> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -281,7 +281,7 @@ export async function updatePillarAction(
   _prev: Result<MessagingPillar> | undefined,
   formData: FormData
 ): Promise<Result<MessagingPillar>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const message = nullableString(formData.get("message"));
@@ -304,7 +304,7 @@ export async function updatePillarAction(
 export async function deletePillarAction(
   pillarId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("messaging_pillars")
@@ -342,7 +342,7 @@ export async function createSnippetAction(
   _prev: Result<MarketingSnippet> | undefined,
   formData: FormData
 ): Promise<Result<MarketingSnippet>> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   const companyId = await scopedCompanyId(
     session,
     String(formData.get("company_id") ?? "")
@@ -390,7 +390,7 @@ export async function updateSnippetAction(
   _prev: Result<MarketingSnippet> | undefined,
   formData: FormData
 ): Promise<Result<MarketingSnippet>> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const id = String(formData.get("id") ?? "");
   const content = String(formData.get("content") ?? "").trim();
   if (!id) return { ok: false, message: "Missing id." };
@@ -412,7 +412,7 @@ export async function updateSnippetAction(
 export async function deleteSnippetAction(
   snippetId: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { error } = await supabase
     .from("marketing_snippets")

@@ -36,8 +36,9 @@ Everyone at your company, with their position, role, status, open commitments an
 - **Open anyone's scorecard** by clicking their name.
 - **Coach anyone at the company.** Click *Coach* on their row or their scorecard.
 - **Revise any of the company's role descriptions** with Aimee, from the list at the bottom of the page.
+- **Add, edit and invite people,** and change someone's strengths, the same as the company's admins. Use the menu on their row, or their scorecard. You can **deactivate** or **delete** them there too.
 
-Adding, editing and removing people is done by the company's own admins.
+Removing a portfolio admin or another guide from the company is done by the company's own admins.
 
 In your own coaching company, if you have one, you're on this list as *company admin*, and the people there can see you, give you commitments and put you on the chart.
 :::
@@ -49,7 +50,7 @@ In your own coaching company, if you have one, you're on this list as *company a
 - **Add a person.** Press *Add a person* at the top of the roster (or use the form under it) and fill in their name, email, position and role. You can add a *Member*, a *Facilitator* or a *Company Admin*. Tick *Send invite email now* to invite them straight away, or leave it unticked to add them as *pending*.
 - **Coach anyone at the company,** where a system admin has made you its admin. Click *Coach* on their row or their scorecard.
 
-Editing, deactivating and deleting people is done by the company's own admins. Portfolio admins and system admins are set up by a system admin.
+Where a system admin has made you this company's admin, you can also do what its admins do with people: edit someone's details and strengths, resend an invite, deactivate, reactivate and delete. Otherwise, that's done by the company's own admins. Removing a portfolio admin or a guide from the company stays with its own admins. Portfolio admins and system admins are set up by a system admin.
 :::
 
 ## Role Descriptions

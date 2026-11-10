@@ -1,3 +1,4 @@
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import CreateTeamForm from "@/components/strengths/teams/CreateTeamForm";
@@ -27,9 +28,9 @@ export default async function TeamsListPage() {
   // docs/investigations/open-data.md); the read rules keep each person
   // to their own company. Building and changing teams stays with the
   // company's admins, its guides and system admins.
-  const canManage =
+  const adminRole =
     me.role === "company_admin" || me.role === "system_admin" || me.role === "aims_guide";
-  if (!canManage && !me.company_id && me.role !== "portfolio_admin") {
+  if (!adminRole && !me.company_id && me.role !== "portfolio_admin") {
     redirect("/");
   }
   // Locked company for the create form: company_admin uses their own
@@ -41,6 +42,11 @@ export default async function TeamsListPage() {
   if (me.role === "aims_guide" && !effectiveCompanyId) {
     redirect("/admin/companies");
   }
+  // Building and changing teams: the company's admins, a portfolio
+  // admin switched on as its admin among them (Jason, 2026-11-09).
+  const canManage =
+    me.role === "system_admin" ||
+    (effectiveCompanyId !== null && isAdminForCompany(me, effectiveCompanyId));
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: teams } = await supabase

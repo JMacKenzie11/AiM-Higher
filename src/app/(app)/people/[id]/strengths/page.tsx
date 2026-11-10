@@ -34,13 +34,16 @@ export default async function PersonStrengthsPage({ params }: PageProps) {
 
   const isSelf = session.profile.id === subject.id;
   const isSystemAdmin = session.profile.role === "system_admin";
+  // The subject's company's admins: its company_admin, an assigned
+  // guide, a portfolio admin switched on as its admin (Jason,
+  // 2026-11-09; RLS since 0322).
   const isCompanyAdmin =
-    session.profile.role === "company_admin" &&
-    session.profile.company_id === subject.company_id;
+    subject.company_id !== null &&
+    isAdminForCompany(session.profile, subject.company_id);
   // Everyone in the company reads a person's strengths (0253, phase D
   // of docs/investigations/open-data.md): their colleagues, its
   // assigned guides and portfolio admins. Editing the manual list stays
-  // with the person, their company admin and system admins.
+  // with the person, their company's admins and system admins.
   const canView =
     isSelf ||
     isSystemAdmin ||

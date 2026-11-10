@@ -1,3 +1,4 @@
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import Link from "next/link";
 import { meetingReturn } from "@/lib/meeting/return";
 import { PlusIcon } from "../../../../../components/ui/PlusIcon";
@@ -30,9 +31,9 @@ export default async function SfaDetailPage({ params, searchParams }: PageProps)
   const detail = await getSfaDetail(id);
   if (!detail) notFound();
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // A company's admins: its company_admin, an assigned guide, a
+  // portfolio admin a system admin switched on as its admin.
+  const isAdmin = isAdminForCompany(session.profile, detail.sfa.company_id);
   const isSponsor = detail.sfa.sponsor_id === session.profile.id;
   const sponsor = detail.people.find((p) => p.id === detail.sfa.sponsor_id) ?? null;
 

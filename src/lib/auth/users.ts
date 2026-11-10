@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/current-user";
 import {
+  COMPANY_ADMIN_ROLES,
   isAdminForCompany,
   type SessionProfileLike,
 } from "@/lib/auth/permissions";
@@ -35,9 +36,10 @@ export type UserActionResult =
   | { ok: true; profileId?: string; warning?: string }
   | { ok: false; message: string };
 
-// Can the caller manage (create in / edit / invite / delete) a
-// profile that lives in targetCompanyId? Every roster action funnels
-// through this so the rule can't drift between copies:
+// Can the caller CREATE a profile in targetCompanyId? createUserAction
+// asks this; the actions on an existing person ask canManageProfileIn
+// below. Every roster action funnels through one of the two so the
+// rule can't drift between copies:
 //   system_admin: always.
 //   anyone else: never for a company-less profile (those are
 //     sysadmins and guides), otherwise isAdminForCompany, which
@@ -46,7 +48,7 @@ export type UserActionResult =
 // Before this helper the scope check only fired for company_admin,
 // which let a guide edit any profile on the platform through the
 // admin client (RLS doesn't apply there).
-function canManageProfileIn(
+function canCreateProfileIn(
   profile: SessionProfileLike,
   targetCompanyId: string | null
 ): boolean {
@@ -63,6 +65,23 @@ function canManageProfileIn(
   // createUserAction and again in the policy; this only answers
   // "which company".
   if (profile.role === "portfolio_admin") return true;
+  return isAdminForCompany(profile, targetCompanyId);
+}
+
+// Can the caller edit, invite or delete a person who lives in
+// targetCompanyId? isAdminForCompany, and nothing wider: the
+// company's own admin, an assigned guide, and a portfolio admin a
+// system admin switched on as that company's admin, who does what its
+// company_admin does (Jason, 2026-11-09). A portfolio admin who is
+// only assigned staffs the company (canCreateProfileIn) and does not
+// then rewrite the people in it. These actions write through the
+// service-role client, so this check is the boundary, not a courtesy.
+function canManageProfileIn(
+  profile: SessionProfileLike,
+  targetCompanyId: string | null
+): boolean {
+  if (profile.role === "system_admin") return true;
+  if (targetCompanyId === null) return false;
   return isAdminForCompany(profile, targetCompanyId);
 }
 
@@ -132,7 +151,7 @@ export async function createUserAction(
   if (!companyId) {
     return { ok: false, message: "Pick a company for this user." };
   }
-  if (!canManageProfileIn(session.profile, companyId)) {
+  if (!canCreateProfileIn(session.profile, companyId)) {
     return { ok: false, message: "Not your company." };
   }
 
@@ -287,17 +306,15 @@ async function createPlatformUser(
   return { ok: true, profileId: created.profileId };
 }
 
-// Editing an existing user is NOT on portfolio_admin's closed list,
-// and its absence here is a decision rather than an omission. That
-// role may staff a company; it may not then rewrite the people in it.
-// There is no profiles UPDATE or DELETE policy for the role either
-// (0192), so this is the app agreeing with the database rather than
-// the app being the only thing in the way.
+// Editing an existing user: a company's admins, which includes a
+// portfolio admin a system admin switched on as its admin (Jason,
+// 2026-11-09). One who is only assigned may staff a company and may
+// not then rewrite the people in it; canManageProfileIn refuses them.
 export async function updateUserAction(
   _prev: UserActionResult | undefined,
   formData: FormData
 ): Promise<UserActionResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
 
   const profileId = String(formData.get("id") ?? "");
   if (!profileId) return { ok: false, message: "Missing user id." };
@@ -334,9 +351,9 @@ export async function updateUserAction(
     return {
       ok: false,
       message:
-        session.profile.role === "company_admin"
-          ? "Company admins can't grant that role."
-          : "Guides can't grant that role.",
+        session.profile.role === "aims_guide"
+          ? "Guides can't grant that role."
+          : "Company admins can't grant that role.",
     };
   }
 
@@ -495,7 +512,7 @@ export async function requestFreshInviteAction(
 
 // ---- Send / resend an invite email ---------------------------
 export async function sendInviteAction(profileId: string): Promise<UserActionResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: profile } = await supabase
@@ -555,7 +572,7 @@ export type InviteLinkResult =
 export async function getInviteLinkAction(
   profileId: string
 ): Promise<InviteLinkResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: profile } = await supabase
@@ -702,7 +719,7 @@ async function markInvited(
 
 // ---- Delete a user (cleans up auth + profile via cascade) ----
 export async function deleteUserAction(profileId: string): Promise<UserActionResult> {
-  const session = await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
 
   if (profileId === session.profile.id) {
     return { ok: false, message: "You can't delete your own account." };

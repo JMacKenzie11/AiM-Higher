@@ -1,3 +1,5 @@
+import { getCurrentSession } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -53,16 +55,13 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role, company_id")
-    .eq("id", user.id)
-    .single();
-  if (!me) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-
+  // The company's admins: its company_admin, an assigned guide, a
+  // portfolio admin switched on as its admin (Jason, 2026-11-09).
+  const session = await getCurrentSession();
   const allowed =
-    me.role === "system_admin" ||
-    (me.role === "company_admin" && me.company_id === company_id);
+    session?.profile != null &&
+    session.profile.id === user.id &&
+    isAdminForCompany(session.profile, company_id);
   if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const { data: assessments } = await supabase

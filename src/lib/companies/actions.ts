@@ -5,7 +5,11 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/current-user";
-import { canViewCompany, isAdminForCompany } from "@/lib/auth/permissions";
+import {
+  canViewCompany,
+  isAdminForCompany,
+  COMPANY_ADMIN_ROLES,
+} from "@/lib/auth/permissions";
 import { recordPortfolioEvent } from "@/lib/portfolio/audit";
 import { createCompany } from "@/lib/companies/create-company";
 import { VALID_COMPANY_FEATURES } from "@/lib/companies/features";
@@ -441,20 +445,18 @@ export async function deleteCompanyAction(
 // else: holding the seat grants nothing an admin does not already
 // have, and losing it takes nothing away. See 0235.
 //
-// The company's OWN administrators, and no wider. portfolio_admin
-// is deliberately absent — their four container columns are about
-// packaging, and who runs a company's meeting rhythm is not a
-// packaging decision. The column guard in 0235 says the same thing
-// below the app, so this list is courtesy and that is the boundary.
+// The company's administrators, and no wider: its company_admin, an
+// assigned guide, and a portfolio admin a system admin switched on as
+// its admin (Jason, 2026-11-09). A portfolio admin who is only
+// assigned is refused below: who runs a company's meeting rhythm is
+// not a packaging decision. The column guard says the same thing
+// below the app (0235, and 0322 for the switched-on portfolio admin),
+// so this check is courtesy and that is the boundary.
 export async function setAimsChampionAction(
   companyId: string,
   profileId: string | null
 ): Promise<CompanyResult> {
-  const session = await requireRole([
-    "system_admin",
-    "company_admin",
-    "aims_guide",
-  ]);
+  const session = await requireRole(COMPANY_ADMIN_ROLES);
   if (!isAdminForCompany(session.profile, companyId)) {
     return { ok: false, message: "Not your company to edit." };
   }

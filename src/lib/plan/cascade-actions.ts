@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
+import { COMPANY_ADMIN_ROLES } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AnnualGoal, Priority } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
@@ -20,7 +21,7 @@ export type CascadeResult =
 export async function completePriorityAction(
   priorityId: string
 ): Promise<CascadeResult> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: priority } = await supabase
@@ -61,7 +62,7 @@ export async function completePriorityAction(
 export async function completeGoalAction(
   goalId: string
 ): Promise<CascadeResult> {
-  await requireRole(["system_admin", "company_admin", "aims_guide"]);
+  await requireRole(COMPANY_ADMIN_ROLES);
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const { data: goal } = await supabase

@@ -52,7 +52,9 @@ Adding a Focus Area, Goal or Priority is done by your company admin.
 
 Read the plan and open any row to see its owner, progress and Action Plan.
 
-If you're assigned to this company, you can also add a commitment of your own to a Priority: open it and add it at the top of its *Action Plan*. Other changes are made by the company's own people.
+If you're assigned to this company, you can also add a commitment of your own to a Priority: open it and add it at the top of its *Action Plan*.
+
+Where a system admin has made you this company's admin, you can change the plan the same as its admins do: add, edit, link, complete and archive Focus Areas, Annual Goals and Quarterly Priorities, and start the strategy again. Otherwise, other changes are made by the company's own people.
 :::
 
 ::: role company_admin,system_admin

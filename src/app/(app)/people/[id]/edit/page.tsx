@@ -2,6 +2,7 @@ import Link from "next/link";
 import { isCompanyRole } from "@/lib/types";
 import { notFound, redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Profile } from "@/lib/types";
@@ -23,8 +24,6 @@ export default async function EditPersonPage({ params }: PageProps) {
   const { id } = await params;
 
   const isSystemAdmin = session.profile.role === "system_admin";
-  const isCompanyAdmin = session.profile.role === "company_admin";
-  if (!isSystemAdmin && !isCompanyAdmin) redirect(`/people/${id}`);
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   const { data: subject } = await supabase
@@ -34,11 +33,18 @@ export default async function EditPersonPage({ params }: PageProps) {
     .maybeSingle<Profile>();
   if (!subject) notFound();
 
-  if (isCompanyAdmin && session.profile.company_id !== subject.company_id) {
-    redirect("/people");
+  // The subject's company's admins: its company_admin, an assigned
+  // guide, a portfolio admin switched on as its admin (Jason,
+  // 2026-11-09). updateUserAction asks the same (canManageProfileIn).
+  if (
+    !isSystemAdmin &&
+    (subject.company_id === null ||
+      !isAdminForCompany(session.profile, subject.company_id))
+  ) {
+    redirect(`/people/${id}`);
   }
   // A guide in their own company is edited by a system admin only.
-  if (isCompanyAdmin && !isCompanyRole(subject.role)) {
+  if (!isSystemAdmin && !isCompanyRole(subject.role)) {
     redirect(`/people/${id}`);
   }
 

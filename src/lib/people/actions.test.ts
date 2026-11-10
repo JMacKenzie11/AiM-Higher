@@ -12,10 +12,16 @@ const mocks = vi.hoisted(() => {
   // profiles chain shape here: .update({...}).eq(...).select("*").single()
   const profilesUpdatePatch = vi.fn();
   const profilesUpdateSingle = vi.fn();
+  // setProfileStatusAction reads the subject's company first:
+  // .select("company_id").eq("id", ...).maybeSingle()
+  const profilesSubjectSingle = vi.fn();
 
   const fromBuilder = (table: string) => {
     if (table === "profiles") {
       return {
+        select: () => ({
+          eq: () => ({ maybeSingle: profilesSubjectSingle }),
+        }),
         update: (patch: unknown) => {
           profilesUpdatePatch(patch);
           return {
@@ -37,6 +43,7 @@ const mocks = vi.hoisted(() => {
   return {
     profilesUpdatePatch,
     profilesUpdateSingle,
+    profilesSubjectSingle,
     serverClient,
     requireProfile,
     requireRole,
@@ -66,8 +73,10 @@ function formDataFrom(entries: Record<string, string>): FormData {
 
 function sessionFor(profile: {
   id?: string;
-  role?: "system_admin" | "company_admin" | "team_member" | "aims_guide";
+  role?: "system_admin" | "company_admin" | "team_member" | "aims_guide" | "portfolio_admin";
   company_id?: string | null;
+  portfolio_company_ids?: string[];
+  portfolio_admin_company_ids?: string[];
 }) {
   return {
     profile: {
@@ -75,11 +84,17 @@ function sessionFor(profile: {
       role: profile.role ?? "team_member",
       company_id:
         "company_id" in profile ? profile.company_id : "co_acme",
+      portfolio_company_ids: profile.portfolio_company_ids ?? [],
+      portfolio_admin_company_ids: profile.portfolio_admin_company_ids ?? [],
     },
   };
 }
 
 function primeHappyPath() {
+  mocks.profilesSubjectSingle.mockResolvedValue({
+    data: { company_id: "co_acme" },
+    error: null,
+  });
   mocks.profilesUpdateSingle.mockResolvedValue({
     data: {
       id: "profile_1",
@@ -320,5 +335,55 @@ describe("setProfileStatusAction", () => {
       ok: false,
       message: "Couldn't update that person's status.",
     });
+  });
+
+  // A portfolio admin a system admin switched on as the company's admin
+  // does what its company_admin does (Jason, 2026-11-09).
+  it("lets a portfolio admin switched on as the company's admin set status", async () => {
+    mocks.requireRole.mockResolvedValue(
+      sessionFor({
+        role: "portfolio_admin",
+        company_id: null,
+        portfolio_company_ids: ["co_acme"],
+        portfolio_admin_company_ids: ["co_acme"],
+      })
+    );
+    const { setProfileStatusAction } = await import("./actions");
+
+    const res = await setProfileStatusAction("person_1", "inactive");
+
+    expect(res.ok).toBe(true);
+    expect(mocks.profilesUpdatePatch).toHaveBeenCalledWith({ status: "inactive" });
+  });
+
+  // profiles_update_guide reaches any assigned portfolio admin through
+  // is_guide_for(), so this refusal is the app's, and it must hold.
+  it("refuses a portfolio admin who is only assigned, without writing", async () => {
+    mocks.requireRole.mockResolvedValue(
+      sessionFor({
+        role: "portfolio_admin",
+        company_id: null,
+        portfolio_company_ids: ["co_acme"],
+        portfolio_admin_company_ids: [],
+      })
+    );
+    const { setProfileStatusAction } = await import("./actions");
+
+    const res = await setProfileStatusAction("person_1", "inactive");
+
+    expect(res.ok).toBe(false);
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("refuses a company admin of another company, without writing", async () => {
+    mocks.requireRole.mockResolvedValue(
+      sessionFor({ role: "company_admin", company_id: "co_other" })
+    );
+    const { setProfileStatusAction } = await import("./actions");
+
+    const res = await setProfileStatusAction("person_1", "inactive");
+
+    expect(res.ok).toBe(false);
+    expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
   });
 });

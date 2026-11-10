@@ -1,3 +1,4 @@
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import Link from "next/link";
 import { MobileAddMenu } from "./MobileAddMenu";
 import { PlanAddDrawers } from "./PlanAddDrawers";
@@ -79,9 +80,9 @@ export async function PlanView({
     .order("full_name");
   const roster = (people ?? []) as Pick<Profile, "id" | "full_name">[];
 
-  const isAdmin =
-    session.profile.role === "system_admin" ||
-    session.profile.role === "company_admin";
+  // A company's admins: its company_admin, an assigned guide, a
+  // portfolio admin a system admin switched on as its admin.
+  const isAdmin = isAdminForCompany(session.profile, companyId);
 
   // Every priority in the selected quarter, labelled by what it sits
   // under, for the Add Commitment picker. Two priorities can share a

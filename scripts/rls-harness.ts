@@ -3694,6 +3694,129 @@ insert into public.portfolio_assignments (portfolio_admin_id, company_id) values
   };
 }
 
+// A switched-on portfolio admin is the company's admin for strengths
+// and the champion too (0322; Jason, 2026-11-09).
+//
+// 0245's switch moved the content write rules onto
+// is_content_admin_for(); user_strengths and the champion column were
+// never on that list, so a portfolio admin a system admin made a
+// company's admin was still refused both, and so was an assigned guide
+// on strengths.
+//
+//   granted   switched on: insert, update and delete a member's
+//             strengths; set the champion
+//             an assigned guide: insert a member's strengths
+//   withheld  assigned but switched off: strengths insert, champion
+//             switched on, another company's member: strengths insert
+//             switched on: assistants_enabled, still not theirs
+//             a team member, a peer's strengths
+// Red before 0322; green with it.
+async function portfolioAdminActsAsCompanyAdmin(
+  run: Runner,
+  ids: Identities,
+  pending: string = ""
+): Promise<CaseResult> {
+  const name = "portfolio-admin-acts-as-company-admin";
+  const hazard = "A portfolio admin a system admin made a company's admin is still refused a company admin's writes";
+  const CO = ids.companyAdminCompany;
+  const OTHER_CO = ids.otherCompany;
+  const uid = (tag: string) => `aaaa0322-0000-4000-8000-0000000000${tag}`;
+  const PA = uid("01");
+  const SUBJECT = uid("02");
+  const PEER = uid("03");
+  const OUTSIDER = uid("04");
+  const GUIDE_SUBJECT = uid("05");
+  const [fx] = await run<{ sys: string | null; assistants: boolean | null }>(
+    ["begin;", pending,
+      `select (select id from public.profiles where role='system_admin' and status='active' order by created_at limit 1) as sys,
+              (select assistants_enabled from public.companies where id='${CO}') as assistants;`,
+      "rollback;"].join("\n")
+  );
+  const SYS = fx?.sys;
+  if (!SYS || !ids.guide || !ids.guideCompany) {
+    return { name, hazard, wrong: "NOT PROVEN", right: "NOT PROVEN", ok: false, detail: "NOT PROVEN: needs an active system admin and an assigned guide." };
+  }
+  const user = (id: string) =>
+    `('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now())`;
+  const seed = `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ${[PA, SUBJECT, PEER, OUTSIDER, GUIDE_SUBJECT].map(user).join(",\n       ")};
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${PA}', null, 'Harness 0322 PA', 'portfolio_admin', 'active'),
+       ('${SUBJECT}', '${CO}', 'Harness 0322 Subject', 'team_member', 'active'),
+       ('${PEER}', '${CO}', 'Harness 0322 Peer', 'team_member', 'active'),
+       ('${OUTSIDER}', '${OTHER_CO}', 'Harness 0322 Outsider', 'team_member', 'active'),
+       ('${GUIDE_SUBJECT}', '${ids.guideCompany}', 'Harness 0322 Guide Subject', 'team_member', 'active');
+insert into public.portfolio_assignments (portfolio_admin_id, company_id) values ('${PA}', '${CO}');
+insert into public.user_strengths (user_id, kind, label) values ('${SUBJECT}', 'strength', 'harness 0322 seeded');`;
+  const as = (sub: string) =>
+    `set local role authenticated;\nset local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const switchOn = `${as(SYS)}
+update public.portfolio_assignments set acts_as_company_admin = true where portfolio_admin_id = '${PA}' and company_id = '${CO}';
+reset role;`;
+
+  // Run `write` as `who` after `setup`, then count with the role reset.
+  const count = async (setup: string, who: string, write: string, check: string): Promise<number> => {
+    try {
+      const [r] = await run<{ n: number }>(
+        ["begin;", pending, seed, setup, as(who), write, "reset role;", check, "rollback;"].join("\n")
+      );
+      return r?.n ?? -1;
+    } catch {
+      return 0;
+    }
+  };
+  const insertFor = (subject: string) =>
+    `insert into public.user_strengths (user_id, kind, label) values ('${subject}', 'strength', 'harness 0322 added');`;
+  const added = (subject: string) =>
+    `select count(*)::int as n from public.user_strengths where user_id = '${subject}' and label = 'harness 0322 added';`;
+  const championIs = `select count(*)::int as n from public.companies where id = '${CO}' and aims_champion_profile_id = '${SUBJECT}';`;
+  const setChampion = `update public.companies set aims_champion_profile_id = '${SUBJECT}' where id = '${CO}';`;
+  const flipAssistants = `update public.companies set assistants_enabled = ${fx?.assistants ? "false" : "true"} where id = '${CO}';`;
+  const assistantsMoved = `select count(*)::int as n from public.companies where id = '${CO}' and assistants_enabled is distinct from ${fx?.assistants ? "true" : "false"};`;
+
+  const off = {
+    insert: await count("", PA, insertFor(SUBJECT), added(SUBJECT)),
+    champion: await count("", PA, setChampion, championIs),
+  };
+  const on = {
+    insert: await count(switchOn, PA, insertFor(SUBJECT), added(SUBJECT)),
+    update: await count(switchOn, PA,
+      `update public.user_strengths set label = 'harness 0322 renamed' where user_id = '${SUBJECT}';`,
+      `select count(*)::int as n from public.user_strengths where user_id = '${SUBJECT}' and label = 'harness 0322 renamed';`),
+    remaining: await count(switchOn, PA,
+      `delete from public.user_strengths where user_id = '${SUBJECT}';`,
+      `select count(*)::int as n from public.user_strengths where user_id = '${SUBJECT}';`),
+    champion: await count(switchOn, PA, setChampion, championIs),
+    outsider: await count(switchOn, PA, insertFor(OUTSIDER), added(OUTSIDER)),
+    assistants: await count(switchOn, PA, flipAssistants, assistantsMoved),
+  };
+  const guideInsert = await count("", ids.guide, insertFor(GUIDE_SUBJECT), added(GUIDE_SUBJECT));
+  const peerInsert = await count("", PEER, insertFor(SUBJECT), added(SUBJECT));
+
+  const ok =
+    off.insert === 0 && off.champion === 0 &&
+    on.insert === 1 && on.update === 1 && on.remaining === 0 && on.champion === 1 &&
+    guideInsert === 1 &&
+    on.outsider === 0 && on.assistants === 0 && peerInsert === 0;
+  const got =
+    `switched on: strengths insert/update ${on.insert}/${on.update}, left after delete ${on.remaining}, champion ${on.champion} (want 1/1, 0, 1); ` +
+    `guide strengths insert ${guideInsert} (want 1); ` +
+    `switched off: strengths ${off.insert}, champion ${off.champion} (want 0, 0); ` +
+    `switched on, other company ${on.outsider}, assistants switch ${on.assistants}; team member on a peer ${peerInsert} (want 0, 0, 0)`;
+  return {
+    name,
+    hazard,
+    wrong: "a switched-on portfolio admin is refused strengths or the champion, or the grant reaches past the company",
+    right: got,
+    ok,
+    detail: ok
+      ? "Switched on by a system admin, a portfolio admin adds, edits and clears a member's strengths and sets the champion; an assigned guide adds strengths. Switched off it gets neither, switched on it reaches no other company's people and still cannot move the assistants switch, and a team member cannot edit a peer's."
+      : got,
+  };
+}
+
 // A company sees and ends a portfolio admin's assignment (0205).
 //
 // This reverses decision 5, so the case that used to assert the
@@ -16349,6 +16472,10 @@ async function main(): Promise<void> {
     [
       "portfolio-admin-company-admin-switch",
       (r: Runner, i: Identities) => portfolioAdminCompanyAdminSwitch(r, i, pendingSql),
+    ],
+    [
+      "portfolio-admin-acts-as-company-admin",
+      (r: Runner, i: Identities) => portfolioAdminActsAsCompanyAdmin(r, i, pendingSql),
     ],
   ] as const;
 

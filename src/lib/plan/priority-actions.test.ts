@@ -67,9 +67,14 @@ vi.mock("@/lib/auth/current-user", () => ({
   requireProfile: mocks.requireProfile,
 }));
 
-vi.mock("@/lib/auth/permissions", () => ({
-  scopedCompanyId: mocks.scopedCompanyId,
-}));
+vi.mock("@/lib/auth/permissions", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/auth/permissions")>();
+  return {
+    ...actual,
+    scopedCompanyId: mocks.scopedCompanyId,
+  };
+});
 
 vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
@@ -84,8 +89,9 @@ function formDataFrom(entries: Record<string, string>): FormData {
 
 function sessionFor(profile: {
   id?: string;
-  role?: "system_admin" | "company_admin" | "team_member" | "aims_guide";
+  role?: "system_admin" | "company_admin" | "team_member" | "aims_guide" | "portfolio_admin";
   company_id?: string | null;
+  portfolio_admin_company_ids?: string[];
 }) {
   return {
     profile: {
@@ -93,6 +99,7 @@ function sessionFor(profile: {
       role: profile.role ?? "company_admin",
       company_id:
         "company_id" in profile ? profile.company_id : "co_acme",
+      portfolio_admin_company_ids: profile.portfolio_admin_company_ids ?? [],
     },
   };
 }
@@ -324,6 +331,49 @@ describe("updatePriorityStatusAction", () => {
     expect(mocks.prioritiesUpdatePatch).toHaveBeenCalledWith({
       status: "on_track",
     });
+  });
+
+  // Jason, 2026-11-09: a portfolio admin a system admin switched on as
+  // the company's admin does what its company_admin does.
+  it("allows a portfolio admin switched on as the company's admin", async () => {
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({
+        id: "pa_1",
+        role: "portfolio_admin",
+        company_id: null,
+        portfolio_admin_company_ids: ["co_acme"],
+      })
+    );
+    mocks.prioritiesSelectMaybeSingle.mockResolvedValueOnce({
+      data: priorityRow({ owner_id: "owner_1" }),
+      error: null,
+    });
+    const { updatePriorityStatusAction } = await import("./priority-actions");
+
+    const res = await updatePriorityStatusAction("pri_1", "on_track");
+
+    expect(res.ok).toBe(true);
+  });
+
+  it("blocks a portfolio admin switched on somewhere else", async () => {
+    mocks.requireProfile.mockResolvedValue(
+      sessionFor({
+        id: "pa_1",
+        role: "portfolio_admin",
+        company_id: null,
+        portfolio_admin_company_ids: ["co_other"],
+      })
+    );
+    mocks.prioritiesSelectMaybeSingle.mockResolvedValueOnce({
+      data: priorityRow({ owner_id: "owner_1" }),
+      error: null,
+    });
+    const { updatePriorityStatusAction } = await import("./priority-actions");
+
+    const res = await updatePriorityStatusAction("pri_1", "on_track");
+
+    expect(res).toEqual({ ok: false, message: "You can't change this status." });
+    expect(mocks.prioritiesUpdatePatch).not.toHaveBeenCalled();
   });
 });
 

@@ -1,3 +1,4 @@
+import { isAdminForCompany } from "@/lib/auth/permissions";
 import { redirect, notFound } from "next/navigation";
 import TeamPage from "@/components/strengths/teams/TeamPage";
 import { PageShell } from "@/components/ui/PageShell";
@@ -21,9 +22,9 @@ export default async function TeamDetailPage({
   // docs/investigations/open-data.md); the read rules keep each person
   // to their own company. Building and changing teams stays with the
   // company's admins, its guides and system admins.
-  const canManage =
+  const adminRole =
     me.role === "company_admin" || me.role === "system_admin" || me.role === "aims_guide";
-  if (!canManage && !me.company_id && me.role !== "portfolio_admin") {
+  if (!adminRole && !me.company_id && me.role !== "portfolio_admin") {
     redirect("/");
   }
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
@@ -34,6 +35,9 @@ export default async function TeamDetailPage({
     .eq("id", id)
     .single();
   if (!team) notFound();
+  // Building and changing the team: its company's admins, a portfolio
+  // admin switched on as its admin among them (Jason, 2026-11-09).
+  const canManage = isAdminForCompany(me, team.company_id as string);
 
 
   // Roster
