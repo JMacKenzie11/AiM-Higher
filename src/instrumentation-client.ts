@@ -3,7 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
-import { schedulePostHog } from "@/lib/analytics/posthog-lazy";
+import posthog from "posthog-js";
 import {
   browserSentryEnvironment,
   sentryEnabledForHostname,
@@ -28,10 +28,20 @@ if (!posthogKey || !posthogHost) {
     );
   }
 } else {
-  // Not started here: fetched once the page is up and idle, so the
-  // 83 kB library is off the path to first paint
-  // (src/lib/analytics/posthog-lazy.ts, which holds the settings).
-  schedulePostHog();
+  posthog.init(posthogKey, {
+    api_host: posthogHost,
+    // Kept pointing at the real PostHog dashboard even when api_host
+    // is the reverse-proxy subdomain (e.g. e.aims-hq.com), so that
+    // any UI links the SDK renders (session replay, feature-flag
+    // links, etc.) open the actual PostHog site instead of the proxy.
+    ui_host: "https://us.posthog.com",
+    defaults: "2026-01-30",
+    capture_pageview: "history_change",
+    capture_pageleave: true,
+    capture_exceptions: true,
+    person_profiles: "identified_only",
+  });
+  posthog.register({ env: process.env.NODE_ENV });
 }
 
 // Sentry runs on Vercel deployments only. The browser cannot see

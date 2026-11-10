@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { resetPostHog } from "@/lib/analytics/posthog-lazy";
+import posthog from "posthog-js";
 import { IntentLink } from "./IntentLink";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -920,7 +920,7 @@ function SidebarUserMenu({
           ) : null}
           <form
             action={signOutAction}
-            onSubmit={() => resetPostHog()}
+            onSubmit={() => posthog.reset()}
           >
             <button
               type="submit"
