@@ -244,8 +244,15 @@ export async function graphRequest(accessToken: string, pathOrUrl: string, accep
     cache: "no-store",
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
-    const code = body?.error?.code ?? null;
+    const body = (await res.json().catch(() => null)) as {
+      error?: { code?: string; message?: string; innerError?: { code?: string }; innererror?: { code?: string } };
+    } | null;
+    // Graph puts the specific reason one level down at times (a 403
+    // whose code is "Forbidden" and whose inner code says why), so the
+    // most specific code wins. SpeakerAttributionNotAllowed is one the
+    // Teams reader acts on.
+    const code =
+      body?.error?.innerError?.code ?? body?.error?.innererror?.code ?? body?.error?.code ?? null;
     throw new GraphError(body?.error?.message ?? `Microsoft Graph answered ${res.status}.`, res.status, code);
   }
   return res;
