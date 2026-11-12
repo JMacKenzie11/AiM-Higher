@@ -852,6 +852,23 @@ Each person's tokens are a Vault secret (`google_docs_connections`),
 readable only by the server; `npm run scrub:dev` removes them from the
 dev clone with the company connections.
 
+## Microsoft 365 for Teams transcripts (0325)
+
+One app registration, in AiMS Institute's Microsoft Entra (entra.microsoft.com → App registrations), made 2026-11-12:
+
+1. **New registration**, name `AiMS HQ`, supported accounts **Multiple Entra ID tenants** (never personal accounts), redirect URI **Web** `https://www.aims-hq.com/api/oauth/microsoft/callback`.
+2. **Authentication**: add `https://promiseone.aims-hq.com/api/oauth/microsoft/callback` and `http://localhost:3200/api/oauth/microsoft/callback`. A new instance adds its own address here before its people can connect.
+3. **API permissions → Microsoft Graph → Delegated**: `openid`, `email`, `profile`, `offline_access`, `User.Read`, `Calendars.Read`, `OnlineMeetings.Read`, `OnlineMeetingTranscript.Read.All`. Do **not** grant admin consent for AiMS Institute: each client's admin approves in their own organisation. The list must match `MICROSOFT_SCOPES` in `src/lib/connections/microsoft.ts`.
+4. **Branding & properties**: home page `https://www.aims-hq.com`, privacy statement `https://www.aims-hq.com/privacypolicy`.
+5. **Certificates & secrets → New client secret**, 24 months. Copy the **Value** column, not the Secret ID (Microsoft answers AADSTS7000215 to a Secret ID). Never paste it into a chat.
+6. Set `MICROSOFT_CLIENT_ID` (the Application (client) ID, from Overview) and `MICROSOFT_CLIENT_SECRET` in Vercel (**Production** and **Development**) and in `.env.local`, then redeploy. Until both are set, Microsoft 365 is not offered anywhere.
+
+**When the secret expires**, every Teams source starts failing with AADSTS7000222. Make a new secret (step 5), replace it in Vercel and `.env.local`, redeploy, delete the old one. Clients do not reconnect. Put a reminder in the calendar a few weeks ahead.
+
+**A quick check that the pair works**, without a browser: a client-credentials token request to `login.microsoftonline.com/organizations/oauth2/v2.0/token`. AADSTS7000215 means the secret is wrong; AADSTS53003 (blocked by Conditional Access) means the pair was accepted, and is expected, since AiMS never uses that grant.
+
+**Publisher verification** (optional, free, needs a Microsoft AI Cloud Partner Program ID and a verified domain) adds Microsoft's "verified" badge to the approval screen; some organisations block unverified multi-tenant apps. Not done as of 2026-11-12.
+
 ## Moving the Google tokens into the vault (0257)
 
 The move changes where every Sheets pull and every transcript ingest

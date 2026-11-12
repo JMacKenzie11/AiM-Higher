@@ -7,7 +7,9 @@ import type { DownloadedFile } from "./provider";
 //   - Google Doc (exported as text/plain)  → passthrough
 //   - text/plain                            → passthrough
 //   - text/vtt                              → strip cue timestamps
-//                                              and metadata lines
+//                                              and metadata lines; a
+//                                              voice tag becomes
+//                                              "Name: text"
 //   - .docx                                 → mammoth extractRawText
 //
 // Anything else throws — the caller (cron) marks the meeting
@@ -54,7 +56,7 @@ function fileTitle(name: string): string {
 // styling metadata. Keep speaker labels and dialogue. Collapses
 // consecutive blank lines into a single blank so paragraphs still
 // separate speakers.
-function cleanVtt(raw: string): string {
+export function cleanVtt(raw: string): string {
   const lines = raw.split(/\r?\n/);
   const out: string[] = [];
   for (const line of lines) {
@@ -69,9 +71,16 @@ function cleanVtt(raw: string): string {
     if (/^NOTE\b/i.test(trimmed)) continue;
     if (/^STYLE\b/i.test(trimmed)) continue;
     if (/^REGION\b/i.test(trimmed)) continue;
-    // Strip inline cue tags like <v Speaker Name> or <c.styled>
-    const cleaned = trimmed.replace(/<[^>]+>/g, "");
-    if (cleaned) out.push(cleaned);
+    // A voice tag names the speaker: <v Jason MacKenzie>text</v>.
+    // Teams writes every cue this way, so stripping it like the other
+    // tags threw away the one thing Teams knows for certain, who was
+    // talking, and left the analysis guessing. Kept as "Name: text",
+    // the form the speaker step already reads from other tools.
+    const voice = /^<v(?:\.[^\s>]*)?\s+([^>]+)>/.exec(trimmed);
+    // Then strip the remaining inline tags (<c.styled>, </v>, <b>).
+    const cleaned = trimmed.replace(/<[^>]+>/g, "").trim();
+    if (!cleaned) continue;
+    out.push(voice ? `${voice[1].trim()}: ${cleaned}` : cleaned);
   }
   return out.join("\n").trim();
 }

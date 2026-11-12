@@ -4,12 +4,14 @@ import type {
   TranscriptSource,
 } from "@/lib/types";
 import { ConnectCompanyFolderForm } from "./ConnectCompanyFolderForm";
+import { ConnectTeamsMeetingForm } from "./ConnectTeamsMeetingForm";
 import { SourceRowActions } from "@/app/(app)/admin/transcripts/SourceRowActions";
 import { AliasEditor } from "./AliasEditor";
 import styles from "../admin.module.css";
 
 // Per-company transcripts card. Each company connects its own
-// Google account (0110) and points at its own Drive folders. Shows
+// Google account (0110) and points at its own Drive folders, or its
+// own Microsoft 365 account (0325) and picks Teams meetings, or both. Shows
 // the connection state, the folder sources with how many meetings
 // each brought in, and the aliases. The meetings themselves are on
 // the meetings pages, not listed here (Jason, 2026-10-24). The unrouted queue lives on the overview page.
@@ -17,12 +19,14 @@ import styles from "../admin.module.css";
 export function CompanyTranscriptsPanel({
   companyId,
   connectedAccount,
+  microsoftAccount,
   sources,
   meetings,
   aliases,
 }: {
   companyId: string;
   connectedAccount: string | null;
+  microsoftAccount: string | null;
   sources: TranscriptSource[];
   meetings: MeetingAdminRow[];
   aliases: TranscriptAlias[];
@@ -44,23 +48,33 @@ export function CompanyTranscriptsPanel({
       {/* The Google account itself is managed on the External connections card
           above (external connections plan, phase 3): one place for
           every outside system, shown once. */}
-      {!connectedAccount ? (
+      {!connectedAccount && !microsoftAccount ? (
         <p className={styles.subtitleInline}>
-          Connect Google under External connections, above, first. Each company connects its own account, so folders
-          can live under different Google Workspaces.
+          Connect Google (for Drive folders) or Microsoft 365 (for Teams meetings) under External connections, above,
+          first. Each company connects its own accounts.
         </p>
       ) : (
         <>
           <p className={styles.subtitleInline} style={{ marginBottom: "var(--space-3)" }}>
-            Reading Drive as <strong>{connectedAccount}</strong>. Share each transcript folder with that address
-            (Viewer), then connect it below. The account is managed under External connections, above.
+            {connectedAccount ? (
+              <>
+                Reading Drive as <strong>{connectedAccount}</strong>. Share each transcript folder with that address
+                (Viewer), then connect it below.{" "}
+              </>
+            ) : null}
+            {microsoftAccount ? (
+              <>
+                Reading Teams as <strong>{microsoftAccount}</strong>.{" "}
+              </>
+            ) : null}
+            Accounts are managed under External connections, above.
           </p>
 
           {sources.length > 0 ? (
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Folder</th>
+                  <th>Source</th>
                   <th>Scope</th>
                   <th>Status</th>
                   <th>Last checked</th>
@@ -74,6 +88,9 @@ export function CompanyTranscriptsPanel({
                     <td>
                       <div style={{ fontWeight: 600 }}>
                         {s.folder_name ?? "(unnamed)"}
+                      </div>
+                      <div className={styles.mutedCell}>
+                        {s.provider === "teams" ? "Teams meeting" : "Drive folder"}
                       </div>
                       {s.last_error ? (
                         <div className={styles.inlineError}>{s.last_error}</div>
@@ -114,18 +131,21 @@ export function CompanyTranscriptsPanel({
             </table>
           ) : null}
 
-          <ConnectCompanyFolderForm companyId={companyId} />
+          {connectedAccount ? <ConnectCompanyFolderForm companyId={companyId} /> : null}
+          {microsoftAccount ? <ConnectTeamsMeetingForm companyId={companyId} /> : null}
 
-          <div style={{ marginTop: "var(--space-4)" }}>
-            <h3 className={styles.h3}>Transcript aliases</h3>
-            <p className={styles.subtitleInline}>
-              When a shared Drive folder serves multiple companies, transcript
-              file names are matched (case-insensitive substring) against these
-              aliases to decide who a meeting belongs to.
-            </p>
-            <AliasEditor companyId={companyId} aliases={aliases} />
-          </div>
-
+          {connectedAccount ? (
+            <div style={{ marginTop: "var(--space-4)" }}>
+              <h3 className={styles.h3}>Transcript aliases</h3>
+              <p className={styles.subtitleInline}>
+                When a shared Drive folder serves multiple companies, transcript
+                file names are matched (case-insensitive substring) against these
+                aliases to decide who a meeting belongs to. Teams meetings are
+                picked by name, so aliases don&rsquo;t apply to them.
+              </p>
+              <AliasEditor companyId={companyId} aliases={aliases} />
+            </div>
+          ) : null}
         </>
       )}
     </section>

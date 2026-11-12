@@ -20,7 +20,7 @@ export default function PrivacyPolicyPage() {
     <main className={styles.page}>
       <div className={styles.inner}>
         <h1 className={styles.title}>Privacy Policy</h1>
-        <p className={styles.updated}>Last updated November 3, 2026</p>
+        <p className={styles.updated}>Last updated November 12, 2026</p>
 
         <p>
           AiMS HQ&trade; is built and run by the AiMS Institute (&ldquo;AiMS&rdquo;, &ldquo;we&rdquo;). This page explains what information AiMS HQ keeps, why, and the choices you have.
@@ -35,7 +35,7 @@ export default function PrivacyPolicyPage() {
             <strong>What you and your company enter:</strong> plans, goals, priorities, commitments, measures, notes, meeting records, and your conversations with Aimee, including any files you attach to them.
           </li>
           <li>
-            <strong>Connected services:</strong> what a company chooses to connect, such as a shared Google Drive folder of meeting transcripts, and the information those services return.
+            <strong>Connected services:</strong> what a company chooses to connect, such as a shared Google Drive folder of meeting transcripts or a Teams meeting, and the information those services return.
           </li>
           <li>
             <strong>How the app is used:</strong> pages visited and features used, and error reports, so we can keep it working and improve it.
@@ -68,6 +68,14 @@ export default function PrivacyPolicyPage() {
             Google API Services User Data Policy
           </a>
           , including the Limited Use requirements.
+        </p>
+
+        <h2>Microsoft 365</h2>
+        <p>
+          If your company connects <strong>Microsoft 365</strong>, someone at your company signs in with Microsoft and allows AiMS HQ to read the transcripts of the Teams meetings your company picks, so it can summarise them and draft the commitments made in them. To show which meetings can be picked, it reads that person&rsquo;s calendar entries for Teams meetings: their titles and times. It reads only as that person, so it can reach only meetings they organise or are invited to. It never sends, changes or deletes anything in Microsoft 365. We also receive the connected account&rsquo;s email address, to show which account is connected.
+        </p>
+        <p>
+          Your company&rsquo;s Microsoft 365 administrator approves AiMS HQ once before it can read transcripts. The permission is stored encrypted. Your company can remove it at any time with <strong>Disconnect</strong> on its Company settings, and its administrator can also remove AiMS HQ from the organisation&rsquo;s Microsoft settings.
         </p>
 
         <h2>Keeping it safe, and how long</h2>

@@ -65,6 +65,45 @@ test.describe("Connections", () => {
     }
   });
 
+  // Microsoft 365 (0325), offered once AiMS has its Microsoft app keys.
+  // Stops at Microsoft's door: signing in needs a real Microsoft 365
+  // account, so this proves the setup a company admin sees and that
+  // Connect sends them to Microsoft's sign-in for a work account, with
+  // this instance's return address.
+  test("a company admin is offered Microsoft 365, with the admin's approval link", async ({ page }) => {
+    test.skip(
+      !process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET,
+      "MICROSOFT_CLIENT_ID / _SECRET not set: Microsoft 365 is hidden"
+    );
+    // Signs in, renders Company settings and follows a redirect to
+    // Microsoft: more than the 30s default on a cold dev server.
+    test.setTimeout(120_000);
+    await signIn(page, users.companyAdmin());
+    await openConnections(page, companyId);
+    await page.getByLabel("Add a connection").selectOption({ label: "Microsoft 365" });
+
+    const setup = page.getByTestId("setup-microsoft");
+    await expect(setup).toBeVisible();
+    await expect(setup.getByRole("button", { name: "Copy the admin's link" })).toBeVisible();
+    const approve = setup.getByRole("link", { name: /approve now/ });
+    const approveUrl = new URL((await approve.getAttribute("href")) ?? "");
+    expect(approveUrl.pathname).toBe("/organizations/v2.0/adminconsent");
+    expect(approveUrl.searchParams.get("state")).toBe("admin-consent");
+
+    const connect = setup.getByRole("link", { name: "Connect Microsoft 365" });
+    expect(await connect.getAttribute("href")).toBe(`/api/oauth/microsoft/start?company_id=${companyId}`);
+    // Follow it as far as Microsoft's own sign-in page.
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.url().startsWith("https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize"), {
+        timeout: 30_000,
+      }),
+      connect.click(),
+    ]);
+    const authorize = new URL(response.url());
+    expect(authorize.searchParams.get("redirect_uri")).toMatch(/\/api\/oauth\/microsoft\/callback$/);
+    expect(authorize.searchParams.get("scope")).toContain("OnlineMeetingTranscript.Read.All");
+  });
+
   test("a company admin is offered HubSpot only with the feature", async ({ page }) => {
     if (hadFeature) {
       await db().from("company_features").delete().eq("company_id", companyId).eq("feature", "external_measures");

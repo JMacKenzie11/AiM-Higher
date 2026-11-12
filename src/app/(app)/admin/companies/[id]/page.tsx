@@ -13,6 +13,7 @@ import type {
   TranscriptSource,
 } from "@/lib/types";
 import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
+import { adminConsentUrl, getConnectedMicrosoftAccount, microsoftConfigured } from "@/lib/connections/microsoft";
 import styles from "../admin.module.css";
 import { getAssignedAccess } from "@/lib/admin/assigned-access";
 import { AssignedAccessList } from "./AssignedAccessList";
@@ -49,7 +50,13 @@ type TimezoneChange = {
 type PageProps = {
   params: Promise<{ id: string }>;
   // Set by the Google sign-in callback, for the Connections card.
-  searchParams: Promise<{ oauth_connected?: string; oauth_error?: string }>;
+  searchParams: Promise<{
+    oauth_connected?: string;
+    oauth_error?: string;
+    ms_connected?: string;
+    ms_error?: string;
+    ms_needs_admin?: string;
+  }>;
 };
 
 export default async function CompanyDetailPage({
@@ -98,6 +105,7 @@ export default async function CompanyDetailPage({
     { data: sources },
     { data: meetings },
     connectedAccount,
+    microsoftAccount,
     assignedAccess,
     { data: connectionRows },
     hubspotOn,
@@ -128,6 +136,7 @@ export default async function CompanyDetailPage({
       .order("created_at", { ascending: false })
       .limit(50),
     getConnectedGoogleAccount(id),
+    getConnectedMicrosoftAccount(id),
     // Returns empty for a caller the database does not admit, so this
     // is safe to fetch unconditionally. The card below is what decides
     // whether to render it, and for an aims_guide it does not.
@@ -481,6 +490,8 @@ export default async function CompanyDetailPage({
                       companyId={company.id}
                       connections={(connectionRows ?? []) as ConnectionRow[]}
                       hubspotOn={hubspotOn}
+                      microsoftOn={microsoftConfigured()}
+                      adminApprovalLink={microsoftConfigured() ? adminConsentUrl() : null}
                       flash={flash}
                     />
                   ) : null}
@@ -488,6 +499,7 @@ export default async function CompanyDetailPage({
                   <CompanyTranscriptsPanel
                     companyId={company.id}
                     connectedAccount={connectedAccount}
+                    microsoftAccount={microsoftAccount}
                     sources={sourceRows}
                     meetings={meetingRows}
                     aliases={aliasRows}

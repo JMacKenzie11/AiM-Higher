@@ -30,7 +30,7 @@ Your company's leadership meetings, newest first. Open one to read what was disc
 
 **Who can see these?** Everyone at your company: the summaries, the facilitation scores, and each meeting's transcript (*Read the transcript* on the meeting page).
 
-**Why is nothing showing up?** Meetings come in from the Google Drive folders connected on your company settings page. Check a folder is connected and that the recording was saved into it.
+**Why is nothing showing up?** Meetings come in from the Google Drive folders and Teams meetings connected on your company settings page. For a Drive folder, check it is connected and the recording was saved into it. For a Teams meeting, check it is connected and was run with transcription on.
 
 **A meeting has said *pending* for a while.** It usually takes a few minutes. If it hasn't moved, use *Check now* on your company settings page.
 
