@@ -36,7 +36,8 @@ Adding a Focus Area, Goal or Priority is done by your company admin.
 - **Add a commitment from here.** *Add commitment* asks which Priority it belongs to, grouped by what each one sits under. It then shows on that Priority and on Commitments.
 - **Choose what a Priority sits under.** The *Parent* picker lists Goals and Focus Areas together. A Priority sits under one of them: picking a Focus Area clears its Goal, and the other way round. You'll find it on the add panel, on the Priority's *Edit priority* form, and on any Standalone row.
 - **Add something before its parent exists.** Leave the picker on *Not linked (yet)*. The row lands under Standalone and you can link it later from the row itself.
-- **Edit, complete or archive a row.** Open it and use its *Edit* button or *Archive*. Goals and Priorities also have *Mark complete*. Archiving takes a row off the plan; its commitments stay in history.
+- **Edit, complete or archive a row.** Open it and use its *Edit* button or *Archive*. Goals and Priorities also have *Mark complete*. Archiving takes a row off the plan; its commitments stay in history. Archiving a Focus Area also archives the Goals under it that are marked complete. Goals still in progress stay on the plan, under *Goals without a focus area*, ready to be linked somewhere new.
+- **Put the Focus Areas in order.** Drag a Focus Area by the handle at the left of its row. From the keyboard: focus the handle, press Space, move with the arrow keys, press Space again. Everyone in the company sees the order you set.
 :::
 
 ::: role aims_guide

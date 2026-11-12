@@ -9,6 +9,7 @@ export {
   updateSfaAction,
   updateSfaStatusAction,
   archiveSfaAction,
+  reorderSfasAction,
 } from "./sfa-actions";
 
 export {

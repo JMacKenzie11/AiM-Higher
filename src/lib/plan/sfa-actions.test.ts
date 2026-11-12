@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => {
   const sfaSelectMaybeSingle = vi.fn();
   const sfaUpdatePatch = vi.fn();
   const sfaUpdateSingle = vi.fn();
+  const goalUpdatePatch = vi.fn();
+  const goalUpdateFilters = vi.fn();
+  const goalUpdateResult = vi.fn();
 
   const fromBuilder = (table: string) => {
     if (table === "strategic_focus_areas") {
@@ -32,6 +35,24 @@ const mocks = vi.hoisted(() => {
         },
       };
     }
+    if (table === "annual_goals") {
+      return {
+        update: (patch: unknown) => {
+          goalUpdatePatch(patch);
+          // Awaitable after any number of .eq() calls, like the real
+          // builder, and it records each filter it was given.
+          const chain = {
+            eq: (column: string, value: unknown) => {
+              goalUpdateFilters(column, value);
+              return chain;
+            },
+            then: (resolve: (value: unknown) => unknown) =>
+              resolve(goalUpdateResult()),
+          };
+          return chain;
+        },
+      };
+    }
     throw new Error(`Unexpected table in test: ${table}`);
   };
 
@@ -46,6 +67,9 @@ const mocks = vi.hoisted(() => {
     sfaSelectMaybeSingle,
     sfaUpdatePatch,
     sfaUpdateSingle,
+    goalUpdatePatch,
+    goalUpdateFilters,
+    goalUpdateResult,
     serverClient,
     requireRole,
     requireProfile,
@@ -309,11 +333,47 @@ describe("archiveSfaAction", () => {
   });
 
   it("writes the archived flag", async () => {
+    mocks.goalUpdateResult.mockReturnValue({ error: null });
     const { archiveSfaAction } = await import("./sfa-actions");
 
     const res = await archiveSfaAction("sfa_1", true);
 
     expect(res.ok).toBe(true);
     expect(mocks.sfaUpdatePatch).toHaveBeenCalledWith({ archived: true });
+  });
+
+  // B&B Electric, 2026-11-12: three areas archived at the quarter
+  // roll left six completed goals under "Goals without a focus area".
+  it("takes the area's finished goals with it, and only those", async () => {
+    mocks.goalUpdateResult.mockReturnValue({ error: null });
+    const { archiveSfaAction } = await import("./sfa-actions");
+
+    await archiveSfaAction("sfa_1", true);
+
+    expect(mocks.goalUpdatePatch).toHaveBeenCalledWith({ archived: true });
+    expect(mocks.goalUpdateFilters.mock.calls).toEqual([
+      ["sfa_id", "sfa_1"],
+      ["status", "complete"],
+      ["archived", false],
+    ]);
+  });
+
+  it("leaves the area where it was when the goals could not be archived", async () => {
+    mocks.goalUpdateResult.mockReturnValue({ error: { message: "refused" } });
+    const { archiveSfaAction } = await import("./sfa-actions");
+
+    const res = await archiveSfaAction("sfa_1", true);
+
+    expect(res.ok).toBe(false);
+    expect(mocks.sfaUpdatePatch).not.toHaveBeenCalled();
+  });
+
+  it("restoring an area touches no goals", async () => {
+    const { archiveSfaAction } = await import("./sfa-actions");
+
+    await archiveSfaAction("sfa_1", false);
+
+    expect(mocks.goalUpdatePatch).not.toHaveBeenCalled();
+    expect(mocks.sfaUpdatePatch).toHaveBeenCalledWith({ archived: false });
   });
 });
