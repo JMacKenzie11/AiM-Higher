@@ -12,6 +12,7 @@ import { QuarterSwitcher } from "./QuarterSwitcher";
 import { AddGoalForm } from "./AddGoalForm";
 import { AddPriorityForm } from "./AddPriorityForm";
 import { LinkGoalToSfaSelect } from "./LinkGoalToSfaSelect";
+import { SortableSfaList, SfaDragHandle } from "./SortableSfaList";
 import { LinkPriorityToParentSelect } from "./LinkPriorityToParentSelect";
 import { CascadePriorityRow } from "./CascadePriorityRow";
 import { formatParentRef, NO_PARENT } from "@/lib/plan/parent-ref";
@@ -184,15 +185,21 @@ export async function PlanView({
               <EmptyCascade isAdmin={isAdmin} />
             ) : null}
 
-            {cascade.sfas.map((sfa) => (
+            {/* The order is the company's, so only its admins get the
+                drag handles; everyone else gets the same cards, still. */}
+            <SortableSfaList
+              canReorder={isAdmin}
+              items={cascade.sfas.map((sfa) => ({
+                id: sfa.id,
+                card: (
               <details
-                key={sfa.id}
                 id={sfaAnchorId(sfa.id)}
                 className={styles.sfaCard}
                 data-sfa-id={sfa.id}
                 open
               >
                 <summary className={styles.sfaSummary}>
+                  <SfaDragHandle title={sfa.title} />
                   <div className={styles.summaryMain}>
                     <span className={styles.levelLabel}>
                       Focus Area
@@ -363,7 +370,9 @@ export async function PlanView({
                   ) : null}
                 </div>
               </details>
-            ))}
+                ),
+              }))}
+            />
 
             {/* Orphan goals — never hidden per Section 8.3 */}
             {cascade.orphanGoals.length > 0 ? (

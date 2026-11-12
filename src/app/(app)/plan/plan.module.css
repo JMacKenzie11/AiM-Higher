@@ -304,7 +304,7 @@
 
 .closedTag,
 .openTag {
-  font: var(--text-caption);
+  font: var(--text-body-sm);
   padding: 1px var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--aims-navy-tint);
@@ -915,7 +915,7 @@
 }
 
 .linkMessage {
-  font: var(--text-caption);
+  font: var(--text-body-sm);
   color: var(--text-muted);
 }
 
@@ -974,4 +974,45 @@
   background: transparent;
   padding: 0;
   color: var(--text-muted);
+}
+
+/* The drag handle on a focus area's row (SortableSfaList): the same
+   ⠿ handle as the issues list and the measures grid, muted, cobalt
+   on hover. touch-action: none so a finger on it drags the card
+   and does not scroll the page. */
+.sfaDragHandle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+}
+
+.sfaDragHandle:hover {
+  background: color-mix(in srgb, var(--aims-cobalt) 12%, transparent);
+  color: var(--aims-cobalt);
+}
+
+.sfaDragHandle:active {
+  cursor: grabbing;
+}
+
+.sfaDragHandle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.reorderError {
+  font: var(--text-body-sm);
+  color: var(--aims-danger);
 }

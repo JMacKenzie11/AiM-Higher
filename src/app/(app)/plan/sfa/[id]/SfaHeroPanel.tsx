@@ -257,7 +257,7 @@ export function SfaHeroPanel({
       <ConfirmDialog
         open={confirmArchive}
         title={`Archive "${sfa.title}"?`}
-        message="Goals, priorities, and linked commitments stay intact and can be restored later. The focus area disappears from the plan."
+        message="The focus area leaves the plan, and its completed goals are archived with it. Goals still in progress stay on the plan under Goals without a focus area. Nothing is deleted."
         confirmLabel="Archive"
         tone="danger"
         onConfirm={runArchive}
