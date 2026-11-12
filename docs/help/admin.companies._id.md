@@ -10,7 +10,7 @@ Everything that sets up one company, in tabs by what you came to do:
 - **Company**: industry, and for AiMS, timezone, features and archiving.
 - **People**: the AiMS champion and who else administers the company.
 - **Planning**: roll to the next quarter, or start the strategy again after an annual planning session.
-- **Connections**: Google, HubSpot, meeting transcripts and AI apps.
+- **Connections**: Google, Microsoft 365, HubSpot, meeting transcripts and AI apps.
 
 You only see the tabs and cards that are yours to use.
 
@@ -19,8 +19,8 @@ You only see the tabs and cards that are yours to use.
 
 - **Set the industry** on the Industry card.
 - **Choose your AiMS champion** on the AiMS champion card. More on this below.
-- **Connect Google and HubSpot** on the External connections card. See *External connections* below.
-- **Connect your meeting recordings.** See *Connecting Google Drive* below.
+- **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
+- **Connect your meeting recordings.** See *Connecting Google Drive* or *Connecting a Teams meeting* below.
 - **See who else administers your company** under Assigned access, and remove an AiMS Guide.
 - **Roll the quarter** on the Quarter card.
 - **Start the strategy again** after an annual planning session.
@@ -33,8 +33,8 @@ Everything on the page:
 
 - **Open this company** with the button under the company's name. **Archive or reactivate it** on the Archive card, on the Company tab. Once a company is archived, *Delete* appears too.
 - **Set the industry, timezone and features**, and choose the AiMS champion.
-- **Connect Google and HubSpot** on the External connections card. See *External connections* below.
-- **Connect meeting recordings.** See *Connecting Google Drive* below.
+- **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
+- **Connect meeting recordings.** See *Connecting Google Drive* or *Connecting a Teams meeting* below.
 - **See who else administers the company** under Assigned access, and remove an AiMS Guide.
 - **Roll the quarter**, or **start the strategy again**.
 :::
@@ -54,7 +54,7 @@ Where a system admin has made you this company's admin, you can also choose the 
 ## What you can do here
 
 - **Open this company** with the button under the company's name, to work inside it.
-- **Connect Google and HubSpot** on the External connections card. See *External connections* below.
+- **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* below.
 
 Industry, the AiMS champion, the quarter and Assigned access are managed by the company's admins.
@@ -72,6 +72,12 @@ To add one, choose it under **Add a connection**. Its setup opens below. Once it
 - **Connect Google account** asks you to sign in with Google. AiMS reads with that account, so share your transcript folders and spreadsheets with its address, as a Viewer.
 - **Reconnect or switch account** signs in again, with the same account or a different one.
 - **Disconnect** stops transcripts and Sheets measures coming in until you connect again.
+
+**Microsoft 365** brings in the transcripts of your Teams meetings, with each speaker's name. AiMS only reads; it never changes anything in Microsoft 365.
+
+- **Your Microsoft 365 admin approves AiMS HQ once, first.** If that isn't you, click *Copy the admin's link* and send it to them. They open it, sign in and approve. If you try to connect before they have, Microsoft stops you with "Need admin approval", and the card shows the link again.
+- **Connect Microsoft 365** asks you to sign in with Microsoft. Use an account that organises or is invited to the meetings AiMS should read. AiMS reads only as that account.
+- **Disconnect** stops Teams transcripts coming in until you connect again.
 
 **HubSpot** feeds Critical Success Factors from your deals. AiMS only reads; it never changes anything in HubSpot. It's in the list when your company has measures from outside systems switched on.
 
@@ -96,6 +102,18 @@ Meetings come in from Google Drive folders you connect here, under **Meeting tra
 5. Click *Check now* on the folder to bring in what's already there. New meetings come in on their own after that.
 
 *Reconnect or switch account*, on External connections, changes which Google account is used. Each folder shows how many meetings it has brought in.
+
+## Connecting a Teams meeting
+
+With Microsoft 365 connected, **Add a Teams meeting** appears under **Meeting transcripts**.
+
+1. Click *Choose a meeting*. AiMS lists the Teams meetings on the connected account's calendar, from two weeks ago to four weeks ahead. A weekly meeting shows once.
+2. Pick the meeting and click *Connect meeting*. For a weekly meeting, that covers every week from now on.
+3. In Teams, open the meeting's options and turn on **Record and transcribe automatically**. A meeting run without a transcript brings nothing in.
+
+The next transcript comes in within about 15 minutes of the meeting ending. Earlier meetings aren't brought in. Teams meetings are picked by name, so transcript aliases don't apply to them.
+
+Channel meetings and live events can't be connected: Microsoft doesn't share their transcripts.
 :::
 
 ::: role company_admin,system_admin

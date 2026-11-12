@@ -14,7 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // that could send it to a browser. The connection row (status, the
 // account, a four-character hint) is what a screen shows.
 
-export type Connector = "google" | "hubspot";
+export type Connector = "google" | "hubspot" | "microsoft";
 
 export type ConnectionRow = {
   id: string;
@@ -128,3 +128,11 @@ export function parseGoogleSecret(raw: string | null): GoogleSecret | null {
 }
 
 export const GOOGLE_SCOPES = ["openid", "email", "https://www.googleapis.com/auth/drive.readonly"];
+
+// Microsoft 365 (0325) keeps the same shape as Google: a refresh token
+// and the last access token. One difference the writer must handle:
+// Microsoft may hand back a NEW refresh token on every refresh, and the
+// old one stops working some time later, so the refresh path stores
+// whichever one it was given last (connections/microsoft.ts).
+export type OAuthSecret = GoogleSecret;
+export const parseOAuthSecret = parseGoogleSecret;

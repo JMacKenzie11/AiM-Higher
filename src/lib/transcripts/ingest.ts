@@ -73,7 +73,11 @@ export async function ingestSource(
             companyId = null;
             status = "unrouted";
           }
-        } else if (aliases.length > 0) {
+        } else if (aliases.length > 0 && source.provider === "google_drive") {
+          // Drive only. A Teams source is one meeting somebody picked
+          // by name, so there is nothing mixed in to filter out, and a
+          // weekly meeting called "Leadership" would otherwise be
+          // dropped every week for not containing "Benson".
           // Company scope with aliases configured: use them as a
           // filter. Clients drop mixed content in a shared folder;
           // we only ingest meetings whose filename matches an alias

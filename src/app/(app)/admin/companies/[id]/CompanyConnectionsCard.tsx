@@ -1,4 +1,6 @@
 import { ConnectGoogleButton } from "@/app/(app)/admin/transcripts/ConnectGoogleButton";
+import { ConnectMicrosoftButton } from "@/app/(app)/admin/transcripts/ConnectMicrosoftButton";
+import { AdminApprovalLink } from "./AdminApprovalLink";
 import type { ConnectionRow } from "@/lib/connections/vault";
 import { DisconnectButton } from "./DisconnectButton";
 import { AddConnection, type ConnectorOption } from "./AddConnection";
@@ -27,12 +29,24 @@ export function CompanyConnectionsCard({
   companyId,
   connections,
   hubspotOn,
+  microsoftOn,
+  adminApprovalLink,
   flash,
 }: {
   companyId: string;
   connections: ConnectionRow[];
   hubspotOn: boolean;
-  flash: { oauth_connected?: string; oauth_error?: string };
+  // Whether AiMS has its Microsoft app (MICROSOFT_CLIENT_ID and
+  // _SECRET). Until it does, Microsoft 365 is not offered.
+  microsoftOn: boolean;
+  adminApprovalLink: string | null;
+  flash: {
+    oauth_connected?: string;
+    oauth_error?: string;
+    ms_connected?: string;
+    ms_error?: string;
+    ms_needs_admin?: string;
+  };
 }) {
   const byConnector = new Map(connections.map((r) => [r.connector, r]));
   const google = byConnector.get("google") ?? null;
@@ -41,9 +55,15 @@ export function CompanyConnectionsCard({
   // feature went off still shows, so it can be disconnected.
   const hubspot = byConnector.get("hubspot") ?? null;
   const googleHref = `/api/oauth/google/start?company_id=${companyId}`;
+  // Microsoft 365 reads Teams meeting transcripts (0325). A connection
+  // made before the app's keys were removed still shows, so it can be
+  // disconnected.
+  const microsoft = byConnector.get("microsoft") ?? null;
+  const microsoftHref = `/api/oauth/microsoft/start?company_id=${companyId}`;
 
   const available: ConnectorOption[] = [];
   if (!google) available.push({ id: "google", label: "Google" });
+  if (!microsoft && microsoftOn) available.push({ id: "microsoft", label: "Microsoft 365" });
   if (!hubspot && hubspotOn) available.push({ id: "hubspot", label: "HubSpot" });
 
   return (
@@ -67,7 +87,27 @@ export function CompanyConnectionsCard({
         </p>
       ) : null}
 
-      {!google && !hubspot ? (
+      {flash.ms_connected ? (
+        <p className={styles.successMessage} role="status">
+          Microsoft 365 connected as {flash.ms_connected}.
+        </p>
+      ) : null}
+      {flash.ms_error ? (
+        <p className={styles.errorMessage} role="alert">
+          Couldn&rsquo;t connect Microsoft 365: {flash.ms_error}
+        </p>
+      ) : null}
+      {flash.ms_needs_admin ? (
+        <div className={styles.errorMessage} role="alert">
+          <p style={{ margin: 0 }}>
+            Your company&rsquo;s Microsoft 365 admin needs to approve AiMS HQ once before it can read Teams
+            transcripts. Send them this link. When they have approved it, connect again.
+          </p>
+          {adminApprovalLink ? <AdminApprovalLink href={adminApprovalLink} /> : null}
+        </div>
+      ) : null}
+
+      {!google && !hubspot && !microsoft ? (
         <p className={styles.subtitleInline}>Nothing is connected yet.</p>
       ) : null}
 
@@ -84,6 +124,25 @@ export function CompanyConnectionsCard({
               companyId={companyId}
               connector="google"
               consequence="Meeting transcripts and Sheets measures stop coming in until you connect again."
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {microsoft ? (
+        <div data-testid="connection-microsoft" style={{ marginTop: "var(--space-4)" }}>
+          <h3 className={styles.h3}>Microsoft 365</h3>
+          <p className={styles.subtitleInline}>
+            Connected as <strong>{microsoft.account_label}</strong>, for Teams meeting transcripts. AiMS reads the
+            meetings that account organises or is invited to, and only the ones you pick under Meeting transcripts.
+            Last checked {when(microsoft.checked_at)}.
+          </p>
+          <div className={styles.rowActions}>
+            {microsoftOn ? <ConnectMicrosoftButton label="Reconnect or switch account" href={microsoftHref} /> : null}
+            <DisconnectButton
+              companyId={companyId}
+              connector="microsoft"
+              consequence="Teams meeting transcripts stop coming in until you connect again."
             />
           </div>
         </div>
@@ -109,7 +168,13 @@ export function CompanyConnectionsCard({
       ) : null}
 
       {available.length > 0 ? (
-        <AddConnection companyId={companyId} options={available} googleHref={googleHref} />
+        <AddConnection
+          companyId={companyId}
+          options={available}
+          googleHref={googleHref}
+          microsoftHref={microsoftHref}
+          adminApprovalLink={adminApprovalLink}
+        />
       ) : null}
     </section>
   );

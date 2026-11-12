@@ -312,6 +312,91 @@ export async function connectGoogleFolderAction(
   return { ok: true, item: data };
 }
 
+// ---- Teams: pick a meeting, then connect it (0325) ----
+//
+// The same guards and the same row as a Drive folder, with a Teams
+// meeting in place of the folder: folder_id holds the meeting's ID and
+// folder_name its title. The cursor starts at now, as a folder's does,
+// so connecting brings in the next meeting rather than every past one.
+
+export type TeamsMeetingOption = {
+  joinUrl: string;
+  subject: string;
+  recurring: boolean;
+  nextOrLast: string;
+};
+
+export async function listTeamsMeetingsAction(
+  companyId: string
+): Promise<ActionResult<TeamsMeetingOption[]>> {
+  const g = await guard();
+  if (!g.ok) return g;
+  const c = guardForCompany(g, companyId);
+  if (!c.ok) return c;
+  try {
+    const { listTeamsMeetings } = await import("./providers/teams");
+    return { ok: true, item: await listTeamsMeetings(companyId) };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Couldn't read the calendar." };
+  }
+}
+
+export async function connectTeamsMeetingAction(
+  companyId: string,
+  joinUrl: string
+): Promise<ActionResult<TranscriptSource>> {
+  const g = await guard();
+  if (!g.ok) return g;
+  const c = guardForCompany(g, companyId);
+  if (!c.ok) return c;
+  if (!/^https:\/\/teams\.(microsoft|live)\.com\//.test(joinUrl)) {
+    return { ok: false, message: "Pick a Teams meeting from the list." };
+  }
+
+  let meetingId: string;
+  let meetingName: string;
+  try {
+    const { meetingIdForJoinUrl } = await import("./providers/teams");
+    meetingId = await meetingIdForJoinUrl(companyId, joinUrl);
+    const provider = await getProvider("teams");
+    meetingName = (await provider.verifyFolderAccess(meetingId, companyId)).folderName;
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Couldn't reach that meeting." };
+  }
+
+  const supabase = await db();
+  const { data, error } = await supabase
+    .from("transcript_sources")
+    .insert({
+      company_id: companyId,
+      scope: "company" as TranscriptSourceScope,
+      provider: "teams" as TranscriptProviderKind,
+      folder_id: meetingId,
+      folder_name: meetingName,
+      status: "active",
+      cursor: new Date().toISOString(),
+    })
+    .select("*")
+    .single<TranscriptSource>();
+  if (error || !data) {
+    if (error?.code === "23505") {
+      return { ok: false, message: "That meeting is already connected." };
+    }
+    return { ok: false, message: error?.message ?? "Couldn't save the meeting." };
+  }
+
+  await auditTranscriptSourceEvent({
+    eventType: "created",
+    sourceId: data.id,
+    companyId,
+    actorProfileId: g.profileId,
+    payload: { provider: "teams", scope: "company", folder_id: meetingId, folder_name: meetingName },
+  });
+  revalidatePath("/admin/companies", "layout");
+  trackAfter(g.profileId, "meeting_source.connected", { provider: "teams", scope: "company" }, { company: companyId });
+  return { ok: true, item: data };
+}
+
 // ---- Pause / Resume / Remove ----
 export async function pauseSourceAction(id: string): Promise<ActionResult> {
   const g = await guardForSource(id);

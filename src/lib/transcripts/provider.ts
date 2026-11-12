@@ -1,7 +1,7 @@
 import "server-only";
 
 // The transcript-source abstraction. Every provider (Google Drive
-// today, Microsoft Teams later) implements this interface so the
+// folders, and Microsoft Teams meetings since 0325) implements this interface so the
 // cron + analysis pipeline stays provider-agnostic. Adding a
 // provider is: (1) implement TranscriptProvider, (2) add the
 // provider tag to the provider enum in the DB migration, and
@@ -22,7 +22,8 @@ export type DownloadedFile = {
 };
 
 export interface TranscriptProvider {
-  // List files in the folder modified since the source's cursor.
+  // List files in the folder modified since the source's cursor. For
+  // Teams the "folder" is one meeting and the "files" its transcripts.
   // Providers own their own pagination; callers pass the cursor
   // opaquely and receive it back to advance.
   listNewFiles(source: TranscriptSource): Promise<{
@@ -43,8 +44,8 @@ export interface TranscriptProvider {
 }
 
 // Provider registry. Each tag maps to the module that owns its
-// implementation — lazy imports keep the Teams stub's Azure SDK
-// requirements from tree-shaking into the Google-only build.
+// implementation. Lazy imports keep googleapis out of the Teams path
+// and the other way round.
 export async function getProvider(
   kind: TranscriptProviderKind
 ): Promise<TranscriptProvider> {
