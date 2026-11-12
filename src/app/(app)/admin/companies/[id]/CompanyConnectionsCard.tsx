@@ -98,7 +98,7 @@ export function CompanyConnectionsCard({
       ) : null}
       {flash.ms_needs_admin ? (
         <p className={styles.errorMessage} role="alert">
-          Microsoft 365 needs approving first. Click Approve AiMS HQ below.
+          Microsoft 365 needs approving first, with Approve AiMS HQ.
         </p>
       ) : null}
       {flash.ms_not_approved ? (
@@ -139,6 +139,15 @@ export function CompanyConnectionsCard({
             Last checked {when(microsoft.checked_at)}.
           </p>
           <div className={styles.rowActions}>
+            {/* A reconnect into an organisation that hasn't approved AiMS
+                HQ comes back needing approval: offer it here, since this
+                company's setup panel is not shown once it is connected. */}
+            {microsoftOn && (flash.ms_needs_admin || flash.ms_not_approved) ? (
+              <ConnectMicrosoftButton
+                label="Approve AiMS HQ"
+                href={`/api/oauth/microsoft/approve?company_id=${companyId}`}
+              />
+            ) : null}
             {microsoftOn ? <ConnectMicrosoftButton label="Reconnect or switch account" href={microsoftHref} /> : null}
             <DisconnectButton
               companyId={companyId}
