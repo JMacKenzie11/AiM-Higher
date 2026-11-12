@@ -4,7 +4,6 @@ import { useId, useState } from "react";
 import { ConnectGoogleButton } from "@/app/(app)/admin/transcripts/ConnectGoogleButton";
 import { ConnectMicrosoftButton } from "@/app/(app)/admin/transcripts/ConnectMicrosoftButton";
 import { HubSpotKeyForm } from "./HubSpotKeyForm";
-import { AdminApprovalLink } from "./AdminApprovalLink";
 import styles from "../admin.module.css";
 
 // Add a connection: pick a system the company has not connected yet,
@@ -18,15 +17,17 @@ export function AddConnection({
   options,
   googleHref,
   microsoftHref,
-  adminApprovalLink,
+  microsoftStep,
 }: {
   companyId: string;
   options: ConnectorOption[];
   googleHref: string;
   microsoftHref: string;
-  adminApprovalLink: string | null;
+  // Set when the page was reached on the way through Microsoft 365's
+  // setup: "connect" once Microsoft sent the person back approved.
+  microsoftStep: "approve" | "connect" | null;
 }) {
-  const [choice, setChoice] = useState("");
+  const [choice, setChoice] = useState(microsoftStep ? "microsoft" : "");
   const fieldId = useId();
   // A system that was just connected drops out of the options, and
   // its setup closes with it.
@@ -66,18 +67,32 @@ export function AddConnection({
       {active === "microsoft" ? (
         <div data-testid="setup-microsoft" style={{ marginTop: "var(--space-3)" }}>
           <p className={styles.subtitleInline}>
-            Microsoft 365 brings in Teams meeting transcripts, with each speaker&rsquo;s name. Sign in with an account
-            that organises or is invited to the meetings AiMS should read. AiMS only reads; it never changes anything in
-            Microsoft 365.
+            Brings in your Teams meeting transcripts, with speaker names. AiMS only reads.
           </p>
-          <p className={styles.subtitleInline}>
-            Your company&rsquo;s Microsoft 365 admin approves AiMS HQ once, first. If that isn&rsquo;t you, send them
-            this link before you connect.
-          </p>
-          {adminApprovalLink ? <AdminApprovalLink href={adminApprovalLink} /> : null}
-          <div className={styles.rowActions} style={{ marginTop: "var(--space-3)" }}>
-            <ConnectMicrosoftButton label="Connect Microsoft 365" href={microsoftHref} />
-          </div>
+          {/* Two steps (Jason, 2026-11-12). Microsoft needs the
+              company's admin to approve AiMS HQ before anyone can
+              connect, and AiMS cannot ask Microsoft whether that has
+              happened, so Connect shows once Microsoft sends the
+              person back approved. */}
+          {microsoftStep === "connect" ? (
+            <>
+              <p className={styles.subtitleInline}>
+                <strong>Approved.</strong> Now sign in with the account that runs or attends your meetings.
+              </p>
+              <div className={styles.rowActions}>
+                <ConnectMicrosoftButton label="Connect Microsoft 365" href={microsoftHref} />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className={styles.subtitleInline}>
+                First, approve AiMS HQ for your company. Sign in with a Microsoft 365 admin account.
+              </p>
+              <div className={styles.rowActions}>
+                <ConnectMicrosoftButton label="Approve AiMS HQ" href={microsoftApproveHref(microsoftHref)} />
+              </div>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -92,4 +107,9 @@ export function AddConnection({
       ) : null}
     </div>
   );
+}
+
+// /api/oauth/microsoft/start?company_id=… → /approve?company_id=…
+function microsoftApproveHref(startHref: string): string {
+  return startHref.replace("/api/oauth/microsoft/start", "/api/oauth/microsoft/approve");
 }

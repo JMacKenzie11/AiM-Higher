@@ -13,7 +13,7 @@ import type {
   TranscriptSource,
 } from "@/lib/types";
 import { getConnectedGoogleAccount } from "@/lib/transcripts/providers/google-drive";
-import { adminConsentUrl, getConnectedMicrosoftAccount, microsoftConfigured } from "@/lib/connections/microsoft";
+import { getConnectedMicrosoftAccount, microsoftConfigured } from "@/lib/connections/microsoft";
 import styles from "../admin.module.css";
 import { getAssignedAccess } from "@/lib/admin/assigned-access";
 import { AssignedAccessList } from "./AssignedAccessList";
@@ -56,6 +56,8 @@ type PageProps = {
     ms_connected?: string;
     ms_error?: string;
     ms_needs_admin?: string;
+    ms_approved?: string;
+    ms_not_approved?: string;
   }>;
 };
 
@@ -491,7 +493,6 @@ export default async function CompanyDetailPage({
                       connections={(connectionRows ?? []) as ConnectionRow[]}
                       hubspotOn={hubspotOn}
                       microsoftOn={microsoftConfigured()}
-                      adminApprovalLink={microsoftConfigured() ? adminConsentUrl() : null}
                       flash={flash}
                     />
                   ) : null}

@@ -25,9 +25,11 @@ import {
 // The one permission that needs the client's admin is
 // OnlineMeetingTranscript.Read.All. Microsoft marks it admin-consent
 // even when delegated, so an ordinary person signing in sees "Need
-// admin approval" until their admin has approved AiMS HQ once. The
-// setup on Company settings says so and hands them the admin's link
-// (adminConsentUrl below).
+// admin approval" until their admin has approved AiMS HQ once. So
+// the setup on Company settings is two steps (Jason, 2026-11-12):
+// **Approve AiMS HQ**, signed in as the company's Microsoft 365 admin
+// (adminConsentUrl below), and then **Connect Microsoft 365**, which
+// appears once Microsoft sends them back approved.
 //
 // The client secret expires (24 months, set in Entra). When it does,
 // every refresh fails with AADSTS7000222 and connections show the
@@ -96,16 +98,19 @@ export function buildMicrosoftConsentUrl(state: string): string {
   return url.toString();
 }
 
-// The link a client's Microsoft 365 admin opens to approve AiMS HQ for
-// their whole organisation, once. It changes nothing in AiMS: Microsoft
-// sends the admin back to the callback, which thanks them and stops.
-export function adminConsentUrl(): string {
+// Microsoft's page where a Microsoft 365 admin approves AiMS HQ for
+// their whole organisation, once. Reached through
+// /api/oauth/microsoft/approve, which sets the state cookie: the
+// callback reads the company from it and sends the person back to its
+// settings with Connect showing. Nothing is stored in AiMS: the
+// approval lives in the client's own Microsoft settings.
+export function adminConsentUrl(state: string): string {
   const { clientId, redirectUri } = config();
   const url = new URL(`${AUTHORITY}/v2.0/adminconsent`);
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("scope", MICROSOFT_SCOPES.filter((s) => s.startsWith("https://")).join(" "));
-  url.searchParams.set("state", "admin-consent");
+  url.searchParams.set("state", state);
   return url.toString();
 }
 

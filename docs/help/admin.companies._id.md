@@ -75,8 +75,9 @@ To add one, choose it under **Add a connection**. Its setup opens below. Once it
 
 **Microsoft 365** brings in the transcripts of your Teams meetings, with each speaker's name. AiMS only reads; it never changes anything in Microsoft 365.
 
-- **Your Microsoft 365 admin approves AiMS HQ once, first.** If that isn't you, click *Copy the admin's link* and send it to them. They open it, sign in and approve. If you try to connect before they have, Microsoft stops you with "Need admin approval", and the card shows the link again.
-- **Connect Microsoft 365** asks you to sign in with Microsoft. Use an account that organises or is invited to the meetings AiMS should read. AiMS reads only as that account.
+1. **Approve AiMS HQ.** Sign in with a Microsoft 365 admin account for your company. This is needed once.
+2. **Connect Microsoft 365.** It appears once the approval is done. Sign in with the account that runs or attends your meetings. AiMS reads only as that account.
+
 - **Disconnect** stops Teams transcripts coming in until you connect again.
 
 **HubSpot** feeds Critical Success Factors from your deals. AiMS only reads; it never changes anything in HubSpot. It's in the list when your company has measures from outside systems switched on.
