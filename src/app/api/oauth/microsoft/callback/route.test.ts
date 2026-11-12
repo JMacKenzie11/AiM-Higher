@@ -134,13 +134,40 @@ describe("GET /api/oauth/microsoft/callback", () => {
     );
   });
 
-  it("thanks a client's admin for approving, without a session and without writing anything", async () => {
+  it("sends a person back from approving with Connect showing", async () => {
+    mocks.requireProfile.mockResolvedValue(session("company_admin", CO_ACME));
+    mocks.cookieStore.set(COOKIE, `nonce.${CO_ACME}.approve`);
     const { GET } = await import("./route");
 
-    const res = await GET(request({ admin_consent: "True", tenant: "t1", state: "admin-consent" }));
+    const res = await GET(request({ admin_consent: "True", tenant: "t1", state: `nonce.${CO_ACME}.approve` }));
 
-    expect(mocks.requireProfile).not.toHaveBeenCalled();
     expect(mocks.exchange).not.toHaveBeenCalled();
-    expect(res.headers.get("location")).toBe("http://localhost:3200/microsoft-approved?ok=1");
+    expect(res.headers.get("location")).toBe(
+      `http://localhost:3200/admin/companies/${CO_ACME}?ms_approved=1#connections`
+    );
+  });
+
+  it("says so when the approval didn't happen (usually not an admin account)", async () => {
+    mocks.requireProfile.mockResolvedValue(session("company_admin", CO_ACME));
+    mocks.cookieStore.set(COOKIE, `nonce.${CO_ACME}.approve`);
+    const { GET } = await import("./route");
+
+    const res = await GET(
+      request({ error: "access_denied", error_description: "AADSTS90094", state: `nonce.${CO_ACME}.approve` })
+    );
+
+    expect(res.headers.get("location")).toBe(
+      `http://localhost:3200/admin/companies/${CO_ACME}?ms_not_approved=1#connections`
+    );
+  });
+
+  it("ignores an approval whose state doesn't match the cookie", async () => {
+    mocks.requireProfile.mockResolvedValue(session("company_admin", CO_ACME));
+    mocks.cookieStore.set(COOKIE, `nonce.${CO_ACME}.approve`);
+    const { GET } = await import("./route");
+
+    const res = await GET(request({ admin_consent: "True", state: `forged.${CO_ACME}.approve` }));
+
+    expect(res.headers.get("location")).toBe("http://localhost:3200/admin/companies?ms_error=invalid_state");
   });
 });

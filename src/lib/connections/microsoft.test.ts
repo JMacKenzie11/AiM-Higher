@@ -35,12 +35,12 @@ describe("Microsoft sign-in links", () => {
     expect(url.toString()).not.toContain("s3cret");
   });
 
-  it("gives the client's admin an approval link that comes back to the callback's admin branch", async () => {
+  it("sends Approve to Microsoft's admin approval page, carrying the state back to the callback", async () => {
     const { adminConsentUrl } = await import("./microsoft");
-    const url = new URL(adminConsentUrl());
+    const url = new URL(adminConsentUrl("nonce.co1.approve"));
 
     expect(url.pathname).toBe("/organizations/v2.0/adminconsent");
-    expect(url.searchParams.get("state")).toBe("admin-consent");
+    expect(url.searchParams.get("state")).toBe("nonce.co1.approve");
     expect(url.searchParams.get("redirect_uri")).toBe("https://www.aims-hq.com/api/oauth/microsoft/callback");
   });
 

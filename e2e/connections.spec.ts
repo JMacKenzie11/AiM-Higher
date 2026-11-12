@@ -70,7 +70,7 @@ test.describe("Connections", () => {
   // account, so this proves the setup a company admin sees and that
   // Connect sends them to Microsoft's sign-in for a work account, with
   // this instance's return address.
-  test("a company admin is offered Microsoft 365, with the admin's approval link", async ({ page }) => {
+  test("a company admin approves Microsoft 365, then connects it", async ({ page }) => {
     test.skip(
       !process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET,
       "MICROSOFT_CLIENT_ID / _SECRET not set: Microsoft 365 is hidden"
@@ -82,17 +82,26 @@ test.describe("Connections", () => {
     await openConnections(page, companyId);
     await page.getByLabel("Add a connection").selectOption({ label: "Microsoft 365" });
 
+    // Step 1: Approve, and no Connect yet.
     const setup = page.getByTestId("setup-microsoft");
     await expect(setup).toBeVisible();
-    await expect(setup.getByRole("button", { name: "Copy the admin's link" })).toBeVisible();
-    const approve = setup.getByRole("link", { name: /approve now/ });
-    const approveUrl = new URL((await approve.getAttribute("href")) ?? "");
-    expect(approveUrl.pathname).toBe("/organizations/v2.0/adminconsent");
-    expect(approveUrl.searchParams.get("state")).toBe("admin-consent");
+    const approve = setup.getByRole("link", { name: "Approve AiMS HQ" });
+    expect(await approve.getAttribute("href")).toBe(`/api/oauth/microsoft/approve?company_id=${companyId}`);
+    await expect(setup.getByRole("link", { name: "Connect Microsoft 365" })).toHaveCount(0);
+    const [consent] = await Promise.all([
+      page.waitForResponse((r) => r.url().startsWith("https://login.microsoftonline.com/organizations/v2.0/adminconsent"), {
+        timeout: 30_000,
+      }),
+      approve.click(),
+    ]);
+    expect(new URL(consent.url()).searchParams.get("state")).toMatch(new RegExp(`\\.${companyId}\\.approve$`));
 
-    const connect = setup.getByRole("link", { name: "Connect Microsoft 365" });
+    // Step 2: back from Microsoft approved, Connect shows in its place.
+    await page.goto(`/admin/companies/${companyId}?ms_approved=1#connections`);
+    const approved = page.getByTestId("setup-microsoft");
+    await expect(approved.getByRole("link", { name: "Approve AiMS HQ" })).toHaveCount(0);
+    const connect = approved.getByRole("link", { name: "Connect Microsoft 365" });
     expect(await connect.getAttribute("href")).toBe(`/api/oauth/microsoft/start?company_id=${companyId}`);
-    // Follow it as far as Microsoft's own sign-in page.
     const [response] = await Promise.all([
       page.waitForResponse((r) => r.url().startsWith("https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize"), {
         timeout: 30_000,

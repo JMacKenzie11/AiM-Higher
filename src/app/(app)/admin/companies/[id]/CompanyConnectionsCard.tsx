@@ -1,6 +1,5 @@
 import { ConnectGoogleButton } from "@/app/(app)/admin/transcripts/ConnectGoogleButton";
 import { ConnectMicrosoftButton } from "@/app/(app)/admin/transcripts/ConnectMicrosoftButton";
-import { AdminApprovalLink } from "./AdminApprovalLink";
 import type { ConnectionRow } from "@/lib/connections/vault";
 import { DisconnectButton } from "./DisconnectButton";
 import { AddConnection, type ConnectorOption } from "./AddConnection";
@@ -30,7 +29,6 @@ export function CompanyConnectionsCard({
   connections,
   hubspotOn,
   microsoftOn,
-  adminApprovalLink,
   flash,
 }: {
   companyId: string;
@@ -39,13 +37,14 @@ export function CompanyConnectionsCard({
   // Whether AiMS has its Microsoft app (MICROSOFT_CLIENT_ID and
   // _SECRET). Until it does, Microsoft 365 is not offered.
   microsoftOn: boolean;
-  adminApprovalLink: string | null;
   flash: {
     oauth_connected?: string;
     oauth_error?: string;
     ms_connected?: string;
     ms_error?: string;
     ms_needs_admin?: string;
+    ms_approved?: string;
+    ms_not_approved?: string;
   };
 }) {
   const byConnector = new Map(connections.map((r) => [r.connector, r]));
@@ -98,13 +97,15 @@ export function CompanyConnectionsCard({
         </p>
       ) : null}
       {flash.ms_needs_admin ? (
-        <div className={styles.errorMessage} role="alert">
-          <p style={{ margin: 0 }}>
-            Your company&rsquo;s Microsoft 365 admin needs to approve AiMS HQ once before it can read Teams
-            transcripts. Send them this link. When they have approved it, connect again.
-          </p>
-          {adminApprovalLink ? <AdminApprovalLink href={adminApprovalLink} /> : null}
-        </div>
+        <p className={styles.errorMessage} role="alert">
+          Microsoft 365 needs approving first, with Approve AiMS HQ.
+        </p>
+      ) : null}
+      {flash.ms_not_approved ? (
+        <p className={styles.errorMessage} role="alert">
+          AiMS HQ wasn&rsquo;t approved. Approving needs a Microsoft 365 admin account: try again signed in as your
+          admin.
+        </p>
       ) : null}
 
       {!google && !hubspot && !microsoft ? (
@@ -138,6 +139,15 @@ export function CompanyConnectionsCard({
             Last checked {when(microsoft.checked_at)}.
           </p>
           <div className={styles.rowActions}>
+            {/* A reconnect into an organisation that hasn't approved AiMS
+                HQ comes back needing approval: offer it here, since this
+                company's setup panel is not shown once it is connected. */}
+            {microsoftOn && (flash.ms_needs_admin || flash.ms_not_approved) ? (
+              <ConnectMicrosoftButton
+                label="Approve AiMS HQ"
+                href={`/api/oauth/microsoft/approve?company_id=${companyId}`}
+              />
+            ) : null}
             {microsoftOn ? <ConnectMicrosoftButton label="Reconnect or switch account" href={microsoftHref} /> : null}
             <DisconnectButton
               companyId={companyId}
@@ -173,7 +183,9 @@ export function CompanyConnectionsCard({
           options={available}
           googleHref={googleHref}
           microsoftHref={microsoftHref}
-          adminApprovalLink={adminApprovalLink}
+          // Back from Microsoft approved, or sent to approve first:
+          // open the Microsoft 365 setup at the right step.
+          microsoftStep={flash.ms_approved ? "connect" : flash.ms_needs_admin || flash.ms_not_approved ? "approve" : null}
         />
       ) : null}
     </section>
