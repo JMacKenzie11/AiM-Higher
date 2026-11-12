@@ -9,7 +9,7 @@ This page takes you to Companies, where meeting transcript settings live.
 
 ## Where to go instead
 
-- **Connect Google Drive for a company.** Open the company from Companies and go to the *Connections* tab. Connect Google on the *External connections* card.
+- **Connect Google Drive or Microsoft 365 for a company.** Open the company from Companies and go to the *Connections* tab. Connect Google (for Drive folders) or Microsoft 365 (for Teams meetings) on the *External connections* card.
 - **Add folders or aliases.** Once Google is connected, use the *Meeting transcripts* card on the same tab.
 
 ::: role system_admin

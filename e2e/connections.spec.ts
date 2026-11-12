@@ -75,6 +75,9 @@ test.describe("Connections", () => {
       !process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET,
       "MICROSOFT_CLIENT_ID / _SECRET not set: Microsoft 365 is hidden"
     );
+    // Signs in, renders Company settings and follows a redirect to
+    // Microsoft: more than the 30s default on a cold dev server.
+    test.setTimeout(120_000);
     await signIn(page, users.companyAdmin());
     await openConnections(page, companyId);
     await page.getByLabel("Add a connection").selectOption({ label: "Microsoft 365" });
