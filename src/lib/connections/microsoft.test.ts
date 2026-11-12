@@ -58,3 +58,33 @@ describe("Microsoft sign-in links", () => {
     expect(needsAdminApproval("AADSTS7000215: Invalid client secret provided")).toBe(false);
   });
 });
+
+describe("graphRequest errors", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reports Graph's inner error code, which is where the specific reason sits", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ error: { code: "Forbidden", message: "Denied", innerError: { code: "SpeakerAttributionNotAllowed" } } }),
+          { status: 403 }
+        )
+      )
+    );
+    const { graphRequest, GraphError } = await import("./microsoft");
+    const err = await graphRequest("t", "/me").catch((e) => e);
+    expect(err).toBeInstanceOf(GraphError);
+    expect(err.code).toBe("SpeakerAttributionNotAllowed");
+  });
+
+  it("falls back to the top-level code when there is no inner one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ error: { code: "SpeakerAttributionNotAllowed", message: "x" } }), { status: 403 }))
+    );
+    const { graphRequest } = await import("./microsoft");
+    const err = await graphRequest("t", "/me").catch((e) => e);
+    expect(err.code).toBe("SpeakerAttributionNotAllowed");
+  });
+});
