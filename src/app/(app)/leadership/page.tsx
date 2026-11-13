@@ -18,8 +18,16 @@ import {
   canRetryFailedMeeting,
 } from "@/lib/transcripts/retry";
 import { RetryFailedMeetingButton } from "./RetryFailedMeetingButton";
+import { UploadTranscriptForm } from "./UploadTranscriptForm";
+import { isAimsChampion } from "@/lib/guide/champion";
+import { canUploadTranscript, ymdIn } from "@/lib/transcripts/upload";
 
 export const metadata = { title: "Meeting Summaries" };
+
+// Upload a transcript runs the analysis after the response (after()),
+// inside this route's function. A meeting analysis takes two to four
+// minutes.
+export const maxDuration = 300;
 
 // Leadership — the home for meeting-transcript analyses.
 //
@@ -53,6 +61,21 @@ export default async function LeadershipPage() {
   // meetings (system admin, its company admin, an assigned guide).
   // retryFailedMeetingAction checks the same rule.
   const canRetry = canManageCompanyMeetings(session.profile, companyId);
+  // Upload a transcript: the same people, plus the AiMS champion.
+  // uploadTranscriptAction checks the same rule.
+  const canUpload = canUploadTranscript({
+    managesMeetings: canRetry,
+    isChampion: await isAimsChampion(session.profile.id, companyId),
+  });
+  let today = ymdIn(new Date(), "UTC");
+  if (canUpload) {
+    const { data: co } = await supabase
+      .from("companies")
+      .select("timezone")
+      .eq("id", companyId)
+      .maybeSingle<{ timezone: string | null }>();
+    today = ymdIn(new Date(), co?.timezone || "UTC");
+  }
 
   // Facilitation column is fetched and rendered when the feature is
   // on, for everyone in the company (Jason, 2026-10-01: company content
@@ -116,14 +139,22 @@ export default async function LeadershipPage() {
           : "Every meeting transcript this company has run through the analyzer, most recent first. Click a complete analysis to see the full write-up and the commitments it created."
       }
     >
+      {canUpload ? (
+        <section className={styles.card} aria-labelledby="upload-transcript">
+          <h2 id="upload-transcript" className={styles.h2}>
+            Upload a transcript
+          </h2>
+          <UploadTranscriptForm today={today} />
+        </section>
+      ) : null}
       <section className={styles.card} aria-labelledby="meetings-list">
           <h2 id="meetings-list" className={styles.h2}>
             Meetings
           </h2>
           {meetings.length === 0 ? (
             <p className={styles.emptyLine}>
-              No meetings analyzed yet. Connect a Drive folder from the
-              company settings and drop a transcript in.
+              No meetings analyzed yet. Upload a transcript, or connect
+              a Drive folder or Teams meeting from the company settings.
             </p>
           ) : (
             <table className={styles.table}>
