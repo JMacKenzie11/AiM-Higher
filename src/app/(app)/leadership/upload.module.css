@@ -1,0 +1,62 @@
+/* Upload a transcript: one row on a wide screen, stacked on a phone. */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.name {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.date {
+  flex: 0 0 auto;
+}
+
+.file {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The real input stays in the form and in the tab order; the label
+   beside it is what people see and click. */
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.hiddenInput:focus-visible + label {
+  outline: none;
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+.fileName {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.message {
+  margin: var(--space-2) 0 0;
+}
+
+@media (max-width: 640px) {
+  .row > * {
+    flex: 1 1 100%;
+  }
+  .fileName {
+    max-width: none;
+  }
+}
