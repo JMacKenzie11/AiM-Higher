@@ -25,7 +25,7 @@ Your company's leadership meetings, newest first. Open one to read what was disc
 
 - **Read a meeting.** Click *View* on any meeting marked *complete* to see the summary and the commitments it created.
 - **See how each meeting was run.** When Meeting Facilitation Review is turned on, each finished meeting shows a facilitation score out of 10. It's there to help you run better meetings, so it's never shown in red.
-- **Upload a transcript.** Use *Upload a transcript* at the top of the page. Choose a .docx, .txt or .vtt file, or paste the text. Set *Held on* to the day of the meeting, then click *Analyse meeting*. It shows in the list straight away and is ready in a few minutes. Your company's AiMS champion can do this too.
+- **Upload a transcript.** Use *Upload a transcript* at the top of the page. Click *Choose file* and pick a .docx, .txt or .vtt transcript. Set *Held on* to the day of the meeting, then click *Analyse meeting*. It shows in the list straight away and is ready in a few minutes. Your company's AiMS champion can do this too.
 - **Run a failed meeting again.** The reason a meeting failed shows beside *failed* in the Status column. Click *Try again* on that row. The meeting goes back to *pending* and is usually ready in a few minutes.
 
 ## Common questions

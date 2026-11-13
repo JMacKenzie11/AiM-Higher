@@ -13,7 +13,7 @@ import { processPendingMeetings } from "./ingest";
 import { canManageCompanyMeetings } from "./retry";
 import { canUploadTranscript, meetingInstant, uploadFileId, uploadTitle, ymdIn } from "./upload";
 
-// Upload a transcript on Meeting Summaries: a file or pasted text
+// Upload a transcript on Meeting Summaries: a .docx, .txt or .vtt file
 // becomes a meeting of the company in scope, analysed exactly as one
 // that arrived from a Drive folder or a Teams meeting.
 //
@@ -66,28 +66,27 @@ export async function uploadTranscriptAction(
     return typeof v === "string" ? v.trim() : "";
   };
 
-  // A file, or pasted text. A file wins when both are given.
-  let text = field("transcript_text");
-  let fileTitle: string | null = null;
-  let fileName = "Pasted transcript";
   const file = form.get("transcript_file");
-  if (file instanceof File && file.size > 0) {
-    const mimeType = mimeFor(file.name);
-    if (!mimeType) return { ok: false, message: "Upload a .docx, .txt or .vtt file." };
-    try {
-      const extracted = await extractTranscript({
-        buffer: Buffer.from(await file.arrayBuffer()),
-        mimeType,
-        name: file.name,
-      });
-      text = extracted.text;
-      fileTitle = extracted.title;
-      fileName = file.name;
-    } catch {
-      return { ok: false, message: "That file couldn't be read. Try pasting the transcript instead." };
-    }
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "Choose a transcript file first." };
   }
-  if (!text) return { ok: false, message: "Upload a transcript or paste one in." };
+  const mimeType = mimeFor(file.name);
+  if (!mimeType) return { ok: false, message: "Upload a .docx, .txt or .vtt file." };
+  let text: string;
+  let fileTitle: string;
+  const fileName = file.name;
+  try {
+    const extracted = await extractTranscript({
+      buffer: Buffer.from(await file.arrayBuffer()),
+      mimeType,
+      name: file.name,
+    });
+    text = extracted.text;
+    fileTitle = extracted.title;
+  } catch {
+    return { ok: false, message: "That file couldn't be read. Check it is a .docx, .txt or .vtt transcript." };
+  }
+  if (!text) return { ok: false, message: "That file has no text in it." };
   if (text.length > MAX_TRANSCRIPT_CHARS) {
     return { ok: false, message: "That transcript is too long for one analysis." };
   }

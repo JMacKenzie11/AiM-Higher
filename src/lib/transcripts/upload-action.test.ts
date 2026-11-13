@@ -44,6 +44,10 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 import { uploadTranscriptAction } from "./upload-action";
 
+function txt(body: string, name = "meeting.txt") {
+  return new File([body], name, { type: "text/plain" });
+}
+
 function form(fields: Record<string, string | File>) {
   const f = new FormData();
   for (const [k, v] of Object.entries(fields)) f.set(k, v);
@@ -61,14 +65,14 @@ beforeEach(() => {
 
 describe("uploadTranscriptAction", () => {
   it("refuses a team member who is not the champion, before writing", async () => {
-    const res = await uploadTranscriptAction(null, form({ transcript_text: "hello" }));
+    const res = await uploadTranscriptAction(null, form({ transcript_file: txt("hello") }));
     expect(res?.ok).toBe(false);
     expect(m.inserted).toHaveLength(0);
   });
 
   it("refuses a company admin of another company", async () => {
     m.profile = { id: "p1", role: "company_admin", company_id: "other" };
-    const res = await uploadTranscriptAction(null, form({ transcript_text: "hello" }));
+    const res = await uploadTranscriptAction(null, form({ transcript_file: txt("hello") }));
     expect(res?.ok).toBe(false);
     expect(m.inserted).toHaveLength(0);
   });
@@ -77,7 +81,7 @@ describe("uploadTranscriptAction", () => {
     m.champion = true;
     const res = await uploadTranscriptAction(
       null,
-      form({ transcript_text: "Weekly leadership\n00:00 Speaker 1 hi", meeting_date: "2020-01-02" })
+      form({ transcript_file: txt("Weekly leadership\n00:00 Speaker 1 hi"), meeting_date: "2020-01-02" })
     );
     expect(res).toEqual({ ok: true, title: "Weekly leadership" });
     expect(m.inserted).toHaveLength(1);
@@ -92,21 +96,30 @@ describe("uploadTranscriptAction", () => {
 
   it("admits a company admin of this company", async () => {
     m.profile = { id: "p1", role: "company_admin", company_id: "co1" };
-    const res = await uploadTranscriptAction(null, form({ transcript_text: "hello there" }));
+    const res = await uploadTranscriptAction(null, form({ transcript_file: txt("hello there") }));
     expect(res?.ok).toBe(true);
   });
 
   it("refuses a duplicate", async () => {
     m.champion = true;
     m.existing = { id: "old" };
-    const res = await uploadTranscriptAction(null, form({ transcript_text: "hello" }));
+    const res = await uploadTranscriptAction(null, form({ transcript_file: txt("hello") }));
     expect(res).toEqual({ ok: false, message: "This transcript is already in Meeting Summaries." });
+    expect(m.inserted).toHaveLength(0);
+  });
+
+  it("refuses a form with no file", async () => {
+    m.champion = true;
+    expect(await uploadTranscriptAction(null, form({ meeting_title: "x" }))).toEqual({
+      ok: false,
+      message: "Choose a transcript file first.",
+    });
     expect(m.inserted).toHaveLength(0);
   });
 
   it("refuses a future date and an unknown file type", async () => {
     m.champion = true;
-    expect((await uploadTranscriptAction(null, form({ transcript_text: "x", meeting_date: "2999-01-01" })))?.ok).toBe(false);
+    expect((await uploadTranscriptAction(null, form({ transcript_file: txt("x"), meeting_date: "2999-01-01" })))?.ok).toBe(false);
     const pdf = new File(["x"], "notes.pdf", { type: "application/pdf" });
     expect(await uploadTranscriptAction(null, form({ transcript_file: pdf }))).toEqual({
       ok: false,
