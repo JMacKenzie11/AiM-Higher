@@ -82,7 +82,7 @@ export function UploadTranscriptForm({ today }: { today: string }) {
           </label>
           <span className={up.fileName}>{fileName ?? ".docx, .txt or .vtt"}</span>
         </div>
-        <button type="submit" className={styles.primaryButton} disabled={pending}>
+        <button type="submit" className={styles.primaryButton} disabled={pending || !fileName}>
           {pending ? "Uploading..." : "Analyse meeting"}
         </button>
       </div>
