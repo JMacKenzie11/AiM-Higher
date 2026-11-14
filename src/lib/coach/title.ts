@@ -1,3 +1,9 @@
+// The instruction for the four-word label the coach route writes after
+// the first exchange. It sees the exchange alone (no context prefix),
+// and may use only names said in it.
+export const TITLE_SYSTEM =
+  "You label coaching conversations in AiMS HQ with a short topic, from the exchange alone. Use a person's name only if the participant used it in the exchange.";
+
 // Strip markdown, wrapping quotes, and trailing sentence punctuation
 // from a model-produced conversation title. The prompt asks the model
 // for plain text, but Sonnet/Haiku still wrap titles in **bold**

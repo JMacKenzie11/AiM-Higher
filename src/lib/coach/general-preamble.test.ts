@@ -27,4 +27,27 @@ describe("plain Aimee's instructions", () => {
     expect(GENERAL_MODE_PREAMBLE).toMatch(/Do not use "actually" in a question/);
     expect(GENERAL_MODE_PREAMBLE).toMatch(/Do not assume anyone's gender. Use their name or "they" unless the person has said he or she/);
   });
+
+  // Jason, 2026-11-13: a B&B leader asked about staff who are not in
+  // AiMS and got a company figure first, then a name from memory.
+  it("keep the record to the people it covers (Jason, 2026-11-13)", () => {
+    expect(GENERAL_MODE_PREAMBLE).toMatch(/Your first reply is about what they said, never a figure/);
+    expect(GENERAL_MODE_PREAMBLE).toMatch(/never answered with anyone else's figures/);
+    expect(GENERAL_MODE_PREAMBLE).toMatch(/say whose it is/);
+    expect(GENERAL_MODE_PREAMBLE).toMatch(/It is never a reason to go and fetch one/);
+  });
+
+  it("offer the lookup once instead of asking them to sort the question", () => {
+    expect(GENERAL_MODE_PREAMBLE).toContain("If they're in AiMS, tell me who and I can look at how their commitments have been landing.");
+    expect(GENERAL_MODE_PREAMBLE).toMatch(/Do not ask them to sort their question into a kind before you help/);
+  });
+
+  it("stop looking things up once told the person is not in AiMS", () => {
+    expect(GENERAL_MODE_PREAMBLE).toMatch(/not in AiMS, or works outside the company, use no figures and look nobody up for the rest of the conversation/);
+  });
+
+  it("ask about a name from memory, never assume it", () => {
+    expect(GENERAL_MODE_PREAMBLE).toMatch(/A name from your notes on earlier conversations is a guess about who they mean, never a fact/);
+    expect(GENERAL_MODE_PREAMBLE).toContain("Is this about Sam again?");
+  });
 });
