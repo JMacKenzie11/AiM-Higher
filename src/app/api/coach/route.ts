@@ -3,11 +3,10 @@ import "server-only";
 import { aiAppsPromptBlock } from "@/lib/ai-apps/aimee";
 import { currentHelpViewer, helpFeaturesFor, loadAllHelpFor } from "@/lib/help/loader";
 import { NextRequest } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { requireProfile } from "@/lib/auth/current-user";
 import { reportError } from "@/lib/observability/report";
+import { loadSystemPrompt } from "@/lib/coach/turn/prompt";
 import { encodeEvent, SSE_HEADERS, streamErrorResponse, streamSavedMessage } from "@/lib/coach/turn/sse";
 import { buildMessages, withCacheMarks } from "@/lib/coach/turn/messages";
 import { addUsage, textOf } from "@/lib/coach/turn/anthropic";
@@ -42,22 +41,15 @@ import {
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { describePageContext, parsePageContext } from "@/lib/aimee/page-context";
 import { getCompanyFeatures, type ModuleFeature } from "@/lib/subscriptions/service";
-import { loadCoachingPrinciples } from "@/lib/coach/principles";
-import { COMMITMENT_DRAFT_BLOCK } from "@/lib/coach/commitment-draft";
-import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { cleanGeneratedTitle, TITLE_SYSTEM } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
-import { GENERAL_MODE_PREAMBLE } from "@/lib/coach/general-preamble";
 import { STRENGTH_CHECK_MODEL, skippedStrength } from "@/lib/coach/strength-check";
 import { trackAfter } from "@/lib/analytics/track";
 import {
   type PracticeToolName,
 } from "@/lib/practices/registry";
 import { resolveAgent } from "@/lib/practices/resolve";
-import {
-  resolveRuntimeConfig,
-  type AgentRuntimeConfig,
-} from "@/lib/practices/version-config";
+import { resolveRuntimeConfig } from "@/lib/practices/version-config";
 import {
   getAccessForConversation,
   type CoachingConversation,
@@ -67,7 +59,6 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { callSettings } from "@/lib/transcripts/model";
 import {
   ATTACHMENT_MAX_FILES,
-  ATTACHMENT_PROMPT_NOTE,
   composeMessage,
   type Attachment,
 } from "@/lib/coach/attachments";
@@ -1089,80 +1080,6 @@ function parseAttachments(raw: unknown): Attachment[] {
     .slice(0, ATTACHMENT_MAX_FILES);
 }
 
-// Takes the RESOLVED CONFIG, not a practice id.
-//
-// It used to re-resolve the agent from the registry, which is now
-// the wrong source: a conversation runs on the version pinned to it,
-// and the prompt may be stored text rather than a file on disk. The
-// caller has already resolved that once for this turn, so passing it
-// in also removes the second lookup.
-//
-// `config` is null for a plain Aimee or about-mode conversation.
-async function loadSystemPrompt(
-  mode: "about" | "general",
-  config: AgentRuntimeConfig | null
-): Promise<string> {
-  // A voice_only practice loads aims-voice.md alone as the base —
-  // no coaching spine, no diagnostic modes, no patterns-to-watch-
-  // for. Used by structural practices (chart builder, etc.) where
-  // the practice prompt is the entire flow and inheriting the coach
-  // spine would push it into diagnosis instead of the guided task.
-  const base =
-    config?.basePromptMode === "voice_only"
-      ? await loadVoiceOnlyBase()
-      : await loadCoachBase();
-
-  // Practice sessions layer the agent's prompt AFTER the base. The
-  // base establishes voice + stance; the agent narrows it into a
-  // specific guided flow (including any card-block contract the
-  // client renders). The two bases stay on disk and keep their SHA
-  // guards — they are the fallback, so they matter more now, not
-  // less.
-  // Every agent can be handed files (lib/coach/attachments.ts).
-  const composed = config
-    ? `${base}\n\n${config.prompt}\n\n${ATTACHMENT_PROMPT_NOTE}`
-    : mode === "about"
-      ? base
-      : `${GENERAL_MODE_PREAMBLE}\n\n${base}`;
-
-  // The AiMS coaching principles come after the agent's prompt and
-  // take precedence over it (lib/coach/principles.ts). Voice rules go
-  // LAST so they're the freshest instruction the model reads before
-  // generating. Both apply to every coach surface (about, general,
-  // practice, panel): one way of coaching and one voice across the
-  // whole product. The commitment draft's format follows the
-  // principles, which say when to offer one (lib/coach/commitment-draft.ts).
-  return `${composed}\n\n${await loadCoachingPrinciples()}\n\n${COMMITMENT_DRAFT_BLOCK}\n\n${VOICE_RULES_COACH}`;
-}
-
-// Load the base coach prompt by splicing prompts/aims-voice.md (the
-// voice + language section) into prompts/leadership-coach.md at the
-// {{AIMS_VOICE}} sentinel. The split is byte-preserving: recomposing
-// the two files with this splice returns the original leadership-
-// coach.md content unchanged. Regression is guarded by the SHA
-// snapshot test in leadership-coach.compose.test.ts.
-async function loadCoachBase(): Promise<string> {
-  const remainderPath = path.join(
-    process.cwd(),
-    "prompts",
-    "leadership-coach.md"
-  );
-  const voicePath = path.join(process.cwd(), "prompts", "aims-voice.md");
-  const [remainder, voice] = await Promise.all([
-    fs.readFile(remainderPath, "utf8"),
-    fs.readFile(voicePath, "utf8"),
-  ]);
-  return remainder.replace("{{AIMS_VOICE}}", voice);
-}
-
-// Voice-only base for practices that don't inherit the full
-// coaching spine. Returns aims-voice.md verbatim; the practice
-// prompt and VOICE_RULES_COACH still layer on around it via
-// loadSystemPrompt.
-async function loadVoiceOnlyBase(): Promise<string> {
-  const voicePath = path.join(process.cwd(), "prompts", "aims-voice.md");
-  return fs.readFile(voicePath, "utf8");
-}
 
 // ---- Checked turns -----------------------------------------------
 
