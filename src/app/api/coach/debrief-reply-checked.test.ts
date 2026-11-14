@@ -89,6 +89,15 @@ function streamOf(text: string) {
   };
 }
 
+// A message's text, whether sent as a string or as blocks (the route
+// marks some messages for caching, which turns them into blocks).
+const textOf = (content: unknown): string =>
+  typeof content === "string"
+    ? content
+    : Array.isArray(content)
+      ? content.map((b) => (b as { type?: string; text?: string }).type === "text" ? String((b as { text?: string }).text ?? "") : "").join("")
+      : "";
+
 let POST: typeof import("./route").POST;
 beforeAll(async () => {
   ({ POST } = await import("./route"));
@@ -117,7 +126,7 @@ describe("a debrief reply", () => {
     expect(deltas).toEqual([FIXED]);
     expect(text).not.toContain("how much do they want this time");
     // The retry was told what was wrong.
-    const retryTurn = h.create.mock.calls[0][0].messages.at(-1).content as string;
+    const retryTurn = textOf(h.create.mock.calls[0][0].messages.at(-1).content);
     expect(retryTurn).toContain('You quoted "how much do they want this time"');
     // What is saved is what was shown.
     const saved = h.inserts.filter((i) => i.table === "coaching_messages").map((i) => (i.payload as { role: string; content: string }));
