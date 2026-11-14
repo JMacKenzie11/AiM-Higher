@@ -21,8 +21,8 @@ describe("conversation titles", () => {
   // catch left 7 of 10 recent production conversations on their date
   // title. It must save through the request's own client.
   it("are saved through the request's client, never one made afterwards", () => {
-    const route = readFileSync("src/app/api/coach/route.ts", "utf8");
-    const fn = route.slice(route.indexOf("async function generateTitleForConversation("));
+    const route = readFileSync("src/lib/coach/turn/title.ts", "utf8");
+    const fn = route.slice(route.indexOf("export async function generateTitleForConversation("));
     const body = fn.slice(0, fn.indexOf("\n}\n"));
     expect(body).not.toMatch(/await createSupabaseServerClient\(/);
     expect(body).toContain("args.supabase");

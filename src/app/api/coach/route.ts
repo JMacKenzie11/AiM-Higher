@@ -1,74 +1,30 @@
 import "server-only";
 
-import { aiAppsPromptBlock } from "@/lib/ai-apps/aimee";
-import { currentHelpViewer, helpFeaturesFor, loadAllHelpFor } from "@/lib/help/loader";
 import { NextRequest } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { requireProfile } from "@/lib/auth/current-user";
 import { reportError } from "@/lib/observability/report";
-import { isDefaultTitle } from "@/lib/coach/default-title";
+import { prepareTurn } from "@/lib/coach/turn/setup";
+import { SURFACE, turnCheckFor } from "@/lib/coach/turn/checked-turn";
+import { firstAssistantMessage } from "@/lib/coach/turn/persist";
+import { generateTitleForConversation } from "@/lib/coach/turn/title";
+import { encodeEvent, SSE_HEADERS, streamErrorResponse, streamSavedMessage } from "@/lib/coach/turn/sse";
+import { buildMessages, withCacheMarks } from "@/lib/coach/turn/messages";
+import { addUsage, textOf } from "@/lib/coach/turn/anthropic";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { buildCoachContext } from "@/lib/coach/context";
-import { vividVisionKeepBlock, writesVividVision } from "@/lib/foundation/vivid-vision-keep";
-import { googleDocsConfigured } from "@/lib/google-docs/config";
-import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
-import { makePersonRecordTool } from "@/lib/coach/person-tool";
 import { toolLabel } from "@/lib/coach/tool-labels";
-import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
-import { buildGuideTools } from "@/lib/guide/agent-tools";
-import { formatHelpIndex, helpIndexFor } from "@/lib/help/search";
-import { makeSearchHelpTool } from "@/lib/help/tool";
-import { PANEL_PROMPT_BLOCK, recordPanelEvent } from "@/lib/aimee/panel";
-import {
-  HANDOFF_OPENER_PROMPT,
-  handoffBlock,
-  offerableSessions,
-  sessionOfferPromptBlock,
-} from "@/lib/aimee/session-offers";
-import { recordRuleBreak, type RuleBreakSurface } from "@/lib/aimee/rule-breaks";
-import {
-  checkVoice,
-  COUNTED,
-  SENT_BACK,
-  type CheckContext,
-  type CheckedTurn,
-  type VoiceCheck,
-} from "@/lib/aimee/voice-check";
+import { HANDOFF_OPENER_PROMPT } from "@/lib/aimee/session-offers";
+import { recordRuleBreak } from "@/lib/aimee/rule-breaks";
+import { checkVoice, COUNTED } from "@/lib/aimee/voice-check";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
-import { describePageContext, parsePageContext } from "@/lib/aimee/page-context";
-import { getCompanyFeatures, type ModuleFeature } from "@/lib/subscriptions/service";
-import { loadCoachingPrinciples } from "@/lib/coach/principles";
-import { COMMITMENT_DRAFT_BLOCK } from "@/lib/coach/commitment-draft";
-import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
-import { cleanGeneratedTitle, TITLE_SYSTEM } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
-import { GENERAL_MODE_PREAMBLE } from "@/lib/coach/general-preamble";
-import { STRENGTH_CHECK_MODEL, skippedStrength } from "@/lib/coach/strength-check";
+import { STRENGTH_CHECK_MODEL } from "@/lib/coach/strength-check";
 import { trackAfter } from "@/lib/analytics/track";
-import {
-  loadPracticePrompt,
-  type PracticeToolName,
-} from "@/lib/practices/registry";
 import { resolveAgent } from "@/lib/practices/resolve";
-import {
-  resolveRuntimeConfig,
-  type AgentRuntimeConfig,
-} from "@/lib/practices/version-config";
-import {
-  getAccessForConversation,
-  type CoachingConversation,
-  type CoachingMessage,
-} from "@/lib/coach/service";
+import { resolveRuntimeConfig } from "@/lib/practices/version-config";
+import { getAccessForConversation, type CoachingConversation, type CoachingMessage } from "@/lib/coach/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { callSettings } from "@/lib/transcripts/model";
-import {
-  ATTACHMENT_MAX_FILES,
-  ATTACHMENT_PROMPT_NOTE,
-  composeMessage,
-  type Attachment,
-} from "@/lib/coach/attachments";
+import { ATTACHMENT_MAX_FILES, composeMessage, type Attachment } from "@/lib/coach/attachments";
 
 // POST /api/coach — streaming chat endpoint for the coaching feature.
 //
@@ -120,7 +76,6 @@ type IncomingBody = {
 const GENERATE_OPENER_PROMPT =
   "Open this conversation. Introduce yourself briefly in your role, then begin the guided flow you're designed for — start with your first question or step. Keep the opener under 120 words.";
 
-const DEFAULT_MODEL = "claude-sonnet-5";
 // Default ceiling for one assistant turn; an agent that emits a whole
 // document in one turn declares its own in the registry (see
 // Practice.maxTokens).
@@ -139,12 +94,6 @@ const MAX_TOKENS = 8000;
 // stop or a tool_use. The cap prevents a misbehaving prompt from
 // looping tools indefinitely.
 const MAX_TOOL_ITERATIONS = 4;
-
-function encodeEvent(event: string, data: unknown): Uint8Array {
-  const payload =
-    typeof data === "string" ? data : JSON.stringify(data);
-  return new TextEncoder().encode(`event: ${event}\ndata: ${payload}\n\n`);
-}
 
 export async function POST(req: NextRequest): Promise<Response> {
   // Turn timing, sent with coach.turn_shape: setup before the model is
@@ -334,202 +283,18 @@ export async function POST(req: NextRequest): Promise<Response> {
       "Coach isn't configured yet — ANTHROPIC_API_KEY is missing on the server."
     );
   }
-  // Build context. In general mode (Ask Aimee) there is no subject,
-  // so person / strengths context are absent and the system prompt
-  // gets an Aimee preamble. In about mode the standard leadership
-  // prompt runs against subject-scoped context. Practice sessions
-  // (practice_id set) load the participant's own person_context and,
-  // if a partner is named, a strict-allow-list partner_context.
-
-  // A published version may name its own model; otherwise the env
-  // override, otherwise the product default. Version first because
-  // it is the most specific and the most deliberate: somebody chose
-  // it for this agent and wrote a publish note saying why.
-  const model =
-    agentConfig?.model || process.env.ANTHROPIC_COACH_MODEL || DEFAULT_MODEL;
-  // PLAIN AIMEE KNOWS THE APP: the pages this person can open (in the
-  // system prompt, so it caches with it) and search_help, from the
-  // session's own role and the company's features, never the request.
-  // Agents keep their own focus. A panel conversation (0240, read from
-  // the row) adds the panel block and, for plain Aimee, the page.
-  const plainAimee = convo.mode === "general" && !practice;
-  const fromPanel = convo.origin === "panel";
-  // ONE SETUP, RUN TOGETHER (2026-11-14). These ran one after another,
-  // and React's cache() does not memoise in a route handler, so the
-  // help viewer signed the person in three or four times a turn and
-  // the help files were read two or three times. The viewer and the
-  // docs are read once and shared, and independent reads overlap.
-  const viewerRead = plainAimee ? currentHelpViewer(session) : null;
-  const helpDocs = viewerRead
-    ? viewerRead.then((viewer) => loadAllHelpFor(session.profile.role, viewer))
-    : undefined;
-  // Awaited below; this only keeps an early failure from going unhandled.
-  helpDocs?.catch(() => {});
-  const [context, helpFeatures, viewer, offers, basePrompt] = await Promise.all([
-    buildCoachContext({
-      companyId: convo.company_id,
-      subjectProfileId: convo.subject_profile_id,
-      currentAdminName: session.profile.full_name,
-      currentAdminProfileId: session.profile.id,
-      currentAdminRole: session.profile.role,
-      currentAdminCompanyId: session.profile.company_id,
-      currentAdminReportsTo: session.profile.reports_to ?? null,
-      contextKind: convo.context_kind,
-      practiceId: convo.practice_id,
-      partnerProfileId: convo.partner_profile_id,
-    }),
-    plainAimee ? getCompanyFeatures(convo.company_id) : Promise.resolve([] as ModuleFeature[]),
-    viewerRead,
-    // Guided sessions are offered to the conversation's owner only.
-    plainAimee && access === "owner"
-      ? offerableSessions({ db: supabase, profile: session.profile, companyId: convo.company_id })
-      : Promise.resolve(null),
-    loadSystemPrompt(convo.mode, agentConfig),
-  ]);
-  // The page beside the panel: path and record id only from the
-  // browser, checked against this person's role and features, the
-  // record read with THIS session's client (lib/aimee/page-context.ts).
-  const [helpIndex, pageBlock] = await Promise.all([
-    plainAimee
-      ? helpIndexFor(session.profile.role, helpFeatures, convo.company_id, helpDocs)
-      : Promise.resolve(null),
-    fromPanel && plainAimee
-      ? describePageContext(supabase, parsePageContext(body.pageContext), session.profile.role, helpFeatures, helpDocs)
-      : Promise.resolve(""),
-  ]);
-  const helpIndexBlock = helpIndex ? formatHelpIndex(helpIndex, session.profile.role) : "";
-  const offerBlock = offers ? sessionOfferPromptBlock(offers) : "";
-  // AI APPS (Jason, 2026-10-14): by the same rule as the help and the
-  // How to connect drawer (lib/ai-apps/aimee.ts). Plain Aimee only.
-  const aiAppsBlock = viewer ? aiAppsPromptBlock(helpFeaturesFor(session.profile.role, viewer)) : "";
-  // THE VIVID VISION CARD'S BUTTONS (2026-11-03): from the same
-  // setting the card reads, for any agent whose prompt writes the
-  // card, so the agent never offers a button the card does not have.
-  const vividVisionBlock =
-    agentConfig && writesVividVision(agentConfig.prompt) ? vividVisionKeepBlock({ googleDocs: googleDocsConfigured() }) : "";
-  const systemPromptText =
-    basePrompt +
-    (vividVisionBlock ? `\n\n${vividVisionBlock}` : "") +
-    (helpIndexBlock ? `\n\n${helpIndexBlock}` : "") +
-    (aiAppsBlock ? `\n\n${aiAppsBlock}` : "") +
-    (offerBlock ? `\n\n${offerBlock}` : "") +
-    (fromPanel ? `\n\n${PANEL_PROMPT_BLOCK}` : "");
-
+  const { model, systemPromptText, messages, tools, toolDefs, checkedTurn } = await prepareTurn({
+    convo,
+    session,
+    supabase,
+    access,
+    practice,
+    agentConfig,
+    history,
+    isGenerateOpener,
+    pageContext: body.pageContext,
+  });
   const client = new Anthropic({ apiKey });
-  const personBlock = context.personContext ? `${context.personContext}\n\n` : "";
-  const partnerBlock = context.partnerContext ? `${context.partnerContext}\n\n` : "";
-  const strengthsBlock = context.strengthsContext ? `${context.strengthsContext}\n\n` : "";
-  // Memory rides LAST among the data blocks, immediately before the
-  // coaching context that tells the model how to use it. Absent
-  // entirely when there is nothing to recall — an empty
-  // <coach_memory> block is a prompt saying "there is a memory system
-  // and it is empty", which invites apologising for it.
-  const memoryBlock = context.memoryContext ? `${context.memoryContext}\n\n` : "";
-  // WHAT IS OPEN BESIDE THE PANEL (Step 4). A panel conversation's
-  // request names the page and, for a drawer, a record's pattern and
-  // id; nothing else from the browser is used. The page is checked
-  // against this person's role and features, and the record is loaded
-  // with THIS session's client, so RLS decides what Aimee may read
-  // (lib/aimee/page-context.ts). Rides on the latest user turn, which
-  // is the only turn it describes.
-  // A session started from Aimee's offer: the summary the person
-  // accepted, on every turn, so the session never asks them to repeat
-  // it (0262).
-  const handoffText = convo.handoff_summary ? `${handoffBlock(convo.handoff_summary)}\n\n` : "";
-  const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${memoryBlock}${context.coachingContext}\n\n${handoffText}${pageBlock ? `${pageBlock}\n\n` : ""}`;
-  const messages = buildMessages(history, userTurnPrefix);
-
-  // Tool gating: subject-scoped tools are ONLY registered when there
-  // is a subject to scope them to. In general mode the tool list is
-  // empty — Aimee has no subject data to query and must not appear to.
-  // Subject-scoped tools (strengths) only register in "about" mode.
-  // Company-scoped tools (classroom) register in both modes provided
-  // the feature is on — Aimee can recommend a training in Ask Aimee
-  // conversations too. buildCoachTools handles the branch.
-  const tools = [
-    ...(plainAimee
-      ? [
-          makeSearchHelpTool({
-            role: session.profile.role,
-            features: helpFeatures,
-            companyId: convo.company_id,
-            // Counted, never the query (lib/aimee/panel.ts).
-            onSearch: (found) =>
-              void recordPanelEvent(supabase, {
-                companyId: convo.company_id,
-                profileId: session.profile.id,
-                role: session.profile.role,
-                kind: "help_search",
-                found,
-              }),
-          }),
-          // A named person's record, read as this session (open data
-          // phase F, lib/coach/person-tool.ts). Plain Aimee only: a
-          // Coach conversation stays on its one subject.
-          makePersonRecordTool({ companyId: convo.company_id }),
-        ]
-      : []),
-    ...(await buildCoachTools({
-      subjectProfileId:
-        convo.mode === "about" ? convo.subject_profile_id ?? null : null,
-      companyId: convo.company_id,
-    })),
-    // PRACTICE TOOLS, registered for the practice running and
-    // nowhere else. A tool the model can always see is a tool it
-    // will sometimes reach for: the Functional Chart is the Role
-    // Description Builder's working material and nobody else's, and
-    // a coach that can list every function is a coach that will.
-    //
-    // Deduped by name against what buildCoachTools already returned,
-    // so a practice declaring a tool the coach also has cannot send
-    // Anthropic two definitions with one name — which is an API
-    // error, not a precedence question.
-    //
-    // FROM THE PINNED CONFIG, not the code registry. The conversation
-    // runs the agent version it was pinned to (resolveRuntimeConfig):
-    // its prompt, model and token ceiling already came from there, and
-    // its tools have to as well. Reading the registry's list meant a
-    // tool change published in the Agent Hub never reached a
-    // conversation, and an agent that exists only in the Hub got no
-    // tools at all (investigation, 2026-09-28).
-    ...resolvePracticeTools(
-      agentConfig?.tools,
-      convo.company_id,
-      convo.revising_role_id ?? null,
-      convo.debriefing_meeting_id ?? null
-    ),
-  ].filter(
-    (t, i, all) => all.findIndex((o) => o.definition.name === t.definition.name) === i
-  );
-  const toolDefs = tools.map((t) => t.definition);
-
-  // ---- TURNS HELD BACK AND CHECKED ------------------------------
-  //
-  // Two kinds of turn are buffered rather than streamed, checked,
-  // sent back once with what was wrong, and only then shown: a
-  // generated opener (nobody typed it; Aimee reached out first), and
-  // every reply in a meeting debrief, which on dev broke a countable
-  // rule every time, invented quotes included. The
-  // cost is the typing effect: the reader sees "Thinking…" until the
-  // checked turn arrives whole. Everything else streams.
-  //
-  // And the FIRST reply of a plain Aimee conversation (2026-09-30): her
-  // name, a stock "That's X, especially..." acknowledgement and two asks
-  // in one question got through the instructions about half the time.
-  // Later replies stream. What each is sent back for is SENT_BACK in
-  // aimee/voice-check.ts.
-  const isFirstPlainReply =
-    convo.mode === "general" &&
-    !practice &&
-    !convo.debriefing_meeting_id &&
-    history.every((m) => m.role !== "assistant");
-  const checkedTurn: CheckedTurn | null = isGenerateOpener
-    ? "opener"
-    : convo.debriefing_meeting_id
-      ? "debrief reply"
-      : isFirstPlainReply
-        ? "first reply"
-        : null;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -654,18 +419,10 @@ export async function POST(req: NextRequest): Promise<Response> {
           }
 
           const final = await messageStream.finalMessage();
-          const textThisTurn = final.content
-            .filter((b): b is Anthropic.TextBlock => b.type === "text")
-            .map((b) => b.text)
-            .join("");
+          const textThisTurn = textOf(final.content);
           combinedAssistantText += textThisTurn;
           finalUsage = final.usage;
-          turnUsage.input_tokens += final.usage.input_tokens ?? 0;
-          turnUsage.output_tokens += final.usage.output_tokens ?? 0;
-          turnUsage.cache_creation_input_tokens +=
-            final.usage.cache_creation_input_tokens ?? 0;
-          turnUsage.cache_read_input_tokens +=
-            final.usage.cache_read_input_tokens ?? 0;
+          addUsage(turnUsage, final.usage);
           iterationShape.push({
             iteration: iter,
             output_tokens: final.usage.output_tokens ?? 0,
@@ -836,17 +593,8 @@ export async function POST(req: NextRequest): Promise<Response> {
               // the usage log (and every cost report built on it)
               // undercounted each turn that needed one (investigation,
               // 2026-09-28).
-              if (retry.usage) {
-                turnUsage.input_tokens += retry.usage.input_tokens ?? 0;
-                turnUsage.output_tokens += retry.usage.output_tokens ?? 0;
-                turnUsage.cache_creation_input_tokens += retry.usage.cache_creation_input_tokens ?? 0;
-                turnUsage.cache_read_input_tokens += retry.usage.cache_read_input_tokens ?? 0;
-              }
-              const retried = retry.content
-                .filter((b): b is Anthropic.TextBlock => b.type === "text")
-                .map((b) => b.text)
-                .join("")
-                .trim();
+              addUsage(turnUsage, retry.usage);
+              const retried = textOf(retry.content).trim();
               // Only if it actually helped. A retry that returns
               // nothing, or no better than the first attempt, leaves
               // the first in place: a blank turn is worse than one
@@ -1094,11 +842,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   });
 
   return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-store, no-transform",
-      Connection: "keep-alive",
-    },
+    headers: { ...SSE_HEADERS, Connection: "keep-alive" },
   });
 }
 
@@ -1116,243 +860,10 @@ function parseAttachments(raw: unknown): Attachment[] {
     .slice(0, ATTACHMENT_MAX_FILES);
 }
 
-// Takes the RESOLVED CONFIG, not a practice id.
-//
-// It used to re-resolve the agent from the registry, which is now
-// the wrong source: a conversation runs on the version pinned to it,
-// and the prompt may be stored text rather than a file on disk. The
-// caller has already resolved that once for this turn, so passing it
-// in also removes the second lookup.
-//
-// `config` is null for a plain Aimee or about-mode conversation.
-async function loadSystemPrompt(
-  mode: "about" | "general",
-  config: AgentRuntimeConfig | null
-): Promise<string> {
-  // A voice_only practice loads aims-voice.md alone as the base —
-  // no coaching spine, no diagnostic modes, no patterns-to-watch-
-  // for. Used by structural practices (chart builder, etc.) where
-  // the practice prompt is the entire flow and inheriting the coach
-  // spine would push it into diagnosis instead of the guided task.
-  const base =
-    config?.basePromptMode === "voice_only"
-      ? await loadVoiceOnlyBase()
-      : await loadCoachBase();
 
-  // Practice sessions layer the agent's prompt AFTER the base. The
-  // base establishes voice + stance; the agent narrows it into a
-  // specific guided flow (including any card-block contract the
-  // client renders). The two bases stay on disk and keep their SHA
-  // guards — they are the fallback, so they matter more now, not
-  // less.
-  // Every agent can be handed files (lib/coach/attachments.ts).
-  const composed = config
-    ? `${base}\n\n${config.prompt}\n\n${ATTACHMENT_PROMPT_NOTE}`
-    : mode === "about"
-      ? base
-      : `${GENERAL_MODE_PREAMBLE}\n\n${base}`;
 
-  // The AiMS coaching principles come after the agent's prompt and
-  // take precedence over it (lib/coach/principles.ts). Voice rules go
-  // LAST so they're the freshest instruction the model reads before
-  // generating. Both apply to every coach surface (about, general,
-  // practice, panel): one way of coaching and one voice across the
-  // whole product. The commitment draft's format follows the
-  // principles, which say when to offer one (lib/coach/commitment-draft.ts).
-  return `${composed}\n\n${await loadCoachingPrinciples()}\n\n${COMMITMENT_DRAFT_BLOCK}\n\n${VOICE_RULES_COACH}`;
-}
 
-// Load the base coach prompt by splicing prompts/aims-voice.md (the
-// voice + language section) into prompts/leadership-coach.md at the
-// {{AIMS_VOICE}} sentinel. The split is byte-preserving: recomposing
-// the two files with this splice returns the original leadership-
-// coach.md content unchanged. Regression is guarded by the SHA
-// snapshot test in leadership-coach.compose.test.ts.
-async function loadCoachBase(): Promise<string> {
-  const remainderPath = path.join(
-    process.cwd(),
-    "prompts",
-    "leadership-coach.md"
-  );
-  const voicePath = path.join(process.cwd(), "prompts", "aims-voice.md");
-  const [remainder, voice] = await Promise.all([
-    fs.readFile(remainderPath, "utf8"),
-    fs.readFile(voicePath, "utf8"),
-  ]);
-  return remainder.replace("{{AIMS_VOICE}}", voice);
-}
 
-// Voice-only base for practices that don't inherit the full
-// coaching spine. Returns aims-voice.md verbatim; the practice
-// prompt and VOICE_RULES_COACH still layer on around it via
-// loadSystemPrompt.
-async function loadVoiceOnlyBase(): Promise<string> {
-  const voicePath = path.join(process.cwd(), "prompts", "aims-voice.md");
-  return fs.readFile(voicePath, "utf8");
-}
-
-// CACHE MARKS ON THE CONVERSATION (2026-11-14). The system prompt was
-// the only cached part, so every tool pass and every retry sent the
-// whole history again at full price, and so did the next message.
-// Two marks, with the system prompt's that is three of the four the
-// API allows:
-//   - the end of what is being sent, so the next tool pass or the
-//     retry reads all of it from the cache;
-//   - the reply before the person's latest message, the last point
-//     the next message will send unchanged (the latest message loses
-//     its context prefix next time), so a reply within five minutes
-//     reads the conversation so far from the cache.
-// The marks go on copies; what is saved and passed on is untouched.
-function withCacheMarks(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
-  const out = messages.slice();
-  const mark = (i: number) => {
-    const m = out[i];
-    if (!m) return;
-    const blocks: Anthropic.ContentBlockParam[] =
-      typeof m.content === "string"
-        ? [{ type: "text", text: m.content }]
-        : (m.content as Anthropic.ContentBlockParam[]).slice();
-    const last = blocks[blocks.length - 1];
-    if (!last || (last.type === "text" && last.text.length === 0)) return;
-    // Thinking blocks cannot carry a mark; the end of a message never is one.
-    if (last.type === "thinking" || last.type === "redacted_thinking") return;
-    blocks[blocks.length - 1] = { ...last, cache_control: { type: "ephemeral" } } as Anthropic.ContentBlockParam;
-    out[i] = { ...m, content: blocks };
-  };
-  mark(out.length - 1);
-  let latestUser = -1;
-  for (let i = out.length - 1; i >= 0; i--) {
-    if (out[i].role === "user" && typeof messages[i].content === "string") {
-      latestUser = i;
-      break;
-    }
-  }
-  if (latestUser > 0 && latestUser - 1 !== out.length - 1) mark(latestUser - 1);
-  return out;
-}
-
-function buildMessages(
-  history: ReadonlyArray<Pick<CoachingMessage, "role" | "content">>,
-  contextPrefix: string
-): Anthropic.MessageParam[] {
-  // The dynamic <company_context>/<person_context>/<coaching_context>
-  // block is prepended to the LATEST user message only. Prepending
-  // context to a stable earlier turn would keep growing the token
-  // count without any benefit, and would blow the prompt cache too.
-  const messages: Anthropic.MessageParam[] = [];
-  history.forEach((m, idx) => {
-    const isLast = idx === history.length - 1;
-    if (m.role === "user" && isLast) {
-      messages.push({
-        role: "user",
-        content: `${contextPrefix}${m.content}`,
-      });
-    } else {
-      messages.push({ role: m.role, content: m.content });
-    }
-  });
-  return messages;
-}
-
-// ---- Checked turns -----------------------------------------------
-
-const SURFACE: Record<CheckedTurn, RuleBreakSurface> = {
-  opener: "opener",
-  "debrief reply": "debrief_reply",
-  "first reply": "first_reply",
-};
-
-// One attempt at a held-back turn, checked against what that turn is
-// sent back for, with the context it was checked in.
-type CheckedAttempt = VoiceCheck & { ctx: CheckContext };
-
-// The check for one kind of held-back turn: the same rules module for
-// all three, so the route runs one flow. A debrief reply's quotes are
-// checked against what was said: the meeting transcript, read once here
-// under the caller's own session (same-company members can read the
-// meeting row, 0142) and never shown to the model.
-async function turnCheckFor(
-  kind: CheckedTurn,
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  convo: CoachingConversation,
-  firstReply: { client: Anthropic; userText: string; logUsage: (usage: Anthropic.Usage) => void }
-): Promise<(text: string) => Promise<CheckedAttempt>> {
-  const userText = firstReply.userText;
-  if (kind === "first reply") {
-    // The strength check is a model call (strength-check.ts), so it
-    // runs only when the person's message has a turn in it, and fails
-    // open after 2.5 seconds.
-    return async (text) => {
-      const ctx: CheckContext = {
-        userText,
-        skippedStrength: await skippedStrength(firstReply.client, userText, text, firstReply.logUsage),
-      };
-      return { ...checkVoice(text, SENT_BACK[kind], ctx), ctx };
-    };
-  }
-  if (kind === "opener") {
-    return async (text) => ({ ...checkVoice(text, SENT_BACK[kind], { userText }), ctx: { userText } });
-  }
-  const { data: meeting } = convo.debriefing_meeting_id
-    ? await supabase
-        .from("meetings")
-        .select("transcript_text")
-        .eq("id", convo.debriefing_meeting_id)
-        .maybeSingle<{ transcript_text: string | null }>()
-    : { data: null };
-  const ctx: CheckContext = { userText, transcript: meeting?.transcript_text ?? "" };
-  return async (text) => ({ ...checkVoice(text, SENT_BACK[kind], ctx), ctx });
-}
-
-// The conversation's first assistant message: its opener, when there
-// is one.
-async function firstAssistantMessage(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  conversationId: string
-): Promise<CoachingMessage | null> {
-  const { data } = await supabase
-    .from("coaching_messages")
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .eq("role", "assistant")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle<CoachingMessage>();
-  return data ?? null;
-}
-
-// A message already saved, sent in the same shape as a fresh reply,
-// so the chat shows it exactly as if it had just been written.
-function streamSavedMessage(row: CoachingMessage): Response {
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encodeEvent("delta", { text: row.content }));
-      controller.enqueue(encodeEvent("done", { assistantMessageId: row.id, usage: null }));
-      controller.close();
-    },
-  });
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-store, no-transform",
-    },
-  });
-}
-
-function streamErrorResponse(message: string): Response {
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encodeEvent("error", { message }));
-      controller.close();
-    },
-  });
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-store, no-transform",
-    },
-  });
-}
 
 // After the first exchange completes, ask the model for a compact
 // four-word label and write it to the conversation title. Non-blocking
@@ -1365,112 +876,3 @@ function streamErrorResponse(message: string): Response {
 // budget always leaves room for the label.
 
 
-async function generateTitleForConversation(args: {
-  client: Anthropic;
-  model: string;
-  messages: Anthropic.MessageParam[];
-  assistantText: string;
-  conversationId: string;
-  companyId: string | null;
-  currentUserId: string;
-  signal?: AbortSignal;
-  // The request's own client, made while the request was live. The
-  // label lands after the reply has finished, and a client made then
-  // reads cookies outside the request, which Next refuses ("used
-  // cookies inside after"): the write threw, the catch below swallowed
-  // it, and the conversation kept its date title. On production 7 of
-  // the 10 plain Aimee conversations started since 1 Nov 2026 still
-  // had "Coaching · <date>" (Jason, 2026-11-13).
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
-}): Promise<void> {
-  try {
-    const followup: Anthropic.MessageParam[] = [
-      ...args.messages,
-      { role: "assistant", content: args.assistantText },
-      {
-        role: "user",
-        content:
-          "Give this conversation a four-word topic label. Reply with the label only, as plain text — no punctuation, no quotes, no markdown formatting (no asterisks, underscores, backticks, or hash marks).",
-      },
-    ];
-    const response = await args.client.messages.create(
-      {
-        model: args.model,
-        max_tokens: 64,
-        ...callSettings(args.model, "off"),
-        messages: followup,
-        system: TITLE_SYSTEM,
-      },
-      { signal: args.signal }
-    );
-    // Log title-generation cost before we branch on success.
-    if (response.usage) {
-      void logCoachTokenUsage({
-        conversationId: args.conversationId,
-        companyId: args.companyId,
-        purpose: "title",
-        model: args.model,
-        usage: response.usage,
-      });
-    }
-    const label = cleanGeneratedTitle(
-      response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("")
-    ).slice(0, 80);
-    if (!label) return;
-    // A name the person gave the conversation while this reply was
-    // arriving is theirs; only a default title is replaced.
-    const { data: current } = await args.supabase
-      .from("coaching_conversations")
-      .select("title")
-      .eq("id", args.conversationId)
-      .maybeSingle<{ title: string | null }>();
-    if (current && !isDefaultTitle(current.title)) return;
-    const { error } = await args.supabase
-      .from("coaching_conversations")
-      .update({ title: label })
-      .eq("id", args.conversationId);
-    if (error) {
-      console.error(`[coach] title not saved for ${args.conversationId}:`, error.message);
-      reportError("coach.title_not_saved", error, { conversationId: args.conversationId });
-    }
-  } catch (err) {
-    if (!args.signal?.aborted) {
-      console.error(`[coach] title failed for ${args.conversationId}:`, err instanceof Error ? err.message : err);
-    }
-    // Silent — the default date title stays.
-  }
-}
-
-// Practice tool tags to the tools themselves.
-//
-// The registry holds string tags rather than builders, so it stays
-// serializable to the client components that render the agent
-// picker. This is where they become tools, and it is the one place
-// a new practice tool set has to be added.
-//
-// An unknown tag is DROPPED, not thrown. A typo in the registry
-// should cost the agent a tool it can notice missing, not the whole
-// conversation with a 500.
-function resolvePracticeTools(
-  names: readonly PracticeToolName[] | undefined,
-  companyId: string,
-  revisingRoleId: string | null,
-  debriefingMeetingId: string | null
-): CoachTool[] {
-  if (!names || names.length === 0) return [];
-  const wanted = new Set<string>(names);
-  const available = [
-    ...(wanted.has("get_foundation") ||
-    wanted.has("list_functions") ||
-    wanted.has("get_role_description")
-      ? buildRoleDescriptionTools({ companyId, revisingRoleId })
-      : []),
-    ...(wanted.has("get_meeting_debrief")
-      ? buildGuideTools({ debriefingMeetingId })
-      : []),
-  ];
-  return available.filter((t) => wanted.has(t.definition.name));
-}

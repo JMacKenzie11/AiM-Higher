@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 // Byte-equivalence guard for the leadership-coach.md ↔ aims-voice.md
-// split (see loadCoachBase in src/app/api/coach/route.ts).
+// split (see loadCoachBase in src/lib/coach/turn/prompt.ts).
 //
 // The base coach prompt was split into two files so a new
 // voice_only practice can load aims-voice.md alone without the

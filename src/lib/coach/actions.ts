@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { DEFAULT_TITLE } from "@/lib/coach/default-title";
 import { requireProfile } from "@/lib/auth/current-user";
 import { canCoachAbout } from "@/lib/auth/permissions";
-import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { companyHasFeature } from "@/lib/subscriptions/service";
 import { trackAfter } from "@/lib/analytics/track";
