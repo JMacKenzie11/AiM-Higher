@@ -38,7 +38,7 @@ const jobs = MESSAGES.flatMap((m, i) => Array.from({ length: REPEATS }, () => [m
 for (let k = 0; k < jobs.length; k += 6) {
   const batch = await Promise.all(jobs.slice(k, k + 6).map(async ([m, i]) => {
     const r = await client.messages.create({ model: "claude-sonnet-5", max_tokens: 8000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: m }] });
-    const text = r.content.flatMap((b: any) => (b.type === "text" ? [b.text] : [])).join("").trim();
+    const text = r.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("").trim();
     const ctx = { userText: m, skippedStrength: false };
     return { msg: i, text, sentBack: checkVoice(text, SENT_BACK["first reply"], ctx).rules, counted: checkVoice(text, COUNTED, ctx).rules, words: text.split(/\s+/).filter(Boolean).length, out: r.usage.output_tokens } as Row;
   }));
