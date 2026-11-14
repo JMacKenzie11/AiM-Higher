@@ -42,8 +42,16 @@ export const MAX_DIRECTED_MEMORY_CHARS = 200;
 // produce ZERO memories rather than a guess, because a guess here is
 // written down permanently under somebody's name.
 export function parseMemoryResponse(raw: string): DraftMemory[] {
+  return readMemoryResponse(raw).drafts;
+}
+
+// The same read, saying whether the answer was legible at all. An
+// empty list from a well-formed answer means "nothing worth keeping";
+// from an illegible one it means the conversation was never read, and
+// the sweep must not mark it read (2026-11-14).
+export function readMemoryResponse(raw: string): { legible: boolean; drafts: DraftMemory[] } {
   const text = stripFence(raw).trim();
-  if (!text) return [];
+  if (!text) return { legible: false, drafts: [] };
 
   let parsed: unknown;
   try {
@@ -53,16 +61,16 @@ export function parseMemoryResponse(raw: string): DraftMemory[] {
     // object and try once more; anything less legible is discarded.
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
-    if (start === -1 || end <= start) return [];
+    if (start === -1 || end <= start) return { legible: false, drafts: [] };
     try {
       parsed = JSON.parse(text.slice(start, end + 1));
     } catch {
-      return [];
+      return { legible: false, drafts: [] };
     }
   }
 
   const list = (parsed as { memories?: unknown })?.memories;
-  if (!Array.isArray(list)) return [];
+  if (!Array.isArray(list)) return { legible: false, drafts: [] };
 
   const out: DraftMemory[] = [];
   let inferred = 0;
@@ -88,7 +96,7 @@ export function parseMemoryResponse(raw: string): DraftMemory[] {
     out.push({ kind, content: trimmed });
     if (out.length >= MAX_MEMORIES_PER_CONVERSATION) break;
   }
-  return out;
+  return { legible: true, drafts: out };
 }
 
 function stripFence(raw: string): string {

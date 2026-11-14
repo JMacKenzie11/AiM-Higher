@@ -127,13 +127,13 @@ test.describe("Aimee keeps the record to the people it covers", () => {
   test.afterEach(async ({ page }) => {
     // Let the memory sweep finish on this test's conversations before
     // clearing memory. Opening Ask Aimee fires the sweep (up to three
-    // conversations a pass) as a server action. Left unswept, these
+    // conversations a pass) as a request. Left unswept, these
     // conversations were summarized during the NEXT spec instead, and
     // coach-memory's "deletes one" count went from 2 to 3 under it.
     for (let pass = 0; pass < 3; pass++) {
       const swept = page
         .waitForResponse(
-          (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
+          (r) => r.request().method() === "POST" && r.url().endsWith("/api/coach/memory/sweep"),
           { timeout: 120_000 }
         )
         .catch(() => null);

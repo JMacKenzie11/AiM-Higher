@@ -9,7 +9,7 @@ import { logCoachTokenUsage } from "./usage";
 import { reportError } from "@/lib/observability/report";
 import {
   applyNeverWrittenFilter,
-  parseMemoryResponse,
+  readMemoryResponse,
   selectSweepCandidates,
   filterVerdict,
   declineMessageFor,
@@ -286,6 +286,40 @@ export async function summarizeFinishedConversationsAction(
     // The high-water mark this pass will claim: the last message
     // actually read, not the moment the write happens.
     const readThrough = messages[messages.length - 1]?.created_at ?? null;
+    if (!readThrough) continue;
+
+    // CLAIM IT FIRST (2026-11-14). Two sweeps could read the same
+    // watermark before either wrote it (the list page, then the
+    // conversation page, or two tabs) and both summarise the
+    // conversation: every memory written twice. The watermark moves
+    // only if it is still where this sweep read it, so exactly one
+    // sweep takes the span; the other finds nothing to claim.
+    const claim = supabase
+      .from("coaching_conversations")
+      .update({ memory_summarized_through: readThrough })
+      .eq("id", convo.id);
+    const { data: claimed, error: claimError } = await (since
+      ? claim.eq("memory_summarized_through", since)
+      : claim.is("memory_summarized_through", null)
+    ).select("id");
+    if (claimError) {
+      console.error("coach memory: watermark not advanced", { conversationId: convo.id, code: claimError.code });
+      reportError("coach.memory.watermark", claimError, { conversationId: convo.id });
+      continue;
+    }
+    if (!claimed || claimed.length === 0) continue;
+    // Nothing usable came back (the call failed, was cut off, or could
+    // not be read): hand the span back so the next entry reads it
+    // again, rather than losing it for good.
+    const release = async (why: string) => {
+      const { error } = await supabase
+        .from("coaching_conversations")
+        .update({ memory_summarized_through: since })
+        .eq("id", convo.id)
+        .eq("memory_summarized_through", readThrough);
+      if (error) reportError("coach.memory.release", error, { conversationId: convo.id, why });
+    };
+
     const transcript = messages
       .map((m) => `${m.role === "user" ? "Person" : "Coach"}: ${m.content}`)
       .join("\n\n");
@@ -346,11 +380,21 @@ export async function summarizeFinishedConversationsAction(
         reportError("coach.memory.truncated", new Error("memory summary cut off at max_tokens"), {
           conversationId: convo.id,
         });
+        await release("truncated");
         continue;
       }
-      drafts = parseMemoryResponse(
+      const read = readMemoryResponse(
         response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("")
       );
+      if (!read.legible) {
+        console.error("coach memory: summary could not be read", { conversationId: convo.id });
+        reportError("coach.memory.illegible", new Error("memory summary was not the expected JSON"), {
+          conversationId: convo.id,
+        });
+        await release("illegible");
+        continue;
+      }
+      drafts = read.drafts;
     } catch (err) {
       // One conversation failing must not stop the others, and must
       // not surface to a person who was only opening a page.
@@ -359,6 +403,7 @@ export async function summarizeFinishedConversationsAction(
         error: err instanceof Error ? err.message : String(err),
       });
       reportError("coach.memory.summarize", err, { conversationId: convo.id });
+      await release("failed");
       continue;
     }
 
@@ -393,26 +438,12 @@ export async function summarizeFinishedConversationsAction(
       }
       written += 1;
     }
-    // Advance the watermark even when the model returned nothing and
-    // even when everything was filtered out. A conversation that
-    // yielded no durable memory has still been READ, and re-reading
-    // it every page load would be a model call per visit forever.
-    if (readThrough) {
-      const { error: markError } = await supabase
-        .from("coaching_conversations")
-        .update({ memory_summarized_through: readThrough })
-        .eq("id", convo.id);
-      if (markError) {
-        console.error("coach memory: watermark not advanced", {
-          conversationId: convo.id,
-          code: markError.code,
-        });
-        // Worth paging on: a watermark that never advances means this
-        // conversation is re-read and re-summarized on every entry,
-        // for as long as the refusal lasts.
-        reportError("coach.memory.watermark", markError, { conversationId: convo.id });
-      }
-    }
+    // The watermark was claimed before the call and stays where it is,
+    // also when the model kept nothing or everything was filtered out:
+    // the conversation has been READ, and re-reading it every page
+    // load would be a model call per visit forever. A write that was
+    // refused is logged above and not retried, since a retry would
+    // write the others in this pass a second time.
     summarized += 1;
   }
 

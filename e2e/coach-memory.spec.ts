@@ -129,7 +129,7 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
 //
 // Open Ask Aimee and wait for the memory sweep it fires to FINISH.
 //
-// The sweep is a server action the page fires on mount. Navigating on
+// The sweep is a request the page fires on mount. Navigating on
 // at once (waitForMemory goes straight to the Memory page) could cut
 // it off before it reached the server; the memory then landed during
 // the NEXT test, after that test had cleared memory, and one test
@@ -139,7 +139,7 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
 async function openAskAimeeAndSweep(page: import("@playwright/test").Page): Promise<void> {
   const swept = page
     .waitForResponse(
-      (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
+      (r) => r.request().method() === "POST" && r.url().endsWith("/api/coach/memory/sweep"),
       { timeout: 180_000 }
     )
     .catch(() => null);
