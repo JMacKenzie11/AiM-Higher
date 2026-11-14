@@ -38,3 +38,4 @@ export function defaultTitleForToday(): string {
   });
   return `Coaching · ${label}`;
 }
+

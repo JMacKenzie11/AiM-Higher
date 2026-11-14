@@ -91,6 +91,10 @@ Panel conversations are listed here with your others.
 
 **Where do I see what Aimee remembers?** In the Memory card on your profile page. You can correct or delete any of it.
 
+**What won't Aimee remember?** Anything about health, family or personal life. And when you're talking about someone on your team, she keeps what you plan to do, not what you think of them: ask her to remember "Marcus is unreliable" and she'll offer to note the conversation you're planning instead.
+
+**Can I rename a conversation?** Yes. Aimee names it after your first exchange, but a name you give it is never replaced.
+
 **Why does Aimee take a moment before answering?** She looks things up first: past commitments, meeting summaries, strengths results, earlier conversations. While she does, the reply area tells you what she's reading. A first message usually takes longest.
 
 **Aimee didn't know something obvious about my company.** She only knows what she can see in AiMS, and she never makes numbers up. Check the page the information should be on.

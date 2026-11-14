@@ -7,6 +7,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { requireProfile } from "@/lib/auth/current-user";
+import { reportError } from "@/lib/observability/report";
+import { isDefaultTitle } from "@/lib/coach/default-title";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
 import { vividVisionKeepBlock, writesVividVision } from "@/lib/foundation/vivid-vision-keep";
@@ -613,6 +615,13 @@ export async function POST(req: NextRequest): Promise<Response> {
               ],
               messages: currentMessages,
               tools: toolDefs,
+              // The last pass may not call a tool. A call there used to
+              // run (remember_this included), have its result thrown
+              // away, and leave an empty reply saved with no word to
+              // the person. Now the last pass always answers.
+              ...(iter === MAX_TOOL_ITERATIONS - 1 && toolDefs.length > 0
+                ? { tool_choice: { type: "none" as const } }
+                : {}),
             },
             { signal: abortSignal }
           );
@@ -879,18 +888,30 @@ export async function POST(req: NextRequest): Promise<Response> {
           controller.enqueue(encodeEvent("delta", { text: assistantText }));
         }
 
-        const { data: assistantRow } = savedOpener
-          ? { data: savedOpener }
-          : await supabase
-              .from("coaching_messages")
-              .insert({
-                conversation_id: conversationId,
-                created_by: session.profile.id,
-                role: "assistant",
-                content: assistantText,
-              })
-              .select("*")
-              .single<CoachingMessage>();
+        // The reply is already on the person's screen. If saving it
+        // fails it would be gone on reload with nothing said, so try
+        // once more and then make the failure loud.
+        const saveReply = () =>
+          supabase
+            .from("coaching_messages")
+            .insert({
+              conversation_id: conversationId,
+              created_by: session.profile.id,
+              role: "assistant",
+              content: assistantText,
+            })
+            .select("*")
+            .single<CoachingMessage>();
+        let assistantRow: CoachingMessage | null = savedOpener;
+        if (!savedOpener) {
+          let saved = await saveReply();
+          if (saved.error) saved = await saveReply();
+          assistantRow = saved.data ?? null;
+          if (saved.error || !saved.data) {
+            console.error(`[coach] reply not saved for ${conversationId}:`, saved.error?.message ?? "no row");
+            reportError("coach.reply_not_saved", saved.error ?? new Error("no row returned"), { conversationId });
+          }
+        }
 
         // ---- COACH MEMORY, PART 2: READ THIS FIRST ---------------
         //
@@ -1333,11 +1354,26 @@ async function generateTitleForConversation(args: {
         .join("")
     ).slice(0, 80);
     if (!label) return;
-    await args.supabase
+    // A name the person gave the conversation while this reply was
+    // arriving is theirs; only a default title is replaced.
+    const { data: current } = await args.supabase
+      .from("coaching_conversations")
+      .select("title")
+      .eq("id", args.conversationId)
+      .maybeSingle<{ title: string | null }>();
+    if (current && !isDefaultTitle(current.title)) return;
+    const { error } = await args.supabase
       .from("coaching_conversations")
       .update({ title: label })
       .eq("id", args.conversationId);
-  } catch {
+    if (error) {
+      console.error(`[coach] title not saved for ${args.conversationId}:`, error.message);
+      reportError("coach.title_not_saved", error, { conversationId: args.conversationId });
+    }
+  } catch (err) {
+    if (!args.signal?.aborted) {
+      console.error(`[coach] title failed for ${args.conversationId}:`, err instanceof Error ? err.message : err);
+    }
     // Silent — the default date title stays.
   }
 }

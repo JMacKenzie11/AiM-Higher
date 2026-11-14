@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
+  aboutAnotherVerdict,
   filterVerdict,
   declineMessageFor,
   MAX_DIRECTED_MEMORY_CHARS,
@@ -36,7 +37,15 @@ import type { CoachTool } from "./tools";
 // deliver this to a person who just asked for something, and an error
 // would surface as a failure rather than an answer. Per the standing
 // rule, tools do not throw for expected cases.
-export function makeRememberTool(): CoachTool {
+// ---- ABOUT ANOTHER PERSON -----------------------------------------
+//
+// In a conversation about a team member, an explicit ask is held to
+// the same rule as a distilled memory (0252, Jason 2026-10-01): the
+// asker's own plan is kept, a verdict on the other person is not.
+// "Remember Marcus is unreliable" is declined; "Remember I'm talking
+// to Marcus on Friday" is kept. Plain Aimee has no subject, so no
+// name to hold it to (Jason, 2026-11-14).
+export function makeRememberTool(opts: { subjectProfileId?: string | null } = {}): CoachTool {
   return {
     definition: {
       name: "remember_this",
@@ -44,7 +53,7 @@ export function makeRememberTool(): CoachTool {
         "Save something the person has explicitly asked you to remember, as a durable memory they can see and delete. " +
         "Use it ONLY on a clear request to remember, not because something seemed important: unprompted saving is what the end-of-conversation distillation is for. " +
         "Always tell them what you saved, in your own words, in the same reply. " +
-        "Returns status='declined' with a message when the content is something the record never keeps (health, family and personal life) — say that message, do not save it another way, and offer what you can keep instead.",
+        "Returns status='declined' with a message when the content is something the record never keeps (health, family and personal life, or a judgement about the person this conversation is about): say that message, do not save it another way, and offer what you can keep instead.",
       input_schema: {
         type: "object",
         properties: {
@@ -80,6 +89,23 @@ export function makeRememberTool(): CoachTool {
       }
 
       const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+      if (opts.subjectProfileId) {
+        const { data: subject } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", opts.subjectProfileId)
+          .maybeSingle<{ full_name: string | null }>();
+        const full = (subject?.full_name ?? "").trim();
+        const names = full ? [full, full.split(/\s+/)[0]] : [];
+        const about = aboutAnotherVerdict(content, names);
+        if (!about.keep) {
+          return {
+            status: "declined",
+            reason: about.reason,
+            message: declineMessageFor(about.reason),
+          };
+        }
+      }
       const { data, error } = await supabase.rpc("record_coach_memory", {
         p_kind: "directed",
         p_content: content,

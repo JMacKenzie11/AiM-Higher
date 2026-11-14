@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DEFAULT_TITLE } from "@/lib/coach/default-title";
 import { requireProfile } from "@/lib/auth/current-user";
 import { canCoachAbout } from "@/lib/auth/permissions";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
@@ -540,8 +541,7 @@ export async function generateConversationTitleAction(
 // carries the context, so the stored title doesn't need to repeat
 // it). Auto-title only fires when the title still looks like one
 // of these defaults; a user rename to anything else is respected.
-const DEFAULT_TITLE_PATTERN =
-  /^(?:Coaching · )?[A-Z][a-z]+ \d{1,2}$/;
+const DEFAULT_TITLE_PATTERN = DEFAULT_TITLE;
 
 // ==============================================================
 // Sharing — grant / revoke / change / leave
