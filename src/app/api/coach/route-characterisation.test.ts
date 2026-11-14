@@ -41,8 +41,10 @@ vi.mock("@anthropic-ai/sdk", () => {
   }
   return { default: class { static APIError = APIError; messages = { create: h.create, stream: h.stream }; } };
 });
+const auth = vi.hoisted(() => ({ getCurrentSession: vi.fn(async () => null) }));
 vi.mock("@/lib/auth/current-user", () => ({
   requireProfile: async () => ({ profile: { id: "u1", role: "team_member", company_id: "c1", full_name: "A" } }),
+  getCurrentSession: auth.getCurrentSession,
 }));
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
 vi.mock("@/lib/analytics/track", () => ({ trackAfter: vi.fn(), track: vi.fn() }));
@@ -270,6 +272,27 @@ describe("an ordinary turn", () => {
     expect(events.map((e) => e.event)).toEqual(["ready", "error"]);
     expect(events[1].data.message).toBe("boom");
     expect(h.updates.some((u) => u.table === "coaching_conversations")).toBe(true);
+  });
+});
+
+describe("setup", () => {
+  // React's cache() does not memoise in a route handler, so every
+  // helper that looked the session up again signed the person in
+  // again: three or four times a panel turn (2026-11-14).
+  it("never signs the person in again after the route has", async () => {
+    h.convo = conversation({ origin: "panel" });
+    await post({ pageContext: { path: "/plan", record: null } });
+    expect(auth.getCurrentSession).not.toHaveBeenCalled();
+  });
+
+  it("reports how long setup took, the wait for first text, and whether the reply was sent back", async () => {
+    const { trackAfter } = await import("@/lib/analytics/track");
+    await post();
+    const shape = vi.mocked(trackAfter).mock.calls.find((c) => c[1] === "coach.turn_shape")![2] as Row;
+    expect(shape.pre_stream_ms).toEqual(expect.any(Number));
+    expect(shape.first_text_ms).toEqual(expect.any(Number));
+    expect(shape.total_ms).toEqual(expect.any(Number));
+    expect(shape.retried).toBe(false);
   });
 });
 

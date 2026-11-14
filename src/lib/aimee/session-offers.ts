@@ -32,15 +32,16 @@ export async function offerableSessions(args: {
     args.db,
     agents.map((a) => a.agentRowId as string)
   );
-  const out: OfferableSession[] = [];
-  for (const agent of agents) {
-    const offerWhen = lines.get(agent.agentRowId as string);
-    if (!offerWhen) continue;
-    const gate = await practiceGate(agent, args.profile, args.companyId);
-    if (!gate.ok) continue;
-    out.push({ id: agent.id, title: agent.title, offerWhen });
-  }
-  return out;
+  // The gates run together and the list keeps the agents' order.
+  const checked = await Promise.all(
+    agents.map(async (agent) => {
+      const offerWhen = lines.get(agent.agentRowId as string);
+      if (!offerWhen) return null;
+      const gate = await practiceGate(agent, args.profile, args.companyId);
+      return gate.ok ? { id: agent.id, title: agent.title, offerWhen } : null;
+    })
+  );
+  return checked.filter((s): s is OfferableSession => s !== null);
 }
 
 // In the system prompt of an open conversation, when the list is not

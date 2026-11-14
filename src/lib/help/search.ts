@@ -44,8 +44,12 @@ function docFor(entry: PageEntry, docs: readonly HelpDoc[]): HelpDoc | null {
 // A page's title and purpose as this role's help gives them, for any
 // page, linkable or not (Aimee's panel names the page it is open on).
 // Null when this role has no help for it.
-export async function pageSummaryFor(entry: PageEntry, role: Role): Promise<{ title: string; purpose: string } | null> {
-  const doc = docFor(entry, await loadAllHelpFor(role));
+export async function pageSummaryFor(
+  entry: PageEntry,
+  role: Role,
+  docs?: Promise<HelpDoc[]>
+): Promise<{ title: string; purpose: string } | null> {
+  const doc = docFor(entry, await (docs ?? loadAllHelpFor(role)));
   return doc ? { title: entry.title ?? doc.title, purpose: purposeOf(doc.markdown) } : null;
 }
 
@@ -66,9 +70,10 @@ export function purposeOf(markdown: string): string {
 export async function helpIndexFor(
   role: Role,
   features: readonly ModuleFeature[],
-  companyId?: string | null
+  companyId?: string | null,
+  helpDocs?: Promise<HelpDoc[]>
 ): Promise<HelpIndexEntry[]> {
-  const docs = await loadAllHelpFor(role);
+  const docs = await (helpDocs ?? loadAllHelpFor(role));
   const out: HelpIndexEntry[] = [];
   for (const entry of linkablePagesFor(role, features, companyId)) {
     const doc = docFor(entry, docs);
@@ -166,11 +171,12 @@ export async function searchHelp(
   role: Role,
   features: readonly ModuleFeature[],
   companyId?: string | null,
-  limit = 3
+  limit = 3,
+  helpDocs?: Promise<HelpDoc[]>
 ): Promise<HelpHit[]> {
   const wanted = terms(query);
   if (wanted.length === 0) return [];
-  const docs = await loadAllHelpFor(role);
+  const docs = await (helpDocs ?? loadAllHelpFor(role));
   const pages = linkablePagesFor(role, features, companyId);
   const linkFor = (slug: string): string | null =>
     pages.find((p) => helpSlugsFor(p.pattern)[0] === slug)?.path ??

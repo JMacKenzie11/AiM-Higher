@@ -1,7 +1,7 @@
 import "server-only";
 
 import { aiAppsPromptBlock } from "@/lib/ai-apps/aimee";
-import { currentHelpViewer, helpFeaturesFor } from "@/lib/help/loader";
+import { currentHelpViewer, helpFeaturesFor, loadAllHelpFor } from "@/lib/help/loader";
 import { NextRequest } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -38,7 +38,7 @@ import {
 } from "@/lib/aimee/voice-check";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { describePageContext, parsePageContext } from "@/lib/aimee/page-context";
-import { getCompanyFeatures } from "@/lib/subscriptions/service";
+import { getCompanyFeatures, type ModuleFeature } from "@/lib/subscriptions/service";
 import { loadCoachingPrinciples } from "@/lib/coach/principles";
 import { COMMITMENT_DRAFT_BLOCK } from "@/lib/coach/commitment-draft";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
@@ -147,6 +147,9 @@ function encodeEvent(event: string, data: unknown): Uint8Array {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
+  // Turn timing, sent with coach.turn_shape: setup before the model is
+  // asked, and the wait until its first text.
+  const startedAt = performance.now();
   const session = await requireProfile();
   // req.signal fires when the client disconnects (tab closed, nav away,
   // fetch abort). Threading it into every Anthropic call means an
@@ -280,12 +283,22 @@ export async function POST(req: NextRequest): Promise<Response> {
   // company/person context is re-injected every send and grounds
   // the model regardless.
   const HISTORY_LIMIT = 200;
-  const { data: recentRows } = await supabase
-    .from("coaching_messages")
-    .select("role, content")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: false })
-    .limit(HISTORY_LIMIT);
+  // The agent this conversation runs on, resolved alongside the
+  // history read. Its config comes from the conversation's OWN pinned
+  // version, never the agent's live pointer (version-config.ts).
+  const agentResolved = resolveAgent(convo.practice_id).then(async (practice) => ({
+    practice,
+    agentConfig: practice ? await resolveRuntimeConfig(practice, convo.agent_version_id ?? null) : null,
+  }));
+  const [{ data: recentRows }, { practice, agentConfig }] = await Promise.all([
+    supabase
+      .from("coaching_messages")
+      .select("role, content")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .limit(HISTORY_LIMIT),
+    agentResolved,
+  ]);
   const history = (recentRows ?? [])
     .slice()
     .reverse() as Array<Pick<CoachingMessage, "role" | "content">>;
@@ -327,13 +340,6 @@ export async function POST(req: NextRequest): Promise<Response> {
   // prompt runs against subject-scoped context. Practice sessions
   // (practice_id set) load the participant's own person_context and,
   // if a partner is named, a strict-allow-list partner_context.
-  const practice = await resolveAgent(convo.practice_id);
-  // The config this conversation runs on. Resolved from its OWN
-  // pinned version, never from the agent's live pointer — see
-  // version-config.ts. Null when there is no agent at all.
-  const agentConfig = practice
-    ? await resolveRuntimeConfig(practice, convo.agent_version_id ?? null)
-    : null;
 
   // A published version may name its own model; otherwise the env
   // override, otherwise the product default. Version first because
@@ -341,61 +347,68 @@ export async function POST(req: NextRequest): Promise<Response> {
   // it for this agent and wrote a publish note saying why.
   const model =
     agentConfig?.model || process.env.ANTHROPIC_COACH_MODEL || DEFAULT_MODEL;
-  const context = await buildCoachContext({
-    companyId: convo.company_id,
-    subjectProfileId: convo.subject_profile_id,
-    currentAdminName: session.profile.full_name,
-    currentAdminProfileId: session.profile.id,
-    currentAdminRole: session.profile.role,
-    currentAdminCompanyId: session.profile.company_id,
-    currentAdminReportsTo: session.profile.reports_to ?? null,
-    contextKind: convo.context_kind,
-    practiceId: convo.practice_id,
-    partnerProfileId: convo.partner_profile_id,
-  });
-  // PLAIN AIMEE KNOWS THE APP. A general conversation with no agent
-  // gets the pages this person can open (in the system prompt, so it
-  // caches with it) and the search_help tool. Built from the session's
-  // own role and the company's features, never from the request.
-  // Agents keep their own focus: none of them is about using the app.
+  // PLAIN AIMEE KNOWS THE APP: the pages this person can open (in the
+  // system prompt, so it caches with it) and search_help, from the
+  // session's own role and the company's features, never the request.
+  // Agents keep their own focus. A panel conversation (0240, read from
+  // the row) adds the panel block and, for plain Aimee, the page.
   const plainAimee = convo.mode === "general" && !practice;
-  const helpFeatures = plainAimee ? await getCompanyFeatures(convo.company_id) : [];
-  const helpIndexBlock = plainAimee
-    ? formatHelpIndex(await helpIndexFor(session.profile.role, helpFeatures, convo.company_id), session.profile.role)
-    : "";
-  // STARTED IN AIMEE'S PANEL (0240): short answers and no memory
-  // writes (lib/aimee/panel.ts). Read from the row, so opening the
-  // conversation on the Aimee page later changes nothing.
   const fromPanel = convo.origin === "panel";
-  // GUIDED SESSIONS AIMEE MAY OFFER (Jason, 2026-10-05). Plain Aimee,
-  // page or panel, and only to the conversation's owner: the card's
-  // button starts a session for whoever owns the conversation, and a
-  // sharee is reading someone else's. The list is the sessions with an
-  // "Offer this when" line that this person could start here
-  // (lib/aimee/session-offers.ts). In the system prompt, so it caches.
-  const offerBlock =
+  // ONE SETUP, RUN TOGETHER (2026-11-14). These ran one after another,
+  // and React's cache() does not memoise in a route handler, so the
+  // help viewer signed the person in three or four times a turn and
+  // the help files were read two or three times. The viewer and the
+  // docs are read once and shared, and independent reads overlap.
+  const viewerRead = plainAimee ? currentHelpViewer(session) : null;
+  const helpDocs = viewerRead
+    ? viewerRead.then((viewer) => loadAllHelpFor(session.profile.role, viewer))
+    : undefined;
+  // Awaited below; this only keeps an early failure from going unhandled.
+  helpDocs?.catch(() => {});
+  const [context, helpFeatures, viewer, offers, basePrompt] = await Promise.all([
+    buildCoachContext({
+      companyId: convo.company_id,
+      subjectProfileId: convo.subject_profile_id,
+      currentAdminName: session.profile.full_name,
+      currentAdminProfileId: session.profile.id,
+      currentAdminRole: session.profile.role,
+      currentAdminCompanyId: session.profile.company_id,
+      currentAdminReportsTo: session.profile.reports_to ?? null,
+      contextKind: convo.context_kind,
+      practiceId: convo.practice_id,
+      partnerProfileId: convo.partner_profile_id,
+    }),
+    plainAimee ? getCompanyFeatures(convo.company_id) : Promise.resolve([] as ModuleFeature[]),
+    viewerRead,
+    // Guided sessions are offered to the conversation's owner only.
     plainAimee && access === "owner"
-      ? sessionOfferPromptBlock(
-          await offerableSessions({
-            db: supabase,
-            profile: session.profile,
-            companyId: convo.company_id,
-          })
-        )
-      : "";
-  // AI APPS (Jason, 2026-10-14): the words, and whether this person
-  // can connect one here, by the same rule as the help and the How to
-  // connect drawer (lib/ai-apps/aimee.ts). Plain Aimee only.
-  const aiAppsBlock = plainAimee
-    ? aiAppsPromptBlock(helpFeaturesFor(session.profile.role, await currentHelpViewer()))
-    : "";
+      ? offerableSessions({ db: supabase, profile: session.profile, companyId: convo.company_id })
+      : Promise.resolve(null),
+    loadSystemPrompt(convo.mode, agentConfig),
+  ]);
+  // The page beside the panel: path and record id only from the
+  // browser, checked against this person's role and features, the
+  // record read with THIS session's client (lib/aimee/page-context.ts).
+  const [helpIndex, pageBlock] = await Promise.all([
+    plainAimee
+      ? helpIndexFor(session.profile.role, helpFeatures, convo.company_id, helpDocs)
+      : Promise.resolve(null),
+    fromPanel && plainAimee
+      ? describePageContext(supabase, parsePageContext(body.pageContext), session.profile.role, helpFeatures, helpDocs)
+      : Promise.resolve(""),
+  ]);
+  const helpIndexBlock = helpIndex ? formatHelpIndex(helpIndex, session.profile.role) : "";
+  const offerBlock = offers ? sessionOfferPromptBlock(offers) : "";
+  // AI APPS (Jason, 2026-10-14): by the same rule as the help and the
+  // How to connect drawer (lib/ai-apps/aimee.ts). Plain Aimee only.
+  const aiAppsBlock = viewer ? aiAppsPromptBlock(helpFeaturesFor(session.profile.role, viewer)) : "";
   // THE VIVID VISION CARD'S BUTTONS (2026-11-03): from the same
   // setting the card reads, for any agent whose prompt writes the
   // card, so the agent never offers a button the card does not have.
   const vividVisionBlock =
     agentConfig && writesVividVision(agentConfig.prompt) ? vividVisionKeepBlock({ googleDocs: googleDocsConfigured() }) : "";
   const systemPromptText =
-    (await loadSystemPrompt(convo.mode, agentConfig)) +
+    basePrompt +
     (vividVisionBlock ? `\n\n${vividVisionBlock}` : "") +
     (helpIndexBlock ? `\n\n${helpIndexBlock}` : "") +
     (aiAppsBlock ? `\n\n${aiAppsBlock}` : "") +
@@ -419,15 +432,6 @@ export async function POST(req: NextRequest): Promise<Response> {
   // with THIS session's client, so RLS decides what Aimee may read
   // (lib/aimee/page-context.ts). Rides on the latest user turn, which
   // is the only turn it describes.
-  const pageBlock =
-    fromPanel && plainAimee
-      ? await describePageContext(
-          supabase,
-          parsePageContext(body.pageContext),
-          session.profile.role,
-          helpFeatures
-        )
-      : "";
   // A session started from Aimee's offer: the summary the person
   // accepted, on every turn, so the session never asks them to repeat
   // it (0262).
@@ -529,6 +533,9 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const preStreamMs = Math.round(performance.now() - startedAt);
+      let firstTextAt: number | null = null;
+      let retried = false;
       try {
         controller.enqueue(
           encodeEvent("ready", { userMessageId: userRow?.id ?? null })
@@ -631,6 +638,7 @@ export async function POST(req: NextRequest): Promise<Response> {
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
             ) {
+              firstTextAt ??= performance.now();
               // A CHECKED TURN IS BUFFERED, NOT STREAMED (see
               // checkedTurn above). A banned phrase or an invented
               // quote cannot be fixed mid-stream without the text
@@ -802,6 +810,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             console.log(
               `[coach] ${checkedTurn} retry for ${conversationId}: ${first.rules.join(", ")}`
             );
+            retried = true;
             try {
               const retry = await client.messages.create({
                 model,
@@ -996,6 +1005,13 @@ export async function POST(req: NextRequest): Promise<Response> {
             iteration_shape: iterationShape,
             answered_without_lookup:
               iterationShape[0]?.stop_reason !== "tool_use",
+            // Setup before the model was asked; the wait until its first
+            // text (held-back turns show it later, all at once); whether
+            // a checked turn was sent back (2026-11-14).
+            pre_stream_ms: preStreamMs,
+            first_text_ms: firstTextAt === null ? null : Math.round(firstTextAt - startedAt),
+            total_ms: Math.round(performance.now() - startedAt),
+            retried,
             tool_pass_output_tokens: iterationShape
               .filter((i) => i.stop_reason === "tool_use")
               .reduce((n, i) => n + i.output_tokens, 0),
