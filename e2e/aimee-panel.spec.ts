@@ -76,6 +76,13 @@ test.describe("Aimee's panel, phone", () => {
     const panel = page.locator('[data-testid="aimee-panel"]');
     await expect(panel).toHaveAttribute("role", "dialog");
     await expect(panel).toHaveAttribute("aria-modal", "true");
+    // Focus moving into the panel is what a person sees on open, and the
+    // same step arms the trap. Tabbing before it lands tested a moment no
+    // person can reach: the dialog was drawn, the trap not yet listening,
+    // and focus went to the page (2026-11-14).
+    await expect
+      .poll(() => page.evaluate(() => !!document.activeElement?.closest('[data-drawer-name="aimee-panel"]')))
+      .toBe(true);
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press("Tab");
       const inside = await page.evaluate(
