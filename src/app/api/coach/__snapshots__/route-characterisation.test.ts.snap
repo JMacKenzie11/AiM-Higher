@@ -1,0 +1,90 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`what each kind of conversation is sent > about a person 1`] = `
+{
+  "system": "f178cd5a72c78a80",
+  "systemChars": 37024,
+  "tools": [
+    "get_strengths_profile",
+    "memory_lookup",
+    "remember_this",
+    "commitment_history",
+    "scorecard_trajectory",
+    "issue_casefiles",
+    "planning_history",
+    "recent_meetings",
+    "read_meeting",
+    "current_plan",
+    "open_issues",
+    "measures_now",
+    "about_aims",
+  ],
+}
+`;
+
+exports[`what each kind of conversation is sent > an agent 1`] = `
+{
+  "system": "307e971e8599dae6",
+  "systemChars": 30238,
+  "tools": [
+    "memory_lookup",
+    "remember_this",
+    "commitment_history",
+    "scorecard_trajectory",
+    "issue_casefiles",
+    "planning_history",
+    "recent_meetings",
+    "read_meeting",
+    "current_plan",
+    "open_issues",
+    "measures_now",
+    "about_aims",
+  ],
+}
+`;
+
+exports[`what each kind of conversation is sent > plain Aimee in the panel 1`] = `
+{
+  "system": "6a06e0442c445416",
+  "systemChars": 48452,
+  "tools": [
+    "search_help",
+    "person_record",
+    "memory_lookup",
+    "remember_this",
+    "commitment_history",
+    "scorecard_trajectory",
+    "issue_casefiles",
+    "planning_history",
+    "recent_meetings",
+    "read_meeting",
+    "current_plan",
+    "open_issues",
+    "measures_now",
+    "about_aims",
+  ],
+}
+`;
+
+exports[`what each kind of conversation is sent > plain Aimee on the page 1`] = `
+{
+  "system": "b178dd7f0772729f",
+  "systemChars": 48074,
+  "tools": [
+    "search_help",
+    "person_record",
+    "memory_lookup",
+    "remember_this",
+    "commitment_history",
+    "scorecard_trajectory",
+    "issue_casefiles",
+    "planning_history",
+    "recent_meetings",
+    "read_meeting",
+    "current_plan",
+    "open_issues",
+    "measures_now",
+    "about_aims",
+  ],
+}
+`;
