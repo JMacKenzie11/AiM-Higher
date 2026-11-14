@@ -180,7 +180,14 @@ export function filterVerdict(content: string): FilterVerdict {
 // A refusal with no alternative reads as the product being squeamish.
 // A refusal with one reads as the product knowing the difference
 // between what helps and what is nobody's business.
-export function declineMessageFor(reason: "health" | "family"): string {
+export function declineMessageFor(reason: "health" | "family" | "about the other person"): string {
+  if (reason === "about the other person") {
+    return (
+      "I keep notes on what you're working on, not on what anyone thinks " +
+      "of someone else, so I haven't saved that. I can keep your side of " +
+      "it instead: what you plan to do about it, and by when."
+    );
+  }
   if (reason === "health") {
     return (
       "I don't keep anything about health or medical matters, yours or " +

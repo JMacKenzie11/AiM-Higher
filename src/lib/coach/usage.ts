@@ -147,7 +147,7 @@ export async function logCoachTokenUsage(args: {
   try {
     const cost = estimateCostCents(args.model, args.usage);
     const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-    await admin.from("coach_token_usage").insert({
+    const { error } = await admin.from("coach_token_usage").insert({
       conversation_id: args.conversationId,
       company_id: args.companyId,
       purpose: args.purpose,
@@ -158,6 +158,9 @@ export async function logCoachTokenUsage(args: {
       cache_read_input_tokens: args.usage.cache_read_input_tokens ?? 0,
       cost_usd_cents: cost,
     });
+    // Supabase returns a refusal rather than throwing it, so the catch
+    // below never saw one: a CHECK on purpose, or RLS, lost rows silently.
+    if (error) console.warn("coach usage: row not written", { purpose: args.purpose, code: error.code, message: error.message });
   } catch (err) {
     console.warn("logCoachTokenUsage failed", err);
   }

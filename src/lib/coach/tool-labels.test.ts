@@ -20,6 +20,7 @@ const SOURCES = [
   "src/lib/coach/tools.ts",
   "src/lib/coach/history-tools.ts",
   "src/lib/coach/memory-tool.ts",
+  "src/lib/coach/remember-tool.ts",
   "src/lib/coach/person-tool.ts",
   "src/lib/coach/live-tools.ts",
   "src/lib/coach/aims-context.ts",

@@ -30,6 +30,7 @@ const LABELS: Record<string, string> = {
   scorecard_trajectory: "Checking the scorecard trend",
   search_classroom: "Searching the classroom",
   memory_lookup: "Recalling earlier conversations",
+  remember_this: "Saving that for later",
   search_help: "Checking the help pages",
   person_record: "Reading their scorecard",
   current_plan: "Reading the current plan",

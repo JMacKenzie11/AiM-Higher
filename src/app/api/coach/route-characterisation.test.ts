@@ -32,6 +32,7 @@ const h = vi.hoisted(() => ({
   lastUser: null as Row | null,
   inserts: [] as Array<{ table: string; payload: unknown }>,
   updates: [] as Array<{ table: string; payload: unknown }>,
+  replySaveFails: 0,
 }));
 
 vi.mock("@anthropic-ai/sdk", () => {
@@ -46,6 +47,7 @@ vi.mock("@/lib/auth/current-user", () => ({
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
 vi.mock("@/lib/analytics/track", () => ({ trackAfter: vi.fn(), track: vi.fn() }));
 vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: vi.fn() }));
+vi.mock("@/lib/observability/report", () => ({ reportError: vi.fn() }));
 vi.mock("@/lib/subscriptions/service", async (orig) => ({
   ...(await orig<typeof import("@/lib/subscriptions/service")>()),
   getCompanyFeatures: async () => ["execution", "classroom"],
@@ -86,7 +88,13 @@ vi.mock("@/lib/supabase/server", () => ({
         return null;
       };
       b.maybeSingle = async () => ({ data: row(), error: null });
-      b.single = async () => ({ data: row(), error: null });
+      b.single = async () => {
+        if (table === "coaching_messages" && (inserted as Row | null)?.role === "assistant" && h.replySaveFails > 0) {
+          h.replySaveFails -= 1;
+          return { data: null, error: { message: "refused" } };
+        }
+        return { data: row(), error: null };
+      };
       // The route reads history newest first and reverses it.
       const list = table === "coaching_messages" ? [...h.history].reverse() : [];
       b.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: list, error: null }).then(res);
@@ -143,6 +151,7 @@ beforeEach(() => {
   h.lastUser = null;
   h.inserts = [];
   h.updates = [];
+  h.replySaveFails = 0;
   h.stream.mockImplementation(() => text("Fine."));
   h.create.mockResolvedValue({ content: [{ type: "text", text: "A label" }], usage });
 });
@@ -201,6 +210,21 @@ describe("an ordinary turn", () => {
     expect(inserted("coaching_messages", "assistant")[0].content).toBe("Use Plan.");
     expect(events[2].data.assistantMessageId).toBe("assistant-row");
     expect(h.updates.some((u) => u.table === "coaching_conversations" && "updated_at" in (u.payload as Row))).toBe(true);
+  });
+
+  it("tries once more when saving the reply fails, and reports it if that fails too", async () => {
+    const { reportError } = await import("@/lib/observability/report");
+    h.replySaveFails = 1;
+    const once = await post();
+    expect(inserted("coaching_messages", "assistant")).toHaveLength(2);
+    expect(once.events.at(-1)!.data.assistantMessageId).toBe("assistant-row");
+    expect(reportError).not.toHaveBeenCalled();
+
+    h.inserts = [];
+    h.replySaveFails = 2;
+    const twice = await post();
+    expect(twice.events.at(-1)!.data.assistantMessageId).toBeNull();
+    expect(reportError).toHaveBeenCalledWith("coach.reply_not_saved", expect.anything(), { conversationId: "conv1" });
   });
 
   it("strips em dashes from what it saves", async () => {
@@ -272,11 +296,19 @@ describe("the tool loop", () => {
     expect(JSON.parse(String(results[0].content))).toEqual({ status: "error", message: "unknown tool: no_such_tool" });
   });
 
-  it("stops after four passes (today: the last pass's tools run and an empty reply is saved)", async () => {
-    h.stream.mockImplementation(() => toolUse("no_such_tool"));
+  it("stops after four passes, and the last pass may not call a tool, so it answers", async () => {
+    h.stream
+      .mockImplementationOnce(() => toolUse("no_such_tool"))
+      .mockImplementationOnce(() => toolUse("no_such_tool"))
+      .mockImplementationOnce(() => toolUse("no_such_tool"))
+      .mockImplementation(() => text("Here is what I found."));
     await post();
     expect(h.stream).toHaveBeenCalledTimes(4);
-    expect(inserted("coaching_messages", "assistant")[0].content).toBe("");
+    const calls = h.stream.mock.calls.map((c) => c[0] as Row);
+    expect(calls.slice(0, 3).every((c) => c.tool_choice === undefined)).toBe(true);
+    expect(calls[3].tool_choice).toEqual({ type: "none" });
+    expect(calls[3].tools).toBeDefined();
+    expect(inserted("coaching_messages", "assistant")[0].content).toBe("Here is what I found.");
   });
 });
 
@@ -310,7 +342,14 @@ describe("the first reply in plain Aimee", () => {
     expect(inserted("coaching_messages", "assistant")[0].content).toBe("What are you planning?");
   });
 
+  it("leaves a name the person gave it while the reply was arriving", async () => {
+    h.convo = conversation({ title: "Budget talk" });
+    await post();
+    expect(h.updates.some((u) => "title" in (u.payload as Row))).toBe(false);
+  });
+
   it("names the conversation after the first exchange, from the bare exchange", async () => {
+    h.convo = conversation({ title: "Coaching · Nov 14" });
     await post();
     const title = h.create.mock.calls.map((c) => c[0] as Row).find((a) => a.system === TITLE_SYSTEM);
     expect(title).toBeDefined();

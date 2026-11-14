@@ -96,7 +96,7 @@ export async function buildCoachTools(args: {
   // with nowhere to say it. An explicit ask is the one write a person
   // makes on purpose, so it is kept; the sweep still never distils a
   // panel conversation (memory-actions.ts).
-  tools.push(makeRememberTool());
+  tools.push(makeRememberTool({ subjectProfileId: args.subjectProfileId }));
 
   tools.push(
     ...buildHistoryTools({
