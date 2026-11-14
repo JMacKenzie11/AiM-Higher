@@ -297,9 +297,11 @@ test.describe("coach memory", () => {
     // I imagined and missed the ones the coach actually used — "here's
     // what i have on record from earlier today" and "you said" — and
     // so failed a textbook-correct answer. A test that only accepts
-    // the wording its author predicted is testing the author.
+    // the wording its author predicted is testing the author. Again on
+    // 2026-11-14: "you've mentioned" was refused for lacking "you
+    // mentioned".
     const recallFramed =
-      /last time|previously|you mentioned|you said|you told me|earlier (today|you)|when we (last )?spoke|we'?ve talked|on record|i have (it )?(down|on record)|from our last|a guess of my own/.test(
+      /last time|previously|you(?:'?ve| have)? mentioned|you(?:'?ve| have)? said|you(?:'?ve| have)? told me|earlier (today|you)|when we (last )?spoke|we'?ve talked|on record|i have (it )?(down|on record)|from our last|a guess of my own/.test(
         answer
       );
     const honestlyBlank =
