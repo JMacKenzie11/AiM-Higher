@@ -88,6 +88,6 @@ test.describe("Aimee looks at a named person", () => {
     expect(reply.toLowerCase()).not.toMatch(/no information about|don't have (any )?(information|data) (on|about)/);
 
     const nobody = await sendIn(page, "And how is Zebulon Quackenbush doing?");
-    expect(nobody.toLowerCase()).toMatch(/can't find|couldn't find|no one|nobody|not find|don't see|isn't anyone|no record/);
+    expect(nobody.toLowerCase()).toMatch(/can't find|couldn't find|no one|nobody|not find|don't see|isn't anyone|no record|don't have anyone/);
   });
 });

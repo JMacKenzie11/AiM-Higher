@@ -127,6 +127,26 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
 
 // WAIT FOR THE SWEEP BY WHAT IT WRITES, not by the clock.
 //
+// Open Ask Aimee and wait for the memory sweep it fires to FINISH.
+//
+// The sweep is a server action the page fires on mount. Navigating on
+// at once (waitForMemory goes straight to the Memory page) could cut
+// it off before it reached the server; the memory then landed during
+// the NEXT test, after that test had cleared memory, and one test
+// timed out while the next recalled "deleted" content (2026-11-14,
+// read off the dev clone's watermarks and memory-call times). So wait
+// for the action's response, which arrives when the sweep is done.
+async function openAskAimeeAndSweep(page: import("@playwright/test").Page): Promise<void> {
+  const swept = page
+    .waitForResponse(
+      (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
+      { timeout: 180_000 }
+    )
+    .catch(() => null);
+  await page.goto("/ask-aimee");
+  await swept;
+}
+
 // Memory is written by a background call the page fires on entry
 // (MemorySweep), and that call is a model round trip: about 6 seconds
 // on dev, longer when the server is busy. These tests used to pause a
@@ -244,9 +264,9 @@ test.describe("coach memory", () => {
     // Summarization runs on surface entry for conversations OTHER
     // than the one open, so the second conversation's creation is
     // what distils the first.
-    await page.goto("/ask-aimee");
+    await openAskAimeeAndSweep(page);
     await waitForMemory(page, [/marcus|dispatch/]);
-    await page.goto("/ask-aimee");
+    await openAskAimeeAndSweep(page);
 
     // ---- Conversation two -------------------------------------
     await page.getByRole("button", { name: /new|start|ask/i }).first().click();
@@ -316,7 +336,7 @@ test.describe("coach memory", () => {
     await sendAndWait(page, SECOND_THING);
 
     // Leaving is what finishes the thought and triggers the sweep.
-    await page.goto("/ask-aimee");
+    await openAskAimeeAndSweep(page);
     await waitForMemory(page, [/marcus|dispatch/]);
 
     // ---- The page shows them ----------------------------------
@@ -377,7 +397,7 @@ test.describe("coach memory", () => {
     }
     await expect(remaining).toHaveCount(0, { timeout: 30_000 });
 
-    await page.goto("/ask-aimee");
+    await openAskAimeeAndSweep(page);
     await page.getByRole("button", { name: /new|start|ask/i }).first().click();
     await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, { timeout: 30_000 });
     created.push(conversationIdFrom(page.url()));
@@ -400,17 +420,20 @@ test.describe("coach memory", () => {
 
 // ---- ABOUT MODE ------------------------------------------------
 //
-// An about-mode conversation produces memory like any other,
-// including the leader's observations and assessments of the team
-// member. The claims under test are three:
+// An about-mode conversation keeps only what the LEADER is working
+// on: what they intend, committed to, decided (0252, Jason
+// 2026-10-01). Never what they or Aimee think of the person it was
+// about. This spec used to require the leader's observation ("keeps
+// missing the Thursday handoff") in memory too; 0252 removed that on
+// purpose and the spec was not updated, so it passed only when the
+// model happened to fold "handoff" into the commitment's wording
+// (failed 2026-11-14 with the commitment correctly stored and the
+// observation correctly left out). The claims under test are three:
 //
-//   1. Both halves land: the leader's own commitment AND what they
-//      observed about the person.
-//   2. They land with the right PROVENANCE. The leader's statement
-//      about the person is `said`. Aimee's read is `inferred`. That
-//      distinction is the whole protection here, because a record
-//      that says a leader SAID something they never said is worse
-//      than no record.
+//   1. The leader's own commitment lands.
+//   2. With the right PROVENANCE: it is something they said, so
+//      `said`. A record that says a leader SAID something they never
+//      said is worse than no record.
 //   3. The person it is about cannot see any of it. Part 1's wall
 //      covers this by construction, and it is checked anyway, as the
 //      subject, in their own session.
@@ -444,7 +467,7 @@ test.describe("coach memory, about mode", () => {
     }
   });
 
-  test("remembers both halves, with provenance, and the subject sees none of it", async ({
+  test("remembers the leader's commitment, with provenance, and the subject sees none of it", async ({
     page,
   }) => {
     await signIn(page, users.admin());
@@ -489,33 +512,22 @@ test.describe("coach memory, about mode", () => {
 
     // The sweep fires on entry to Ask Aimee and never summarizes the
     // conversation in front of you.
-    await page.goto("/ask-aimee");
-    // Both halves come from one pass over one conversation, written one
-    // after the other, so wait for both rather than the first.
-    await waitForMemory(page, [/handoff/, /feedback conversation|before friday/]);
+    await openAskAimeeAndSweep(page);
+    await waitForMemory(page, [/feedback conversation|before friday/]);
     const rows = page.getByTestId("memory-row");
     await expect(rows.first()).toBeVisible({ timeout: 30_000 });
     const memoryText = (await page.locator("body").innerText()).toLowerCase();
 
-    // (1) BOTH HALVES.
-    expect(
-      memoryText,
-      `expected the observation about the subject in memory. Got: ${memoryText.slice(0, 700)}`
-    ).toMatch(/handoff/);
+    // (1) THE COMMITMENT.
     expect(
       memoryText,
       `expected the leader's own commitment in memory. Got: ${memoryText.slice(0, 700)}`
     ).toMatch(/feedback conversation|before friday/);
 
     // (2) PROVENANCE. Read every row's kind together with its text,
-    // rather than asserting on the first row that mentions the
-    // handoff. The first version did that and failed against correct
-    // behaviour: Aimee had ALSO written a legitimate inference about
-    // the handoff ("may be tracking it outside the operating system"),
-    // that row sorted first, and the assertion read it as the leader's
-    // statement being demoted. The claim is not "the first handoff row
-    // is said" — it is that the leader's own observation is on the
-    // record as something they said.
+    // rather than asserting on the first row that matches: other rows
+    // may sort first. The claim is that the leader's own commitment is
+    // on the record as something they said.
     const stored = await rows.evaluateAll((els) =>
       els.map((el) => ({
         kind: el.getAttribute("data-kind"),
@@ -527,8 +539,8 @@ test.describe("coach memory, about mode", () => {
       .join("\n");
 
     expect(
-      stored.filter((r) => r.kind === "said" && /handoff/.test(r.text)).length,
-      `the leader's own observation about the subject is not on the record as \`said\`.\nRows:\n${dump}`
+      stored.filter((r) => r.kind === "said" && /feedback conversation|before friday/.test(r.text)).length,
+      `the leader's own commitment is not on the record as \`said\`.\nRows:\n${dump}`
     ).toBeGreaterThan(0);
 
     // And the other direction, which is the one that actually harms:
@@ -549,7 +561,7 @@ test.describe("coach memory, about mode", () => {
       `every memory row must be labelled said, inferred or directed.\nRows:\n${dump}`
     ).toBe(true);
 
-    // ---- Recall of BOTH, in a fresh about-mode conversation ------
+    // ---- Recall of the commitment, in a fresh about-mode conversation
     await page.goto(subjectPath);
     await page.getByRole("button", { name: /new conversation/i }).click();
     await expect(page).toHaveURL(/\/coach\/[0-9a-f-]{36}\/[0-9a-f-]{36}/, {
@@ -557,10 +569,6 @@ test.describe("coach memory, about mode", () => {
     });
     await sendAndWait(page, "Where did we get to on this?");
     const recalled = (await page.getByTestId("coach-thread").innerText()).toLowerCase();
-    expect(
-      recalled,
-      `expected recall of the observation. Got: ${recalled.slice(0, 700)}`
-    ).toMatch(/handoff|thursday/);
     expect(
       recalled,
       `expected recall of the commitment. Got: ${recalled.slice(0, 700)}`
@@ -727,7 +735,7 @@ test.describe("coach memory, person-added", () => {
       "the directed memory survived its own delete"
     ).toHaveCount(0, { timeout: 20_000 });
 
-    await page.goto("/ask-aimee");
+    await openAskAimeeAndSweep(page);
     await page.getByRole("button", { name: /new|start|ask/i }).first().click();
     await expect(page).toHaveURL(/\/ask-aimee\/[0-9a-f-]{36}/, { timeout: 30_000 });
     // EMPTY, asserted. Every conversation in this test stays at one

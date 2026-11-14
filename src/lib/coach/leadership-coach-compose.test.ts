@@ -72,8 +72,13 @@ import path from "node:path";
 // nothing said to stop, while "one sharp question per turn" plus "never
 // ask a question without a hypothesis alongside it" made the shortest
 // legal turn a hypothesis and a question. The seven steps are untouched.
+//
+// Regenerated 2026-11-13 for "a person in your notes is not who this
+// conversation is about until they say so" (Jason): a remembered,
+// directed note about Dalton, who is not in AiMS, made Aimee coach a
+// later general question as if it were about him.
 const LEADERSHIP_COACH_BASE_SHA =
-  "49140afd42c14a7520dc8760836ee828371b060d0491e4d670811983b551e190";
+  "9ff876b618eea51469d109df8892ffbcdc0f9e866a915f07d0835f5ed5e810ef";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {

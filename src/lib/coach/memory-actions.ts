@@ -86,6 +86,8 @@ const MODEL = "claude-sonnet-5";
 // after a long absence should not pay for ten model calls before the
 // page renders.
 const MAX_PER_RUN = 3;
+// Summary budget, thinking included. See the call below.
+const MEMORY_MAX_TOKENS = 4096;
 // Below this, a conversation is an abandoned opening line rather than
 // a thought worth keeping.
 const MIN_USER_TURNS = 2;
@@ -292,7 +294,12 @@ export async function summarizeFinishedConversationsAction(
     try {
       const response = await client.messages.create({
         model: MODEL,
-        max_tokens: 1024,
+        // Thinking comes out of this budget too. At 1024, 1 call in 8
+        // thought to the ceiling and returned no text (measured
+        // 2026-11-14 on the coach-memory e2e transcript), the
+        // watermark advanced anyway, and that conversation's memory
+        // was lost for good. A ceiling, not a target.
+        max_tokens: MEMORY_MAX_TOKENS,
         system: systemPrompt,
         messages: [
           {
@@ -328,6 +335,18 @@ export async function summarizeFinishedConversationsAction(
           model: MODEL,
           usage: response.usage,
         });
+      }
+      if (response.stop_reason === "max_tokens") {
+        // Cut off: nothing usable was read, so leave the watermark
+        // where it was and let the next entry try again.
+        console.error("coach memory: cut off at max_tokens", {
+          conversationId: convo.id,
+          cap: MEMORY_MAX_TOKENS,
+        });
+        reportError("coach.memory.truncated", new Error("memory summary cut off at max_tokens"), {
+          conversationId: convo.id,
+        });
+        continue;
       }
       drafts = parseMemoryResponse(
         response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("")

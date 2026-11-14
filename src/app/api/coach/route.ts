@@ -40,7 +40,7 @@ import { getCompanyFeatures } from "@/lib/subscriptions/service";
 import { loadCoachingPrinciples } from "@/lib/coach/principles";
 import { COMMITMENT_DRAFT_BLOCK } from "@/lib/coach/commitment-draft";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
-import { cleanGeneratedTitle } from "@/lib/coach/title";
+import { cleanGeneratedTitle, TITLE_SYSTEM } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
 import { GENERAL_MODE_PREAMBLE } from "@/lib/coach/general-preamble";
 import { STRENGTH_CHECK_MODEL, skippedStrength } from "@/lib/coach/strength-check";
@@ -119,10 +119,19 @@ const GENERATE_OPENER_PROMPT =
   "Open this conversation. Introduce yourself briefly in your role, then begin the guided flow you're designed for — start with your first question or step. Keep the opener under 120 words.";
 
 const DEFAULT_MODEL = "claude-sonnet-5";
-// Default ceiling for one assistant turn. Suits a conversational
-// reply; an agent that emits a whole document in one turn declares
-// its own in the registry. See Practice.maxTokens.
-const MAX_TOKENS = 2000;
+// Default ceiling for one assistant turn; an agent that emits a whole
+// document in one turn declares its own in the registry (see
+// Practice.maxTokens).
+//
+// 8000, from 2000 (2026-11-13). The model thinks by default and the
+// thinking comes out of this same ceiling, so at 2000 a turn could
+// spend all of it thinking and send nothing: the e2e for a remembered
+// name got an empty bubble with `truncated: max_tokens` on every run,
+// and on production 1 of 128 turns in the last 30 days stopped at
+// exactly 2000 (9 more passed it across tool passes). The ceiling is
+// a limit, not a charge: a turn bills what it uses, so an ordinary
+// reply costs the same. Same trap as the short calls fixed in #458.
+const MAX_TOKENS = 8000;
 // Cap on the number of tool-loop iterations per user turn. Each
 // iteration = one Anthropic call that may end in either a natural
 // stop or a tool_use. The cap prevents a misbehaving prompt from
@@ -995,12 +1004,17 @@ export async function POST(req: NextRequest): Promise<Response> {
           void generateTitleForConversation({
             client,
             model,
-            messages,
+            // The exchange alone, without the context prefix: that
+            // prefix carries Aimee's notes on earlier conversations,
+            // and a name from them became a title ("Busy Excuses from
+            // Dalton") in a chat that never used it (Jason, 2026-11-13).
+            messages: buildMessages(history, ""),
             assistantText,
             conversationId,
             companyId: convo.company_id,
             currentUserId: session.profile.id,
             signal: abortSignal,
+            supabase,
           });
         }
 
@@ -1262,8 +1276,7 @@ function streamErrorResponse(message: string): Response {
 // labelling needs only the exchange, and resending the full prompt
 // cost about 14,000 tokens a title. Thinking off, so the 64-token
 // budget always leaves room for the label.
-const TITLE_SYSTEM =
-  "You label coaching conversations in AiMS HQ with a short topic, from the exchange alone.";
+
 
 async function generateTitleForConversation(args: {
   client: Anthropic;
@@ -1274,6 +1287,14 @@ async function generateTitleForConversation(args: {
   companyId: string | null;
   currentUserId: string;
   signal?: AbortSignal;
+  // The request's own client, made while the request was live. The
+  // label lands after the reply has finished, and a client made then
+  // reads cookies outside the request, which Next refuses ("used
+  // cookies inside after"): the write threw, the catch below swallowed
+  // it, and the conversation kept its date title. On production 7 of
+  // the 10 plain Aimee conversations started since 1 Nov 2026 still
+  // had "Coaching · <date>" (Jason, 2026-11-13).
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
 }): Promise<void> {
   try {
     const followup: Anthropic.MessageParam[] = [
@@ -1312,8 +1333,7 @@ async function generateTitleForConversation(args: {
         .join("")
     ).slice(0, 80);
     if (!label) return;
-    const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-    await supabase
+    await args.supabase
       .from("coaching_conversations")
       .update({ title: label })
       .eq("id", args.conversationId);
