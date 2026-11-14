@@ -620,7 +620,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                   cache_control: { type: "ephemeral" },
                 },
               ],
-              messages: currentMessages,
+              messages: withCacheMarks(currentMessages),
               tools: toolDefs,
               // The last pass may not call a tool. A call there used to
               // run (remember_this included), have its result thrown
@@ -812,16 +812,26 @@ export async function POST(req: NextRequest): Promise<Response> {
             );
             retried = true;
             try {
-              const retry = await client.messages.create({
-                model,
-                max_tokens: agentConfig?.maxTokens ?? MAX_TOKENS,
-                system: [{ type: "text", text: systemPromptText }],
-                messages: [
-                  ...currentMessages,
-                  { role: "assistant", content: assistantText },
-                  { role: "user", content: first.retry },
-                ],
-              });
+              // The same tools and cached instructions as the turn, with
+              // tool calls switched off: the retry reuses the cache (it
+              // paid the whole prompt uncached before, ~15k tokens) and
+              // still looks nothing up. The person's cancel stops it too.
+              const retry = await client.messages.create(
+                {
+                  model,
+                  max_tokens: agentConfig?.maxTokens ?? MAX_TOKENS,
+                  system: [{ type: "text", text: systemPromptText, cache_control: { type: "ephemeral" } }],
+                  messages: withCacheMarks([
+                    ...currentMessages,
+                    { role: "assistant", content: assistantText },
+                    { role: "user", content: first.retry },
+                  ]),
+                  ...(toolDefs.length > 0
+                    ? { tools: toolDefs, tool_choice: { type: "none" as const } }
+                    : {}),
+                },
+                { signal: abortSignal }
+              );
               // The retry is part of this turn's cost. It was left out, so
               // the usage log (and every cost report built on it)
               // undercounted each turn that needed one (investigation,
@@ -1179,6 +1189,46 @@ async function loadCoachBase(): Promise<string> {
 async function loadVoiceOnlyBase(): Promise<string> {
   const voicePath = path.join(process.cwd(), "prompts", "aims-voice.md");
   return fs.readFile(voicePath, "utf8");
+}
+
+// CACHE MARKS ON THE CONVERSATION (2026-11-14). The system prompt was
+// the only cached part, so every tool pass and every retry sent the
+// whole history again at full price, and so did the next message.
+// Two marks, with the system prompt's that is three of the four the
+// API allows:
+//   - the end of what is being sent, so the next tool pass or the
+//     retry reads all of it from the cache;
+//   - the reply before the person's latest message, the last point
+//     the next message will send unchanged (the latest message loses
+//     its context prefix next time), so a reply within five minutes
+//     reads the conversation so far from the cache.
+// The marks go on copies; what is saved and passed on is untouched.
+function withCacheMarks(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  const out = messages.slice();
+  const mark = (i: number) => {
+    const m = out[i];
+    if (!m) return;
+    const blocks: Anthropic.ContentBlockParam[] =
+      typeof m.content === "string"
+        ? [{ type: "text", text: m.content }]
+        : (m.content as Anthropic.ContentBlockParam[]).slice();
+    const last = blocks[blocks.length - 1];
+    if (!last || (last.type === "text" && last.text.length === 0)) return;
+    // Thinking blocks cannot carry a mark; the end of a message never is one.
+    if (last.type === "thinking" || last.type === "redacted_thinking") return;
+    blocks[blocks.length - 1] = { ...last, cache_control: { type: "ephemeral" } } as Anthropic.ContentBlockParam;
+    out[i] = { ...m, content: blocks };
+  };
+  mark(out.length - 1);
+  let latestUser = -1;
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i].role === "user" && typeof messages[i].content === "string") {
+      latestUser = i;
+      break;
+    }
+  }
+  if (latestUser > 0 && latestUser - 1 !== out.length - 1) mark(latestUser - 1);
+  return out;
 }
 
 function buildMessages(

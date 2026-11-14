@@ -96,6 +96,15 @@ function streamOfToolUse(name: string, input: unknown) {
   };
 }
 
+// A message's text, whether sent as a string or as blocks (the route
+// marks some messages for caching, which turns them into blocks).
+const textOf = (content: unknown): string =>
+  typeof content === "string"
+    ? content
+    : Array.isArray(content)
+      ? content.map((b) => (b as { type?: string; text?: string }).type === "text" ? String((b as { text?: string }).text ?? "") : "").join("")
+      : "";
+
 let POST: typeof import("./route").POST;
 beforeAll(async () => {
   ({ POST } = await import("./route"));
@@ -127,7 +136,7 @@ async function send(extra: Record<string, unknown> = {}) {
     system: (call.system as Array<{ text: string }>).map((b) => b.text).join("\n"),
     // The array is the route's own and grows after the call, so find
     // the user turn rather than taking the last entry.
-    lastUser: String([...messages].reverse().find((m) => m.role === "user" && typeof m.content === "string")?.content ?? ""),
+    lastUser: textOf([...messages].reverse().find((m) => m.role === "user" && textOf(m.content).length > 0)?.content),
   };
 }
 

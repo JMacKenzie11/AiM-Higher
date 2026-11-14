@@ -123,6 +123,15 @@ const toolUse = (name: string, input: unknown = {}, lead = "") =>
     lead ? [lead] : []
   );
 
+// A message's text, whether sent as a string or as blocks (the route
+// marks some messages for caching, which turns them into blocks).
+const textOf = (content: unknown): string =>
+  typeof content === "string"
+    ? content
+    : Array.isArray(content)
+      ? content.map((b) => (b as { type?: string; text?: string }).type === "text" ? String((b as { text?: string }).text ?? "") : "").join("")
+      : "";
+
 let POST: typeof import("./route").POST;
 let TITLE_SYSTEM: string;
 beforeAll(async () => {
@@ -244,11 +253,24 @@ describe("an ordinary turn", () => {
 
   it("puts the context on the latest user turn only", async () => {
     await post();
-    const messages = firstCall().messages as Array<{ role: string; content: string }>;
+    const messages = firstCall().messages as Array<{ role: string; content: unknown }>;
     expect(messages[0]).toEqual({ role: "user", content: "Earlier question." });
-    expect(messages[1]).toEqual({ role: "assistant", content: "Earlier answer." });
-    expect(messages[2].content).toContain("<coaching_context>");
-    expect(messages[2].content.endsWith("Where do I add a priority?")).toBe(true);
+    expect(textOf(messages[1].content)).toBe("Earlier answer.");
+    expect(textOf(messages[2].content)).toContain("<coaching_context>");
+    expect(textOf(messages[2].content).endsWith("Where do I add a priority?")).toBe(true);
+  });
+
+  it("marks the conversation for caching: its end, and the reply before the latest message", async () => {
+    await post();
+    const messages = firstCall().messages as Array<{ role: string; content: unknown }>;
+    const marked = (m: { content: unknown }) =>
+      Array.isArray(m.content) && (m.content as Array<Row>).at(-1)?.cache_control !== undefined;
+    expect(messages.map(marked)).toEqual([false, true, true]);
+    // Three of the four marks the API allows, with the system prompt's.
+    const system = firstCall().system as Array<Row>;
+    expect(system.filter((b) => b.cache_control).length + messages.filter(marked).length).toBeLessThanOrEqual(4);
+    // What is saved is never marked.
+    expect(typeof inserted("coaching_messages", "user")[0].content).toBe("string");
   });
 
   it("marks the system prompt for caching", async () => {
@@ -358,9 +380,11 @@ describe("the first reply in plain Aimee", () => {
     const { events } = await post();
     const retry = h.create.mock.calls.map((c) => c[0] as Row).find((a) => a.system !== TITLE_SYSTEM)!;
     expect(retry).toBeDefined();
-    // Today the retry carries no tools and no cache marker.
-    expect(retry.tools).toBeUndefined();
-    expect((retry.system as Array<Row>)[0].cache_control).toBeUndefined();
+    // The retry reuses the cache: the same tools with calls switched
+    // off, and the cached system prompt (2026-11-14; before, neither).
+    expect((retry.tools as Array<Row>).length).toBeGreaterThan(0);
+    expect(retry.tool_choice).toEqual({ type: "none" });
+    expect((retry.system as Array<Row>)[0].cache_control).toEqual({ type: "ephemeral" });
     expect(events.find((e) => e.event === "delta")!.data.text).toBe("What are you planning?");
     expect(inserted("coaching_messages", "assistant")[0].content).toBe("What are you planning?");
   });
