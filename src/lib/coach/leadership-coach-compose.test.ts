@@ -77,8 +77,12 @@ import path from "node:path";
 // conversation is about until they say so" (Jason): a remembered,
 // directed note about Dalton, who is not in AiMS, made Aimee coach a
 // later general question as if it were about him.
+// Regenerated 2026-11-14 for the prompt pass (Jason: "go with what you
+// recommend"): the record's data rule now covers the people it
+// describes, the retired self mode is gone, an unraised risk is raised
+// only when it bears on what they brought, fewer "rather than"s.
 const LEADERSHIP_COACH_BASE_SHA =
-  "9ff876b618eea51469d109df8892ffbcdc0f9e866a915f07d0835f5ed5e810ef";
+  "9a0333f77ae97e68689152ab79e9780b56488ab2e9d3674a1cf77ffbb24aeaa4";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {
