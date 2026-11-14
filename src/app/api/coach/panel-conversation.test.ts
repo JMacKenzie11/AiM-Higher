@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 
 // A CONVERSATION STARTED IN AIMEE'S PANEL (0240, origin = 'panel').
-// It never writes coach memory, so remember_this is not among its
-// tools; it may still read memory. Aimee is told she is in the panel,
-// with the link that starts a new conversation on the Aimee page. A
-// page conversation is unchanged. And a help search is counted, with
-// whether it found anything and never the query.
+// The sweep never distils it; remember_this saves an explicit ask
+// (2026-10-03), and it reads memory. Aimee is told she is in the
+// panel. A page conversation is unchanged. And a help search is
+// counted, with whether it found anything and never the query.
 
 vi.mock("server-only", () => ({}));
 

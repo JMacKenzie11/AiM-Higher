@@ -8,6 +8,9 @@ import path from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { requireProfile } from "@/lib/auth/current-user";
 import { reportError } from "@/lib/observability/report";
+import { encodeEvent, SSE_HEADERS, streamErrorResponse, streamSavedMessage } from "@/lib/coach/turn/sse";
+import { buildMessages, withCacheMarks } from "@/lib/coach/turn/messages";
+import { addUsage, textOf } from "@/lib/coach/turn/anthropic";
 import { isDefaultTitle } from "@/lib/coach/default-title";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
@@ -48,7 +51,6 @@ import { GENERAL_MODE_PREAMBLE } from "@/lib/coach/general-preamble";
 import { STRENGTH_CHECK_MODEL, skippedStrength } from "@/lib/coach/strength-check";
 import { trackAfter } from "@/lib/analytics/track";
 import {
-  loadPracticePrompt,
   type PracticeToolName,
 } from "@/lib/practices/registry";
 import { resolveAgent } from "@/lib/practices/resolve";
@@ -139,12 +141,6 @@ const MAX_TOKENS = 8000;
 // stop or a tool_use. The cap prevents a misbehaving prompt from
 // looping tools indefinitely.
 const MAX_TOOL_ITERATIONS = 4;
-
-function encodeEvent(event: string, data: unknown): Uint8Array {
-  const payload =
-    typeof data === "string" ? data : JSON.stringify(data);
-  return new TextEncoder().encode(`event: ${event}\ndata: ${payload}\n\n`);
-}
 
 export async function POST(req: NextRequest): Promise<Response> {
   // Turn timing, sent with coach.turn_shape: setup before the model is
@@ -439,13 +435,11 @@ export async function POST(req: NextRequest): Promise<Response> {
   const userTurnPrefix = `${context.companyContext}\n\n${personBlock}${partnerBlock}${strengthsBlock}${memoryBlock}${context.coachingContext}\n\n${handoffText}${pageBlock ? `${pageBlock}\n\n` : ""}`;
   const messages = buildMessages(history, userTurnPrefix);
 
-  // Tool gating: subject-scoped tools are ONLY registered when there
-  // is a subject to scope them to. In general mode the tool list is
-  // empty — Aimee has no subject data to query and must not appear to.
-  // Subject-scoped tools (strengths) only register in "about" mode.
-  // Company-scoped tools (classroom) register in both modes provided
-  // the feature is on — Aimee can recommend a training in Ask Aimee
-  // conversations too. buildCoachTools handles the branch.
+  // Tools: plain Aimee adds search_help and person_record; every
+  // conversation gets memory, history, live-state and about_aims;
+  // subject-scoped tools (strengths) only in about mode; classroom when
+  // the feature is on (buildCoachTools); an agent adds its own pinned
+  // tools. Duplicates are dropped by name.
   const tools = [
     ...(plainAimee
       ? [
@@ -654,18 +648,10 @@ export async function POST(req: NextRequest): Promise<Response> {
           }
 
           const final = await messageStream.finalMessage();
-          const textThisTurn = final.content
-            .filter((b): b is Anthropic.TextBlock => b.type === "text")
-            .map((b) => b.text)
-            .join("");
+          const textThisTurn = textOf(final.content);
           combinedAssistantText += textThisTurn;
           finalUsage = final.usage;
-          turnUsage.input_tokens += final.usage.input_tokens ?? 0;
-          turnUsage.output_tokens += final.usage.output_tokens ?? 0;
-          turnUsage.cache_creation_input_tokens +=
-            final.usage.cache_creation_input_tokens ?? 0;
-          turnUsage.cache_read_input_tokens +=
-            final.usage.cache_read_input_tokens ?? 0;
+          addUsage(turnUsage, final.usage);
           iterationShape.push({
             iteration: iter,
             output_tokens: final.usage.output_tokens ?? 0,
@@ -836,17 +822,8 @@ export async function POST(req: NextRequest): Promise<Response> {
               // the usage log (and every cost report built on it)
               // undercounted each turn that needed one (investigation,
               // 2026-09-28).
-              if (retry.usage) {
-                turnUsage.input_tokens += retry.usage.input_tokens ?? 0;
-                turnUsage.output_tokens += retry.usage.output_tokens ?? 0;
-                turnUsage.cache_creation_input_tokens += retry.usage.cache_creation_input_tokens ?? 0;
-                turnUsage.cache_read_input_tokens += retry.usage.cache_read_input_tokens ?? 0;
-              }
-              const retried = retry.content
-                .filter((b): b is Anthropic.TextBlock => b.type === "text")
-                .map((b) => b.text)
-                .join("")
-                .trim();
+              addUsage(turnUsage, retry.usage);
+              const retried = textOf(retry.content).trim();
               // Only if it actually helped. A retry that returns
               // nothing, or no better than the first attempt, leaves
               // the first in place: a blank turn is worse than one
@@ -1094,11 +1071,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   });
 
   return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-store, no-transform",
-      Connection: "keep-alive",
-    },
+    headers: { ...SSE_HEADERS, Connection: "keep-alive" },
   });
 }
 
@@ -1191,69 +1164,6 @@ async function loadVoiceOnlyBase(): Promise<string> {
   return fs.readFile(voicePath, "utf8");
 }
 
-// CACHE MARKS ON THE CONVERSATION (2026-11-14). The system prompt was
-// the only cached part, so every tool pass and every retry sent the
-// whole history again at full price, and so did the next message.
-// Two marks, with the system prompt's that is three of the four the
-// API allows:
-//   - the end of what is being sent, so the next tool pass or the
-//     retry reads all of it from the cache;
-//   - the reply before the person's latest message, the last point
-//     the next message will send unchanged (the latest message loses
-//     its context prefix next time), so a reply within five minutes
-//     reads the conversation so far from the cache.
-// The marks go on copies; what is saved and passed on is untouched.
-function withCacheMarks(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
-  const out = messages.slice();
-  const mark = (i: number) => {
-    const m = out[i];
-    if (!m) return;
-    const blocks: Anthropic.ContentBlockParam[] =
-      typeof m.content === "string"
-        ? [{ type: "text", text: m.content }]
-        : (m.content as Anthropic.ContentBlockParam[]).slice();
-    const last = blocks[blocks.length - 1];
-    if (!last || (last.type === "text" && last.text.length === 0)) return;
-    // Thinking blocks cannot carry a mark; the end of a message never is one.
-    if (last.type === "thinking" || last.type === "redacted_thinking") return;
-    blocks[blocks.length - 1] = { ...last, cache_control: { type: "ephemeral" } } as Anthropic.ContentBlockParam;
-    out[i] = { ...m, content: blocks };
-  };
-  mark(out.length - 1);
-  let latestUser = -1;
-  for (let i = out.length - 1; i >= 0; i--) {
-    if (out[i].role === "user" && typeof messages[i].content === "string") {
-      latestUser = i;
-      break;
-    }
-  }
-  if (latestUser > 0 && latestUser - 1 !== out.length - 1) mark(latestUser - 1);
-  return out;
-}
-
-function buildMessages(
-  history: ReadonlyArray<Pick<CoachingMessage, "role" | "content">>,
-  contextPrefix: string
-): Anthropic.MessageParam[] {
-  // The dynamic <company_context>/<person_context>/<coaching_context>
-  // block is prepended to the LATEST user message only. Prepending
-  // context to a stable earlier turn would keep growing the token
-  // count without any benefit, and would blow the prompt cache too.
-  const messages: Anthropic.MessageParam[] = [];
-  history.forEach((m, idx) => {
-    const isLast = idx === history.length - 1;
-    if (m.role === "user" && isLast) {
-      messages.push({
-        role: "user",
-        content: `${contextPrefix}${m.content}`,
-      });
-    } else {
-      messages.push({ role: m.role, content: m.content });
-    }
-  });
-  return messages;
-}
-
 // ---- Checked turns -----------------------------------------------
 
 const SURFACE: Record<CheckedTurn, RuleBreakSurface> = {
@@ -1321,39 +1231,6 @@ async function firstAssistantMessage(
   return data ?? null;
 }
 
-// A message already saved, sent in the same shape as a fresh reply,
-// so the chat shows it exactly as if it had just been written.
-function streamSavedMessage(row: CoachingMessage): Response {
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encodeEvent("delta", { text: row.content }));
-      controller.enqueue(encodeEvent("done", { assistantMessageId: row.id, usage: null }));
-      controller.close();
-    },
-  });
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-store, no-transform",
-    },
-  });
-}
-
-function streamErrorResponse(message: string): Response {
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(encodeEvent("error", { message }));
-      controller.close();
-    },
-  });
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-store, no-transform",
-    },
-  });
-}
-
 // After the first exchange completes, ask the model for a compact
 // four-word label and write it to the conversation title. Non-blocking
 // on the main response; failures are swallowed silently (the default
@@ -1363,7 +1240,6 @@ function streamErrorResponse(message: string): Response {
 // labelling needs only the exchange, and resending the full prompt
 // cost about 14,000 tokens a title. Thinking off, so the 64-token
 // budget always leaves room for the label.
-
 
 async function generateTitleForConversation(args: {
   client: Anthropic;
@@ -1413,12 +1289,7 @@ async function generateTitleForConversation(args: {
         usage: response.usage,
       });
     }
-    const label = cleanGeneratedTitle(
-      response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("")
-    ).slice(0, 80);
+    const label = cleanGeneratedTitle(textOf(response.content)).slice(0, 80);
     if (!label) return;
     // A name the person gave the conversation while this reply was
     // arriving is theirs; only a default title is replaced.
