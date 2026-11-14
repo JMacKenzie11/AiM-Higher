@@ -74,7 +74,7 @@ type IncomingBody = {
 // persisted as a user row); lives only in the request-time
 // message array.
 const GENERATE_OPENER_PROMPT =
-  "Open this conversation. Introduce yourself briefly in your role, then begin the guided flow you're designed for — start with your first question or step. Keep the opener under 120 words.";
+  "Open this conversation with the first question or step of the guided flow you're designed for. Do not introduce yourself or say your name: the page already says who you are. Keep the opener under 120 words.";
 
 // Default ceiling for one assistant turn; an agent that emits a whole
 // document in one turn declares its own in the registry (see

@@ -34,11 +34,11 @@ describe("plain Aimee's instructions", () => {
     expect(GENERAL_MODE_PREAMBLE).toMatch(/Your first reply is about what they said, never a figure/);
     expect(GENERAL_MODE_PREAMBLE).toMatch(/never answered with anyone else's figures/);
     expect(GENERAL_MODE_PREAMBLE).toMatch(/say whose it is/);
-    expect(GENERAL_MODE_PREAMBLE).toMatch(/It is never a reason to go and fetch one/);
+    expect(GENERAL_MODE_PREAMBLE).toMatch(/The record is never a reason to go and fetch a figure/);
   });
 
   it("offer the lookup once instead of asking them to sort the question", () => {
-    expect(GENERAL_MODE_PREAMBLE).toContain("If they're in AiMS, tell me who and I can look at how their commitments have been landing.");
+    expect(GENERAL_MODE_PREAMBLE).toContain("If they're in AiMS, tell me who and I can look at how their commitments have gone.");
     expect(GENERAL_MODE_PREAMBLE).toMatch(/Do not ask them to sort their question into a kind before you help/);
   });
 
