@@ -4,6 +4,7 @@ import type { Role } from "@/lib/types";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
 import type { CoachTool } from "@/lib/coach/tools";
 import { searchHelp } from "./search";
+import type { HelpDoc } from "./loader";
 
 // Aimee's help search. The role and the company's features are closed
 // over from the SESSION when the route builds the tool list: the model
@@ -21,6 +22,8 @@ export function makeSearchHelpTool(args: {
   // as its pages (pages/registry.ts, companyPage).
   companyId?: string | null;
   onSearch?: (found: boolean) => void;
+  // The docs this turn already read, so a search does not read them again.
+  docs?: Promise<HelpDoc[]>;
 }): CoachTool {
   return {
     definition: {
@@ -46,7 +49,7 @@ export function makeSearchHelpTool(args: {
           ? (input as { query: string }).query.trim().slice(0, 200)
           : "";
       if (!query) return { status: "empty" as const, results: [] };
-      const results = await searchHelp(query, args.role, args.features, args.companyId);
+      const results = await searchHelp(query, args.role, args.features, args.companyId, 3, args.docs);
       args.onSearch?.(results.length > 0);
       return results.length > 0
         ? { status: "found" as const, results }

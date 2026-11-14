@@ -119,9 +119,11 @@ export async function loadAllHelpFor(role: Role, viewer?: HelpViewer): Promise<H
   const v = viewer ?? (await currentHelpViewer());
   const features = new Set<string>([...helpFeaturesFor(role, v), ...uiHelpFeatures()]);
   const files = (await fs.readdir(HELP_DIR)).filter((f) => f.endsWith(".md") && f !== "README.md");
+  // Read together, kept in name order. One after another was 35 reads
+  // in a row on every Aimee turn that touched help.
+  const read = await Promise.all(files.sort().map((file) => readDoc(file.replace(/\.md$/, ""))));
   const docs: HelpDoc[] = [];
-  for (const file of files.sort()) {
-    const doc = await readDoc(file.replace(/\.md$/, ""));
+  for (const doc of read) {
     if (!doc) continue;
     if (!docAdmitsRole(doc.roles, role)) continue;
     docs.push({ ...doc, markdown: withMcpAddress(filterFeatureSections(filterRoleSections(doc.markdown, role), features), v) });
@@ -317,14 +319,19 @@ export function helpFeaturesFor(role: Role, viewer: HelpViewer): Set<HelpFeature
 // The viewer, from the request: its instance, and its own company's
 // switch read as the viewer. Anything that cannot be read leaves the
 // feature off (fail closed): help is hidden, never shown by accident.
-export async function currentHelpViewer(): Promise<HelpViewer> {
+//
+// `known` is the signed-in session when the caller already has it.
+// React's cache() does not memoise inside a route handler, so without
+// it each call signed the person in again (Aimee's turn did it three
+// or four times).
+export async function currentHelpViewer(known?: { profile?: unknown } | null): Promise<HelpViewer> {
   try {
     const { getCurrentInstanceConfig } = await import("@/lib/instances/current");
     const { getCurrentSession } = await import("@/lib/auth/current-user");
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const instance = await getCurrentInstanceConfig();
     const { currentRequestOrigin } = await import("@/lib/instances/origin");
-    const session = await getCurrentSession();
+    const session = known ?? (await getCurrentSession());
     let companyAssistantsOn = false;
     if (session?.profile) {
       // As the viewer, so RLS limits it to the companies they can see:

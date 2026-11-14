@@ -5,6 +5,7 @@ import type { Role } from "@/lib/types";
 import type { ModuleFeature } from "@/lib/subscriptions/service";
 import { PAGES, canRoleOpen, pathMatchesPattern, type PageEntry } from "@/lib/pages/registry";
 import { pageSummaryFor } from "@/lib/help/search";
+import type { HelpDoc } from "@/lib/help/loader";
 import { RECORD_SOURCES, UUID } from "./record-sources";
 
 // WHAT IS OPEN BESIDE AIMEE'S PANEL (Step 4,
@@ -90,12 +91,13 @@ export async function describePageContext(
   supabase: SupabaseClient,
   input: PageContextInput | null,
   role: Role,
-  features: readonly ModuleFeature[]
+  features: readonly ModuleFeature[],
+  docs?: Promise<HelpDoc[]>
 ): Promise<string> {
   if (!input) return "";
   const page = pageFor(input.path, role, features);
   if (!page) return "";
-  const summary = await pageSummaryFor(page, role);
+  const summary = await pageSummaryFor(page, role, docs);
 
   // The record: the page's own when it is a record page, otherwise one
   // a drawer has open, if its page is one this person can open too.
