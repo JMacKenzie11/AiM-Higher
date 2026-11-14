@@ -7,19 +7,20 @@ import Anthropic from "@anthropic-ai/sdk";
 import { requireProfile } from "@/lib/auth/current-user";
 import { reportError } from "@/lib/observability/report";
 import { loadSystemPrompt } from "@/lib/coach/turn/prompt";
+import { SURFACE, turnCheckFor } from "@/lib/coach/turn/checked-turn";
+import { firstAssistantMessage } from "@/lib/coach/turn/persist";
+import { generateTitleForConversation } from "@/lib/coach/turn/title";
+import { resolvePracticeTools } from "@/lib/coach/turn/practice-tools";
 import { encodeEvent, SSE_HEADERS, streamErrorResponse, streamSavedMessage } from "@/lib/coach/turn/sse";
 import { buildMessages, withCacheMarks } from "@/lib/coach/turn/messages";
 import { addUsage, textOf } from "@/lib/coach/turn/anthropic";
-import { isDefaultTitle } from "@/lib/coach/default-title";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCoachContext } from "@/lib/coach/context";
 import { vividVisionKeepBlock, writesVividVision } from "@/lib/foundation/vivid-vision-keep";
 import { googleDocsConfigured } from "@/lib/google-docs/config";
-import { buildCoachTools, type CoachTool } from "@/lib/coach/tools";
+import { buildCoachTools } from "@/lib/coach/tools";
 import { makePersonRecordTool } from "@/lib/coach/person-tool";
 import { toolLabel } from "@/lib/coach/tool-labels";
-import { buildRoleDescriptionTools } from "@/lib/role-descriptions/agent-tools";
-import { buildGuideTools } from "@/lib/guide/agent-tools";
 import { formatHelpIndex, helpIndexFor } from "@/lib/help/search";
 import { makeSearchHelpTool } from "@/lib/help/tool";
 import { PANEL_PROMPT_BLOCK, recordPanelEvent } from "@/lib/aimee/panel";
@@ -29,25 +30,14 @@ import {
   offerableSessions,
   sessionOfferPromptBlock,
 } from "@/lib/aimee/session-offers";
-import { recordRuleBreak, type RuleBreakSurface } from "@/lib/aimee/rule-breaks";
-import {
-  checkVoice,
-  COUNTED,
-  SENT_BACK,
-  type CheckContext,
-  type CheckedTurn,
-  type VoiceCheck,
-} from "@/lib/aimee/voice-check";
+import { recordRuleBreak } from "@/lib/aimee/rule-breaks";
+import { checkVoice, COUNTED, type CheckedTurn } from "@/lib/aimee/voice-check";
 import { stripEmDashes } from "@/lib/voice/strip-dashes";
 import { describePageContext, parsePageContext } from "@/lib/aimee/page-context";
 import { getCompanyFeatures, type ModuleFeature } from "@/lib/subscriptions/service";
-import { cleanGeneratedTitle, TITLE_SYSTEM } from "@/lib/coach/title";
 import { logCoachTokenUsage } from "@/lib/coach/usage";
-import { STRENGTH_CHECK_MODEL, skippedStrength } from "@/lib/coach/strength-check";
+import { STRENGTH_CHECK_MODEL } from "@/lib/coach/strength-check";
 import { trackAfter } from "@/lib/analytics/track";
-import {
-  type PracticeToolName,
-} from "@/lib/practices/registry";
 import { resolveAgent } from "@/lib/practices/resolve";
 import { resolveRuntimeConfig } from "@/lib/practices/version-config";
 import {
@@ -56,7 +46,6 @@ import {
   type CoachingMessage,
 } from "@/lib/coach/service";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { callSettings } from "@/lib/transcripts/model";
 import {
   ATTACHMENT_MAX_FILES,
   composeMessage,
@@ -1081,72 +1070,9 @@ function parseAttachments(raw: unknown): Attachment[] {
 }
 
 
-// ---- Checked turns -----------------------------------------------
 
-const SURFACE: Record<CheckedTurn, RuleBreakSurface> = {
-  opener: "opener",
-  "debrief reply": "debrief_reply",
-  "first reply": "first_reply",
-};
 
-// One attempt at a held-back turn, checked against what that turn is
-// sent back for, with the context it was checked in.
-type CheckedAttempt = VoiceCheck & { ctx: CheckContext };
 
-// The check for one kind of held-back turn: the same rules module for
-// all three, so the route runs one flow. A debrief reply's quotes are
-// checked against what was said: the meeting transcript, read once here
-// under the caller's own session (same-company members can read the
-// meeting row, 0142) and never shown to the model.
-async function turnCheckFor(
-  kind: CheckedTurn,
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  convo: CoachingConversation,
-  firstReply: { client: Anthropic; userText: string; logUsage: (usage: Anthropic.Usage) => void }
-): Promise<(text: string) => Promise<CheckedAttempt>> {
-  const userText = firstReply.userText;
-  if (kind === "first reply") {
-    // The strength check is a model call (strength-check.ts), so it
-    // runs only when the person's message has a turn in it, and fails
-    // open after 2.5 seconds.
-    return async (text) => {
-      const ctx: CheckContext = {
-        userText,
-        skippedStrength: await skippedStrength(firstReply.client, userText, text, firstReply.logUsage),
-      };
-      return { ...checkVoice(text, SENT_BACK[kind], ctx), ctx };
-    };
-  }
-  if (kind === "opener") {
-    return async (text) => ({ ...checkVoice(text, SENT_BACK[kind], { userText }), ctx: { userText } });
-  }
-  const { data: meeting } = convo.debriefing_meeting_id
-    ? await supabase
-        .from("meetings")
-        .select("transcript_text")
-        .eq("id", convo.debriefing_meeting_id)
-        .maybeSingle<{ transcript_text: string | null }>()
-    : { data: null };
-  const ctx: CheckContext = { userText, transcript: meeting?.transcript_text ?? "" };
-  return async (text) => ({ ...checkVoice(text, SENT_BACK[kind], ctx), ctx });
-}
-
-// The conversation's first assistant message: its opener, when there
-// is one.
-async function firstAssistantMessage(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  conversationId: string
-): Promise<CoachingMessage | null> {
-  const { data } = await supabase
-    .from("coaching_messages")
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .eq("role", "assistant")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle<CoachingMessage>();
-  return data ?? null;
-}
 
 // After the first exchange completes, ask the model for a compact
 // four-word label and write it to the conversation title. Non-blocking
@@ -1158,107 +1084,4 @@ async function firstAssistantMessage(
 // cost about 14,000 tokens a title. Thinking off, so the 64-token
 // budget always leaves room for the label.
 
-async function generateTitleForConversation(args: {
-  client: Anthropic;
-  model: string;
-  messages: Anthropic.MessageParam[];
-  assistantText: string;
-  conversationId: string;
-  companyId: string | null;
-  currentUserId: string;
-  signal?: AbortSignal;
-  // The request's own client, made while the request was live. The
-  // label lands after the reply has finished, and a client made then
-  // reads cookies outside the request, which Next refuses ("used
-  // cookies inside after"): the write threw, the catch below swallowed
-  // it, and the conversation kept its date title. On production 7 of
-  // the 10 plain Aimee conversations started since 1 Nov 2026 still
-  // had "Coaching · <date>" (Jason, 2026-11-13).
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
-}): Promise<void> {
-  try {
-    const followup: Anthropic.MessageParam[] = [
-      ...args.messages,
-      { role: "assistant", content: args.assistantText },
-      {
-        role: "user",
-        content:
-          "Give this conversation a four-word topic label. Reply with the label only, as plain text — no punctuation, no quotes, no markdown formatting (no asterisks, underscores, backticks, or hash marks).",
-      },
-    ];
-    const response = await args.client.messages.create(
-      {
-        model: args.model,
-        max_tokens: 64,
-        ...callSettings(args.model, "off"),
-        messages: followup,
-        system: TITLE_SYSTEM,
-      },
-      { signal: args.signal }
-    );
-    // Log title-generation cost before we branch on success.
-    if (response.usage) {
-      void logCoachTokenUsage({
-        conversationId: args.conversationId,
-        companyId: args.companyId,
-        purpose: "title",
-        model: args.model,
-        usage: response.usage,
-      });
-    }
-    const label = cleanGeneratedTitle(textOf(response.content)).slice(0, 80);
-    if (!label) return;
-    // A name the person gave the conversation while this reply was
-    // arriving is theirs; only a default title is replaced.
-    const { data: current } = await args.supabase
-      .from("coaching_conversations")
-      .select("title")
-      .eq("id", args.conversationId)
-      .maybeSingle<{ title: string | null }>();
-    if (current && !isDefaultTitle(current.title)) return;
-    const { error } = await args.supabase
-      .from("coaching_conversations")
-      .update({ title: label })
-      .eq("id", args.conversationId);
-    if (error) {
-      console.error(`[coach] title not saved for ${args.conversationId}:`, error.message);
-      reportError("coach.title_not_saved", error, { conversationId: args.conversationId });
-    }
-  } catch (err) {
-    if (!args.signal?.aborted) {
-      console.error(`[coach] title failed for ${args.conversationId}:`, err instanceof Error ? err.message : err);
-    }
-    // Silent — the default date title stays.
-  }
-}
 
-// Practice tool tags to the tools themselves.
-//
-// The registry holds string tags rather than builders, so it stays
-// serializable to the client components that render the agent
-// picker. This is where they become tools, and it is the one place
-// a new practice tool set has to be added.
-//
-// An unknown tag is DROPPED, not thrown. A typo in the registry
-// should cost the agent a tool it can notice missing, not the whole
-// conversation with a 500.
-function resolvePracticeTools(
-  names: readonly PracticeToolName[] | undefined,
-  companyId: string,
-  revisingRoleId: string | null,
-  debriefingMeetingId: string | null
-): CoachTool[] {
-  if (!names || names.length === 0) return [];
-  const wanted = new Set<string>(names);
-  const available = [
-    ...(wanted.has("get_foundation") ||
-    wanted.has("list_functions") ||
-    wanted.has("get_role_description")
-      ? buildRoleDescriptionTools({ companyId, revisingRoleId })
-      : []),
-    ...(wanted.has("get_meeting_debrief")
-      ? buildGuideTools({ debriefingMeetingId })
-      : []),
-  ];
-  return available.filter((t) => wanted.has(t.definition.name));
-}
