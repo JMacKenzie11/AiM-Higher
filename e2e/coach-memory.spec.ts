@@ -299,9 +299,11 @@ test.describe("coach memory", () => {
     // so failed a textbook-correct answer. A test that only accepts
     // the wording its author predicted is testing the author. Again on
     // 2026-11-14: "you've mentioned" was refused for lacking "you
-    // mentioned".
+    // mentioned", then "from earlier conversations, i've got that"
+    // for lacking anything listed. The claim is recall framing, so the
+    // list covers the ways of saying "I have this from before".
     const recallFramed =
-      /last time|previously|you(?:'?ve| have)? mentioned|you(?:'?ve| have)? said|you(?:'?ve| have)? told me|earlier (today|you)|when we (last )?spoke|we'?ve talked|on record|i have (it )?(down|on record)|from our last|a guess of my own/.test(
+      /last time|previously|you(?:'?ve| have)? mentioned|you(?:'?ve| have)? said|you(?:'?ve| have)? told me|earlier (today|you|conversations?)|(from|in) (our )?(earlier|previous|past) (conversations?|chats?)|i(?:'?ve| have) got( down)?|i (remember|recall)|my notes|when we (last )?spoke|we'?ve talked|on record|i have (it )?(down|on record)|from our last|a guess of my own/.test(
         answer
       );
     const honestlyBlank =
