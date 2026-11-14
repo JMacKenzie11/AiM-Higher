@@ -51,11 +51,9 @@ export const metadata = { title: "Role description" };
 // 3–6s). If the model call fails, the async component falls back to
 // a data-only render — no exception ever leaves.
 //
-// Access:
-//   - System admins, company admins for the function's company,
-//     and aims_guides assigned to the company can view any time —
-//     including in-progress drafts.
-//   - Team members can view only when every readiness gate passes.
+// Access: anyone who can see the function can view the page and
+// download it, drafts included (see the note above the return).
+// Editing, Publish and Regenerate are for isAdminForCompany only.
 
 type PageProps = { params: Promise<{ id: string }> };
 

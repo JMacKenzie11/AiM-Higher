@@ -12,14 +12,14 @@ It's made up of Position Summary, Core Success Outcomes, Critical success factor
 ## What you can do here
 
 - **Read the role description.** Everyone at the company can read it.
-- **Download it.** *Download* gives you a Word file that opens cleanly in Word, Pages and Google Docs.
+- **Download it.** *Download* gives you a Word file of what you see on the page, draft or not. It opens cleanly in Word, Pages and Google Docs.
 - **See published versions.** The *Versions* section at the bottom lists every published version, each with its own *Download*.
 :::
 
 ::: role company_admin,aims_guide,system_admin
 ## What you can do here
 
-- **Read and download it.** *Download* gives you a Word file that opens cleanly in Word, Pages and Google Docs.
+- **Read and download it.** *Download* gives you a Word file of what you see on the page, draft or not. It opens cleanly in Word, Pages and Google Docs.
 - **Edit the free-form prose.** Position Summary, Why This Role Matters, each part of Qualifications (Experience, Education, Certifications) and each part of Strengths & Expertise (Technical, Strategic, Interpersonal, Ownership) has an edit button. A section you've changed shows an *Edited* tag and a *Restore generated* link. Your edits are kept when the rest is redrafted.
 - **Regenerate.** Redrafts the written sections from scratch, keeping your edits. Use it after a change to the Foundation page.
 - **Publish a version.** Saves the role description as it stands, with your edits, as a numbered version (v1, v2, v3 and so on) that won't change. You can add a note.
@@ -38,11 +38,15 @@ It's made up of Position Summary, Core Success Outcomes, Critical success factor
 - **Written for you.** Position Summary, why each outcome matters and how it connects to your values, the context for each responsibility, Strengths & Expertise, Qualifications and Why This Role Matters are drafted in the AiMS voice. Core values are in bold where they're named, and no one is mentioned by name.
 - **Kept up to date.** Change anything on the function and the role description is redrafted next time it's opened. Changes to the Foundation page (purpose, values, differentiators) aren't picked up until someone presses *Regenerate*.
 
-If the role description was written with the Role Description Creator in Ask Aimee, you see that version here instead.
+## Role descriptions written with Aimee
+
+If the role description was written with the *Role Description Creator* in Ask Aimee, you see that version here instead. It has no *Download* at the top, and no *Publish version*, *Regenerate* or edit buttons. To download it, use the *Download* beside it under *Versions*.
+
+To change it, open it on the *Role Descriptions* card on Team and click *Revise with Aimee*. Admins and anyone who heads up a function have that button.
 
 ## Common questions
 
-**Why can't I open this page?** Role Descriptions has to be switched on for your company. If it's off, the page isn't there.
+**Why can't I open this page?** Role descriptions are now written with the *Role Description Creator* in Ask Aimee, under *People*. Saved ones are listed on the *Role Descriptions* card on Team.
 
 **A section isn't showing.** Sections with nothing in them are hidden. Until the function has everything a role description needs, a line at the top says *Draft* and names what to add on the function: responsibilities, three critical success factors with targets, decision rights, or three behaviors that show excellence. It links to the function so you can add them.
 
