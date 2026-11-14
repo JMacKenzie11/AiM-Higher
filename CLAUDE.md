@@ -159,6 +159,15 @@ The same line shapes `.github/pull_request_template.md`. The exemption
 also goes in the PR body as `Docs-exempt: <reason>` on its own line,
 which is the form `npm run check:docs` reads.
 
+## Aimee
+
+**Any change to Aimee follows `docs/aimee-rules.md`** (Jason,
+2026-11-14). In short: measure instruction changes with `npm run
+eval:aimee` before and after; stay inside the prompt budgets; set a
+turn up once and cache everything sent twice; give thinking room in
+every cap; keep bookkeeping off the person's wait; pin behaviour in
+`route-characterisation.test.ts` before moving it.
+
 ## Permissions
 
 **portfolio_admin may hold a write policy only on `companies`,
