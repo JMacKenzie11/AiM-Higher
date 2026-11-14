@@ -31,7 +31,6 @@ function query(table: string) {
     },
     eq: (col: string, v: unknown) => {
       rows = rows.filter((r) => r[col] === v);
-      if (pendingUpdate) for (const r of rows) Object.assign(r, pendingUpdate);
       return builder;
     },
     neq: (col: string, v: unknown) => {
@@ -54,8 +53,12 @@ function query(table: string) {
       pendingUpdate = patch;
       return builder;
     },
-    then: (resolve: (v: { data: Row[]; error: null }) => unknown) =>
-      resolve({ data: rows, error: null }),
+    // An update lands on the rows every filter leaves, as in Postgres
+    // (the sweep's claim filters on the watermark after the id).
+    then: (resolve: (v: { data: Row[]; error: null }) => unknown) => {
+      if (pendingUpdate) for (const r of rows) Object.assign(r, pendingUpdate);
+      return resolve({ data: rows, error: null });
+    },
   };
   return builder;
 }

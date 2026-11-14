@@ -129,7 +129,7 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
 //
 // Open Ask Aimee and wait for the memory sweep it fires to FINISH.
 //
-// The sweep is a server action the page fires on mount. Navigating on
+// The sweep is a request the page fires on mount. Navigating on
 // at once (waitForMemory goes straight to the Memory page) could cut
 // it off before it reached the server; the memory then landed during
 // the NEXT test, after that test had cleared memory, and one test
@@ -139,7 +139,7 @@ async function sendAndWait(page: import("@playwright/test").Page, text: string) 
 async function openAskAimeeAndSweep(page: import("@playwright/test").Page): Promise<void> {
   const swept = page
     .waitForResponse(
-      (r) => r.request().method() === "POST" && !!r.request().headers()["next-action"],
+      (r) => r.request().method() === "POST" && r.url().endsWith("/api/coach/memory/sweep"),
       { timeout: 180_000 }
     )
     .catch(() => null);
@@ -299,9 +299,11 @@ test.describe("coach memory", () => {
     // so failed a textbook-correct answer. A test that only accepts
     // the wording its author predicted is testing the author. Again on
     // 2026-11-14: "you've mentioned" was refused for lacking "you
-    // mentioned".
+    // mentioned", then "from earlier conversations, i've got that"
+    // for lacking anything listed. The claim is recall framing, so the
+    // list covers the ways of saying "I have this from before".
     const recallFramed =
-      /last time|previously|you(?:'?ve| have)? mentioned|you(?:'?ve| have)? said|you(?:'?ve| have)? told me|earlier (today|you)|when we (last )?spoke|we'?ve talked|on record|i have (it )?(down|on record)|from our last|a guess of my own/.test(
+      /last time|previously|you(?:'?ve| have)? mentioned|you(?:'?ve| have)? said|you(?:'?ve| have)? told me|earlier (today|you|conversations?)|(from|in) (our )?(earlier|previous|past) (conversations?|chats?)|i(?:'?ve| have) got( down)?|i (remember|recall)|my notes|when we (last )?spoke|we'?ve talked|on record|i have (it )?(down|on record)|from our last|a guess of my own/.test(
         answer
       );
     const honestlyBlank =

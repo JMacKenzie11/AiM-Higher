@@ -744,3 +744,13 @@ describe("parseMemoryResponse caps inferences", () => {
     expect(out).toHaveLength(MAX_MEMORIES_PER_CONVERSATION);
   });
 });
+
+describe("readMemoryResponse", () => {
+  it("tells an empty answer from an illegible one", async () => {
+    const { readMemoryResponse } = await import("./memory-shape");
+    expect(readMemoryResponse('{"memories": []}')).toEqual({ legible: true, drafts: [] });
+    expect(readMemoryResponse("I would keep the handover.").legible).toBe(false);
+    expect(readMemoryResponse("").legible).toBe(false);
+    expect(readMemoryResponse('```json\n{"memories":[{"kind":"said","content":"Plans to call Sam."}]}\n```').drafts).toHaveLength(1);
+  });
+});

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { summarizeFinishedConversationsAction } from "@/lib/coach/memory-actions";
 
 // The write-after trigger: coaching-surface entry.
 //
@@ -29,7 +28,16 @@ export function MemorySweep({
   useEffect(() => {
     if (fired.current) return;
     fired.current = true;
-    void summarizeFinishedConversationsAction(openConversationId).catch(() => {
+    // A request, not a server action: actions run one at a time, and a
+    // sweep with work to do held up everything else on the page
+    // (api/coach/memory/sweep). keepalive lets it finish if the person
+    // moves on.
+    void fetch("/api/coach/memory/sweep", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ openConversationId }),
+      keepalive: true,
+    }).catch(() => {
       // Intentionally silent. See above.
     });
   }, [openConversationId]);
