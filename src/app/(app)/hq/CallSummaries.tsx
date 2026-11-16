@@ -19,6 +19,9 @@ export function CompanyChips({
 }) {
   return (
     <div role="group" aria-label="Company" className={t.chips}>
+      <span className={t.chipsLabel} aria-hidden="true">
+        Company
+      </span>
       <Link
         href="/hq#coaching-calls"
         scroll={false}
