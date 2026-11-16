@@ -34,7 +34,7 @@ export default function CoachesPage() {
             </p>
             <div className={styles.heroCtas}>
               <a href={demoUrl()} className={styles.primaryCta}>
-                Talk to us about becoming an AiMS Guide
+                Talk to us about becoming an AiMS Coach
               </a>
             </div>
           </div>
@@ -69,7 +69,7 @@ export default function CoachesPage() {
       {/* --- What an AiMS Guide gets --- */}
       <section className={styles.platformAtGlance}>
         <div className={styles.sectionInner}>
-          <h2 className={styles.sectionHeadline}>What an AiMS Guide gets</h2>
+          <h2 className={styles.sectionHeadline}>What an AiMS Coach gets</h2>
           <span className={styles.sectionRule} aria-hidden="true" />
           <div className={styles.problemGrid}>
             <div className={styles.problemCard}>
@@ -160,7 +160,7 @@ export default function CoachesPage() {
           </h2>
           <div>
             <a href={demoUrl()} className={styles.primaryCta}>
-              Talk to us about becoming an AiMS Guide
+              Talk to us about becoming an AiMS Coach
             </a>
           </div>
         </div>

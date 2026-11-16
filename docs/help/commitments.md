@@ -48,7 +48,7 @@ Everything a team member can do with their own commitments, for anyone's:
 - **Change the wording or notes of any commitment.** Open it and press *Save*.
 - **Delete any commitment**, including one already closed out. *Undo* stays on screen for 30 seconds.
 - **Correct a late one to on time** from the circle's menu, when it really was done on time.
-- **Add a commitment for anyone on the team.** The owner list includes the AiMS Guides and portfolio admins assigned to the company, whoever is looking, including when you are one of them yourself.
+- **Add a commitment for anyone on the team.** The owner list includes the AiMS Coaches and portfolio admins assigned to the company, whoever is looking, including when you are one of them yourself.
 - **Open the source meeting.** *From meeting* on a commitment opens the meeting it came from.
 
 Everyone's commitments for the week are in one list under *This week*, so you can go through them together in the meeting. With no open quarter, a company admin's *Open this quarter* takes them to Quarters.

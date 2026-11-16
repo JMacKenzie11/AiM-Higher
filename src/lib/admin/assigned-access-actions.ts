@@ -53,7 +53,7 @@ export async function removeGuideFromCompanyAction(
   if (guide?.company_id === companyId) {
     return {
       ok: false,
-      message: "This is the guide's own company. A system admin can change that.",
+      message: "This is the coach's own company. A system admin can change that.",
     };
   }
 

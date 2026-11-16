@@ -1,11 +1,11 @@
 ---
-title: Guide HQ
+title: Coach HQ
 roles: [system_admin, aims_guide]
 ---
 
-# Guide HQ
+# Coach HQ
 
-Your home base as an AiMS Guide: your own commitments, the companies that need you this week, and a brief to prepare each coaching session. It covers only the companies you're assigned to guide.
+Your home base as an AiMS Coach: your own commitments, the companies that need you this week, and a brief to prepare each coaching session. It covers only the companies you're assigned to coach.
 
 ## What you can do here
 
@@ -28,7 +28,7 @@ The dialog shows your two most recent briefs for that company, so you can compar
 
 Click the company's name in *Your companies* or on a *Needs your attention* row. The sidebar then shows that company's pages.
 
-Only clicking a company moves you into it. Opening a page or a conversation from another company doesn't. If you guide just one company, you're taken into it automatically.
+Only clicking a company moves you into it. Opening a page or a conversation from another company doesn't. If you coach just one company, you're taken into it automatically.
 
 ::: role system_admin
 To step back out, use *Exit {company}* in the user menu.
@@ -39,5 +39,5 @@ To step back out, use *Exit {company}* in the user menu.
 **Why can't I reassign a commitment or link it to a priority from My commitments?** Those need the company's own page. Open Commitments inside that company.
 
 ::: role system_admin
-**I have no companies assigned. Why the notice?** Guide HQ only shows companies you're assigned to guide, even for a system admin. Your access to every company is unchanged. To see your own commitments, open Commitments inside a company.
+**I have no companies assigned. Why the notice?** Coach HQ only shows companies you're assigned to coach, even for a system admin. Your access to every company is unchanged. To see your own commitments, open Commitments inside a company.
 :::

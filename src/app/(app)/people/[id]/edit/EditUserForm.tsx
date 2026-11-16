@@ -56,7 +56,7 @@ export function EditUserForm({
   // will work, never the reason it does.
   if (canGrantAdmin) {
     roleOptions.push({ value: "system_admin", label: "System admin" });
-    roleOptions.push({ value: "aims_guide", label: "AiMS guide" });
+    roleOptions.push({ value: "aims_guide", label: "AiMS coach" });
     roleOptions.push({ value: "portfolio_admin", label: "Portfolio admin" });
   }
   // A guide in their own company, seen by anyone else: show the role
@@ -65,7 +65,7 @@ export function EditUserForm({
   // system admin.
   if (!roleOptions.some((o) => o.value === subject.role)) {
     const held: Record<string, string> = {
-      aims_guide: "AiMS guide",
+      aims_guide: "AiMS coach",
       system_admin: "System admin",
       portfolio_admin: "Portfolio admin",
     };

@@ -223,7 +223,7 @@ describe("addExtractedIssueToOpenIssuesAction", () => {
       "New issue"
     );
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/admins and guides/i);
+    if (!result.ok) expect(result.message).toMatch(/admins and coaches/i);
     expect(mocks.issuesInsertPatch).not.toHaveBeenCalled();
   });
 
@@ -293,7 +293,7 @@ describe("addExtractedIssueAsResolvedAction", () => {
       "Already handled in the meeting"
     );
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/admins and guides/i);
+    if (!result.ok) expect(result.message).toMatch(/admins and coaches/i);
     expect(mocks.issuesInsertPatch).not.toHaveBeenCalled();
   });
 
@@ -382,7 +382,7 @@ describe("addExtractedCommitmentAction", () => {
     mocks.requireProfile.mockResolvedValue({ profile: MEMBER });
     const result = await addExtractedCommitmentAction(baseInput);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/admins and guides/i);
+    if (!result.ok) expect(result.message).toMatch(/admins and coaches/i);
     expect(mocks.commitmentsInsertPatch).not.toHaveBeenCalled();
   });
 
@@ -520,7 +520,7 @@ describe("convertExtractedCommitmentToIssueAction", () => {
       "Some description"
     );
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/admins and guides/i);
+    if (!result.ok) expect(result.message).toMatch(/admins and coaches/i);
     expect(mocks.issuesInsertPatch).not.toHaveBeenCalled();
   });
 

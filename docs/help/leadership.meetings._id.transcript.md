@@ -16,6 +16,6 @@ The transcript is the recording's own words, so it can include mistakes the reco
 
 ## Common questions
 
-**Who can read this?** Everyone at your company, along with your AiMS guide. It's the same group that can read the meeting's write-up.
+**Who can read this?** Everyone at your company, along with your AiMS coach. It's the same group that can read the meeting's write-up.
 
 **Can I change it?** No. The transcript is the record of what was said. To correct the write-up or a commitment, use the meeting page or Commitments.

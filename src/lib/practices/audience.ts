@@ -58,12 +58,13 @@ function featureLabel(value: string): string {
   return COMPANY_FEATURES.find((f) => f.value === value)?.label ?? value;
 }
 
-// "company admins", "guides", "system admins". Each pluralised, not
+// "company admins", "coaches", "system admins". Each pluralised, not
 // just the last one in the list.
 function pluralRoleLabel(role: string): string {
   const label =
     HUB_ROLE_OPTIONS.find((o) => o.value === role)?.label.toLowerCase() ?? role;
-  return label.endsWith("s") ? label : `${label}s`;
+  if (label.endsWith("s")) return label;
+  return /(ch|sh|x)$/.test(label) ? `${label}es` : `${label}s`;
 }
 
 function joinWords(parts: string[]): string {

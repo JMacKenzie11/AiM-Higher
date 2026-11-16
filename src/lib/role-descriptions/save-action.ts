@@ -123,7 +123,7 @@ export async function saveRoleDescriptionAction(
     return {
       ok: false,
       message:
-        "Saving a role description is for admins, guides, and anyone who heads up a function.",
+        "Saving a role description is for admins, coaches, and anyone who heads up a function.",
     };
   }
 

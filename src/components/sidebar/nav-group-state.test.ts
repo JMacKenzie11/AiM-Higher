@@ -26,7 +26,7 @@ describe("the defaults", () => {
     // assertion in this file refers to DEFAULT_COLLAPSED_GROUPS
     // symbolically and would happily pass against any contents.
     expect([...DEFAULT_COLLAPSED_GROUPS].sort()).toEqual([
-      "Guide HQ",
+      "Coach HQ",
       "Portfolio",
       "Resources",
       "Strengths",
@@ -92,15 +92,24 @@ describe("parseCollapsedGroups", () => {
   });
 
   it("reads a list back", () => {
-    expect(parseCollapsedGroups("Guide HQ,Disciplines")).toEqual([
-      "Guide HQ",
+    expect(parseCollapsedGroups("Coach HQ,Disciplines")).toEqual([
+      "Coach HQ",
       "Disciplines",
     ]);
   });
 
   it("tolerates spacing and empty entries", () => {
-    expect(parseCollapsedGroups(" Guide HQ , ,Portfolio ")).toEqual([
-      "Guide HQ",
+    expect(parseCollapsedGroups(" Coach HQ , ,Portfolio ")).toEqual([
+      "Coach HQ",
+      "Portfolio",
+    ]);
+  });
+
+  it("reads a cookie saved under the group's old name", () => {
+    // "Guide HQ" was renamed "Coach HQ". A cookie lasts a year, so
+    // somebody who closed it before the rename keeps it closed.
+    expect(parseCollapsedGroups("Guide HQ,Portfolio")).toEqual([
+      "Coach HQ",
       "Portfolio",
     ]);
   });
@@ -112,13 +121,13 @@ describe("serializeCollapsedGroups", () => {
   });
 
   it("writes a list", () => {
-    expect(serializeCollapsedGroups(["Guide HQ", "Portfolio"])).toBe(
-      "Guide HQ,Portfolio"
+    expect(serializeCollapsedGroups(["Coach HQ", "Portfolio"])).toBe(
+      "Coach HQ,Portfolio"
     );
   });
 
   it("round-trips, which is the whole contract", () => {
-    for (const set of [[], ["Guide HQ"], ["Guide HQ", "Disciplines"]]) {
+    for (const set of [[], ["Coach HQ"], ["Coach HQ", "Disciplines"]]) {
       expect(parseCollapsedGroups(serializeCollapsedGroups(set))).toEqual(set);
     }
   });

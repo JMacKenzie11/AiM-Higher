@@ -50,7 +50,7 @@ export async function reviseRoleDescriptionAction(
     return {
       ok: false,
       message:
-        "Revising a role description is for admins, guides, and anyone who heads up a function.",
+        "Revising a role description is for admins, coaches, and anyone who heads up a function.",
     };
   }
 

@@ -179,5 +179,5 @@ Nobody is chased for a number that was logged or came in from a connected spread
 **Where did KPIs go?** There's one level now. What used to be a KPI is a critical success factor, with its target and every logged week kept.
 
 ::: role company_admin,aims_guide,system_admin
-**Do guides have admin access here?** Yes, on the companies they're assigned to. They can add, edit and archive, and log values for anyone.
+**Do coaches have admin access here?** Yes, on the companies they're assigned to. They can add, edit and archive, and log values for anyone.
 :::

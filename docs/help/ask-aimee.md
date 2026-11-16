@@ -66,7 +66,7 @@ In a conversation you started, click *Share this chat* at the top. Search for so
 - **Collaborate.** They can reply to Aimee in the same conversation.
 - **Read-only.** They can follow along.
 
-Either way they see every message, from before and after they joined. You can share only with people at your company and the AiMS Guides assigned to it.
+Either way they see every message, from before and after they joined. You can share only with people at your company and the AiMS Coaches assigned to it.
 
 Only you can invite people, change their access, remove them, rename the conversation or archive it. Anyone you've shared with can open the same button and click *Leave this chat*. Once a conversation is shared, each message shows who sent it.
 
@@ -87,7 +87,7 @@ Panel conversations are listed here with your others.
 
 ## Common questions
 
-**Who can see my conversations?** Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. If you share one, the people you share it with can see it too. Admins, your manager and AiMS Guides can't see them.
+**Who can see my conversations?** Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee. If you share one, the people you share it with can see it too. Admins, your manager and AiMS Coaches can't see them.
 
 **Where do I see what Aimee remembers?** In the Memory card on your profile page. You can correct or delete any of it.
 
@@ -102,9 +102,9 @@ Panel conversations are listed here with your others.
 ::: role aims_guide,system_admin
 **A conversation is missing from my list.** The list shows the company you're currently in. Check which company you're in before assuming it's gone.
 
-**I opened a conversation from another company and my company didn't change.** That's expected. The conversation opens in its own company, and you stay where you were. To move, pick the company from Guide HQ or the Companies list.
+**I opened a conversation from another company and my company didn't change.** That's expected. The conversation opens in its own company, and you stay where you were. To move, pick the company from Coach HQ or the Companies list.
 :::
 
 ::: role company_admin,aims_guide,system_admin
-**Why can't someone at my company see the Functional Chart Builder?** It's for company admins, system admins and AiMS Guides assigned to the company. If someone who should have it can't see it, ask AiMS to check their role and, for a guide, which companies they're assigned to.
+**Why can't someone at my company see the Functional Chart Builder?** It's for company admins, system admins and AiMS Coaches assigned to the company. If someone who should have it can't see it, ask AiMS to check their role and, for a coach, which companies they're assigned to.
 :::

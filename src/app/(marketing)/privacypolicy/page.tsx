@@ -49,7 +49,7 @@ export default function PrivacyPolicyPage() {
 
         <h2>Who can see it</h2>
         <p>
-          Your company&rsquo;s information is visible to people in your company according to their role, and to the AiMS guide or administrators your company works with. Your conversations with Aimee are private to you unless you share them.
+          Your company&rsquo;s information is visible to people in your company according to their role, and to the AiMS coach or administrators your company works with. Your conversations with Aimee are private to you unless you share them.
         </p>
         <p>
           We use service providers to run the app: hosting and database (Vercel, Supabase), email delivery (Resend), error monitoring (Sentry), and the language models behind Aimee (Anthropic). They process information only to provide their service to us.

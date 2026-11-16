@@ -38,7 +38,7 @@ export function CreateGuideForm({
   const errorMessage =
     state && "ok" in state && !state.ok && state.message ? state.message : null;
   const successMessage =
-    state && "ok" in state && state.ok ? "Guide created." : null;
+    state && "ok" in state && state.ok ? "Coach created." : null;
 
   return (
     <form action={formAction} className={styles.form}>
@@ -139,7 +139,7 @@ export function CreateGuideForm({
           className={styles.primaryButton}
           disabled={pending || selectedCompanies.length === 0}
         >
-          {pending ? "Adding…" : "Add guide"}
+          {pending ? "Adding…" : "Add coach"}
         </button>
       </div>
     </form>

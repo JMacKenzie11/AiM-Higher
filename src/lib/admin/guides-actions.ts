@@ -62,7 +62,7 @@ export async function createGuideAction(
     return {
       ok: false,
       message:
-        "Pick at least one company to assign the guide to before creating them.",
+        "Pick at least one company to assign the coach to before creating them.",
     };
   }
 
@@ -100,7 +100,7 @@ export async function createGuideAction(
     await admin.auth.admin.deleteUser(guideId);
     return {
       ok: false,
-      message: `Couldn't set up the guide profile: ${profileErr.message}`,
+      message: `Couldn't set up the coach profile: ${profileErr.message}`,
     };
   }
 
@@ -130,7 +130,7 @@ export async function createGuideAction(
   const dispatch = await dispatchInvite(guideId, email);
   if (!dispatch.ok) {
     reportError("guides.create.invite", new Error(dispatch.message), { guideId, email });
-    warning = `Guide added, but the invite email didn't send: ${dispatch.message}`;
+    warning = `Coach added, but the invite email didn't send: ${dispatch.message}`;
   }
 
   revalidatePath("/admin/companies", "layout");
@@ -155,7 +155,7 @@ export async function resendGuideInviteAction(
     .eq("id", guideId)
     .maybeSingle<{ id: string; role: string; status: string }>();
   if (!profile || profile.role !== "aims_guide") {
-    return { ok: false, message: "That user isn't an AiMS Guide." };
+    return { ok: false, message: "That user isn't an AiMS Coach." };
   }
   // Same guard as sendInviteAction for regular users: an active
   // guide has already accepted, a deactivated one shouldn't be
@@ -164,20 +164,20 @@ export async function resendGuideInviteAction(
   if (profile.status === "active") {
     return {
       ok: false,
-      message: "That guide is already active — they don't need an invite.",
+      message: "That coach is already active — they don't need an invite.",
     };
   }
   if (profile.status === "inactive") {
     return {
       ok: false,
-      message: "That guide is deactivated. Reactivate them first.",
+      message: "That coach is deactivated. Reactivate them first.",
     };
   }
   const { data: userRow, error: userErr } =
     await admin.auth.admin.getUserById(guideId);
   if (userErr || !userRow?.user?.email) {
     reportError("guides.resend.getUser", userErr ?? new Error("no email"), { guideId });
-    return { ok: false, message: "Couldn't find that guide's email." };
+    return { ok: false, message: "Couldn't find that coach's email." };
   }
 
   const dispatch = await dispatchInvite(guideId, userRow.user.email);
@@ -219,7 +219,7 @@ export async function assignExistingAsGuideAction(
   ) {
     return {
       ok: false,
-      message: "That user isn't an AiMS Guide or system admin.",
+      message: "That user isn't an AiMS Coach or system admin.",
     };
   }
 
@@ -322,7 +322,7 @@ export async function setGuideCompanyAccessAction(
     return {
       ok: false,
       message:
-        "A guide needs at least one company. Delete the guide instead if they're no longer coaching.",
+        "A coach needs at least one company. Delete the coach instead if they're no longer coaching.",
     };
   }
 
@@ -334,7 +334,7 @@ export async function setGuideCompanyAccessAction(
     return {
       ok: false,
       message:
-        "That's the guide's own company. Change their own company first.",
+        "That's the coach's own company. Change their own company first.",
     };
   }
 
@@ -423,7 +423,7 @@ export async function setGuideOwnCompanyAction(
     .eq("id", guideId)
     .maybeSingle<{ id: string; role: string; company_id: string | null }>();
   if (!profile || (profile.role !== "aims_guide" && profile.role !== "system_admin")) {
-    return { ok: false, message: "That user isn't an AiMS Guide." };
+    return { ok: false, message: "That user isn't an AiMS Coach." };
   }
   if ((profile.company_id ?? null) === companyId) return { ok: true, guideId };
 

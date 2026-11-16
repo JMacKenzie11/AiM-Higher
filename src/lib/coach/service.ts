@@ -538,7 +538,7 @@ export async function listShareCandidatesForConversation(
         // caseload showed as "AiMS Guide" before — misleading for
         // a leader who knows the difference).
         const fallbackLabel =
-          g.role === "system_admin" ? "System admin" : "AiMS Guide";
+          g.role === "system_admin" ? "System admin" : "AiMS Coach";
         byId.set(g.id, {
           id: g.id,
           full_name: g.full_name,

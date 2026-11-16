@@ -76,7 +76,7 @@ export async function addExtractedIssueToOpenIssuesAction(
     // Same permission as other meeting-summary write actions —
     // only admins + guides can promote extractions into the
     // real system.
-    return { ok: false, message: "Only admins and guides can add issues from a meeting." };
+    return { ok: false, message: "Only admins and coaches can add issues from a meeting." };
   }
 
   // Idempotency: if an issue with this exact title + source
@@ -162,7 +162,7 @@ export async function addExtractedIssueAsResolvedAction(
   if (!isAdminForCompany(session.profile, meeting.company_id)) {
     return {
       ok: false,
-      message: "Only admins and guides can add issues from a meeting.",
+      message: "Only admins and coaches can add issues from a meeting.",
     };
   }
 
@@ -237,7 +237,7 @@ export async function addExtractedCommitmentAction(input: {
   if (!isAdminForCompany(session.profile, meeting.company_id)) {
     return {
       ok: false,
-      message: "Only admins and guides can add commitments from a meeting.",
+      message: "Only admins and coaches can add commitments from a meeting.",
     };
   }
 
@@ -340,7 +340,7 @@ export async function convertExtractedCommitmentToIssueAction(
   if (!isAdminForCompany(session.profile, meeting.company_id)) {
     return {
       ok: false,
-      message: "Only admins and guides can convert extractions to issues.",
+      message: "Only admins and coaches can convert extractions to issues.",
     };
   }
 

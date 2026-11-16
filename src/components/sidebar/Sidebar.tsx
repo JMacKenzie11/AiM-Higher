@@ -221,7 +221,7 @@ const COMPANIES_ITEMS: readonly NavItem[] = [
 const GUIDE_HQ_ITEMS: readonly NavItem[] = [
   {
     kind: "group",
-    label: "Guide HQ",
+    label: "Coach HQ",
     feature: null,
     items: [
       {

@@ -374,7 +374,7 @@ export async function deleteIssueAction(
   if (!isAdminForCompany(session.profile, issue.company_id)) {
     return {
       ok: false,
-      message: "Only admins and guides can delete issues.",
+      message: "Only admins and coaches can delete issues.",
     };
   }
 

@@ -54,7 +54,7 @@ Open the function, then pick someone under *In the seat*. The seat holder is the
 ::: role portfolio_admin
 ## What you can do here
 
-See the chart and open any function to read what it owns. The company's admins and its AiMS Guide make the changes.
+See the chart and open any function to read what it owns. The company's admins and its AiMS Coach make the changes.
 
 If a system admin has made you this company's admin, you can change the chart the same as they can: add, edit, reorder and delete functions, choose who's in each seat, and edit responsibilities.
 :::
@@ -66,7 +66,7 @@ If a system admin has made you this company's admin, you can change the chart th
 ::: role company_admin,aims_guide,system_admin
 **What happens when I delete a function?** It's gone for good, with its sub-functions, outcomes, measures and recorded values. A confirmation spells out what goes with it before anything happens. If you delete from the panel, it closes onto the chart with the box gone.
 
-**Can AiMS Guides edit the chart?** Yes. On the companies they're assigned to, guides can change anything an admin can: functions, seats and responsibilities. Role descriptions are written in the *Role Description Creator* and saved to the *Role Descriptions* card on Team.
+**Can AiMS Coaches edit the chart?** Yes. On the companies they're assigned to, coaches can change anything an admin can: functions, seats and responsibilities. Role descriptions are written in the *Role Description Creator* and saved to the *Role Descriptions* card on Team.
 
 **Where did the Suggest buttons go?** The *Role Description Creator* in Ask Aimee does that job now. It can see your whole chart and plan, and asks about the seat.
 :::

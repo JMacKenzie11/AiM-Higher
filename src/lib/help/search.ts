@@ -90,7 +90,7 @@ const ROLE_NAMES: Record<Role, string> = {
   team_member: "a team member",
   facilitator: "a facilitator, who works everyone's commitments and the Critical Success Factors but not people, the plan, the chart or settings",
   company_admin: "a company admin",
-  aims_guide: "an AiMS Guide working with this company",
+  aims_guide: "an AiMS Coach working with this company",
   system_admin: "a system admin",
   portfolio_admin: "a portfolio admin, who can read inside a company but not change it",
   diagnostic_client: "a Capacity Diagnostic client, who sees only their own dashboard",

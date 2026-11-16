@@ -133,7 +133,7 @@ describe("setGuideCompanyAccessAction and a guide's own company", () => {
     const result = await setGuideCompanyAccessAction("g_1", ["co_client"]);
     expect(result).toEqual({
       ok: false,
-      message: "That's the guide's own company. Change their own company first.",
+      message: "That's the coach's own company. Change their own company first.",
     });
   });
 

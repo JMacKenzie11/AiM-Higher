@@ -18,14 +18,14 @@ export default function Loading() {
       <div
         className={styles.progressLine}
         role="progressbar"
-        aria-label="Loading Guide HQ"
+        aria-label="Loading Coach HQ"
       >
         <span className={styles.progressLineFill} aria-hidden="true" />
       </div>
-      <section className={styles.hero} aria-label="Guide HQ header">
+      <section className={styles.hero} aria-label="Coach HQ header">
         <div className={styles.heroInner}>
           <p className={styles.eyebrow}>Loading your caseload…</p>
-          <h1 className={styles.h1}>Guide HQ</h1>
+          <h1 className={styles.h1}>Coach HQ</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
             Assembling your commitments, the attention queue for this
