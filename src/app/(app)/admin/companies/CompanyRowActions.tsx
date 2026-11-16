@@ -118,7 +118,7 @@ export function CompanyRowActions({
       <ConfirmDialog
         open={confirmingDelete}
         title="Delete this company?"
-        message="The company disappears from every list — admin, guide HQ, company picker. All underlying data (people, functions, commitments, meetings, transcripts) stays in the database and is recoverable from SQL, but there's no in-app restore."
+        message="The company disappears from every list: admin, Coach HQ, company picker. All underlying data (people, functions, commitments, meetings, transcripts) stays in the database and is recoverable from SQL, but there's no in-app restore."
         confirmLabel="Delete"
         tone="danger"
         onConfirm={runDelete}

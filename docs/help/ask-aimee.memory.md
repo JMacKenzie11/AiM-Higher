@@ -8,7 +8,7 @@ Everything Aimee has noted from your conversations, newest first. You can correc
 
 **What you tell Aimee stays between you and Aimee. No one else can read it. You can see everything Aimee remembers about you, and delete any of it, whenever you want.** Only the person who started a conversation can see it. AiMS reviews anonymised summaries of conversation themes to improve Aimee.
 
-Your manager can't read it. Your company admin can't, your AiMS Guide can't, and nobody at AiMS can either.
+Your manager can't read it. Your company admin can't, your AiMS Coach can't, and nobody at AiMS can either.
 
 ## What gets noted
 

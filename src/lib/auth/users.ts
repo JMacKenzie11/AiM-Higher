@@ -352,7 +352,7 @@ export async function updateUserAction(
       ok: false,
       message:
         session.profile.role === "aims_guide"
-          ? "Guides can't grant that role."
+          ? "Coaches can't grant that role."
           : "Company admins can't grant that role.",
     };
   }
@@ -373,7 +373,7 @@ export async function updateUserAction(
     return { ok: false, message: "Not your user to edit." };
   }
   if (!mayManageAccount(session.profile, current)) {
-    return { ok: false, message: "Only a system admin can edit a guide's account." };
+    return { ok: false, message: "Only a system admin can edit a coach's account." };
   }
   // Editing yourself keeps your role, unless you are a system admin.
   // A guide in their own company passes the company check above, and
@@ -383,7 +383,7 @@ export async function updateUserAction(
     !isCompanyRole(current.role) &&
     role !== current.role
   ) {
-    return { ok: false, message: "Only a system admin can change a guide's role." };
+    return { ok: false, message: "Only a system admin can change a coach's role." };
   }
 
   // reports_to is a free-form id from the form. A manager in another
@@ -737,7 +737,7 @@ export async function deleteUserAction(profileId: string): Promise<UserActionRes
     return { ok: false, message: "Not your user to delete." };
   }
   if (!mayManageAccount(session.profile, profile)) {
-    return { ok: false, message: "Only a system admin can delete a guide's account." };
+    return { ok: false, message: "Only a system admin can delete a coach's account." };
   }
 
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());

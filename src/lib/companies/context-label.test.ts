@@ -30,11 +30,11 @@ describe("deriveCompanyContext — cross-tenant roles", () => {
     expect(
       deriveCompanyContext({
         isCrossCompanyRole: true,
-        roleLabel: "AiMS Guide",
+        roleLabel: "AiMS Coach",
         companyRow: null,
       })
     ).toEqual({
-      contextLabel: "AiMS Guide",
+      contextLabel: "AiMS Coach",
       scopedCompanyName: undefined,
       analyticsCompanyName: null,
       companyTimezone: null,

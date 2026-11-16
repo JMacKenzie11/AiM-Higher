@@ -63,7 +63,7 @@ export default async function AppLayout({
   const roleLabel = isSystemAdmin
     ? "System admin"
     : isGuide
-      ? "AiMS Guide"
+      ? "AiMS Coach"
       : isPortfolioAdmin
         ? "Portfolio admin"
         : null;

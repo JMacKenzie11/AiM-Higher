@@ -21,7 +21,7 @@ You only see the tabs and cards that are yours to use.
 - **Choose your AiMS champion** on the AiMS champion card. More on this below.
 - **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
 - **Connect your meeting recordings.** See *Connecting Google Drive* or *Connecting a Teams meeting* below.
-- **See who else administers your company** under Assigned access, and remove an AiMS Guide.
+- **See who else administers your company** under Assigned access, and remove an AiMS Coach.
 - **Roll the quarter** on the Quarter card.
 - **Start the strategy again** after an annual planning session.
 :::
@@ -35,7 +35,7 @@ Everything on the page:
 - **Set the industry, timezone and features**, and choose the AiMS champion.
 - **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* or *Connecting a Teams meeting* below.
-- **See who else administers the company** under Assigned access, and remove an AiMS Guide.
+- **See who else administers the company** under Assigned access, and remove an AiMS Coach.
 - **Roll the quarter**, or **start the strategy again**.
 :::
 
@@ -63,7 +63,7 @@ Industry, the AiMS champion, the quarter and Assigned access are managed by the 
 ::: role company_admin,system_admin,aims_guide,portfolio_admin
 ## External connections
 
-The **External connections** card lists the outside systems this company has connected. Your company's admins can use it, and so can the AiMS Guides assigned to your company.
+The **External connections** card lists the outside systems this company has connected. Your company's admins can use it, and so can the AiMS Coaches assigned to your company.
 
 To add one, choose it under **Add a connection**. Its setup opens below. Once it's connected, it shows on the card and leaves the list.
 
@@ -150,7 +150,7 @@ If the champion is deactivated or moves to another company, the seat empties and
 
 When it's on, each person still decides whether to connect one, from their profile. A connected AI app reads what that person can read and can add their own commitments, issues and measure values. It can't change or delete anything. **How to connect** opens the steps for each app.
 
-The company's admin can switch it, and so can an assigned guide or a system admin. Every change is recorded with who made it. Portfolio admins can't connect an AI app. AiMS never lets your data be used to train AI models. Once it reaches the AI app, that app's terms and privacy policy apply instead, along with your own settings there.
+The company's admin can switch it, and so can an assigned coach or a system admin. Every change is recorded with who made it. Portfolio admins can't connect an AI app. AiMS never lets your data be used to train AI models. Once it reaches the AI app, that app's terms and privacy policy apply instead, along with your own settings there.
 :::
 
 ::: feature ai_apps_off
@@ -164,20 +164,20 @@ AI apps are switched off for this company. Tick **Let people at the company use 
 
 People who administer this company without being part of its team. The Type column tells the two kinds apart:
 
-- **AiMS Guide**: assigned to work with this company.
+- **AiMS Coach**: assigned to work with this company.
 - **Portfolio**: a portfolio admin with access to this company. Their access is managed across the whole portfolio, so these rows have no Remove.
 
 They aren't on the People page, because that page is the team.
 :::
 
 ::: role company_admin,system_admin
-To end a guide's access, use *Remove from this company* on their row. They keep their account and any other companies they work with.
+To end a coach's access, use *Remove from this company* on their row. They keep their account and any other companies they work with.
 :::
 
 ::: role system_admin,portfolio_admin
 ## Timezone and features
 
-**Timezone.** Every weekly and daily number is counted by the company's own clock: the scorecard, follow-through, the weekly figures. Changing the timezone changes where each day starts and ends, so counts near midnight can read differently afterwards. The last three changes are listed under the control, with who made them. Company admins and guides can't change the timezone.
+**Timezone.** Every weekly and daily number is counted by the company's own clock: the scorecard, follow-through, the weekly figures. Changing the timezone changes where each day starts and ends, so counts near midnight can read differently afterwards. The last three changes are listed under the control, with who made them. Company admins and coaches can't change the timezone.
 
 **Features.** Turn parts of AiMS on or off for this company: *Execution Platform*, *Strengths*, *Success Tracking*, *External Measures*, *Meeting Facilitation Review*, *Automated Commitment Tracking* and *Classroom*. Each has a one-line description beside it. Turning one off hides it from the company's menu and keeps its data. Turning it back on brings everything back as it was.
 :::
@@ -197,7 +197,7 @@ Once a company is archived, *Delete* appears. It removes the company from every 
 ::: role company_admin,system_admin,aims_guide
 **A meeting came in but went to the wrong company, or to none.** Check the alias against the file name. If no alias matches, the meeting waits on the Companies page for a system admin to send it to the right company.
 
-**Why isn't our guide on the People page?** People is your team, and a guide isn't part of it. Guides are listed under Assigned access on this page.
+**Why isn't our coach on the People page?** People is your team, and a coach isn't part of it. Coaches are listed under Assigned access on this page.
 :::
 
 ::: role company_admin,system_admin,aims_guide,portfolio_admin
@@ -207,7 +207,7 @@ Once a company is archived, *Delete* appears. It removes the company from every 
 :::
 
 ::: role company_admin
-**Why can't I change our timezone?** Changing it re-dates your company's weekly numbers, so it's set by AiMS rather than inside the company. Ask your AiMS Guide if it needs changing.
+**Why can't I change our timezone?** Changing it re-dates your company's weekly numbers, so it's set by AiMS rather than inside the company. Ask your AiMS Coach if it needs changing.
 :::
 
 ::: role portfolio_admin

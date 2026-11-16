@@ -78,7 +78,7 @@ Content only team members see.
 :::
 
 ::: role company_admin,aims_guide,system_admin
-Admin- and guide-only content.
+Admin- and coach-only content.
 :::
 
 Shared footer that everyone sees.
@@ -140,7 +140,7 @@ As a team member, you can:
 :::
 
 ::: role company_admin,aims_guide,system_admin
-As an admin or guide, you can also:
+As an admin or coach, you can also:
 
 - <action>
 - <action>

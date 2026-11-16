@@ -580,7 +580,7 @@ describe("deleteIssueAction", () => {
     mocks.issuesSelectMaybeSingle.mockResolvedValue({ data: baseIssue() });
     const result = await deleteIssueAction("i_1");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toMatch(/admins and guides/i);
+    if (!result.ok) expect(result.message).toMatch(/admins and coaches/i);
     expect(mocks.issuesDelete).not.toHaveBeenCalled();
   });
 

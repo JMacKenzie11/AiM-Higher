@@ -46,12 +46,20 @@ export const NAV_GROUPS_COOKIE = "nav-groups-collapsed";
 // "System Admin" would silently do nothing. The group is "System
 // admin".
 export const DEFAULT_COLLAPSED_GROUPS: readonly string[] = [
-  "Guide HQ",
+  "Coach HQ",
   "Portfolio",
   "Resources",
   "Strengths",
   "System admin",
 ];
+
+// Group labels a saved cookie may still hold from before a rename,
+// mapped to what the group is called now. "Guide HQ" became "Coach
+// HQ" (2026-11-16); a cookie lasts a year, so somebody who closed it
+// under the old name keeps it closed.
+const RENAMED_GROUPS: Readonly<Record<string, string>> = {
+  "Guide HQ": "Coach HQ",
+};
 
 // Written when the user has collapsed nothing. Any value that cannot
 // be a group label does; "-" is short and survives a cookie round
@@ -74,7 +82,8 @@ export function parseCollapsedGroups(
   return raw
     .split(",")
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((s) => RENAMED_GROUPS[s] ?? s);
 }
 
 // The collapsed set -> the cookie value. Never an empty string: see

@@ -365,7 +365,7 @@ export default function LandingPage() {
                 Set up your operating system
               </h3>
               <p className={styles.howCardBody}>
-                Your guide helps load your plan, people, and rhythm, usually
+                Your coach helps load your plan, people, and rhythm, usually
                 inside your first working session.
               </p>
             </li>
@@ -416,7 +416,7 @@ export default function LandingPage() {
                 question: "Do we need a coach to use it?",
                 answer: (
                   <p>
-                    It is delivered through AiMS Guides today. Talk to us
+                    It is delivered through AiMS Coaches today. Talk to us
                     about what fits your team.
                   </p>
                 ),

@@ -20,7 +20,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import styles from "./hq.module.css";
 import { simplifyOn } from "@/lib/ui/simplify";
 
-export const metadata = { title: "Guide HQ" };
+export const metadata = { title: "Coach HQ" };
 
 // Guide HQ — the home base for AiMS Guides and system admins. Scoped
 // to the caller's own guide_assignments regardless of role. A sysadmin
@@ -73,16 +73,16 @@ export default async function GuideHqPage() {
   return (
     <PageShell
       eyebrow={
-        session.profile.role === "system_admin" ? "System admin" : "AiMS Guide"
+        session.profile.role === "system_admin" ? "System admin" : "AiMS Coach"
       }
-      title="Guide HQ"
+      title="Coach HQ"
       subtitle={
         // One line under the "short-intros" switch (change 10).
         simplifyOn("short-intros")
           ? "The companies that need you this week, and your caseload."
           : "Your commitments across every company, the attention queue for this week, and a quick read on the shape of your caseload."
       }
-      ariaLabel="Guide HQ header"
+      ariaLabel="Coach HQ header"
     >
       {zeroCaseload ? (
           <section className={styles.zeroCard} aria-labelledby="hq-zero">
@@ -90,8 +90,8 @@ export default async function GuideHqPage() {
               No coaching assignments yet
             </h2>
             <p className={styles.zeroBody}>
-              You&rsquo;re not currently assigned as a guide to any
-              company. A system admin can add you from the AiMS Guides
+              You&rsquo;re not currently assigned as a coach to any
+              company. A system admin can add you from the AiMS Coaches
               panel on{" "}
               <Link className={styles.zeroLink} href="/admin/companies">
                 the Companies page

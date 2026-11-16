@@ -36,7 +36,7 @@ Each row shows the company's timezone under its name, how many people it has, it
 - **Create a company** with the form below the list.
 - **Archive or reactivate a company** from its row. Archiving stops its people signing in and hides it from company pickers. Nothing is lost.
 - **Delete an archived company.** *Delete* only appears once a company is archived, so a live company can't be deleted in one click.
-- **Manage AiMS Guides** in the Guides card.
+- **Manage AiMS Coaches** in the Coaches card.
 - **Send unmatched meetings to the right company** under Unrouted meetings.
 :::
 
@@ -47,17 +47,17 @@ Give it a name, a timezone and at least one feature. Industry is optional and ca
 :::
 
 ::: role system_admin
-## Managing AiMS Guides
+## Managing AiMS Coaches
 
-Each guide has a row with a tick box for every company. Tick the companies they coach, untick the ones they don't, and press *Save*. The same *Save* saves their own company, below. A guide needs at least one company. If they've stopped coaching, delete the guide instead.
+Each coach has a row with a tick box for every company. Tick the companies they coach, untick the ones they don't, and press *Save*. The same *Save* saves their own company, below. A coach needs at least one company. If they've stopped coaching, delete the coach instead.
 
-**Unticking a company hands back any open commitments that guide owns there.** They become *Unassigned* so someone at the company can pick them up. The row shows the count beside the company before you press anything. Commitments they already closed out keep their name.
+**Unticking a company hands back any open commitments that coach owns there.** They become *Unassigned* so someone at the company can pick them up. The row shows the count beside the company before you press anything. Commitments they already closed out keep their name.
 
-The ⋯ menu on a guide's row has *Resend invite*, *Copy invite link* and *Delete guide*.
+The ⋯ menu on a coach's row has *Resend invite*, *Copy invite link* and *Delete coach*.
 
-**A guide who runs their own coaching company** can have it as *Their own company*, on their row. Pick the company above their companies and press *Save*. It's ticked for you, and stays ticked while it's theirs. They join it as its admin, so they can be on its chart, be given its commitments, priorities and critical success factors, and sit in its meetings. They keep guiding their clients from the same sign-in. A system admin with a caseload can have one the same way, and keeps every system admin page. To take it away, set *Their own company* back to *None*. It stays in their list until you untick it, so untick it too if they shouldn't reach it at all.
+**A coach who runs their own coaching company** can have it as *Their own company*, on their row. Pick the company above their companies and press *Save*. It's ticked for you, and stays ticked while it's theirs. They join it as its admin, so they can be on its chart, be given its commitments, priorities and critical success factors, and sit in its meetings. They keep coaching their clients from the same sign-in. A system admin with a caseload can have one the same way, and keeps every system admin page. To take it away, set *Their own company* back to *None*. It stays in their list until you untick it, so untick it too if they shouldn't reach it at all.
 
-Use **Add a guide** to invite a new one. **Give a system admin a coaching caseload** assigns an existing system admin to companies without sending an invite. Their row shows a *System admin* badge, and unticking all their companies is fine, because they can reach every company anyway.
+Use **Add a coach** to invite a new one. **Give a system admin a coaching caseload** assigns an existing system admin to companies without sending an invite. Their row shows a *System admin* badge, and unticking all their companies is fine, because they can reach every company anyway.
 
 ## Unrouted meetings
 

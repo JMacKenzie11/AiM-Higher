@@ -21,7 +21,7 @@ import { RecentActivitySection } from "../../../../hq/RecentActivitySection";
 import styles from "../../../../hq/hq.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 
-export const metadata = { title: "Guide HQ" };
+export const metadata = { title: "Coach HQ" };
 
 // Sysadmin oversight view of another guide's Guide HQ. Sourced by
 // guideId instead of the caller's own id, and rendered read-only:
@@ -82,16 +82,16 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
     <div className={styles.stage}>
       <section
         className={styles.hero}
-        aria-label={`Guide HQ for ${guide.full_name}`}
+        aria-label={`Coach HQ for ${guide.full_name}`}
       >
         <div className={styles.heroInner}>
           <Link href="/admin/companies" className={styles.eyebrow}>
             ← All companies
           </Link>
           <p className={styles.eyebrow}>
-            System admin · Viewing {guide.full_name}&rsquo;s Guide HQ
+            System admin · Viewing {guide.full_name}&rsquo;s Coach HQ
           </p>
-          <h1 className={styles.h1}>Guide HQ</h1>
+          <h1 className={styles.h1}>Coach HQ</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
             Read-only oversight of {guide.full_name}&rsquo;s coaching
@@ -103,7 +103,7 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
 
       <div className={styles.content}>
         <div className={styles.readOnlyBanner} role="status">
-          You&rsquo;re viewing {guide.full_name}&rsquo;s Guide HQ.
+          You&rsquo;re viewing {guide.full_name}&rsquo;s Coach HQ.
           Nothing here can be changed. Links still work, and a Session
           Brief you prepare is saved as yours.
         </div>
@@ -115,7 +115,7 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
             </h2>
             <p className={styles.zeroBody}>
               {guide.full_name} isn&rsquo;t currently assigned as a
-              guide to any company. Their own commitments (below) still
+              coach to any company. Their own commitments (below) still
               show here.
             </p>
           </section>

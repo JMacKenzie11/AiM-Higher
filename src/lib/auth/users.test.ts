@@ -480,7 +480,7 @@ describe("updateUserAction", () => {
 
     const res = await updateUserAction(undefined, baseForm({ role: "team_member" }));
 
-    expect(res).toEqual({ ok: false, message: "Only a system admin can edit a guide's account." });
+    expect(res).toEqual({ ok: false, message: "Only a system admin can edit a coach's account." });
     expect(mocks.updateUserById).not.toHaveBeenCalled();
     expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
   });
@@ -514,7 +514,7 @@ describe("updateUserAction", () => {
 
     const res = await updateUserAction(undefined, baseForm({ id: "g_1", role: "company_admin" }));
 
-    expect(res).toEqual({ ok: false, message: "Only a system admin can change a guide's role." });
+    expect(res).toEqual({ ok: false, message: "Only a system admin can change a coach's role." });
     expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
   });
 
@@ -947,7 +947,7 @@ describe("deleteUserAction", () => {
 
     const res = await deleteUserAction("profile_1");
 
-    expect(res).toEqual({ ok: false, message: "Only a system admin can delete a guide's account." });
+    expect(res).toEqual({ ok: false, message: "Only a system admin can delete a coach's account." });
     expect(mocks.deleteUser).not.toHaveBeenCalled();
   });
 
@@ -1113,7 +1113,7 @@ describe("updateUserAction (aims_guide + reports_to scope)", () => {
       editForm({ role: "system_admin" })
     );
 
-    expect(res).toEqual({ ok: false, message: "Guides can't grant that role." });
+    expect(res).toEqual({ ok: false, message: "Coaches can't grant that role." });
     expect(mocks.profilesSelectMaybeSingle).not.toHaveBeenCalled();
     expect(mocks.profilesUpdatePatch).not.toHaveBeenCalled();
   });

@@ -87,11 +87,11 @@ export function GuidesPanel({
   return (
     <section className={styles.card} aria-labelledby="aims-guides">
       <h2 id="aims-guides" className={styles.h2}>
-        AiMS Guides
+        AiMS Coaches
       </h2>
       <p className={styles.subtitleInline}>
-        Guides act as company admins on the companies they coach. A
-        guide who runs their own coaching business can have it as their
+        Coaches act as company admins on the companies they coach. A
+        coach who runs their own coaching business can have it as their
         own company: they join it as its admin and can be on its chart
         and own its work. System admins can also carry a coaching
         caseload, and have their own company the same way. Their row appears here once they&rsquo;re assigned
@@ -149,12 +149,12 @@ export function GuidesPanel({
           hint: "They join it as its admin, so they can be on its chart and own its work.",
         }}
         saveLabel="Save"
-        personLabel="Guide"
-        emptyLabel="No guides yet."
+        personLabel="Coach"
+        emptyLabel="No coaches yet."
       />
 
       <div style={{ marginTop: "var(--space-4)" }}>
-        <h3 className={styles.h3}>Add a guide</h3>
+        <h3 className={styles.h3}>Add a coach</h3>
         <CreateGuideForm companies={companies} />
       </div>
 

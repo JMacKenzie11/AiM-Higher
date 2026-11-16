@@ -290,7 +290,7 @@ function ShareModal({
 
         {isOwner ? (
           <p className={styles.subtitle}>
-            Only people in your company (or a guide assigned to it)
+            Only people in your company (or a coach assigned to it)
             can be added. Collaborate lets them reply; read-only
             lets them follow along.
           </p>

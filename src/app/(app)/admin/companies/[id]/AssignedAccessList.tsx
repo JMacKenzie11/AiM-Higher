@@ -84,7 +84,7 @@ export function AssignedAccessList({
               </td>
               <td>
                 <span className={styles.chipInfo}>
-                  {person.kind === "guide" ? "AiMS Guide" : "Portfolio"}
+                  {person.kind === "guide" ? "AiMS Coach" : "Portfolio"}
                 </span>
               </td>
               {canRemove ? (

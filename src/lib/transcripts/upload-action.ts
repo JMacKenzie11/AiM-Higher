@@ -58,7 +58,7 @@ export async function uploadTranscriptAction(
     isChampion: await isAimsChampion(session.profile.id, companyId),
   });
   if (!allowed) {
-    return { ok: false, message: "Only an admin, guide or AiMS champion can upload a transcript." };
+    return { ok: false, message: "Only an admin, coach or AiMS champion can upload a transcript." };
   }
 
   const field = (k: string) => {

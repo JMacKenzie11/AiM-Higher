@@ -270,7 +270,7 @@ describe("resendGuideInviteAction", () => {
 
     expect(res).toEqual({
       ok: false,
-      message: "That user isn't an AiMS Guide.",
+      message: "That user isn't an AiMS Coach.",
     });
     expect(mocks.dispatchInvite).not.toHaveBeenCalled();
   });

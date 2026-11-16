@@ -48,7 +48,7 @@ Memory shows what Aimee has noted from your conversations, newest first, ten at 
 
 Aimee never keeps notes about health or medical matters, or about family and personal life, even if you ask. She'll say so and offer to note the work side instead.
 
-Only you can read your Memory. Not your manager, your company admin, your AiMS Guide, or anyone at AiMS.
+Only you can read your Memory. Not your manager, your company admin, your AiMS Coach, or anyone at AiMS.
 
 ## How to change your email
 

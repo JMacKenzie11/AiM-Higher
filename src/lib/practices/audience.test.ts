@@ -28,7 +28,7 @@ describe("audienceSentence", () => {
         allowedRoles: ["company_admin", "aims_guide", "system_admin"],
       })
     ).toBe(
-      "This agent will be visible to company admins, guides and system admins in all companies."
+      "This agent will be visible to company admins, coaches and system admins in all companies."
     );
   });
 

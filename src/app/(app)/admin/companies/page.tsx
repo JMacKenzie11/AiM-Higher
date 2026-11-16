@@ -100,7 +100,7 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
               ? "System admin"
               : isPortfolioAdmin
                 ? "Portfolio admin"
-                : "AiMS Guide"}
+                : "AiMS Coach"}
           </p>
           <h1 className={styles.h1}>Companies</h1>
           <span className={styles.rule} aria-hidden="true" />

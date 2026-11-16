@@ -20,7 +20,7 @@ const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 800;
 
 const SYSTEM_PROMPT = `You are the AiMS coaching prep assistant. You produce a short structured
-brief a guide reads right before a coaching session. Ground everything
+brief a coach reads right before a coaching session. Ground everything
 in the context blocks provided; do not invent facts. Voice is warm,
 generative, forward-leaning — never deficit-focused.
 
@@ -42,7 +42,7 @@ growth edges and any attention-queue signals. Frame each as a
 question or an invitation, not a critique.
 
 ### Suggested opening question
-One question that lands the guide in an appreciative, curious posture
+One question that lands the coach in an appreciative, curious posture
 for the first two minutes of the session.`;
 
 export type SessionBriefResult =

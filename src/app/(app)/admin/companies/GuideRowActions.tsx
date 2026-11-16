@@ -136,7 +136,7 @@ export function GuideRowActions({
                 setConfirmDelete(true);
               }}
             >
-              Delete guide
+              Delete coach
             </button>
           </div>
         ) : null}
@@ -157,9 +157,9 @@ export function GuideRowActions({
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete this guide?"
+        title="Delete this coach?"
         message="They'll be removed from the platform entirely and lose access to every assigned company."
-        confirmLabel="Delete guide"
+        confirmLabel="Delete coach"
         tone="danger"
         onConfirm={runDelete}
         onCancel={() => setConfirmDelete(false)}

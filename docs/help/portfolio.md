@@ -19,7 +19,7 @@ Every company on this instance, one card each, with the three numbers that say h
 ::: role system_admin
 ## What you can do here
 
-This is the quickest read of how every company is doing. Your home is still Guide HQ; you reach this page from **Portfolio** in the sidebar.
+This is the quickest read of how every company is doing. Your home is still Coach HQ; you reach this page from **Portfolio** in the sidebar.
 
 - **Open a company** by clicking its name.
 - **Set each portfolio admin's company access** on the *Company access* card. Tick the companies and press **Update** on their row.
@@ -63,9 +63,9 @@ You can add people to a company as team members or company admins, from its Team
 **I archived a company and it disappeared.** Archived companies drop off this page. Reactivate it from its settings page.
 
 ::: role portfolio_admin
-**Why can't I edit a priority, close a commitment or change a measure?** You need company admin access in that company. Otherwise the work inside it belongs to the company's own admins and guides.
+**Why can't I edit a priority, close a commitment or change a measure?** You need company admin access in that company. Otherwise the work inside it belongs to the company's own admins and coaches.
 
-**Why don't I see Guide HQ or the platform tools?** Those are for AiMS Guides and system admins. This page is your equivalent.
+**Why don't I see Coach HQ or the platform tools?** Those are for AiMS Coaches and system admins. This page is your equivalent.
 :::
 
 **I changed a company's timezone and its numbers moved.** Weekly and daily figures are counted by date in the company's own clock. Moving the clock moves where each day starts and ends, so some counts shift. The change is recorded with your name.

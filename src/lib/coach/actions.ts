@@ -623,7 +623,7 @@ export async function shareConversationAction(
     return {
       ok: false,
       message:
-        "You can only share with people in the same company (or a guide/system admin assigned to it).",
+        "You can only share with people in the same company (or a coach or system admin assigned to it).",
     };
   }
 
