@@ -71,6 +71,15 @@ describe("the session brief and the last coaching call", () => {
     expect(h.inserted[0]).toMatchObject({ based_on_meeting_id: "call-1" });
   });
 
+  it("asks for three opening questions, under the house voice rules", async () => {
+    await generateSessionBrief("co1", "coach-1");
+    const sent = h.create.mock.calls[0][0] as { system: string };
+    expect(sent.system).toContain("### Three questions to open with");
+    expect(sent.system).toContain("exactly three questions");
+    expect(sent.system).toContain("Never use em-dashes");
+    expect(sent.system).not.toContain("—");
+  });
+
   it("without a call it reads (no call, or RLS refused it), the brief is as before", async () => {
     h.call = null;
     await generateSessionBrief("co1", "coach-1");

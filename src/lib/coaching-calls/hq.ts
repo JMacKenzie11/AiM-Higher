@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { turnsOf } from "@/lib/transcripts/turns";
 import { matchedBecause, routeCoachCall, suggestAlias, type CoachCompany } from "./route";
+import { durationMinutes } from "@/lib/hq/derive";
 
 // What Coach HQ shows about a coach's own folder of calls (0326): the
 // connected Google account, the folder, the calls waiting to be sorted
@@ -22,6 +23,15 @@ export type CallToSort = {
   onTheCall: string[];
   reason: "no_match" | "several";
   suggestedAlias: string | null;
+  // How long the call ran, from the transcript's timestamps, if any.
+  minutes: number | null;
+  // AiMS's best guess, pre-chosen in the picker: the router, run again
+  // with names only, found exactly one company (a name or a person
+  // added since the call came in, say), and why.
+  guess: { companyId: string; because: string } | null;
+  // The companies it matched when it matched more than one, and on
+  // what, so the card can ask which one it is for.
+  candidates: { companyIds: string[]; on: "name" | "people" } | null;
 };
 
 export type FiledCall = {
@@ -140,6 +150,21 @@ export async function loadCoachingCallsHq(
       onTheCall: speakersOf(text),
       reason: decision.kind === "unsorted" ? decision.reason : "several",
       suggestedAlias: suggestAlias(m.file_name),
+      minutes: durationMinutes(text),
+      guess:
+        decision.kind === "routed"
+          ? {
+              companyId: decision.companyId,
+              because:
+                decision.by === "alias"
+                  ? `"${decision.alias}" is in its name`
+                  : `${decision.personName} was on the call`,
+            }
+          : null,
+      candidates:
+        decision.kind === "unsorted" && decision.reason === "several"
+          ? { companyIds: decision.companyIds, on: nameMatchesAny(m.file_name, routerCompanies, decision.companyIds) ? "name" : "people" }
+          : null,
     };
   });
 
@@ -175,6 +200,16 @@ export async function loadCoachingCallsHq(
     toSort,
     filed: filedCalls,
   };
+}
+
+// Whether the file name holds an alias of any of these companies: the
+// router's first step, so a call matching two companies by name is
+// asked about as a name, not as the people on it.
+function nameMatchesAny(fileName: string, companies: readonly CoachCompany[], ids: readonly string[]): boolean {
+  const name = fileName.toLowerCase();
+  return companies
+    .filter((c) => ids.includes(c.id))
+    .some((c) => c.aliases.some((a) => a.trim() !== "" && name.includes(a.trim().toLowerCase())));
 }
 
 // Up to four speaker names, as the recording gave them.

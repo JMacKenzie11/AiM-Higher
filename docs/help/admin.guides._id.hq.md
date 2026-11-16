@@ -5,13 +5,12 @@ roles: [system_admin]
 
 # Viewing another coach's Coach HQ
 
-A read-only view of one coach's Coach HQ, exactly as they see it: their commitments across companies, what needs attention, their companies and recent activity.
+A read-only view of one coach's Coach HQ: their commitments across companies, the companies that need them this week, their companies and recent activity. Their coaching calls and session briefs are theirs alone and aren't shown here.
 
 ## What you can do here
 
-- **Read every panel** as the coach sees it. Nothing is hidden.
+- **Read every panel** from the coach's *Companies* tab.
 - **Open a company** by clicking its name. Anything you change there is done as you, not as the coach.
-- **Prepare a Session Brief** for a company with *Prepare for*. The brief is recorded as yours.
 
 You can't change the coach's commitments here. There is no way to resolve, reschedule, park, reassign, reword or delete one, and opening a commitment shows it without a Save button.
 

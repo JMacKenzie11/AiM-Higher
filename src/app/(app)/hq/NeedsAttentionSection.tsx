@@ -1,50 +1,57 @@
+import Link from "next/link";
 import { reasonPhrase, type CompanyAttention } from "@/lib/hq/attention";
-import styles from "./hq.module.css";
+import { prepareHref, questionFor } from "@/lib/hq/derive";
 import { ScopeIntoCompanyButton } from "../admin/companies/ScopeIntoCompanyButton";
+import ui from "@/components/ui/ui.module.css";
+import styles from "./hq.module.css";
+import t from "./hq-tabs.module.css";
 
-// Needs-your-attention list. One row per assigned company that meets
-// at least one attention trigger; ranked by severity. Reason phrases
-// come straight from the attention module so the "why" is verifiable.
+// Needs you this week: one row per assigned company that meets at
+// least one attention trigger, ranked by severity. Each row says why
+// in plain sentences (reasonPhrase, straight from the attention
+// module so the "why" is verifiable), a question worth asking for the
+// strongest signal (questionFor: fixed text, never generated), and
+// Prepare a session, which opens the Coaching calls tab on that
+// company. The oversight view passes prepare={false}: prep is the
+// coach's own.
 
-export function NeedsAttentionSection({ rows }: { rows: CompanyAttention[] }) {
+export function NeedsAttentionSection({
+  rows,
+  prepare = true,
+}: {
+  rows: CompanyAttention[];
+  prepare?: boolean;
+}) {
   return (
-    <section className={styles.card} aria-labelledby="hq-attention">
+    <section id="needs-you" className={styles.card} aria-labelledby="hq-attention">
       <h2 id="hq-attention" className={styles.h2}>
-        Needs your attention
+        Needs you this week
       </h2>
-      <p className={styles.sectionCaption}>
-        Assigned companies flagged for at least one signal this week.
-        Ranked by severity.
-      </p>
       {rows.length === 0 ? (
-        <p className={styles.empty}>
-          Nothing needs attention this week. Enjoy the quiet.
-        </p>
+        <p className={styles.empty}>Every company is on course this week.</p>
       ) : (
-        <ul className={styles.attentionList}>
-          {rows.map((row) => (
-            <li key={row.companyId} className={styles.attentionItem}>
-              <div className={styles.attentionHead}>
-                <span className={styles.attentionName}>
-                  <ScopeIntoCompanyButton
-                    companyId={row.companyId}
-                    className={styles.attentionNameLink}
-                  >
-                    {row.companyName}
+        <ul className={t.rowList}>
+          {rows.map((row) => {
+            const lead = row.triggers[0];
+            return (
+              <li key={row.companyId} className={t.needsRow}>
+                <div className={t.needsText}>
+                  <ScopeIntoCompanyButton companyId={row.companyId} className={styles.attentionNameLink}>
+                    <span className={t.needsName}>{row.companyName}</span>
                   </ScopeIntoCompanyButton>
-                </span>
-                <span className={styles.attentionSeverity}>
-                  {row.triggers.length} signal
-                  {row.triggers.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <ul className={styles.attentionReasons}>
-                {row.triggers.map((t, i) => (
-                  <li key={i}>{reasonPhrase(t)}</li>
-                ))}
-              </ul>
-            </li>
-          ))}
+                  <span className={t.needsReason}>
+                    {row.triggers.map((tr) => `${reasonPhrase(tr)}.`).join(" ")}
+                  </span>
+                  {lead ? <span className={t.needsQuestion}>Worth asking: {questionFor(lead)}</span> : null}
+                </div>
+                {prepare ? (
+                  <Link href={prepareHref(row.companyId)} className={`${ui.btn} ${ui.btnPrimary}`} scroll={false}>
+                    Prepare a session
+                  </Link>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

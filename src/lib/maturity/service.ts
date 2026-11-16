@@ -123,6 +123,44 @@ export async function loadLatestOverallSnapshots(
   return result;
 }
 
+// The snapshot per company as it stood on a past day: the newest one
+// on or before `asOf`, looking back no further than `lookbackDays`.
+// Coach HQ compares today's score with four weeks ago this way; a
+// company whose snapshots don't reach back that far gets no entry, and
+// the table shows no arrow rather than one from a different date.
+export async function loadOverallSnapshotsAsOf(
+  companyIds: readonly string[],
+  asOf: string,
+  lookbackDays = 21
+): Promise<Map<string, { date: string; scores: DisciplineScore[] }>> {
+  const result = new Map<string, { date: string; scores: DisciplineScore[] }>();
+  if (companyIds.length === 0) return result;
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const asOfDay = asOf.slice(0, 10);
+  const fromDay = new Date(Date.parse(asOfDay) - lookbackDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const { data } = await supabase
+    .from("company_discipline_snapshots")
+    .select("*")
+    .in("company_id", companyIds)
+    .gte("snapshot_date", fromDay)
+    .lte("snapshot_date", asOfDay)
+    .order("snapshot_date", { ascending: true });
+  const latest = new Map<string, string>();
+  for (const row of (data ?? []) as ScorecardSnapshotRow[]) {
+    const cur = latest.get(row.company_id);
+    if (!cur || row.snapshot_date > cur) latest.set(row.company_id, row.snapshot_date);
+  }
+  for (const row of (data ?? []) as ScorecardSnapshotRow[]) {
+    if (latest.get(row.company_id) !== row.snapshot_date) continue;
+    const entry = result.get(row.company_id) ?? { date: row.snapshot_date, scores: [] };
+    entry.scores.push({ key: row.discipline, score: row.score, breakdown: row.breakdown_json });
+    result.set(row.company_id, entry);
+  }
+  return result;
+}
+
 export const loadCompanyScorecard = cache(async function loadCompanyScorecard(
   companyId: string
 ): Promise<CompanyScorecard> {

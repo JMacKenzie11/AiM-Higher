@@ -126,68 +126,113 @@ export function FolderControls({
   );
 }
 
-const NOT_A_CALL = "not-a-call";
-
-export function SortCall({
+// One call waiting to be analysed: choose the company (AiMS's best
+// guess already chosen when there is one) and Analyse, or Not a
+// coaching call. Analyse files it through fileCoachingCallAction, which
+// also adds the file name's first naming word as one of the company's
+// names when the box is ticked (it is, by default). On success the
+// parent shows a confirmation line in place of the row.
+export function AnalyseCall({
   meetingId,
+  title,
   companies,
   suggestedAlias,
+  preselect,
+  onDone,
 }: {
   meetingId: string;
-  companies: ReadonlyArray<{ id: string; name: string }>;
+  title: string;
+  companies: ReadonlyArray<{ id: string; name: string; group?: "likely" | "other" }>;
   suggestedAlias: string | null;
+  preselect: string | null;
+  onDone: (line: string) => void;
 }) {
-  const { pending, run, message } = useAction();
-  const [choice, setChoice] = useState("");
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [choice, setChoice] = useState(preselect ?? "");
   const [addAlias, setAddAlias] = useState(true);
   const selectId = useId();
+  const likely = companies.filter((c) => c.group === "likely");
+  const others = companies.filter((c) => c.group !== "likely");
+  const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "that company";
+
+  const analyse = () =>
+    start(async () => {
+      setError(null);
+      const fd = new FormData();
+      fd.set("meeting_id", meetingId);
+      fd.set("company_id", choice);
+      if (addAlias && suggestedAlias) {
+        fd.set("add_alias", "on");
+        fd.set("alias", suggestedAlias);
+      }
+      const r = await fileCoachingCallAction(fd);
+      if (!r.ok) return setError(r.message);
+      const aliasNote =
+        r.message && r.message.startsWith("Filed. ") ? ` ${r.message.slice("Filed. ".length)}` : "";
+      onDone(`${title} is being analysed for ${nameOf(choice)}.${aliasNote}`);
+    });
+
+  const setAside = () =>
+    start(async () => {
+      setError(null);
+      const r = await setAsideCoachingCallAction(meetingId);
+      if (!r.ok) return setError(r.message);
+      onDone(`${title} was set aside. Its words aren't kept.`);
+    });
 
   return (
-    <form
-      className={cc.sortForm}
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (choice === NOT_A_CALL) {
-          run(() => setAsideCoachingCallAction(meetingId));
-          return;
-        }
-        const fd = new FormData();
-        fd.set("meeting_id", meetingId);
-        fd.set("company_id", choice);
-        if (addAlias && suggestedAlias) {
-          fd.set("add_alias", "on");
-          fd.set("alias", suggestedAlias);
-        }
-        run(() => fileCoachingCallAction(fd));
-      }}
-    >
+    <div className={cc.sortForm}>
       <div className={cc.sortRow}>
-        <div className={cc.sortField}>
-          <label htmlFor={selectId} className={ui.label}>
-            Company
-          </label>
-          <select id={selectId} className={ui.select} value={choice} onChange={(e) => setChoice(e.target.value)} required>
-            <option value="">Choose a company</option>
-            {companies.map((c) => (
+        <label htmlFor={selectId} className={cc.srOnly}>
+          Company for {title}
+        </label>
+        <select id={selectId} className={ui.select} value={choice} onChange={(e) => setChoice(e.target.value)}>
+          <option value="">Choose a company</option>
+          {likely.length > 0 && others.length > 0 ? (
+            <>
+              <optgroup label="On this call">
+                {likely.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Your other companies">
+                {others.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            </>
+          ) : (
+            companies.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
-            ))}
-            <option value={NOT_A_CALL}>Not a coaching call</option>
-          </select>
-        </div>
-        <button type="submit" className={`${ui.btn} ${ui.btnPrimary}`} disabled={pending || !choice}>
-          {pending ? "Filing..." : choice === NOT_A_CALL ? "Set aside" : "File it"}
+            ))
+          )}
+        </select>
+        <button type="button" className={`${ui.btn} ${ui.btnPrimary}`} disabled={pending || !choice} onClick={analyse}>
+          {pending ? "Working..." : "Analyse"}
+        </button>
+        <button type="button" className={`${ui.btn} ${ui.btnGhost}`} disabled={pending} onClick={setAside}>
+          Not a coaching call
         </button>
       </div>
-      {suggestedAlias && choice !== NOT_A_CALL ? (
+      {suggestedAlias ? (
         <label className={cc.check}>
           <input type="checkbox" checked={addAlias} onChange={(e) => setAddAlias(e.target.checked)} />
-          Send future calls named &ldquo;{suggestedAlias}&rdquo; here too
+          Send future calls named &ldquo;{suggestedAlias}&rdquo; to the same company
         </label>
       ) : null}
-      {message}
-    </form>
+      {error ? (
+        <p role="alert" className={cc.error}>
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

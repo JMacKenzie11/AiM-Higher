@@ -122,7 +122,7 @@ Folders and Teams meetings connected here bring in team meetings. Coaching calls
 ::: role aims_guide,system_admin
 ## Coaching calls
 
-Set up your coaching call recordings once, for all your companies, under *Your coaching calls folder* on Coach HQ. To add a single call, upload it on the *Coaching calls* tab of Meeting Summaries.
+Set up your coaching call recordings once, for all your companies, on the *Coaching calls* tab of Coach HQ. To add a single call, use *Upload a call* there, or upload it on the *Coaching calls* tab of Meeting Summaries.
 :::
 
 ::: role company_admin,system_admin

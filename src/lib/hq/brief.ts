@@ -9,6 +9,7 @@ import { computeAttentionForCompanies } from "@/lib/hq/attention";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { callSettings } from "@/lib/transcripts/model";
+import { VOICE_CORE } from "@/lib/voice/core";
 
 // Session Brief generator. One Anthropic call per invocation; the
 // result is appended as a new row to session_briefs (never
@@ -17,14 +18,15 @@ import { callSettings } from "@/lib/transcripts/model";
 // gets { ok: false, message } and the UI shows an inline retry.
 
 const DEFAULT_MODEL = "claude-sonnet-5";
-const MAX_TOKENS = 800;
+// Three opening questions instead of one (Coach HQ redesign) need room.
+const MAX_TOKENS = 1000;
 // The last coaching call's summary, as read into the brief (0326).
 const LAST_CALL_MAX_CHARS = 12000;
 
 const SYSTEM_PROMPT = `You are the AiMS coaching prep assistant. You produce a short structured
 brief a coach reads right before a coaching session. Ground everything
 in the context blocks provided; do not invent facts. Voice is warm,
-generative, forward-leaning — never deficit-focused.
+generative and forward-leaning: start from what is working.
 
 Output four short sections in Markdown, in this exact order and with
 these exact H3 headings. If a section has no material worth writing,
@@ -46,9 +48,14 @@ One or two coaching prompts, drawn from the facilitation review's
 growth edges and any attention-queue signals. Frame each as a
 question or an invitation, not a critique.
 
-### Suggested opening question
-One question that lands the coach in an appreciative, curious posture
-for the first two minutes of the session.`;
+### Three questions to open with
+A numbered list of exactly three questions the coach can ask in the
+first minutes of the session. Each is appreciative and curious: it
+starts from a strength, a success or what the leader wants, and it
+is grounded in something in the context. Each is one complete
+sentence, asked once.
+
+${VOICE_CORE}`;
 
 export type SessionBriefResult =
   | { ok: true; briefId: string; content: string }
@@ -378,31 +385,4 @@ async function briefsVisible(
   const { data } = await supabase.from("meetings").select("id").in("id", ids);
   const readable = new Set(((data ?? []) as Array<{ id: string }>).map((m) => m.id));
   return rows.filter((r) => !r.based_on_meeting_id || readable.has(r.based_on_meeting_id));
-}
-
-// Batch variant for the /hq page — one round-trip fetches recent
-// briefs for every caseload company at once, then partitions in
-// memory. Returns a map keyed by company_id, newest-first, capped at
-// `limit` per company. Prior implementation called loadRecentBriefs
-// N times in parallel — harmless for small caseloads but N round
-// trips still cost a fixed per-request latency floor.
-export async function loadRecentBriefsForCompanies(
-  companyIds: string[],
-  limit = 2
-): Promise<Map<string, SessionBriefRow[]>> {
-  const out = new Map<string, SessionBriefRow[]>();
-  if (companyIds.length === 0) return out;
-  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  const { data } = await supabase
-    .from("session_briefs")
-    .select("*")
-    .in("company_id", companyIds)
-    .order("company_id", { ascending: true })
-    .order("created_at", { ascending: false });
-  for (const row of await briefsVisible(supabase, (data ?? []) as SessionBriefRow[])) {
-    const list = out.get(row.company_id) ?? [];
-    if (list.length < limit) list.push(row);
-    out.set(row.company_id, list);
-  }
-  return out;
 }

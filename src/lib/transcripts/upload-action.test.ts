@@ -9,6 +9,8 @@ const m = vi.hoisted(() => ({
   champion: false,
   // can_read_coaching_call for the caller (0326).
   coachingReader: false,
+  // is_assigned_coach for the caller, per company (Coach HQ upload).
+  assignedTo: [] as string[],
   existing: null as { id: string } | null,
   inserted: [] as Array<Record<string, unknown>>,
   processed: [] as string[],
@@ -17,11 +19,20 @@ const m = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/server", () => ({ after: (fn: () => Promise<void>) => void fn() }));
-vi.mock("@/lib/auth/current-user", () => ({ requireProfile: async () => ({ profile: m.profile }) }));
+vi.mock("@/lib/auth/current-user", () => ({
+  requireProfile: async () => ({ profile: m.profile }),
+  requireRole: async (roles: string[]) => {
+    if (!roles.includes(m.profile.role as string)) throw new Error("NEXT_REDIRECT");
+    return { profile: m.profile };
+  },
+}));
 vi.mock("@/lib/admin/scope", () => ({ getEffectiveCompanyId: async () => m.companyId }));
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
 vi.mock("@/lib/guide/champion", () => ({ isAimsChampion: async () => m.champion }));
-vi.mock("@/lib/coaching-calls/access", () => ({ canReadCoachingCalls: async () => m.coachingReader }));
+vi.mock("@/lib/coaching-calls/access", () => ({
+  canReadCoachingCalls: async () => m.coachingReader,
+  isAssignedCoach: async (companyId: string) => m.assignedTo.includes(companyId),
+}));
 vi.mock("./ingest", () => ({
   processPendingMeetings: async ({ meetingId }: { meetingId: string }) => {
     m.processed.push(meetingId);
@@ -45,7 +56,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-import { uploadTranscriptAction } from "./upload-action";
+import { uploadCoachingCallAction, uploadTranscriptAction } from "./upload-action";
 
 function txt(body: string, name = "meeting.txt") {
   return new File([body], name, { type: "text/plain" });
@@ -62,6 +73,7 @@ beforeEach(() => {
   m.companyId = "co1";
   m.champion = false;
   m.coachingReader = false;
+  m.assignedTo = [];
   m.existing = null;
   m.inserted = [];
   m.processed = [];
@@ -157,5 +169,40 @@ describe("uploadTranscriptAction", () => {
     m.champion = true;
     await uploadTranscriptAction(null, form({ transcript_file: txt("hello there"), kind: "something" }));
     expect(m.inserted[0]).toMatchObject({ kind: "team" });
+  });
+});
+
+// ---- From Coach HQ: the coach chooses the company ------------------
+
+describe("uploadCoachingCallAction", () => {
+  it("adds a coaching call to the company chosen, for its assigned coach", async () => {
+    m.profile = { id: "g1", role: "aims_guide", company_id: null };
+    m.companyId = null;
+    m.assignedTo = ["co2"];
+    const res = await uploadCoachingCallAction(null, form({ transcript_file: txt("Call with Lee\nLee: hi"), company_id: "co2", kind: "team" }));
+    expect(res?.ok).toBe(true);
+    expect(m.inserted[0]).toMatchObject({ company_id: "co2", kind: "coaching", status: "pending" });
+    expect(m.processed).toEqual(["meet1"]);
+  });
+
+  it("refuses a company the coach is not assigned to, before writing", async () => {
+    m.profile = { id: "g1", role: "aims_guide", company_id: null };
+    m.assignedTo = ["co2"];
+    const res = await uploadCoachingCallAction(null, form({ transcript_file: txt("hello"), company_id: "co9" }));
+    expect(res).toEqual({ ok: false, message: "You can only add a call for a company you coach." });
+    expect(m.inserted).toHaveLength(0);
+  });
+
+  it("asks for a company when none is chosen", async () => {
+    m.profile = { id: "g1", role: "aims_guide", company_id: null };
+    const res = await uploadCoachingCallAction(null, form({ transcript_file: txt("hello") }));
+    expect(res).toEqual({ ok: false, message: "Choose the company the call was with." });
+  });
+
+  it("is for coaches and system admins only", async () => {
+    m.profile = { id: "p1", role: "company_admin", company_id: "co2" };
+    m.assignedTo = ["co2"];
+    await expect(uploadCoachingCallAction(null, form({ transcript_file: txt("hello"), company_id: "co2" }))).rejects.toThrow();
+    expect(m.inserted).toHaveLength(0);
   });
 });

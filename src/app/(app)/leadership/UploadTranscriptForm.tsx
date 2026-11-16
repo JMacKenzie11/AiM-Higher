@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
+  uploadCoachingCallAction,
   uploadTranscriptAction,
   type UploadTranscriptState,
 } from "@/lib/transcripts/upload-action";
@@ -24,20 +25,25 @@ const MAX_FILE_BYTES = 900_000;
 export function UploadTranscriptForm({
   today,
   kind = "team",
+  companies,
 }: {
   today: string;
   kind?: "team" | "coaching";
+  // Coach HQ: the coach chooses the company on the form, which then
+  // goes to uploadCoachingCallAction (an assigned coach only). A
+  // coaching call always.
+  companies?: ReadonlyArray<{ id: string; name: string }>;
 }) {
   const [state, formAction, pending] = useActionState<UploadTranscriptState, FormData>(
-    uploadTranscriptAction,
+    companies ? uploadCoachingCallAction : uploadTranscriptAction,
     null
   );
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const coaching = kind === "coaching";
+  const coaching = kind === "coaching" || Boolean(companies);
   // Two of these can share a page (one per tab), so ids are per kind.
-  const fileId = coaching ? "coaching_call_file" : "transcript_file";
+  const fileId = companies ? "hq_call_file" : coaching ? "coaching_call_file" : "transcript_file";
 
   useEffect(() => {
     if (state?.ok) {
@@ -64,8 +70,23 @@ export function UploadTranscriptForm({
         }
       }}
     >
-      <input type="hidden" name="kind" value={kind} />
+      <input type="hidden" name="kind" value={coaching ? "coaching" : "team"} />
       <div className={up.row}>
+        {companies ? (
+          <label className={`${styles.field} ${up.name}`}>
+            <span className={styles.label}>Company</span>
+            <select name="company_id" className={styles.input} required defaultValue="">
+              <option value="" disabled>
+                Choose a company
+              </option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className={`${styles.field} ${up.name}`}>
           <span className={styles.label}>{coaching ? "Call name" : "Meeting name"}</span>
           <input

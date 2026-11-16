@@ -25,6 +25,8 @@ export type AnalysisTab = {
   // Shown beside the label when it adds something, e.g. how many
   // commitments and issues the meeting produced.
   count?: number;
+  // A short word badge instead, e.g. Coach HQ's "2 waiting".
+  badge?: string;
   // Drawn before the label, e.g. the lock on Coaching calls.
   icon?: ReactNode;
   content: ReactNode;
@@ -74,6 +76,7 @@ export function AnalysisTabs({
             {typeof t.count === "number" && t.count > 0 ? (
               <span className={styles.tabCount}>{t.count}</span>
             ) : null}
+            {t.badge ? <span className={styles.tabBadge}>{t.badge}</span> : null}
           </a>
         ))}
       </div>
