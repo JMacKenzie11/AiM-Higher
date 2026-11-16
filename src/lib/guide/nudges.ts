@@ -113,11 +113,15 @@ export async function raiseMeetingDebriefNudge(
       .maybeSingle<{ full_name: string | null }>();
 
     // The card's first line: the meeting's own name and its day.
+    // Team meetings only. A coaching call never raises a nudge (0326):
+    // the pipeline does not ask, and this refuses if anything does.
     const { data: meeting } = await admin
       .from("meetings")
       .select("meeting_title")
       .eq("id", input.meetingId)
+      .eq("kind", "team")
       .maybeSingle<{ meeting_title: string | null }>();
+    if (!meeting) return { raised: false, reason: "not a team meeting" };
     const label = meetingLabel(meeting?.meeting_title ?? null, input.meetingDateIso);
 
     // The last few invitation lines, so this week's reads differently.

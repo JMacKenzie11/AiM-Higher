@@ -20,6 +20,8 @@ const h = vi.hoisted(() => ({
   simplify: [] as string[],
   functions: [] as Array<{ id: string; title: string; lead_id: string | null }>,
   headlines: [] as Array<{ function_id: string; body: string }>,
+  meetingKind: "team" as "team" | "coaching",
+  profiles: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -52,6 +54,7 @@ function fakeDb() {
     created_at: "2026-09-22T15:00:00Z",
     file_name: "weekly.txt",
     meeting_title: "Weekly",
+    kind: h.meetingKind,
   };
   return {
     from(table: string) {
@@ -81,6 +84,7 @@ function fakeDb() {
         if (table === "company_foundation" || table === "quarters") return { data: null, error: null };
         if (table === "functions") return { data: h.functions, error: null };
         if (table === "meeting_headlines") return { data: h.headlines, error: null };
+        if (table === "profiles") return { data: h.profiles, error: null };
         return { data: [], error: null };
       };
       b.maybeSingle = async () => result();
@@ -113,6 +117,8 @@ beforeEach(() => {
   h.simplify = [];
   h.functions = [];
   h.headlines = [];
+  h.meetingKind = "team";
+  h.profiles = [];
   process.env.ANTHROPIC_API_KEY = "test";
   h.nudge.mockResolvedValue({ raised: false, reason: "test" });
 });
@@ -367,5 +373,80 @@ describe("headlines from the transcript", () => {
 
     expect(h.create.mock.calls.map(([req]) => kindOf(req))).not.toContain("headlines");
     expect(h.writes.filter((w) => w.table === "meeting_headlines")).toEqual([]);
+  });
+});
+
+// A coaching call (0326) is summarised like a meeting and writes
+// nothing anywhere else: no commitments even with automatic tracking
+// on, no Headlines boxes, no Guide nudge, no analytics event. The same
+// run as a team meeting is the control: it does each of those, so the
+// zeros below are the kind deciding, not an empty fixture.
+describe("a coaching call writes nothing outside its own analysis", () => {
+  const HEADLINES = JSON.stringify({
+    headlines: [{ function_id: "fn-ops", body: "The Hale job finished early." }],
+  });
+  const COMMITTED = JSON.stringify({
+    commitments: [
+      {
+        description: "Send the Hale quote",
+        owner_profile_id: "p-pat",
+        due_date: "2026-09-25",
+        clarity_success: true,
+        clarity_timeline: true,
+        clarity_note: null,
+      },
+    ],
+    issues: [{ title: "Quote timing" }],
+  });
+
+  beforeEach(() => {
+    h.features = ["meeting_facilitation_review", "automated_commitment_tracking"];
+    h.simplify = ["transcript-headlines"];
+    h.functions = [{ id: "fn-ops", title: "Operations", lead_id: null }];
+    h.profiles = [{ id: "p-pat", full_name: "Pat", position: null, status: "active" }];
+    h.facilitation.mockResolvedValue(null);
+    h.nudge.mockResolvedValue({ raised: true });
+    h.create.mockImplementation(async (req: { system: Array<{ text: string }> }) => {
+      const k = kindOf(req);
+      return text(k === "analysis" ? SUMMARY : k === "headlines" ? HEADLINES : COMMITTED);
+    });
+  });
+
+  const run = async (kind: "team" | "coaching") => {
+    h.meetingKind = kind;
+    const { analyzeMeeting } = await import("./analyze");
+    return analyzeMeeting("m1");
+  };
+
+  it("control: a team meeting creates commitments, fills a headline, asks for a nudge and counts", async () => {
+    const result = await run("team");
+    expect(h.writes.some((w) => w.table === "commitments" && w.op === "insert")).toBe(true);
+    expect(h.writes.some((w) => w.table === "meeting_headlines")).toBe(true);
+    expect(h.nudge).toHaveBeenCalledTimes(1);
+    expect(h.track).toHaveBeenCalledTimes(1);
+    expect(result.createdCommitmentCount).toBeGreaterThan(0);
+  });
+
+  it("a coaching call stores its analysis, extracted items included, and nothing else", async () => {
+    const result = await run("coaching");
+
+    const analysis = h.writes.find((w) => w.table === "meeting_analyses" && w.op === "insert");
+    expect(analysis).toBeDefined();
+    const row = analysis!.payload as { commitments_json: Array<{ description: string }>; issues_json: Array<{ title: string }> };
+    expect(row.commitments_json.map((c) => c.description)).toEqual(["Send the Hale quote"]);
+    expect(row.issues_json.map((i) => i.title)).toEqual(["Quote timing"]);
+
+    expect(h.writes.filter((w) => w.table === "commitments")).toEqual([]);
+    expect(h.writes.filter((w) => w.table === "issues")).toEqual([]);
+    expect(h.writes.filter((w) => w.table === "meeting_headlines")).toEqual([]);
+    expect(h.writes.filter((w) => w.table === "notifications" || w.table === "guide_nudges")).toEqual([]);
+    expect(h.nudge).not.toHaveBeenCalled();
+    expect(h.track).not.toHaveBeenCalled();
+    expect(h.create.mock.calls.map(([req]) => kindOf(req))).not.toContain("headlines");
+    expect(result.createdCommitmentCount).toBe(0);
+    expect(result.nudge).toEqual({ raised: false, reason: "coaching call" });
+    expect(h.writes.filter((w) => w.table === "meetings" && w.op === "update").at(-1)?.payload).toMatchObject({
+      status: "complete",
+    });
   });
 });

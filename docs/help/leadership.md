@@ -12,12 +12,15 @@ Your company's leadership meetings, newest first. Open one to read what was disc
 - **Read a meeting.** Click *View* on any meeting marked *complete*. You'll see the summary and the commitments it created.
 - **See what's on its way.** A meeting marked *pending* or *analyzing* is still being written up. That usually takes a few minutes.
 - **Upload a transcript, if you're your company's AiMS champion.** Use *Upload a transcript* at the top of the page. It works the same way as it does for admins.
+- **Read your coaching calls, if you're your company's AiMS Champion.** A *Coaching calls* tab, with a lock, sits beside *Team meetings*. It holds your coach's calls with your company's leaders. Click *View* on a call to read it, or use *Add a coaching call* to upload one: choose the transcript file, set *Held on* and click *Add call*.
 
 ## Common questions
 
 **Why can't I open some meetings?** You can open a meeting once it's marked *complete*. If one says *failed*, let your company admin know.
 
 **Why is the list empty?** No meetings have come through for your company yet. Your company admin or AiMS champion can upload one, or connect where your recordings are saved.
+
+**Who can see the coaching calls?** Your coach and your company's AiMS Champion, and nobody else. If someone else becomes champion, the calls go to them. Aimee never reads them, and nothing from a call goes on your company's lists.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -39,6 +42,26 @@ Your company's leadership meetings, newest first. Open one to read what was disc
 **A meeting has said *pending* for a while.** It usually takes a few minutes. If it hasn't moved, use *Check now* on your company settings page.
 
 **Why is there no *Try again* on a failed meeting?** It says *failed (dismissed)*. Someone set that meeting aside on purpose, so it isn't run again.
+:::
+
+::: role company_admin
+## If you're the AiMS Champion
+
+- **Read your coaching calls, if you're your company's AiMS Champion.** A *Coaching calls* tab, with a lock, sits beside *Team meetings*. It holds your coach's calls with your company's leaders. Click *View* on a call to read it, or use *Add a coaching call* to upload one: choose the transcript file, set *Held on* and click *Add call*.
+
+**Who can see the coaching calls?** Your coach and your company's AiMS Champion, and nobody else. If someone else becomes champion, the calls go to them. Aimee never reads them, and nothing from a call goes on your company's lists.
+:::
+
+::: role aims_guide,system_admin
+## Coaching calls
+
+If you coach this company, a *Coaching calls* tab, with a lock, sits beside *Team meetings*. It holds your calls with the company's leaders. The company's coaches and its AiMS Champion are the only people who can see them; the line at the top of the tab names them.
+
+- **Add a call.** Under *Add a coaching call*, choose the transcript (.docx, .txt or .vtt), set *Held on* to the day of the call, and click *Add call*. It's ready in a few minutes. The champion can add one too.
+- **Read a call.** Click *View*. The page is laid out like a meeting's: the summary, what the call drew out, and coaching notes.
+- **Run a failed call again** with *Try again*, as for a meeting.
+
+A coaching call stays on this tab. It never appears under *Team meetings*, Aimee never reads it, and its commitments and issues are listed on its page without going on the company's lists.
 :::
 
 ::: role portfolio_admin

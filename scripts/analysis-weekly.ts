@@ -131,6 +131,9 @@ async function main() {
   const summary = await forEachActiveInstance<string[]>({
     job: "analysis-weekly",
     run: async ({ admin }) => {
+      // meetings-kind: rows whose meeting is not a team meeting are dropped
+      // below (companyOf has only team meetings): a coaching call is not
+      // the weekly meeting (0326).
       const { data, error } = await admin
         .from("meeting_analyses")
         .select("meeting_id, created_at, coverage_json, spelling_changes")
@@ -141,7 +144,7 @@ async function main() {
       const analyses = (data ?? []) as Array<Omit<AnalysisRow, "company_id"> & { meeting_id: string }>;
       const meetingIds = analyses.map((a) => a.meeting_id);
       const { data: meetings, error: mErr } = meetingIds.length
-        ? await admin.from("meetings").select("id, company_id").in("id", meetingIds)
+        ? await admin.from("meetings").select("id, company_id").in("id", meetingIds).eq("kind", "team")
         : { data: [], error: null };
       if (mErr) throw new Error(mErr.message);
       const companyOf = new Map(

@@ -110,6 +110,10 @@ export function buildHistoryTools(args: {
 // sees it on Meeting Summaries. A meeting id from another company
 // comes back as nothing, because the database refuses the read.
 //
+// TEAM MEETINGS ONLY (0326). Aimee never reads a coaching call, for
+// anyone, the coach and the champion included, and their own client
+// would pass the read rules. Both tools ask for kind = 'team' by name.
+//
 // Two tools, because a summary averages 20,000 characters: the list
 // gives each meeting's opening and its commitments, and read_meeting
 // gives one in full when she needs it.
@@ -163,6 +167,7 @@ function makeMeetingTools(args: { companyId: string }): CoachTool[] {
         .from("meetings")
         .select("id, meeting_title, created_at")
         .eq("company_id", args.companyId)
+        .eq("kind", "team")
         .eq("status", "complete")
         .order("created_at", { ascending: false })
         .limit(want);
@@ -173,6 +178,7 @@ function makeMeetingTools(args: { companyId: string }): CoachTool[] {
       if (rows.length === 0) {
         return { status: "empty" as const, reason: title ? `no analysed meeting with "${title}" in its title` : "no analysed meetings on record" };
       }
+      // meetings-kind: ids from the team-only read above.
       const { data: analyses } = await db
         .from("meeting_analyses")
         .select("meeting_id, analysis_markdown, commitments_json, truncated")
@@ -219,10 +225,12 @@ function makeMeetingTools(args: { companyId: string }): CoachTool[] {
         .select("id, meeting_title, created_at")
         .eq("id", id)
         .eq("company_id", args.companyId)
+        .eq("kind", "team")
         .maybeSingle<MeetingRow>();
       // RLS makes "gone" and "not yours" the same null, and they are the
       // same answer to give.
       if (!meeting) return { found: false as const, note: "That meeting summary is not available." };
+      // meetings-kind: keyed by the id the team-only read above found.
       const { data: analysis } = await db
         .from("meeting_analyses")
         .select("meeting_id, analysis_markdown, commitments_json, truncated")

@@ -44,6 +44,7 @@ async function main() {
     process.env.LOCAL_INSTANCE_SUPABASE_SERVICE_KEY!
   );
   const { data: meeting } = await db
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     .from("meetings").select("company_id, created_at").eq("id", id).maybeSingle();
   const { data: company } = await db
     .from("companies").select("name, timezone").eq("id", meeting!.company_id).maybeSingle();

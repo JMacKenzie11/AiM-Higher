@@ -84,6 +84,9 @@ export default async function AdminCompaniesPage({ searchParams }: PageProps) {
       // Metadata only — the unrouted queue shows file name and date.
       .select("id, meeting_title, file_name, status, error, created_at")
       .eq("status", "unrouted")
+      // Team meetings only. A coach's unsorted calls wait in their own
+      // Calls to sort, never here (0326).
+      .eq("kind", "team")
       .order("created_at", { ascending: false });
     unrouted.push(...((unroutedRows ?? []) as MeetingListRow[]));
   }

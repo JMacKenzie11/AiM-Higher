@@ -161,6 +161,7 @@ async function main() {
   // meeting id every run, and the nudge, the commitments and any
   // conversation pinned to it all hang off that id.
   const { data: existing } = await db
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     .from("meetings")
     .select("id")
     .eq("source_id", source.id)
@@ -171,12 +172,14 @@ async function main() {
   if (existing) {
     meetingId = existing.id;
     const { error } = await db
+      // meetings-kind: an operator's dev tool, on the one meeting id it was given.
       .from("meetings")
       .update({ transcript_text: transcript, status: "pending", error: null })
       .eq("id", meetingId);
     if (error) fail(error.message);
   } else {
     const { data: created, error } = await db
+      // meetings-kind: an operator's dev tool, on the one meeting id it was given.
       .from("meetings")
       .insert({
         company_id: company.id,
@@ -199,6 +202,7 @@ async function main() {
   // this company's automated_commitment_tracking is ON, so leaving
   // them would accumulate a new set on every run.
   if (!keep) {
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     await db.from("meeting_analyses").delete().eq("meeting_id", meetingId);
     await db.from("commitments").delete().eq("source_meeting_id", meetingId);
   }
@@ -222,6 +226,7 @@ async function main() {
 
   // Read back. "No error" is not evidence.
   const { data: analysis } = await db
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     .from("meeting_analyses")
     .select("analysis_markdown, truncated, coverage_json, model")
     .eq("meeting_id", meetingId)

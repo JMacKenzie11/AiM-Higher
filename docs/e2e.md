@@ -169,6 +169,12 @@ What the fixtures give the specs to change, instead of real data:
   version or a stranded draft.
 - The portfolio spec removes the company it creates, the app's way
   (archive, then delete), even when it fails.
+- `coaching-calls.spec.ts` (0326) has the fixture's AiMS Champion add
+  one coaching call through the Coaching calls tab and waits for its
+  real analysis (a few minutes, one model run). The app has no way to
+  delete a call, so the call stays on E2E Fixture Co, readable only by
+  its coach and champion; the seed clears every `e2e-coaching-call-*`
+  call the earlier runs left.
 
 Scope with the name, never with `.first()`:
 

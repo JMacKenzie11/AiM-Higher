@@ -7,6 +7,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { isAimsChampion } from "@/lib/guide/champion";
+import { canReadCoachingCalls } from "@/lib/coaching-calls/access";
 import { extractTranscript } from "./extract";
 import { contentHash } from "./route";
 import { processPendingMeetings } from "./ingest";
@@ -26,6 +27,13 @@ import { canUploadTranscript, meetingInstant, uploadFileId, uploadTitle, ymdIn }
 // writes it, so these checks ARE the boundary: no RLS sits behind
 // them. The company is the caller's scoped company, never a form
 // value, so nobody can upload into a company they don't hold.
+//
+// A COACHING CALL (0326), from the Coaching calls tab: the form sends
+// kind=coaching, and only the company's assigned coaches and its AiMS
+// Champion may add one (can_read_coaching_call, the function the
+// meetings read rule calls). It lands as kind 'coaching', so it is
+// read by those two and nobody else, and its analysis writes nothing
+// outside its own page (coaching.ts).
 
 export type UploadTranscriptState =
   | { ok: true; title: string }
@@ -53,18 +61,27 @@ export async function uploadTranscriptAction(
   const companyId = await getEffectiveCompanyId(session);
   if (!companyId) return { ok: false, message: "Choose a company first." };
 
-  const allowed = canUploadTranscript({
-    managesMeetings: canManageCompanyMeetings(session.profile, companyId),
-    isChampion: await isAimsChampion(session.profile.id, companyId),
-  });
-  if (!allowed) {
-    return { ok: false, message: "Only an admin, coach or AiMS champion can upload a transcript." };
-  }
-
   const field = (k: string) => {
     const v = form.get(k);
     return typeof v === "string" ? v.trim() : "";
   };
+  const kind = field("kind") === "coaching" ? "coaching" : "team";
+
+  if (kind === "coaching") {
+    if (!(await canReadCoachingCalls(companyId))) {
+      return { ok: false, message: "Only the company's coach or AiMS Champion can add a coaching call." };
+    }
+  } else {
+    const allowed = canUploadTranscript({
+      managesMeetings: canManageCompanyMeetings(session.profile, companyId),
+      isChampion: await isAimsChampion(session.profile.id, companyId),
+    });
+    if (!allowed) {
+      return { ok: false, message: "Only an admin, coach or AiMS champion can upload a transcript." };
+    }
+  }
+  const already =
+    kind === "coaching" ? "This transcript is already in AiMS." : "This transcript is already in Meeting Summaries.";
 
   const file = form.get("transcript_file");
   if (!(file instanceof File) || file.size === 0) {
@@ -104,13 +121,15 @@ export async function uploadTranscriptAction(
   if (!heldAt) return { ok: false, message: "Pick the day the meeting was held. It can't be in the future." };
 
   const hash = contentHash(text);
+  // meetings-kind: the duplicate guard spans both kinds, as the unique
+  // index (company_id, content_hash) does. Only the id is read.
   const { data: existing } = await admin
     .from("meetings")
     .select("id")
     .eq("company_id", companyId)
     .eq("content_hash", hash)
     .maybeSingle();
-  if (existing) return { ok: false, message: "This transcript is already in Meeting Summaries." };
+  if (existing) return { ok: false, message: already };
 
   const title = uploadTitle({
     typed: field("meeting_title"),
@@ -119,6 +138,7 @@ export async function uploadTranscriptAction(
     meetingDate,
   });
 
+  // meetings-kind: a write, of the kind the form asked for.
   const { data: row, error } = await admin
     .from("meetings")
     .insert({
@@ -132,12 +152,13 @@ export async function uploadTranscriptAction(
       meeting_title: title,
       status: "pending",
       created_at: heldAt,
+      kind,
     })
     .select("id")
     .single<{ id: string }>();
   if (error || !row) {
     if (error?.code === "23505") {
-      return { ok: false, message: "This transcript is already in Meeting Summaries." };
+      return { ok: false, message: already };
     }
     console.error("[upload-transcript] insert failed:", error?.message);
     return { ok: false, message: "Couldn't save this transcript. Try again." };

@@ -135,6 +135,8 @@ export default async function CompanyDetailPage({
         "id, meeting_title, file_name, status, error, created_at, source_id"
       )
       .eq("company_id", id)
+      // Team meetings only: coaching calls live on their own tab (0326).
+      .eq("kind", "team")
       .order("created_at", { ascending: false })
       .limit(50),
     getConnectedGoogleAccount(id),

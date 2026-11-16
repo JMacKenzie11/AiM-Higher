@@ -76,6 +76,8 @@ function makeGetMeetingDebriefTool(meetingId: string): CoachTool {
         .from("meetings")
         .select("id, meeting_title, created_at, company_id")
         .eq("id", meetingId)
+        // Never a coaching call: Aimee does not read them (0326).
+        .eq("kind", "team")
         .maybeSingle<{
           id: string;
           meeting_title: string | null;
@@ -91,6 +93,7 @@ function makeGetMeetingDebriefTool(meetingId: string): CoachTool {
         };
       }
 
+      // meetings-kind: keyed by the id the team-only read above found.
       const { data: analysis } = await db
         .from("meeting_analyses")
         .select("analysis_markdown, commitments_json, truncated, created_at")

@@ -23,6 +23,10 @@ export type RecordSource = {
   // The column holding its name, and at most one of description text.
   titleColumn: string;
   detailColumn: string | null;
+  // A column the row must hold this value in to be read at all. On
+  // meetings, kind = 'team': Aimee never reads a coaching call, not even
+  // its title, for anyone (0326).
+  only?: { column: string; value: string };
 };
 
 export const RECORD_SOURCES: Readonly<Record<string, RecordSource>> = {
@@ -31,7 +35,7 @@ export const RECORD_SOURCES: Readonly<Record<string, RecordSource>> = {
   "/plan/sfa/[id]": { label: "Strategic focus area", table: "strategic_focus_areas", titleColumn: "title", detailColumn: "description" },
   "/plan/goal/[id]": { label: "Annual goal", table: "annual_goals", titleColumn: "title", detailColumn: "description" },
   "/plan/priority/[id]": { label: "Quarterly priority", table: "priorities", titleColumn: "title", detailColumn: "description" },
-  "/leadership/meetings/[id]": { label: "Meeting", table: "meetings", titleColumn: "meeting_title", detailColumn: null },
+  "/leadership/meetings/[id]": { label: "Meeting", table: "meetings", titleColumn: "meeting_title", detailColumn: null, only: { column: "kind", value: "team" } },
 };
 
 // Record ids are uuids. Anything else is refused before it reaches a

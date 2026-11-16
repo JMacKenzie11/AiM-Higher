@@ -104,6 +104,9 @@ export async function retryFailedMeetingAction(
 // reads as not found.
 async function loadMeeting(meetingId: string): Promise<RerunMeeting | null> {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  // meetings-kind: both kinds. RLS shows a coaching call only to its
+  // coach and champion, and a rerun of one runs the coaching plan
+  // (coaching.ts), so it still writes nothing anywhere else.
   const { data } = await supabase
     .from("meetings")
     .select("id, company_id, status, error")
@@ -147,6 +150,7 @@ async function rerunMeeting(
   // Claim first: only one caller gets the row back. Everyone else
   // (a double click, a run already pending or analyzing) stops here,
   // before the analysis row is touched or a model call is made.
+  // meetings-kind: a write, to the meeting loadMeeting found.
   const { data: claimed, error: claimErr } = await admin
     .from("meetings")
     .update({ status: "pending", error: null })
@@ -158,6 +162,7 @@ async function rerunMeeting(
     return { ok: false, message: "This meeting is already being analyzed." };
   }
 
+  // meetings-kind: a write, for the meeting claimed above.
   await admin
     .from("meeting_analyses")
     .delete()

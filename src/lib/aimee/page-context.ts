@@ -76,7 +76,10 @@ export async function loadOpenRecord(
   const source = RECORD_SOURCES[pattern];
   if (!source || !UUID.test(id)) return null;
   const columns = [source.titleColumn, source.detailColumn].filter(Boolean).join(", ");
-  const { data, error } = await supabase.from(source.table).select(columns).eq("id", id).maybeSingle();
+  let query = supabase.from(source.table).select(columns).eq("id", id);
+  // A coaching call's page tells Aimee nothing about the call (0326).
+  if (source.only) query = query.eq(source.only.column, source.only.value);
+  const { data, error } = await query.maybeSingle();
   if (error || !data) return null;
   const row = data as unknown as Record<string, unknown>;
   const title = typeof row[source.titleColumn] === "string" ? (row[source.titleColumn] as string).trim() : "";

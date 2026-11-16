@@ -30,6 +30,7 @@ import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
 import { extractHeadlines, fillMeetingHeadlines, loadHeadlineFunctions, type ExtractedHeadline } from "./headlines";
 import { simplifyOn } from "@/lib/ui/simplify";
+import { coachingRunPlan } from "./coaching";
 import { COMMITMENT_CLARITY_RULES } from "./clarity-rules";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
@@ -113,6 +114,8 @@ export async function analyzeMeeting(
 
   // Load the meeting + confirm it's routed and pending. The pipeline
   // must never analyze an unrouted meeting.
+  // meetings-kind: both kinds are analysed; the kind decides what the
+  // run may write, below (coachingCall).
   const { data: meetingRow } = await admin
     .from("meetings")
     .select("*")
@@ -127,7 +130,16 @@ export async function analyzeMeeting(
     throw new Error(`Meeting isn't pending (status=${meetingRow.status}).`);
   }
 
+  // A COACHING CALL (0326) is summarised exactly as a meeting is, and
+  // writes nothing anywhere else: no commitments (whatever automatic
+  // tracking says), no Headlines boxes, no Guide nudge, no analytics
+  // event. The extracted commitments and issues are stored on the
+  // analysis row and listed read-only on the call's page. See
+  // coachingRunPlan in ./coaching.ts.
+  const plan = coachingRunPlan(meetingRow.kind);
+
   // Flip to analyzing so a second worker doesn't double-process.
+  // meetings-kind: a write, to the row loaded above.
   await admin
     .from("meetings")
     .update({ status: "analyzing", error: null })
@@ -276,7 +288,7 @@ export async function analyzeMeeting(
     // functional areas, and not on a summary-only run. Best effort,
     // like the review: null is "no headlines" (headlines.ts).
     const headlineFunctions =
-      simplifyOn("transcript-headlines") && !options.carryOver
+      simplifyOn("transcript-headlines") && !options.carryOver && plan.fillHeadlines
         ? await loadHeadlineFunctions(admin, meetingRow.company_id)
         : [];
     const headlinesP: Promise<ExtractedHeadline[] | null> =
@@ -553,6 +565,7 @@ export async function analyzeMeeting(
           `${redacted.flagged} item(s) kept and marked for the company admin`
       );
     }
+    // meetings-kind: a write, for the meeting loaded above.
     const { error: analysisErr } = await admin.from("meeting_analyses").insert({
       meeting_id: meetingId,
       // Stripped on the way IN, not on the way out. The markdown is
@@ -599,7 +612,7 @@ export async function analyzeMeeting(
       admin,
       meetingRow.company_id
     );
-    const created = autoTrackOn && !options.carryOver
+    const created = autoTrackOn && !options.carryOver && plan.createCommitments
       ? await createCommitmentsFromExtraction(
           admin,
           meetingRow,
@@ -638,6 +651,7 @@ export async function analyzeMeeting(
       ? await fillHeadlinesFromMeeting(rawHeadlines)
       : 0;
 
+    // meetings-kind: a write, to the row loaded above.
     await admin
       .from("meetings")
       .update({
@@ -665,7 +679,9 @@ export async function analyzeMeeting(
     // and a second invitation about it would be noise.
     const nudge: RaiseResult = options.carryOver
       ? { raised: false, reason: "summary-only regeneration" }
-      : await raiseMeetingDebriefNudge(admin, client, {
+      : !plan.raiseNudge
+        ? { raised: false, reason: "coaching call" }
+        : await raiseMeetingDebriefNudge(admin, client, {
           model,
           companyId: meetingRow.company_id!,
           meetingId,
@@ -687,7 +703,7 @@ export async function analyzeMeeting(
     // Cron-driven event; no request context, so await inline rather
     // than using next/server after(). The extra ~200ms is fine here.
     // Nor the analytics event: one meeting, analysed once, counts once.
-    if (!options.carryOver) await track(
+    if (!options.carryOver && plan.trackEvent) await track(
       "system:transcript-cron",
       "meeting.analyzed",
       {
@@ -708,6 +724,7 @@ export async function analyzeMeeting(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    // meetings-kind: a write, to the row loaded above.
     await admin
       .from("meetings")
       .update({ status: "failed", error: message.slice(0, 500) })

@@ -136,7 +136,7 @@ The person who will lead your company's implementation of AiMS, and who Aimee co
 
 Anyone on the team can hold the seat. It doesn't have to be an admin: often the right person is whoever drives the work day to day.
 
-Being champion gives no extra access, and removing someone takes none away. The seat decides who Aimee works with, and that's all.
+The seat decides who Aimee works with, and one thing more: the champion and your coach are the only people who can see your company's coaching calls, on the *Coaching calls* tab of Meeting Summaries. Choose someone else and the calls go with the seat to them.
 
 **Nobody yet** is a normal setting. With the seat empty, Aimee has nobody to work with at your company and those invitations aren't sent.
 

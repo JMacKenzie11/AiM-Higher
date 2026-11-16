@@ -69,12 +69,16 @@ export function ExtractedCommitmentsSection({
   priorityOptions,
   functionalAreaOptions,
   canAdd,
+  hint,
 }: {
   meetingId: string;
   rows: ExtractedCommitmentRow[];
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
   functionalAreaOptions: Array<{ id: string; title: string }>;
   canAdd: boolean;
+  // In place of the line under the heading, e.g. on a coaching call,
+  // whose items are listed read-only (0326).
+  hint?: string;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -83,9 +87,8 @@ export function ExtractedCommitmentsSection({
         Commitments identified
       </h2>
       <p className={styles.sectionHint}>
-        Extracted from the transcript. Automatic commitment
-        tracking is off for this company, so nothing lands on the
-        commitments board until you add it here.
+        {hint ??
+          "Extracted from the transcript. Automatic commitment tracking is off for this company, so nothing lands on the commitments board until you add it here."}
       </p>
       <ul className={styles.rowList}>
         {rows.map((r, i) => (

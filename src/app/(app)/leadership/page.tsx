@@ -21,6 +21,11 @@ import { RetryFailedMeetingButton } from "./RetryFailedMeetingButton";
 import { UploadTranscriptForm } from "./UploadTranscriptForm";
 import { isAimsChampion } from "@/lib/guide/champion";
 import { canUploadTranscript, ymdIn } from "@/lib/transcripts/upload";
+import { canReadCoachingCalls, coachingCallReaders } from "@/lib/coaching-calls/access";
+import { coachingReadersLine } from "@/lib/transcripts/coaching";
+import { AnalysisTabs } from "./meetings/[id]/AnalysisTabs";
+import { PrivacyNote } from "@/components/ui/PrivacyNote";
+import type { ReactNode } from "react";
 
 export const metadata = { title: "Meeting Summaries" };
 
@@ -38,6 +43,14 @@ export const maxDuration = 300;
 // everyone in a company reads its content (0253, phase D of
 // docs/investigations/open-data.md). This file selects only metadata
 // columns; the transcript has its own page.
+//
+// COACHING CALLS (0326). The company's assigned coaches and its AiMS
+// Champion see a second tab, Coaching calls, listing the coach's calls
+// with the company's leaders. Everyone else gets the page exactly as
+// before, with no tab and no hint of one. The tab is decided by
+// can_read_coaching_call(), the function the read rule itself calls,
+// and the Team meetings list asks for kind = 'team' by name, so a
+// coach or champion never sees a call among the team's meetings.
 
 export default async function LeadershipPage() {
   const session = await requireProfile();
@@ -54,6 +67,7 @@ export default async function LeadershipPage() {
     .from("meetings")
     .select("id, meeting_title, file_name, status, error, created_at")
     .eq("company_id", companyId)
+    .eq("kind", "team")
     .order("created_at", { ascending: false })
     .limit(100);
   const meetings = (rows ?? []) as MeetingListRow[];
@@ -94,6 +108,7 @@ export default async function LeadershipPage() {
       .filter((m) => m.status === "complete")
       .map((m) => m.id);
     if (completeIds.length > 0) {
+      // meetings-kind: ids from the team-only list above.
       const { data: analysisRows } = await supabase
         .from("meeting_analyses")
         .select(
@@ -128,17 +143,14 @@ export default async function LeadershipPage() {
     }
   }
 
-  return (
-    <PageShell
-      eyebrow="Company"
-      title="Meeting Summaries"
-      subtitle={
-        // One line under the "short-intros" switch (change 10).
-        simplifyOn("short-intros")
-          ? "Every analysed meeting, newest first."
-          : "Every meeting transcript this company has run through the analyzer, most recent first. Click a complete analysis to see the full write-up and the commitments it created."
-      }
-    >
+  const subtitle =
+    // One line under the "short-intros" switch (change 10).
+    simplifyOn("short-intros")
+      ? "Every analysed meeting, newest first."
+      : "Every meeting transcript this company has run through the analyzer, most recent first. Click a complete analysis to see the full write-up and the commitments it created.";
+
+  const teamMeetings = (
+    <>
       {canUpload ? (
         <section className={styles.card} aria-labelledby="upload-transcript">
           <h2 id="upload-transcript" className={styles.h2}>
@@ -226,6 +238,141 @@ export default async function LeadershipPage() {
             </table>
           )}
         </section>
+    </>
+  );
+
+  // Everyone who is not one of the company's two coaching-call readers
+  // gets the page exactly as it was: no tab, no hint of one.
+  if (!(await canReadCoachingCalls(companyId))) {
+    return (
+      <PageShell eyebrow="Company" title="Meeting Summaries" subtitle={subtitle}>
+        {teamMeetings}
+      </PageShell>
+    );
+  }
+
+  return (
+    <PageShell eyebrow="Company" title="Meeting Summaries" subtitle={subtitle} flush>
+      <AnalysisTabs
+        label="Meeting Summaries"
+        tabs={[
+          { hash: "team-meetings", label: "Team meetings", content: teamMeetings },
+          {
+            hash: "coaching-calls",
+            label: "Coaching calls",
+            icon: <LockIcon />,
+            content: await coachingCallsTab({ companyId, today, canRetry, supabase }),
+          },
+        ]}
+      />
     </PageShell>
+  );
+}
+
+// ---- The Coaching calls tab (0326) ---------------------------------
+//
+// Only reached by the company's assigned coaches and its AiMS Champion
+// (canReadCoachingCalls above). Read through the caller's own client,
+// so the read rule decides as well: kind = 'coaching' rows reach these
+// two people and nobody else.
+async function coachingCallsTab({
+  companyId,
+  today,
+  canRetry,
+  supabase,
+}: {
+  companyId: string;
+  today: string;
+  canRetry: boolean;
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
+}): Promise<ReactNode> {
+  const [{ data: rows }, readers] = await Promise.all([
+    supabase
+      .from("meetings")
+      .select("id, meeting_title, file_name, status, error, created_at")
+      .eq("company_id", companyId)
+      .eq("kind", "coaching")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    coachingCallReaders(companyId),
+  ]);
+  const calls = (rows ?? []) as MeetingListRow[];
+  return (
+    <>
+      <PrivacyNote tone="private">
+        {coachingReadersLine(readers, "these calls")} Aimee does not read them, and
+        nothing here goes on the company&apos;s lists.
+      </PrivacyNote>
+      <section className={styles.card} aria-labelledby="add-coaching-call">
+        <h2 id="add-coaching-call" className={styles.h2}>
+          Add a coaching call
+        </h2>
+        <UploadTranscriptForm today={today} kind="coaching" />
+      </section>
+      <section className={styles.card} aria-labelledby="coaching-calls-list">
+        <h2 id="coaching-calls-list" className={styles.h2}>
+          Calls
+        </h2>
+        {calls.length === 0 ? (
+          <p className={styles.emptyLine}>
+            No coaching calls yet. Add one above.
+          </p>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Call</th>
+                <th>Held on</th>
+                <th>Status</th>
+                <th className={styles.actionHead}>Analysis</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calls.map((m) => (
+                <tr key={m.id}>
+                  <td style={{ fontWeight: 600 }}>{m.meeting_title ?? m.file_name}</td>
+                  <td className={styles.mutedCell}>
+                    {new Date(m.created_at).toLocaleDateString()}
+                  </td>
+                  <td>
+                    <span
+                      className={
+                        m.status === "complete"
+                          ? styles.chipAccepted
+                          : m.status === "failed"
+                            ? styles.chipRevoked
+                            : styles.chipPending
+                      }
+                    >
+                      {m.status === "failed" && m.error ? `failed (${m.error})` : m.status}
+                    </span>
+                  </td>
+                  <td>
+                    {m.status === "complete" ? (
+                      <Link href={`/leadership/meetings/${m.id}`} className={styles.ghostButton}>
+                        View
+                      </Link>
+                    ) : canRetry && canRetryFailedMeeting(m) ? (
+                      <RetryFailedMeetingButton meetingId={m.id} />
+                    ) : (
+                      <span className={styles.mutedCell}>Not ready</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+    </>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={14} height={14} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
   );
 }

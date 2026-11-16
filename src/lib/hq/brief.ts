@@ -81,6 +81,8 @@ export async function generateSessionBrief(
       .from("meetings")
       .select("id, meeting_title, file_name, created_at")
       .eq("company_id", companyId)
+      // The last TEAM meeting, never a coaching call (0326).
+      .eq("kind", "team")
       .eq("status", "complete")
       .order("created_at", { ascending: false })
       .limit(1)
@@ -107,6 +109,7 @@ export async function generateSessionBrief(
   }> = [];
 
   if (latestMeeting) {
+    // meetings-kind: keyed by the team-only read above.
     const { data: analysis } = await supabase
       .from("meeting_analyses")
       .select("analysis_markdown, facilitation_review_json")

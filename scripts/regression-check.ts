@@ -66,6 +66,7 @@ async function main() {
   );
 
   const { data: analysis } = await db
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     .from("meeting_analyses")
     .select("analysis_markdown, truncated, commitments_json")
     .eq("meeting_id", expected.meetingId)
