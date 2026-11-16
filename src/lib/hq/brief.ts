@@ -18,6 +18,8 @@ import { callSettings } from "@/lib/transcripts/model";
 
 const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 800;
+// The last coaching call's summary, as read into the brief (0326).
+const LAST_CALL_MAX_CHARS = 12000;
 
 const SYSTEM_PROMPT = `You are the AiMS coaching prep assistant. You produce a short structured
 brief a coach reads right before a coaching session. Ground everything
@@ -30,7 +32,10 @@ say so in a single sentence rather than padding.
 
 ### What happened last time
 Two to four sentences summarizing the last meeting's shape and any
-appreciative moments. Reference the meeting date if you know it.
+appreciative moments. Reference the meeting date if you know it. When a
+last coaching call is given, start from where that call left off: what
+the leader set out to do and what they said they would try, then the
+meeting since.
 
 ### What's still open
 A short bulleted list of the open commitments this company is still
@@ -97,6 +102,32 @@ export async function generateSessionBrief(
   ]);
   if (!company) {
     return { ok: false, message: "That company doesn't exist." };
+  }
+
+  // THE LAST COACHING CALL (0326). The one place a coaching call is
+  // read outside its own page: the coach's brief starts where their last
+  // call left off (Jason, 2026-11-16). Read on the caller's own client,
+  // so only the company's coaches get it: an unassigned system admin
+  // preparing a brief from a coach's HQ is refused the row by RLS and
+  // gets a brief without it. The summary only, never the transcript.
+  const { data: lastCall } = await supabase
+    .from("meetings")
+    .select("id, meeting_title, file_name, created_at")
+    .eq("company_id", companyId)
+    .eq("kind", "coaching")
+    .eq("status", "complete")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; meeting_title: string | null; file_name: string; created_at: string }>();
+  let lastCallSummary: string | null = null;
+  if (lastCall) {
+    // meetings-kind: keyed by the coaching-call read above.
+    const { data: callAnalysis } = await supabase
+      .from("meeting_analyses")
+      .select("analysis_markdown")
+      .eq("meeting_id", lastCall.id)
+      .maybeSingle<{ analysis_markdown: string | null }>();
+    lastCallSummary = callAnalysis?.analysis_markdown?.slice(0, LAST_CALL_MAX_CHARS) ?? null;
   }
 
   let analysisMarkdown: string | null = null;
@@ -238,6 +269,13 @@ export async function generateSessionBrief(
         .join("\n")}`
     );
   }
+  if (lastCall && lastCallSummary) {
+    contextBlocks.push(
+      `## Last coaching call\n${lastCall.meeting_title ?? lastCall.file_name} (${new Date(lastCall.created_at)
+        .toISOString()
+        .slice(0, 10)})\n\n${lastCallSummary}`
+    );
+  }
   contextBlocks.push(`## Scorecard\n${scorecardBlock}`);
   contextBlocks.push(`## Attention queue\n${attentionBlock}`);
 
@@ -280,7 +318,9 @@ export async function generateSessionBrief(
       company_id: companyId,
       generated_by: generatedByProfileId,
       content_markdown: content,
-      based_on_meeting_id: latestMeeting?.id ?? null,
+      // The coaching call when the brief read one (0326), so the brief
+      // is shown only to people who can read that call (briefsVisible).
+      based_on_meeting_id: (lastCall && lastCallSummary ? lastCall.id : latestMeeting?.id) ?? null,
     })
     .select("id")
     .maybeSingle<{ id: string }>();
@@ -317,8 +357,27 @@ export async function loadRecentBriefs(
     .select("*")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []) as SessionBriefRow[];
+    .limit(limit + 5);
+  return (await briefsVisible(supabase, (data ?? []) as SessionBriefRow[])).slice(0, limit);
+}
+
+// A BRIEF THAT READ A COACHING CALL IS SHOWN ONLY TO ITS READERS (0326).
+// Its based_on_meeting_id is that call. session_briefs' read rule admits
+// every system admin, and a system admin can open a coach's HQ, so a
+// brief whose meeting the viewer cannot read (RLS hides a coaching call
+// from all but the company's coaches and champion) is left out. A brief
+// on a team meeting, or on none, is unaffected.
+async function briefsVisible(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  rows: SessionBriefRow[]
+): Promise<SessionBriefRow[]> {
+  const ids = [...new Set(rows.map((r) => r.based_on_meeting_id).filter((x): x is string => Boolean(x)))];
+  if (ids.length === 0) return rows;
+  // meetings-kind: either kind, on purpose: what the viewer can read of
+  // these ids decides which briefs they see.
+  const { data } = await supabase.from("meetings").select("id").in("id", ids);
+  const readable = new Set(((data ?? []) as Array<{ id: string }>).map((m) => m.id));
+  return rows.filter((r) => !r.based_on_meeting_id || readable.has(r.based_on_meeting_id));
 }
 
 // Batch variant for the /hq page — one round-trip fetches recent
@@ -340,7 +399,7 @@ export async function loadRecentBriefsForCompanies(
     .in("company_id", companyIds)
     .order("company_id", { ascending: true })
     .order("created_at", { ascending: false });
-  for (const row of (data ?? []) as SessionBriefRow[]) {
+  for (const row of await briefsVisible(supabase, (data ?? []) as SessionBriefRow[])) {
     const list = out.get(row.company_id) ?? [];
     if (list.length < limit) list.push(row);
     out.set(row.company_id, list);

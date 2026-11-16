@@ -21,7 +21,9 @@ Your home base as an AiMS Coach: your own commitments, the companies that need y
 1. Find the company in *Your companies*.
 2. Click *Prepare for {company}*.
 3. Click *Generate a new brief*.
-4. Read the brief. It pulls together the last meeting and what it showed, commitments since, how the scorecard has moved, and anything needing attention. Click *Copy* to put it on your clipboard.
+4. Read the brief. It starts from where your last coaching call with the company left off, then pulls together the last meeting and what it showed, commitments since, how the scorecard has moved, and anything needing attention. Click *Copy* to put it on your clipboard.
+
+A brief that drew on a coaching call is shown only to the company's coaches.
 
 The dialog shows your two most recent briefs for that company, so you can compare this week with last.
 
