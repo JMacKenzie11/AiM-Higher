@@ -37,6 +37,9 @@ const TRANSCRIPT = [
 let callUrl = "";
 
 test("the champion sees Coaching calls beside Team meetings, and adds a call", async ({ page }) => {
+  // Its own wait for the upload is 60s; the default 30s test budget
+  // ended it first on a cold dev server, with the call already added.
+  test.setTimeout(3 * 60_000);
   await signIn(page, users.member());
   await page.goto("/leadership");
   const tabs = page.getByRole("tablist", { name: "Meeting Summaries" });
