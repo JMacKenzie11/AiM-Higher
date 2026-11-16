@@ -22,7 +22,6 @@ import type {
   TranscriptSourceScope,
 } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { isAssignedCoach } from "@/lib/coaching-calls/access";
 
 export type ActionResult<T = null> =
   | { ok: true; item?: T }
@@ -229,9 +228,6 @@ export async function connectGoogleFolderAction(
   if (!g.ok) return g;
 
   const scope = String(formData.get("scope") ?? "company") as TranscriptSourceScope;
-  // "Coaching calls" (0326): the company's coach only. The database
-  // refuses anyone else too (transcript_sources_kind_guard).
-  const kind = formData.get("kind") === "coaching" ? "coaching" : "team";
   const rawCompanyId = String(formData.get("company_id") ?? "").trim();
   const folderInput = String(formData.get("folder_url") ?? "").trim();
 
@@ -256,9 +252,6 @@ export async function connectGoogleFolderAction(
   // they can admin. System admins pass unconditionally.
   const c = guardForCompany(g, companyId);
   if (!c.ok) return c;
-  if (kind === "coaching" && !(await isAssignedCoach(companyId))) {
-    return { ok: false, message: "Only the company's coach can connect a folder of coaching calls." };
-  }
   const provider = await getProvider("google_drive");
   let folderName: string;
   try {
@@ -287,7 +280,10 @@ export async function connectGoogleFolderAction(
       folder_name: folderName,
       status: "active",
       cursor: initialCursor,
-      kind,
+      // A company's folder is always team meetings. Coaching calls come
+      // in only through the coach's own folder on Coach HQ, or an upload
+      // (Jason, 2026-11-16).
+      kind: "team",
     })
     .select("*")
     .single<TranscriptSource>();
@@ -355,16 +351,12 @@ export async function listTeamsMeetingsAction(
 
 export async function connectTeamsMeetingAction(
   companyId: string,
-  joinUrl: string,
-  kind: "team" | "coaching" = "team"
+  joinUrl: string
 ): Promise<ActionResult<TranscriptSource>> {
   const g = await guard();
   if (!g.ok) return g;
   const c = guardForCompany(g, companyId);
   if (!c.ok) return c;
-  if (kind === "coaching" && !(await isAssignedCoach(companyId))) {
-    return { ok: false, message: "Only the company's coach can connect a meeting of coaching calls." };
-  }
   if (!/^https:\/\/teams\.(microsoft|live)\.com\//.test(joinUrl)) {
     return { ok: false, message: "Pick a Teams meeting from the list." };
   }
@@ -391,7 +383,8 @@ export async function connectTeamsMeetingAction(
       folder_name: meetingName,
       status: "active",
       cursor: new Date().toISOString(),
-      kind: kind === "coaching" ? "coaching" : "team",
+      // Always team meetings; see connectGoogleFolderAction.
+      kind: "team",
     })
     .select("*")
     .single<TranscriptSource>();
@@ -412,39 +405,6 @@ export async function connectTeamsMeetingAction(
   revalidatePath("/admin/companies", "layout");
   trackAfter(g.profileId, "meeting_source.connected", { provider: "teams", scope: "company" }, { company: companyId });
   return { ok: true, item: data };
-}
-
-// ---- Coaching calls or team meetings (0326) ----
-//
-// A company's folder or Teams meeting can be marked "Coaching calls":
-// every file it brings in from then on lands as a coaching call, read
-// by the company's coach and its AiMS Champion only, never in Meeting
-// Summaries. Calls and meetings already in stay as they are.
-//
-// Allowed roles: the company's assigned coach (an aims_guide or
-// system_admin with a guide_assignments row), and nobody else, either
-// way: unmarking would send the folder's next calls to everyone. The
-// database says the same (transcript_sources_kind_guard).
-export async function setSourceKindAction(
-  id: string,
-  kind: "team" | "coaching"
-): Promise<ActionResult> {
-  const g = await guardForSource(id);
-  if (!g.ok) return g;
-  if (!g.companyId || !(await isAssignedCoach(g.companyId))) {
-    return { ok: false, message: "Only the company's coach can change this." };
-  }
-  const supabase = await db();
-  const { data: changed, error } = await supabase
-    .from("transcript_sources")
-    .update({ kind: kind === "coaching" ? "coaching" : "team" })
-    .eq("id", id)
-    .select("id");
-  if (error || (changed?.length ?? 0) === 0) {
-    return { ok: false, message: "Couldn't change it. Try again." };
-  }
-  revalidatePath("/admin/companies", "layout");
-  return { ok: true };
 }
 
 // ---- Pause / Resume / Remove ----

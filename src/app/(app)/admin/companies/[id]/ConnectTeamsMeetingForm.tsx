@@ -22,15 +22,7 @@ function when(iso: string, recurring: boolean): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ` at ${time}`;
 }
 
-export function ConnectTeamsMeetingForm({
-  companyId,
-  canMarkCoaching = false,
-}: {
-  companyId: string;
-  // The company's coach may connect a meeting of coaching calls (0326).
-  canMarkCoaching?: boolean;
-}) {
-  const [coaching, setCoaching] = useState(false);
+export function ConnectTeamsMeetingForm({ companyId }: { companyId: string }) {
   const [meetings, setMeetings] = useState<TeamsMeetingOption[] | null>(null);
   const [choice, setChoice] = useState("");
   const [pending, startTransition] = useTransition();
@@ -55,7 +47,7 @@ export function ConnectTeamsMeetingForm({
     if (!choice) return;
     setMessage(null);
     startTransition(async () => {
-      const res = await connectTeamsMeetingAction(companyId, choice, canMarkCoaching && coaching ? "coaching" : "team");
+      const res = await connectTeamsMeetingAction(companyId, choice);
       if (!res.ok) {
         setOk(false);
         setMessage(res.message);
@@ -107,12 +99,6 @@ export function ConnectTeamsMeetingForm({
               </span>
             </label>
           ))}
-          {canMarkCoaching ? (
-            <label style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-              <input type="checkbox" checked={coaching} onChange={(e) => setCoaching(e.target.checked)} disabled={pending} />
-              These are coaching calls
-            </label>
-          ) : null}
           <div className={styles.submitRow}>
             <button type="button" className={styles.primaryButton} onClick={connect} disabled={pending || !choice}>
               {pending ? "Connecting…" : "Connect meeting"}

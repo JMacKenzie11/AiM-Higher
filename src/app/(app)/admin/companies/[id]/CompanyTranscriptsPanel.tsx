@@ -7,7 +7,6 @@ import { ConnectCompanyFolderForm } from "./ConnectCompanyFolderForm";
 import { ConnectTeamsMeetingForm } from "./ConnectTeamsMeetingForm";
 import { SourceRowActions } from "@/app/(app)/admin/transcripts/SourceRowActions";
 import { AliasEditor } from "./AliasEditor";
-import { SourceKindToggle } from "./SourceKindToggle";
 import styles from "../admin.module.css";
 
 // Per-company transcripts card. Each company connects its own
@@ -16,6 +15,12 @@ import styles from "../admin.module.css";
 // the connection state, the folder sources with how many meetings
 // each brought in, and the aliases. The meetings themselves are on
 // the meetings pages, not listed here (Jason, 2026-10-24). The unrouted queue lives on the overview page.
+//
+// Coaching calls are not set up here. A company's sources are always
+// team meetings; coaching calls come in through the coach's own folder
+// on Coach HQ, or an upload (Jason, 2026-11-16). A source already
+// marked coaching (0326) still shows its label, with no way to flip
+// it, so nothing quietly changes who reads its next calls.
 
 export function CompanyTranscriptsPanel({
   companyId,
@@ -24,11 +29,7 @@ export function CompanyTranscriptsPanel({
   sources,
   meetings,
   aliases,
-  isCoach = false,
 }: {
-  // The company's assigned coach (0326): may mark a folder or Teams
-  // meeting as coaching calls, and connect one as such.
-  isCoach?: boolean;
   companyId: string;
   connectedAccount: string | null;
   microsoftAccount: string | null;
@@ -130,9 +131,6 @@ export function CompanyTranscriptsPanel({
                         companyId={companyId}
                         status={s.status}
                       />
-                      {isCoach ? (
-                        <SourceKindToggle sourceId={s.id} kind={s.kind === "coaching" ? "coaching" : "team"} />
-                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -140,24 +138,17 @@ export function CompanyTranscriptsPanel({
             </table>
           ) : null}
 
-          {isCoach ? (
-            <p className={styles.subtitleInline}>
-              A folder or Teams meeting marked <strong>Coaching calls</strong> sends what it brings in to the
-              Coaching calls tab of Meeting Summaries, seen only by you and the company&apos;s AiMS Champion,
-              never to the team&apos;s meetings.
-            </p>
-          ) : null}
-          {connectedAccount ? <ConnectCompanyFolderForm companyId={companyId} canMarkCoaching={isCoach} /> : null}
-          {microsoftAccount ? <ConnectTeamsMeetingForm companyId={companyId} canMarkCoaching={isCoach} /> : null}
+          {connectedAccount ? <ConnectCompanyFolderForm companyId={companyId} /> : null}
+          {microsoftAccount ? <ConnectTeamsMeetingForm companyId={companyId} /> : null}
 
           {connectedAccount ? (
             <div style={{ marginTop: "var(--space-4)" }}>
-              <h3 className={styles.h3}>Transcript aliases</h3>
+              <h3 className={styles.h3}>Names that identify this company</h3>
               <p className={styles.subtitleInline}>
-                When a shared Drive folder serves multiple companies, transcript
-                file names are matched (case-insensitive substring) against these
-                aliases to decide who a meeting belongs to. Teams meetings are
-                picked by name, so aliases don&rsquo;t apply to them.
+                When one folder holds recordings for several companies, a file
+                whose name contains one of these is filed to this company.
+                Capitals don&rsquo;t matter. Teams meetings are picked by name,
+                so these don&rsquo;t apply to them.
               </p>
               <AliasEditor companyId={companyId} aliases={aliases} />
             </div>

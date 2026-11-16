@@ -99,7 +99,7 @@ Meetings come in from Google Drive folders you connect here, under **Meeting tra
 1. On *External connections*, choose *Google* under *Add a connection*, click *Connect Google account* and sign in. That account is used for this company only, so different companies can use different Google accounts.
 2. In Google Drive, share the folder your recordings are saved to with that account, as a Viewer.
 3. Back here, paste the folder's address and click *Connect folder*.
-4. If the folder holds meetings for more than one company, add a transcript alias: a word or phrase from the file names that marks a meeting as this company's. Capital letters don't matter.
+4. If the folder holds recordings for more than one company, add a word or phrase under **Names that identify this company**. A file whose name contains one of these is filed to this company. Capital letters don't matter.
 5. Click *Check now* on the folder to bring in what's already there. New meetings come in on their own after that.
 
 *Reconnect or switch account*, on External connections, changes which Google account is used. Each folder shows how many meetings it has brought in.
@@ -112,22 +112,17 @@ With Microsoft 365 connected, **Add a Teams meeting** appears under **Meeting tr
 2. Pick the meeting and click *Connect meeting*. For a weekly meeting, that covers every week from now on.
 3. In Teams, open the meeting's options and turn on **Record and transcribe automatically**. A meeting run without a transcript brings nothing in.
 
-The next transcript comes in within about 15 minutes of the meeting ending. Earlier meetings aren't brought in. Teams meetings are picked by name, so transcript aliases don't apply to them.
+The next transcript comes in within about 15 minutes of the meeting ending. Earlier meetings aren't brought in. Teams meetings are picked by name, so the names that identify this company don't apply to them.
 
 Channel meetings and live events can't be connected: Microsoft doesn't share their transcripts.
 
-A folder or Teams meeting marked **Coaching calls** sends what it brings in to the *Coaching calls* tab of Meeting Summaries instead of the team's meetings. Only the company's coach and its AiMS Champion can see those calls. A folder shows *Coaching calls* under its name when it's marked.
+Folders and Teams meetings connected here bring in team meetings. Coaching calls aren't set up here.
 :::
 
 ::: role aims_guide,system_admin
-## Coaching calls from a company's folder
+## Coaching calls
 
-If you coach this company, you can mark a folder or Teams meeting as coaching calls:
-
-- **When you connect it,** tick *These are coaching calls* before clicking *Connect folder* or *Connect meeting*.
-- **Later,** click *Mark as coaching calls* on its row. *Mark as team meetings* turns it back.
-
-The change applies to what comes in next. Calls and meetings already in stay where they are. Only the company's coach can change it, either way.
+Set up your coaching call recordings once, for all your companies, under *Your coaching calls folder* on Coach HQ. To add a single call, upload it on the *Coaching calls* tab of Meeting Summaries.
 :::
 
 ::: role company_admin,system_admin
@@ -208,7 +203,7 @@ Once a company is archived, *Delete* appears. It removes the company from every 
 ## Common questions
 
 ::: role company_admin,system_admin,aims_guide
-**A meeting came in but went to the wrong company, or to none.** Check the alias against the file name. If no alias matches, the meeting waits on the Companies page for a system admin to send it to the right company.
+**A meeting came in but went to the wrong company, or to none.** Check the names that identify this company against the file name. If none matches, the meeting waits on the Companies page for a system admin to send it to the right company.
 
 **Why isn't our coach on the People page?** People is your team, and a coach isn't part of it. Coaches are listed under Assigned access on this page.
 :::
