@@ -510,6 +510,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           functionalAreaOptions={functionalAreaOptions}
           canAdd={canAddItems}
           hint={coaching ? "Drawn from the call." : undefined}
+          readOnly={coaching}
         />
       ) : null}
 
@@ -520,6 +521,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           rows={issueRows}
           canAdd={canAddItems}
           hint={coaching ? "Questions raised on the call." : undefined}
+          readOnly={coaching}
         />
       ) : null}
 
