@@ -29,7 +29,7 @@ The dialog shows your two most recent briefs for that company, so you can compar
 
 ## Your coaching calls folder
 
-Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion, on the *Coaching calls* tab of Meeting Summaries. Aimee never reads it.
+This is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion, on the *Coaching calls* tab of Meeting Summaries. Aimee never reads it.
 
 1. Click *Connect Google* and sign in with the account your calls are recorded on.
 2. Paste the folder's address and click *Use this folder*.
@@ -37,7 +37,7 @@ Calls with all your clients can live in one folder, such as Google Meet's *Meet 
 
 How a call finds its company:
 
-1. The file name holds one of the company's names. These are the transcript aliases on the company's Connections tab.
+1. The file name holds one of the company's names. These are listed under *Names that identify this company* on the company's Connections tab.
 2. Otherwise, someone on the call is a person at one of your companies, by their name or email.
 3. Otherwise, or if it matches more than one company, it waits under *Calls to sort*.
 
@@ -50,7 +50,7 @@ Only the companies you coach are ever chosen.
 Each call shows its date and who spoke on it.
 
 - **File it.** Choose the company and click *File it*. It's summarised in a few minutes and appears on that company's *Coaching calls* tab.
-- **Send future calls named "…" here too** is ticked for you. It adds that name to the company's aliases, so the next call with it in the file name files itself.
+- **Send future calls named "…" here too** is ticked for you. It adds that name to the company's names on its Connections tab, so the next call with it in the file name files itself.
 - **Not a coaching call.** Choose it and click *Set aside*. The call is removed from the list and its words aren't kept.
 
 *Filed automatically this week* lists the calls that found their company on their own, and why: "matched "Ridgeline" in the name" or "matched Dana Ruiz on the call". If one went to the wrong company, click *Move*, choose the right one and click *Move* again. It's summarised again for that company.
@@ -71,7 +71,7 @@ To step back out, use *Exit {company}* in the user menu.
 
 **Who else can see my coaching calls?** Only the company's other coaches and its AiMS Champion. Not the company's admins, and not a system admin unless they coach the company too.
 
-**Can I use a company's own folder instead?** Yes. On the company's Connections tab, a Drive folder or Teams meeting can be marked *Coaching calls*.
+**Can I use a company's own folder instead?** No. Folders and Teams meetings on a company's Connections tab bring in team meetings. Coaching calls come in through your coaching calls folder here, or by uploading one on the company's *Coaching calls* tab of Meeting Summaries.
 
 ::: role system_admin
 **I have no companies assigned. Why the notice?** Coach HQ only shows companies you're assigned to coach, even for a system admin. Your access to every company is unchanged. To see your own commitments, open Commitments inside a company.

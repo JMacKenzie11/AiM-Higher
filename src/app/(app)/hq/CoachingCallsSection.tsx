@@ -6,6 +6,8 @@ import cc from "./coaching-calls.module.css";
 // Coach HQ: your own folder of coaching calls, and the calls in it
 // waiting to be sorted (0326). Only the coach sees this, about their
 // own folder: loadCoachingCallsHq reads through their client.
+// This is the one place a coach sets up call recordings; a company's
+// Connections tab no longer offers coaching calls (Jason, 2026-11-16).
 
 export function CoachingCallsSection({
   data,
@@ -22,6 +24,9 @@ export function CoachingCallsSection({
         <h2 id="coaching-calls-folder" className={styles.h2}>
           Your coaching calls folder
         </h2>
+        {!data.folder ? (
+          <p className={cc.text}>Set up your call recordings here, once, for every company you coach.</p>
+        ) : null}
         {flash.connected ? (
           <p role="status" className={cc.ok}>Google connected as {flash.connected}.</p>
         ) : null}
@@ -35,7 +40,7 @@ export function CoachingCallsSection({
         <div className={cc.how}>
           <h3 className={cc.h3}>How a call finds its company</h3>
           <ol className={cc.steps}>
-            <li>The file name holds one of the company&apos;s names, like the ones on its Connections tab.</li>
+            <li>The file name holds one of the company&apos;s names, listed under Names that identify this company on its Connections tab.</li>
             <li>Someone on the call is a person at one of your companies, by name or email.</li>
             <li>Otherwise it waits under Calls to sort, and you choose.</li>
           </ol>
