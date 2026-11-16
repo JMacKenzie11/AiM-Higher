@@ -1,0 +1,168 @@
+/* Coach HQ: your coaching calls folder and Calls to sort (0326).
+   Two cards side by side on a wide screen, stacked on a phone. */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-start;
+}
+
+.folder {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+
+.sort {
+  flex: 2 1 480px;
+  min-width: 0;
+}
+
+.h3 {
+  font: var(--text-h3);
+  color: var(--text-heading);
+  margin: 0;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  font: var(--text-body);
+}
+
+.meta {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.how {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.steps {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font: var(--text-body-sm);
+}
+
+.headRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.list,
+.filedList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  border-top: 1px solid var(--border);
+  padding: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.itemHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.title {
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.chip {
+  align-self: flex-start;
+  font: var(--text-body-sm);
+  color: var(--text);
+  background: var(--aims-navy-tint);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-3);
+}
+
+.folderForm,
+.sortForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sortRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.sortField {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font: var(--text-body-sm);
+}
+
+.filed {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.filedItem {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  font: var(--text-body-sm);
+}
+
+.moveForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.ok {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text);
+}
+
+.error {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--aims-danger);
+}

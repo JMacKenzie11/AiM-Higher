@@ -16,6 +16,8 @@ import { MyCommitmentsSection } from "./MyCommitmentsSection";
 import { NeedsAttentionSection } from "./NeedsAttentionSection";
 import { YourCompaniesSection } from "./YourCompaniesSection";
 import { RecentActivitySection } from "./RecentActivitySection";
+import { CoachingCallsSection } from "./CoachingCallsSection";
+import { loadCoachingCallsHq } from "@/lib/coaching-calls/hq";
 import { PageShell } from "@/components/ui/PageShell";
 import styles from "./hq.module.css";
 import { simplifyOn } from "@/lib/ui/simplify";
@@ -27,7 +29,12 @@ export const metadata = { title: "Coach HQ" };
 // with three assignments sees exactly those three; zero assignments
 // hits a distinct empty state, not a fallback to global scope.
 
-export default async function GuideHqPage() {
+export default async function GuideHqPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ oauth_connected?: string; oauth_error?: string }>;
+}) {
+  const flash = (await searchParams) ?? {};
   const session = await requireRole(["aims_guide", "system_admin"]);
   const profileId = session.profile.id;
 
@@ -43,7 +50,7 @@ export default async function GuideHqPage() {
   // a guide who's between assignments may still own commitments in
   // companies where they used to coach, and their sysadmin overseer
   // may have assigned them commitments across their own board.
-  const [myCommitments, attention, rollups, activity, briefsMap] =
+  const [myCommitments, attention, rollups, activity, briefsMap, coachingCalls] =
     await Promise.all([
       loadMyCommitments(profileId),
       zeroCaseload
@@ -54,6 +61,10 @@ export default async function GuideHqPage() {
       zeroCaseload
         ? Promise.resolve(new Map<string, SessionBriefRow[]>())
         : loadRecentBriefsForCompanies(companyIds),
+      // The coach's own folder of coaching calls (0326).
+      zeroCaseload
+        ? Promise.resolve(null)
+        : loadCoachingCallsHq({ id: profileId, name: session.profile.full_name }, caseload),
     ]);
   // Client-component prop needs to be a serializable object, not a Map.
   const briefsByCompany: Record<string, SessionBriefRow[]> = Object.fromEntries(
@@ -123,6 +134,16 @@ export default async function GuideHqPage() {
       {!zeroCaseload ? (
         <>
           <NeedsAttentionSection rows={attention} />
+          {coachingCalls ? (
+            <CoachingCallsSection
+              data={coachingCalls}
+              companies={caseload}
+              flash={{
+                connected: flash.oauth_connected ?? null,
+                error: flash.oauth_error ?? null,
+              }}
+            />
+          ) : null}
           {shortHq && myCommitments.length > 0 ? (
             <MyCommitmentsSection
               rows={myCommitments}

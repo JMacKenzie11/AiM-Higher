@@ -115,6 +115,19 @@ With Microsoft 365 connected, **Add a Teams meeting** appears under **Meeting tr
 The next transcript comes in within about 15 minutes of the meeting ending. Earlier meetings aren't brought in. Teams meetings are picked by name, so transcript aliases don't apply to them.
 
 Channel meetings and live events can't be connected: Microsoft doesn't share their transcripts.
+
+A folder or Teams meeting marked **Coaching calls** sends what it brings in to the *Coaching calls* tab of Meeting Summaries instead of the team's meetings. Only the company's coach and its AiMS Champion can see those calls. A folder shows *Coaching calls* under its name when it's marked.
+:::
+
+::: role aims_guide,system_admin
+## Coaching calls from a company's folder
+
+If you coach this company, you can mark a folder or Teams meeting as coaching calls:
+
+- **When you connect it,** tick *These are coaching calls* before clicking *Connect folder* or *Connect meeting*.
+- **Later,** click *Mark as coaching calls* on its row. *Mark as team meetings* turns it back.
+
+The change applies to what comes in next. Calls and meetings already in stay where they are. Only the company's coach can change it, either way.
 :::
 
 ::: role company_admin,system_admin

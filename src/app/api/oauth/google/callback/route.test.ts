@@ -15,7 +15,8 @@ const mocks = vi.hoisted(() => {
   const cookieStore = new Map<string, string>();
   const requireProfile = vi.fn();
   const exchangeCodeAndPersist = vi.fn();
-  return { cookieStore, requireProfile, exchangeCodeAndPersist };
+  const exchangeCodeAndPersistForCoach = vi.fn();
+  return { cookieStore, requireProfile, exchangeCodeAndPersist, exchangeCodeAndPersistForCoach };
 });
 
 vi.mock("next/headers", () => ({
@@ -39,6 +40,7 @@ vi.mock("@/lib/auth/current-user", () => ({
 
 vi.mock("@/lib/transcripts/providers/google-drive", () => ({
   exchangeCodeAndPersist: mocks.exchangeCodeAndPersist,
+  exchangeCodeAndPersistForCoach: mocks.exchangeCodeAndPersistForCoach,
 }));
 
 vi.mock("@/lib/supabase/env", () => ({
@@ -74,6 +76,36 @@ describe("GET /api/oauth/google/callback", () => {
     vi.clearAllMocks();
     mocks.cookieStore.clear();
     mocks.exchangeCodeAndPersist.mockResolvedValue("ops@example.com");
+    mocks.exchangeCodeAndPersistForCoach.mockResolvedValue("coach@example.com");
+  });
+
+  // A coach's own account (0326): stored against the signed-in profile,
+  // never a company, and only for an aims_guide or system_admin.
+  it("stores a coach's own account against their own profile, and goes back to Coach HQ", async () => {
+    mocks.requireProfile.mockResolvedValue(session("aims_guide", null, [CO_ACME]));
+    const state = "nonce.coach";
+    mocks.cookieStore.set("google_oauth_state", state);
+    const { GET } = await import("./route");
+
+    const res = await GET(callbackRequest(state));
+
+    expect(mocks.exchangeCodeAndPersistForCoach).toHaveBeenCalledWith("auth_code", "u1");
+    expect(mocks.exchangeCodeAndPersist).not.toHaveBeenCalled();
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3200/hq?oauth_connected=coach%40example.com#coaching-calls-folder"
+    );
+  });
+
+  it("refuses a coach connection for a company admin", async () => {
+    mocks.requireProfile.mockResolvedValue(session("company_admin", CO_ACME));
+    const state = "nonce.coach";
+    mocks.cookieStore.set("google_oauth_state", state);
+    const { GET } = await import("./route");
+
+    const res = await GET(callbackRequest(state));
+
+    expect(mocks.exchangeCodeAndPersistForCoach).not.toHaveBeenCalled();
+    expect(res.headers.get("location")).toBe("http://localhost:3200/hq?oauth_error=forbidden#coaching-calls-folder");
   });
 
   it("refuses to bind a credential to a company the caller does not admin", async () => {

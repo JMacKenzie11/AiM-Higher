@@ -11,6 +11,8 @@ import { extractTranscript } from "./extract";
 import { contentHash, routeByFilename } from "./route";
 import { analyzeMeeting } from "./analyze";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { loadCoachRouting } from "@/lib/coaching-calls/coach-companies";
+import { routeCoachCall } from "@/lib/coaching-calls/route";
 
 // Runs the full pipeline for a single source: list new files past
 // cursor, download + extract + hash + route + insert each, advance
@@ -52,6 +54,14 @@ export async function ingestSource(
           ? await loadCompanyAliases(admin, source.company_id)
           : [];
 
+    // A coach's own folder (0326): calls with every client, each routed
+    // among the coach's assigned companies only (coaching-calls/route.ts).
+    // Read once, and only when there is something to route.
+    const coachRouting =
+      source.scope === "coach" && source.owner_profile_id && files.length > 0
+        ? await loadCoachRouting(admin, source.owner_profile_id)
+        : null;
+
     for (const file of files) {
       try {
         const download = await provider.downloadFile(source, file.fileId);
@@ -62,8 +72,30 @@ export async function ingestSource(
         let companyId: string | null = source.company_id;
         let status: Meeting["status"] = "pending";
         let routedByAlias: string | null = null;
+        let routedByPersonId: string | null = null;
 
-        if (source.scope === "shared") {
+        if (source.scope === "coach") {
+          // Filed by its name or the people on it, or left for the coach
+          // to sort (company null, status unrouted). Never a company the
+          // coach is not assigned to: only those are passed in.
+          const decision = coachRouting
+            ? routeCoachCall({
+                fileName: file.name,
+                transcript: extracted.text,
+                companies: coachRouting.companies,
+                coach: coachRouting.coach,
+              })
+            : null;
+          if (decision?.kind === "routed") {
+            companyId = decision.companyId;
+            routedByAlias = decision.by === "alias" ? decision.alias : null;
+            routedByPersonId = decision.by === "person" ? decision.personId : null;
+            status = "pending";
+          } else {
+            companyId = null;
+            status = "unrouted";
+          }
+        } else if (source.scope === "shared") {
           const decision = routeByFilename(file.name, aliases);
           if (decision.kind === "routed") {
             companyId = decision.companyId;
@@ -120,8 +152,10 @@ export async function ingestSource(
             transcript_text: extracted.text,
             meeting_title: extracted.title,
             status,
-            // A folder or Teams meeting marked "Coaching calls" (0326).
-            kind: source.kind === "coaching" ? "coaching" : "team",
+            // A folder or Teams meeting marked "Coaching calls", or a
+            // coach's own folder (always coaching) (0326).
+            kind: source.kind === "coaching" || source.scope === "coach" ? "coaching" : "team",
+            routed_by_person_id: routedByPersonId,
           });
         if (insertError) {
           // 23505 = unique violation, i.e. this (source, file) is
