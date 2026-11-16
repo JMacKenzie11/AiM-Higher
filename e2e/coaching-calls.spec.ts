@@ -94,6 +94,9 @@ test("once analysed, the call's page says who can see it and has no add buttons"
   await expect(page.getByText(/^Only .*\(AiMS Champion\) can see this call\.$/)).toBeVisible();
   await expect(page.getByRole("link", { name: "← Coaching calls" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Read the transcript/ })).toBeVisible();
+  // No meeting score on a call: no signal on the strip, no breakdown.
+  await expect(page.getByText("Facilitation signal")).toHaveCount(0);
+  await expect(page.getByText("How this is scored")).toHaveCount(0);
 
   await page.getByRole("tab", { name: /Issues and commitments/ }).click();
   const panel = page.getByRole("tabpanel", { name: /Issues and commitments/ });
