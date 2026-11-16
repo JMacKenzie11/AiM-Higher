@@ -6,7 +6,10 @@ import { requireProfile } from "@/lib/auth/current-user";
 import {
   isAdminForCompany,
 } from "@/lib/auth/permissions";
-import { exchangeCodeAndPersist } from "@/lib/transcripts/providers/google-drive";
+import {
+  exchangeCodeAndPersist,
+  exchangeCodeAndPersistForCoach,
+} from "@/lib/transcripts/providers/google-drive";
 import { APP_URL } from "@/lib/supabase/env";
 
 // Handles Google's redirect back after user consents. Verifies the
@@ -51,6 +54,24 @@ export async function GET(req: NextRequest): Promise<Response> {
     return NextResponse.redirect(
       `${fallback}?oauth_error=invalid_state`
     );
+  }
+
+  // A coach's own account (0326): stored against the signed-in
+  // profile, for an aims_guide or system_admin only, and back to Coach
+  // HQ. The state cookie matched above, so this is the flow /start
+  // began for this browser.
+  if (state.split(".")[1] === "coach") {
+    const hq = `${APP_URL()}/hq`;
+    if (!["system_admin", "aims_guide"].includes(session.profile.role)) {
+      return NextResponse.redirect(`${hq}?oauth_error=forbidden#coaching-calls-folder`);
+    }
+    try {
+      const email = await exchangeCodeAndPersistForCoach(code, session.profile.id);
+      return NextResponse.redirect(`${hq}?oauth_connected=${encodeURIComponent(email)}#coaching-calls-folder`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "connect_failed";
+      return NextResponse.redirect(`${hq}?oauth_error=${encodeURIComponent(message)}#coaching-calls-folder`);
+    }
   }
 
   const companyId = state.split(".")[1] ?? "";

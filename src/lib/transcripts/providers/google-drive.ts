@@ -21,13 +21,31 @@ import type { TranscriptSource } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import {
   GOOGLE_SCOPES,
+  loadCoachConnection,
   loadConnection,
   parseGoogleSecret,
+  readCoachConnectionSecret,
   readConnectionSecret,
+  refreshCoachConnectionSecret,
   refreshConnectionSecret,
+  saveCoachConnectionSecretAsService,
   saveConnectionSecretAsService,
   type GoogleSecret,
 } from "@/lib/connections/vault";
+
+// Whose Google account reads a folder: a company's (its connection), or
+// a coach's own, for the folder holding their coaching calls with every
+// client (0326, coach_connections).
+type DriveOwner = { companyId: string } | { coachProfileId: string };
+
+function ownerOf(source: TranscriptSource): DriveOwner {
+  if (source.scope === "coach") {
+    if (!source.owner_profile_id) throw new Error("A coach's folder has no coach.");
+    return { coachProfileId: source.owner_profile_id };
+  }
+  if (!source.company_id) throw new Error("Shared-scope sources are no longer supported.");
+  return { companyId: source.company_id };
+}
 
 // OAuth-based Google Drive provider. The service-account path was
 // blocked by Google's Secure by Default managed policies (see
@@ -143,12 +161,19 @@ export async function googleAuthForCompany(
   return authenticatedClient(companyId);
 }
 
-async function authenticatedClient(companyId: string): Promise<OAuth2Client> {
+async function authenticatedClient(owner: string | DriveOwner): Promise<OAuth2Client> {
+  const who: DriveOwner = typeof owner === "string" ? { companyId: owner } : owner;
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
-  const stored = parseGoogleSecret(await readConnectionSecret(admin, companyId, "google"));
+  const stored = parseGoogleSecret(
+    "coachProfileId" in who
+      ? await readCoachConnectionSecret(admin, who.coachProfileId)
+      : await readConnectionSecret(admin, who.companyId, "google")
+  );
   if (!stored) {
     throw new Error(
-      "This company hasn't connected a Google account yet. Connect one from its transcripts panel."
+      "coachProfileId" in who
+        ? "Connect your Google account on Coach HQ first."
+        : "This company hasn't connected a Google account yet. Connect one from its transcripts panel."
     );
   }
   const client = getOAuthClient();
@@ -169,7 +194,11 @@ async function authenticatedClient(companyId: string): Promise<OAuth2Client> {
       access_token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
     };
     try {
-      await refreshConnectionSecret(admin, companyId, "google", JSON.stringify(next));
+      if ("coachProfileId" in who) {
+        await refreshCoachConnectionSecret(admin, who.coachProfileId, JSON.stringify(next));
+      } else {
+        await refreshConnectionSecret(admin, who.companyId, "google", JSON.stringify(next));
+      }
     } catch (err) {
       // The next run refreshes again; never fail an ingest over a cache.
       console.warn("[google] refreshed access token not stored:", err instanceof Error ? err.message : err);
@@ -178,8 +207,8 @@ async function authenticatedClient(companyId: string): Promise<OAuth2Client> {
   return client;
 }
 
-async function driveClient(companyId: string): Promise<drive_v3.Drive> {
-  const auth = await authenticatedClient(companyId);
+async function driveClient(owner: string | DriveOwner): Promise<drive_v3.Drive> {
+  const auth = await authenticatedClient(owner);
   return google.drive({ version: "v3", auth });
 }
 
@@ -232,7 +261,22 @@ async function verifyFolderAccess(
   folderId: string,
   companyId: string
 ): Promise<{ folderName: string }> {
-  const drive = await driveClient(companyId);
+  return verifyFolderAccessAs(folderId, { companyId });
+}
+
+// The coach's own folder: checked with the coach's own account.
+export async function verifyCoachFolderAccess(
+  folderId: string,
+  coachProfileId: string
+): Promise<{ folderName: string }> {
+  return verifyFolderAccessAs(folderId, { coachProfileId });
+}
+
+async function verifyFolderAccessAs(
+  folderId: string,
+  owner: DriveOwner
+): Promise<{ folderName: string }> {
+  const drive = await driveClient(owner);
   try {
     const res = await drive.files.get({
       fileId: folderId,
@@ -246,7 +290,10 @@ async function verifyFolderAccess(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (/not found|404/i.test(msg)) {
-      const acct = (await getConnectedGoogleAccount(companyId)) ?? "the connected account";
+      const acct =
+        ("coachProfileId" in owner
+          ? await getConnectedCoachGoogleAccount(owner.coachProfileId)
+          : await getConnectedGoogleAccount(owner.companyId)) ?? "the connected account";
       throw new Error(
         `${acct} can't reach that folder. Share it with ${acct} as Viewer and try again.`
       );
@@ -259,10 +306,7 @@ async function listNewFiles(source: TranscriptSource): Promise<{
   files: ListedFile[];
   nextCursor: string | null;
 }> {
-  if (!source.company_id) {
-    throw new Error("Shared-scope sources are no longer supported.");
-  }
-  const drive = await driveClient(source.company_id);
+  const drive = await driveClient(ownerOf(source));
 
   const parts: string[] = [
     `'${source.folder_id}' in parents`,
@@ -309,10 +353,7 @@ async function downloadFile(
   source: TranscriptSource,
   fileId: string
 ): Promise<DownloadedFile> {
-  if (!source.company_id) {
-    throw new Error("Shared-scope sources are no longer supported.");
-  }
-  const drive = await driveClient(source.company_id);
+  const drive = await driveClient(ownerOf(source));
 
   const meta = await drive.files.get({
     fileId,
@@ -359,4 +400,48 @@ export async function getConnectedGoogleAccount(
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
   const connection = await loadConnection(admin, companyId, "google");
   return connection?.account_label ?? null;
+}
+
+// The coach's own connected account, for Coach HQ. Null when the coach
+// hasn't connected one.
+export async function getConnectedCoachGoogleAccount(
+  coachProfileId: string
+): Promise<string | null> {
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const connection = await loadCoachConnection(admin, coachProfileId);
+  return connection?.account_label ?? null;
+}
+
+// The callback's half for a coach (0326): the same exchange as a
+// company's, stored against the coach's profile in coach_connections.
+export async function exchangeCodeAndPersistForCoach(
+  code: string,
+  coachProfileId: string
+): Promise<string> {
+  const client = getOAuthClient();
+  const { tokens } = await client.getToken(code);
+  if (!tokens.refresh_token) {
+    throw new Error(
+      "Google did not return a refresh token. Revoke prior access at https://myaccount.google.com/permissions and try again."
+    );
+  }
+  client.setCredentials(tokens);
+  const info = await client.request<{ email: string }>({
+    url: "https://openidconnect.googleapis.com/v1/userinfo",
+  });
+  const email = info.data.email;
+  if (!email) throw new Error("Google didn't return the connected email.");
+  const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  const secret: GoogleSecret = {
+    refresh_token: tokens.refresh_token,
+    access_token: tokens.access_token ?? null,
+    access_token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+  };
+  await saveCoachConnectionSecretAsService(admin, {
+    profileId: coachProfileId,
+    secret: JSON.stringify(secret),
+    accountLabel: email,
+    scopes: READONLY_SCOPES,
+  });
+  return email;
 }

@@ -170,6 +170,7 @@ async function main(): Promise<void> {
   await scrubOauthCredentials(admin, dryRun);
   await scrubConnections(admin, dryRun);
   await scrubGoogleDocsConnections(admin, dryRun);
+  await scrubCoachConnections(admin, dryRun);
   await checkVaultKey(refFromSupabaseUrl(url) as string, dryRun, rotateKey);
   console.log("");
 }
@@ -312,6 +313,47 @@ async function scrubGoogleDocsConnections(admin: Admin, dryRun: boolean): Promis
     process.exit(1);
   }
   console.log(`  Deleted ${rows.length} Google Docs connection(s).`);
+}
+
+// Every coach's own Google connection, for their folder of coaching
+// calls (0326), through the function that deletes the secret and its
+// row together. One at a time, as above.
+async function scrubCoachConnections(admin: Admin, dryRun: boolean): Promise<void> {
+  const { data, error } = await admin.from("coach_connections").select("profile_id, connector");
+  if (error) {
+    if (/does not exist|schema cache/i.test(error.message)) {
+      console.log("  coach_connections is not on this schema (before 0326). Nothing to do.");
+      return;
+    }
+    console.error(`\n  Couldn't read coach_connections: ${error.message}\n`);
+    process.exit(1);
+  }
+  const rows = (data ?? []) as Array<{ profile_id: string; connector: string }>;
+  if (rows.length === 0) {
+    console.log("  No coach connections in the vault.");
+    return;
+  }
+  console.log(`  ${rows.length} coach connection(s) in the vault.`);
+  if (dryRun) {
+    console.log("  --dry-run: nothing was deleted.");
+    return;
+  }
+  for (const r of rows) {
+    const { error: removeError } = await admin.rpc("coach_connection_remove_service", {
+      p_profile_id: r.profile_id,
+      p_connector: r.connector,
+    });
+    if (removeError) {
+      console.error(`\n  Removing a coach connection failed: ${removeError.message}\n`);
+      process.exit(1);
+    }
+  }
+  const { count } = await admin.from("coach_connections").select("id", { count: "exact", head: true });
+  if ((count ?? 0) > 0) {
+    console.error(`\n  ${count} coach connection(s) still present after the delete. Stop and look.\n`);
+    process.exit(1);
+  }
+  console.log(`  Deleted ${rows.length} coach connection(s).`);
 }
 
 async function checkVaultKey(devRef: string, dryRun: boolean, rotateKey: boolean): Promise<void> {

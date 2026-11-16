@@ -7,6 +7,7 @@ import { ConnectCompanyFolderForm } from "./ConnectCompanyFolderForm";
 import { ConnectTeamsMeetingForm } from "./ConnectTeamsMeetingForm";
 import { SourceRowActions } from "@/app/(app)/admin/transcripts/SourceRowActions";
 import { AliasEditor } from "./AliasEditor";
+import { SourceKindToggle } from "./SourceKindToggle";
 import styles from "../admin.module.css";
 
 // Per-company transcripts card. Each company connects its own
@@ -23,7 +24,11 @@ export function CompanyTranscriptsPanel({
   sources,
   meetings,
   aliases,
+  isCoach = false,
 }: {
+  // The company's assigned coach (0326): may mark a folder or Teams
+  // meeting as coaching calls, and connect one as such.
+  isCoach?: boolean;
   companyId: string;
   connectedAccount: string | null;
   microsoftAccount: string | null;
@@ -91,6 +96,7 @@ export function CompanyTranscriptsPanel({
                       </div>
                       <div className={styles.mutedCell}>
                         {s.provider === "teams" ? "Teams meeting" : "Drive folder"}
+                        {s.kind === "coaching" ? " · Coaching calls" : ""}
                       </div>
                       {s.last_error ? (
                         <div className={styles.inlineError}>{s.last_error}</div>
@@ -124,6 +130,9 @@ export function CompanyTranscriptsPanel({
                         companyId={companyId}
                         status={s.status}
                       />
+                      {isCoach ? (
+                        <SourceKindToggle sourceId={s.id} kind={s.kind === "coaching" ? "coaching" : "team"} />
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -131,8 +140,15 @@ export function CompanyTranscriptsPanel({
             </table>
           ) : null}
 
-          {connectedAccount ? <ConnectCompanyFolderForm companyId={companyId} /> : null}
-          {microsoftAccount ? <ConnectTeamsMeetingForm companyId={companyId} /> : null}
+          {isCoach ? (
+            <p className={styles.subtitleInline}>
+              A folder or Teams meeting marked <strong>Coaching calls</strong> sends what it brings in to the
+              Coaching calls tab of Meeting Summaries, seen only by you and the company&apos;s AiMS Champion,
+              never to the team&apos;s meetings.
+            </p>
+          ) : null}
+          {connectedAccount ? <ConnectCompanyFolderForm companyId={companyId} canMarkCoaching={isCoach} /> : null}
+          {microsoftAccount ? <ConnectTeamsMeetingForm companyId={companyId} canMarkCoaching={isCoach} /> : null}
 
           {connectedAccount ? (
             <div style={{ marginTop: "var(--space-4)" }}>

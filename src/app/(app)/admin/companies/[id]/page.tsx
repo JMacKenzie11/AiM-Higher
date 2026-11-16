@@ -24,6 +24,7 @@ import { ChampionForm, type ChampionCandidate } from "./ChampionForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
+import { isAssignedCoach } from "@/lib/coaching-calls/access";
 import { CompanyConnectionsCard } from "./CompanyConnectionsCard";
 import type { ConnectionRow } from "@/lib/connections/vault";
 import { QuarterCard } from "./QuarterCard";
@@ -506,6 +507,7 @@ export default async function CompanyDetailPage({
                     sources={sourceRows}
                     meetings={meetingRows}
                     aliases={aliasRows}
+                    isCoach={await isAssignedCoach(company.id)}
                   />
 
                   {/* Outside assistants (0279): the company's own switch, on

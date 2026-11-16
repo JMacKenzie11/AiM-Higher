@@ -136,3 +136,84 @@ export const GOOGLE_SCOPES = ["openid", "email", "https://www.googleapis.com/aut
 // whichever one it was given last (connections/microsoft.ts).
 export type OAuthSecret = GoogleSecret;
 export const parseOAuthSecret = parseGoogleSecret;
+
+// ---- A coach's own connection (0326) ------------------------------
+//
+// A coach's folder of coaching calls holds calls with every client, so
+// its Google account is the coach's, not any company's: coach_connections,
+// keyed by the coach's profile. Same vault, same shape of secret, and
+// service-role functions only. The row (account, status) is readable by
+// the coach it belongs to and nobody else.
+
+export type CoachConnectionRow = {
+  id: string;
+  profile_id: string;
+  connector: "google";
+  status: "active" | "error";
+  account_label: string | null;
+  checked_at: string | null;
+  last_error: string | null;
+};
+
+export async function readCoachConnectionSecret(
+  admin: SupabaseClient,
+  profileId: string
+): Promise<string | null> {
+  const { data, error } = await admin.rpc("coach_connection_secret", {
+    p_profile_id: profileId,
+    p_connector: "google",
+  });
+  if (error) throw new Error(`Couldn't read the coach's Google connection: ${error.message}`);
+  return typeof data === "string" ? data : null;
+}
+
+export async function saveCoachConnectionSecretAsService(
+  admin: SupabaseClient,
+  input: { profileId: string; secret: string; accountLabel: string | null; scopes: string[] }
+): Promise<void> {
+  const { error } = await admin.rpc("coach_connection_put_service", {
+    p_profile_id: input.profileId,
+    p_connector: "google",
+    p_secret: input.secret,
+    p_account_label: input.accountLabel,
+    p_scopes: input.scopes,
+  });
+  if (error) throw new Error(`Couldn't store the Google credential: ${error.message}`);
+}
+
+export async function refreshCoachConnectionSecret(
+  admin: SupabaseClient,
+  profileId: string,
+  secret: string
+): Promise<void> {
+  const { error } = await admin.rpc("coach_connection_refresh_secret", {
+    p_profile_id: profileId,
+    p_connector: "google",
+    p_secret: secret,
+  });
+  if (error) throw new Error(`Couldn't update the Google credential: ${error.message}`);
+}
+
+export async function removeCoachConnectionAsService(
+  admin: SupabaseClient,
+  profileId: string
+): Promise<void> {
+  const { error } = await admin.rpc("coach_connection_remove_service", {
+    p_profile_id: profileId,
+    p_connector: "google",
+  });
+  if (error) throw new Error(`Couldn't remove the Google connection: ${error.message}`);
+}
+
+export async function loadCoachConnection(
+  admin: SupabaseClient,
+  profileId: string
+): Promise<CoachConnectionRow | null> {
+  const { data } = await admin
+    .from("coach_connections")
+    .select("id, profile_id, connector, status, account_label, checked_at, last_error")
+    .eq("profile_id", profileId)
+    .eq("connector", "google")
+    .maybeSingle<CoachConnectionRow>();
+  return data ?? null;
+}

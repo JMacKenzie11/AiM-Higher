@@ -25,13 +25,28 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export async function GET(req: NextRequest): Promise<Response> {
   const session = await requireProfile();
+  const params = new URL(req.url).searchParams;
+
+  // A COACH'S OWN ACCOUNT (0326), for the folder of their coaching
+  // calls with every client: ?for=coach. An aims_guide or system_admin,
+  // connecting their own account and nobody else's. The state carries
+  // "coach" in place of a company id; the callback stores it against
+  // the signed-in profile, never a value from the request. Same Google
+  // app, same redirect address, same read-only Drive scope.
+  if (params.get("for") === "coach") {
+    if (!["system_admin", "aims_guide"].includes(session.profile.role)) {
+      return new Response("Forbidden", { status: 403 });
+    }
+    return redirectWithState(`${randomBytes(24).toString("hex")}.coach`);
+  }
+
   // Only these roles can ever manage a company's connections; the
   // company check below decides which company.
   if (!["system_admin", "company_admin", "aims_guide", "portfolio_admin"].includes(session.profile.role)) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  const companyId = new URL(req.url).searchParams.get("company_id") ?? "";
+  const companyId = params.get("company_id") ?? "";
   if (!UUID_RE.test(companyId)) {
     return new Response("Missing or invalid company_id", { status: 400 });
   }
@@ -50,8 +65,10 @@ export async function GET(req: NextRequest): Promise<Response> {
   // string is echoed back by Google and re-verified against the
   // cookie so an attacker can't pin someone else's company.
   const nonce = randomBytes(24).toString("hex");
-  const state = `${nonce}.${companyId}`;
+  return redirectWithState(`${nonce}.${companyId}`);
+}
 
+async function redirectWithState(state: string): Promise<Response> {
   const cookieStore = await cookies();
   cookieStore.set(STATE_COOKIE, state, {
     httpOnly: true,
