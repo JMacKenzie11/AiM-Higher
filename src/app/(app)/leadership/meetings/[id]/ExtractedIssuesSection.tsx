@@ -36,6 +36,7 @@ export function ExtractedIssuesSection({
   rows,
   canAdd,
   hint,
+  readOnly = false,
 }: {
   meetingId: string;
   rows: ExtractedIssueRow[];
@@ -43,6 +44,9 @@ export function ExtractedIssuesSection({
   // In place of the line under the heading, e.g. on a coaching call,
   // whose items are listed read-only (0326).
   hint?: string;
+  // A coaching call (0326): listed for reading, with no "Admin action"
+  // note, since nobody acts on these items anywhere.
+  readOnly?: boolean;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -61,6 +65,7 @@ export function ExtractedIssuesSection({
             meetingId={meetingId}
             row={r}
             canAdd={canAdd}
+            readOnly={readOnly}
           />
         ))}
       </ul>
@@ -72,10 +77,12 @@ function ExtractedIssueRowItem({
   meetingId,
   row,
   canAdd,
+  readOnly,
 }: {
   meetingId: string;
   row: ExtractedIssueRow;
   canAdd: boolean;
+  readOnly: boolean;
 }) {
   const [added, setAdded] = useState(row.alreadyAdded);
   const [pending, startTransition] = useTransition();
@@ -169,7 +176,7 @@ function ExtractedIssueRowItem({
             </button>
           </>
         ) : (
-          <span className={styles.doneMuted}>Admin action</span>
+          readOnly ? null : <span className={styles.doneMuted}>Admin action</span>
         )}
       </div>
     </li>

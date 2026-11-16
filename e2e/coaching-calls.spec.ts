@@ -104,6 +104,7 @@ test("once analysed, the call's page says who can see it and has no add buttons"
   // None of the buttons that put something on the company's lists.
   await expect(panel.getByRole("button", { name: /add|convert|resolved in meeting/i })).toHaveCount(0);
   await expect(panel.getByRole("combobox")).toHaveCount(0);
+  await expect(panel.getByText("Admin action")).toHaveCount(0);
   await expect(
     panel.getByText(/Read only\. Nothing from a coaching call goes on the company's lists\.|No commitments or issues came out of this call\./)
   ).toBeVisible();

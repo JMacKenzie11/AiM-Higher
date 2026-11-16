@@ -70,6 +70,7 @@ export function ExtractedCommitmentsSection({
   functionalAreaOptions,
   canAdd,
   hint,
+  readOnly = false,
 }: {
   meetingId: string;
   rows: ExtractedCommitmentRow[];
@@ -79,6 +80,9 @@ export function ExtractedCommitmentsSection({
   // In place of the line under the heading, e.g. on a coaching call,
   // whose items are listed read-only (0326).
   hint?: string;
+  // A coaching call (0326): listed for reading, with no "Admin action"
+  // note, since nobody acts on these items anywhere.
+  readOnly?: boolean;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -99,6 +103,7 @@ export function ExtractedCommitmentsSection({
             priorityOptions={priorityOptions}
             functionalAreaOptions={functionalAreaOptions}
             canAdd={canAdd}
+            readOnly={readOnly}
           />
         ))}
       </ul>
@@ -112,12 +117,14 @@ function ExtractedCommitmentRowItem({
   priorityOptions,
   functionalAreaOptions,
   canAdd,
+  readOnly,
 }: {
   meetingId: string;
   row: ExtractedCommitmentRow;
   priorityOptions: Array<Pick<Priority, "id" | "title">>;
   functionalAreaOptions: Array<{ id: string; title: string }>;
   canAdd: boolean;
+  readOnly: boolean;
 }) {
   const [addedAs, setAddedAs] = useState<ExtractedCommitmentAddedAs>(
     row.addedAs
@@ -289,7 +296,7 @@ function ExtractedCommitmentRowItem({
             </button>
           </>
         ) : (
-          <span className={styles.doneMuted}>Admin action</span>
+          readOnly ? null : <span className={styles.doneMuted}>Admin action</span>
         )}
       </div>
     </li>
