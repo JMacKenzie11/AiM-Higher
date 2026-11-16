@@ -30,7 +30,7 @@ import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
 import { extractHeadlines, fillMeetingHeadlines, loadHeadlineFunctions, type ExtractedHeadline } from "./headlines";
 import { simplifyOn } from "@/lib/ui/simplify";
-import { coachingRunPlan } from "./coaching";
+import { coachingRunPlan, withoutScores } from "./coaching";
 import { COMMITMENT_CLARITY_RULES } from "./clarity-rules";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
@@ -477,7 +477,9 @@ export async function analyzeMeeting(
     });
 
     // The review, started with the analysis above (Call 3).
-    let facilitationReview: FacilitationReview | null = reviewFromCall;
+    // A coaching call keeps the notes and questions, never a number (0326).
+    let facilitationReview: FacilitationReview | null =
+      reviewFromCall && !plan.scoreReview ? withoutScores(reviewFromCall) : reviewFromCall;
 
     // ---- Questions, for the Coaching notes tab ----
     //
@@ -516,7 +518,8 @@ export async function analyzeMeeting(
     // The score, computed from the four parts and stored with the
     // weights that made it (migration 0236). Null throughout when the
     // review did not run or could not score.
-    const scoreParts = facilitationReview && !facilitationReview.insufficient_transcript
+    // Never for a coaching call (coachingRunPlan.scoreReview).
+    const scoreParts = plan.scoreReview && facilitationReview && !facilitationReview.insufficient_transcript
       ? {
           positive_framing: facilitationReview.dimensions.positive_framing?.score ?? null,
           rhythm: facilitationReview.dimensions.rhythm.score,

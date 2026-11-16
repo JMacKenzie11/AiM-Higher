@@ -18,6 +18,11 @@ export type AnalysisRunPlan = {
   fillHeadlines: boolean;
   raiseNudge: boolean;
   trackEvent: boolean;
+  // The facilitation score: the five parts, the overall and the
+  // Facilitation signal. Built for the weekly leadership meeting, so a
+  // coaching call has none (Jason, 2026-11-16): its review keeps the
+  // notes and questions, and every number is left empty.
+  scoreReview: boolean;
 };
 
 export function coachingRunPlan(kind: MeetingKind | null | undefined): AnalysisRunPlan {
@@ -27,6 +32,30 @@ export function coachingRunPlan(kind: MeetingKind | null | undefined): AnalysisR
     fillHeadlines: team,
     raiseNudge: team,
     trackEvent: team,
+    scoreReview: team,
+  };
+}
+
+// A facilitation review with every number taken out: the overall, each
+// dimension's score and the agenda count. The notes, strengths, growth
+// edges, 4Ws and questions stay. Stored this way for a coaching call,
+// so nothing that reads scores (the strip, Coach HQ's weak-review
+// trigger, the scorecard) can find one, even by mistake.
+export function withoutScores<
+  T extends {
+    overall: number | null;
+    dimensions: Record<string, { score: number | null; notes: string } | undefined>;
+    agenda_adherence: { score_out_of_5: number | null; notes: string };
+  },
+>(review: T): T {
+  const dimensions = Object.fromEntries(
+    Object.entries(review.dimensions).map(([k, d]) => [k, d ? { ...d, score: null } : d])
+  ) as T["dimensions"];
+  return {
+    ...review,
+    overall: null,
+    dimensions,
+    agenda_adherence: { ...review.agenda_adherence, score_out_of_5: null },
   };
 }
 

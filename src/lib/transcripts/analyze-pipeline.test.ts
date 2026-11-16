@@ -428,6 +428,25 @@ describe("a coaching call writes nothing outside its own analysis", () => {
   });
 
   it("a coaching call stores its analysis, extracted items included, and nothing else", async () => {
+    // A scored review comes back, as for any meeting; the call keeps
+    // its notes and none of its numbers.
+    h.facilitation.mockResolvedValue({
+      version: 2,
+      insufficient_transcript: false,
+      overall: 7.4,
+      executive_summary: "A good call.",
+      strengths: [],
+      growth_edges: [],
+      experiments: [],
+      fourws_audit: [],
+      dimensions: {
+        rhythm: { score: 3, notes: "" },
+        accountability: { score: 8, notes: "" },
+        alignment: { score: 7, notes: "" },
+        positive_framing: { score: 9, notes: "" },
+      },
+      agenda_adherence: { score_out_of_5: 1, notes: "" },
+    });
     const result = await run("coaching");
 
     const analysis = h.writes.find((w) => w.table === "meeting_analyses" && w.op === "insert");
@@ -445,6 +464,19 @@ describe("a coaching call writes nothing outside its own analysis", () => {
     expect(h.create.mock.calls.map(([req]) => kindOf(req))).not.toContain("headlines");
     expect(result.createdCommitmentCount).toBe(0);
     expect(result.nudge).toEqual({ raised: false, reason: "coaching call" });
+    // No facilitation score of any kind: not computed, not stored.
+    const stored = analysis!.payload as Record<string, unknown>;
+    for (const k of ["score_positive_framing", "score_rhythm", "score_accountability", "score_alignment", "score_agenda", "score_overall", "score_weights"]) {
+      expect(stored[k]).toBeNull();
+    }
+    const review = stored.facilitation_review_json as {
+      overall: number | null;
+      executive_summary: string;
+      dimensions: Record<string, { score: number | null }>;
+    };
+    expect(review.overall).toBeNull();
+    expect(Object.values(review.dimensions).every((d) => d.score === null)).toBe(true);
+    expect(review.executive_summary).toBe("A good call.");
     expect(h.writes.filter((w) => w.table === "meetings" && w.op === "update").at(-1)?.payload).toMatchObject({
       status: "complete",
     });
