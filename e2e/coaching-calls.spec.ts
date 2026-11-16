@@ -72,7 +72,10 @@ test("once analysed, the call's page says who can see it and has no add buttons"
   // Wait for the analysis: the View link appears when it is complete.
   const deadline = Date.now() + 7 * 60_000;
   for (;;) {
-    await page.goto("/leadership#coaching-calls");
+    // A full load each time: going to the same address with only a
+    // #fragment changed is a same-page jump and never re-renders.
+    await page.goto("/leadership");
+    await page.getByRole("tab", { name: "Coaching calls" }).click();
     const row = page.getByRole("tabpanel", { name: "Coaching calls" }).getByRole("row", { name: new RegExp(TITLE) });
     await expect(row).toBeVisible({ timeout: 30_000 });
     const view = row.getByRole("link", { name: "View" });
@@ -112,9 +115,13 @@ test("a team member who isn't the champion sees no tab, and the call is not foun
   await expect(page.getByText(/coaching call/i)).toHaveCount(0);
   await expect(page.getByText(TITLE)).toHaveCount(0);
 
-  const res = await page.goto(callUrl);
-  expect(res?.status()).toBe(404);
+  // Not found, as for a meeting that does not exist. Checked on the
+  // page, not the status: /leadership has a loading.tsx, so the response
+  // is streamed and its status is sent before notFound() runs.
+  await page.goto(callUrl);
+  await expect(page.getByRole("heading", { name: "That page isn’t here." })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(TITLE)).toHaveCount(0);
-  const transcript = await page.goto(`${callUrl}/transcript`);
-  expect(transcript?.status()).toBe(404);
+  await page.goto(`${callUrl}/transcript`);
+  await expect(page.getByRole("heading", { name: "That page isn’t here." })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(TITLE)).toHaveCount(0);
 });
