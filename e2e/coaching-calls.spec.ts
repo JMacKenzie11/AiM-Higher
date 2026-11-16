@@ -101,10 +101,11 @@ test("once analysed, the call's page says who can see it and has no add buttons"
   await expect(page.getByText("Facilitation signal")).toHaveCount(0);
   await expect(page.getByText("How this is scored")).toHaveCount(0);
 
-  // Two tabs only: no Issues and commitments on a call, so no way to
-  // put anything from it on the company's lists.
-  await expect(page.getByRole("tab", { name: "Meeting Analysis" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Coaching notes" })).toBeVisible();
+  // The analysis only, with no tab row: no Issues and commitments on a
+  // call, so no way to put anything from it on the company's lists, and
+  // Coaching notes hidden for now (Jason, 2026-11-16).
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Coaching notes" })).toHaveCount(0);
   await expect(page.getByRole("tab", { name: /Issues and commitments/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /add|convert|resolved in meeting/i })).toHaveCount(0);
 });

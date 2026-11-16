@@ -23,7 +23,7 @@ A commitment where nobody named a day shows **By next meeting** instead of a dat
 ::: role team_member,company_admin,aims_guide,system_admin
 ## A coaching call
 
-A coaching call's page has two tabs, *Meeting Analysis* and *Coaching notes*, with *Coaching call analysis* above its name and a line saying who can see it: the company's coach and its AiMS Champion. There is no *Issues and commitments* tab, because nothing from a call goes on the company's lists. *Coaching notes* has the notes on how the call went, without a score: the score is made for the weekly leadership meeting. *← Coaching calls* takes you back to the tab.
+A coaching call's page shows its analysis with no tabs, with *Coaching call analysis* above its name and a line saying who can see it: the company's coach and its AiMS Champion. There is no *Issues and commitments* tab, because nothing from a call goes on the company's lists. *Coaching notes* is hidden on a call for now. *← Coaching calls* takes you back to the tab.
 :::
 
 ::: role team_member

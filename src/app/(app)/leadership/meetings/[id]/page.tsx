@@ -45,7 +45,11 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
 import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import { canReadCoachingCalls, coachingCallReaders } from "@/lib/coaching-calls/access";
-import { COACHING_CALL_ITEMS_CAN_BE_ADDED, coachingReadersLine } from "@/lib/transcripts/coaching";
+import {
+  COACHING_CALL_ITEMS_CAN_BE_ADDED,
+  COACHING_CALL_NOTES_SHOWN,
+  coachingReadersLine,
+} from "@/lib/transcripts/coaching";
 
 export const metadata = { title: "Meeting summary" };
 
@@ -681,37 +685,49 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           ) : null}
         </div>
 
-        <AnalysisTabs
-          // Meeting Analysis first, so the page opens on it; Coaching
-          // notes last (Jason, 2026-09-28). The first tab is the default.
-          tabs={[
-            {
-              hash: "meeting-analysis",
-              label: "Meeting Analysis",
-              content: fullRecord,
-            },
-            // A coaching call has no Issues and commitments tab (Jason,
-            // 2026-11-16): what it drew out stays on the analysis row,
-            // and the tab comes back with the add buttons, one switch.
-            ...(coaching && !COACHING_CALL_ITEMS_CAN_BE_ADDED
-              ? []
-              : [
-                  {
-                    hash: "issues-and-commitments",
-                    label: "Issues and commitments",
-                    count:
-                      (autoTrackOn ? commitmentRows.length : commitmentExtractionRows.length) +
-                      issueRows.length,
-                    content: issuesAndCommitments,
-                  },
-                ]),
-            {
-              hash: "coaching-notes",
-              label: "Coaching notes",
-              content: coachingNotes,
-            },
-          ]}
-        />
+        {/* A coaching call with both its other tabs hidden is one
+            page of analysis: no tab row with a single tab in it. */}
+        {coaching && !COACHING_CALL_NOTES_SHOWN && !COACHING_CALL_ITEMS_CAN_BE_ADDED ? (
+          fullRecord
+        ) : (
+          <AnalysisTabs
+            // Meeting Analysis first, so the page opens on it; Coaching
+            // notes last (Jason, 2026-09-28). The first tab is the default.
+            tabs={[
+              {
+                hash: "meeting-analysis",
+                label: "Meeting Analysis",
+                content: fullRecord,
+              },
+              // A coaching call has no Issues and commitments tab (Jason,
+              // 2026-11-16): what it drew out stays on the analysis row,
+              // and the tab comes back with the add buttons, one switch.
+              ...(coaching && !COACHING_CALL_ITEMS_CAN_BE_ADDED
+                ? []
+                : [
+                    {
+                      hash: "issues-and-commitments",
+                      label: "Issues and commitments",
+                      count:
+                        (autoTrackOn ? commitmentRows.length : commitmentExtractionRows.length) +
+                        issueRows.length,
+                      content: issuesAndCommitments,
+                    },
+                  ]),
+              // Hidden on a coaching call for now (Jason, 2026-11-16); the
+              // call is still analysed, the page just leaves the tab out.
+              ...(coaching && !COACHING_CALL_NOTES_SHOWN
+                ? []
+                : [
+                    {
+                      hash: "coaching-notes",
+                      label: "Coaching notes",
+                      content: coachingNotes,
+                    },
+                  ]),
+            ]}
+          />
+        )}
 
         {/* System admins only, and only for a meeting with no
             commitments or issues created from it: Reanalyze replaces

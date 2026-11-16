@@ -94,3 +94,11 @@ function listNames(names: readonly string[]): string {
 // and take the kind = 'team' filter off the four meeting reads in
 // routing-actions.ts, which refuse a call today.
 export const COACHING_CALL_ITEMS_CAN_BE_ADDED: boolean = false;
+
+// THE COACHING NOTES TAB ON A COACHING CALL'S PAGE. Hidden (Jason,
+// 2026-11-16, "we'll decide if we want to keep it later"): the call is
+// still analysed in full and its notes and review are still stored on
+// the analysis row, only the page leaves the tab out. With it hidden
+// and the add buttons off, a call has one tab, so the page shows the
+// analysis with no tab row. Set this to bring the tab back.
+export const COACHING_CALL_NOTES_SHOWN: boolean = false;
