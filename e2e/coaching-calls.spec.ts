@@ -37,6 +37,9 @@ const TRANSCRIPT = [
 let callUrl = "";
 
 test("the champion sees Coaching calls beside Team meetings, and adds a call", async ({ page }) => {
+  // Its own wait for the upload is 60s; the default 30s test budget
+  // ended it first on a cold dev server, with the call already added.
+  test.setTimeout(3 * 60_000);
   await signIn(page, users.member());
   await page.goto("/leadership");
   const tabs = page.getByRole("tablist", { name: "Meeting Summaries" });
@@ -98,16 +101,12 @@ test("once analysed, the call's page says who can see it and has no add buttons"
   await expect(page.getByText("Facilitation signal")).toHaveCount(0);
   await expect(page.getByText("How this is scored")).toHaveCount(0);
 
-  await page.getByRole("tab", { name: /Issues and commitments/ }).click();
-  const panel = page.getByRole("tabpanel", { name: /Issues and commitments/ });
-  await expect(panel).toBeVisible();
-  // None of the buttons that put something on the company's lists.
-  await expect(panel.getByRole("button", { name: /add|convert|resolved in meeting/i })).toHaveCount(0);
-  await expect(panel.getByRole("combobox")).toHaveCount(0);
-  await expect(panel.getByText("Admin action")).toHaveCount(0);
-  await expect(
-    panel.getByText(/Read only\. Nothing from a coaching call goes on the company's lists\.|No commitments or issues came out of this call\./)
-  ).toBeVisible();
+  // Two tabs only: no Issues and commitments on a call, so no way to
+  // put anything from it on the company's lists.
+  await expect(page.getByRole("tab", { name: "Meeting Analysis" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Coaching notes" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Issues and commitments/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /add|convert|resolved in meeting/i })).toHaveCount(0);
 });
 
 test("a team member who isn't the champion sees no tab, and the call is not found", async ({ page }) => {

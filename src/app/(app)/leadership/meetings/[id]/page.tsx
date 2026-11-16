@@ -690,14 +690,21 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
               label: "Meeting Analysis",
               content: fullRecord,
             },
-            {
-              hash: "issues-and-commitments",
-              label: "Issues and commitments",
-              count:
-                (autoTrackOn ? commitmentRows.length : commitmentExtractionRows.length) +
-                issueRows.length,
-              content: issuesAndCommitments,
-            },
+            // A coaching call has no Issues and commitments tab (Jason,
+            // 2026-11-16): what it drew out stays on the analysis row,
+            // and the tab comes back with the add buttons, one switch.
+            ...(coaching && !COACHING_CALL_ITEMS_CAN_BE_ADDED
+              ? []
+              : [
+                  {
+                    hash: "issues-and-commitments",
+                    label: "Issues and commitments",
+                    count:
+                      (autoTrackOn ? commitmentRows.length : commitmentExtractionRows.length) +
+                      issueRows.length,
+                    content: issuesAndCommitments,
+                  },
+                ]),
             {
               hash: "coaching-notes",
               label: "Coaching notes",
