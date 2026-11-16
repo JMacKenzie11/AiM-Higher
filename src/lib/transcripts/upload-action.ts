@@ -2,12 +2,12 @@
 
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requireProfile } from "@/lib/auth/current-user";
+import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { isAimsChampion } from "@/lib/guide/champion";
-import { canReadCoachingCalls } from "@/lib/coaching-calls/access";
+import { canReadCoachingCalls, isAssignedCoach } from "@/lib/coaching-calls/access";
 import { extractTranscript } from "./extract";
 import { contentHash } from "./route";
 import { processPendingMeetings } from "./ingest";
@@ -80,6 +80,45 @@ export async function uploadTranscriptAction(
       return { ok: false, message: "Only an admin, coach or AiMS champion can upload a transcript." };
     }
   }
+  const result = await saveTranscript(companyId, kind, form);
+  if (result?.ok) revalidatePath("/leadership");
+  return result;
+}
+
+// UPLOAD A CALL FROM COACH HQ: the coach chooses the company on the
+// form, since Coach HQ is never scoped into one. Allowed: an aims_guide
+// or system_admin who is an ASSIGNED coach of that company
+// (is_assigned_coach(), the function the coaching-call rules use). Not
+// the champion, who uploads from the company's Coaching calls tab. The
+// company is a form value here, so this check is the boundary, as the
+// scoped company is above. Always a coaching call.
+export async function uploadCoachingCallAction(
+  _prev: UploadTranscriptState,
+  form: FormData
+): Promise<UploadTranscriptState> {
+  await requireRole(["aims_guide", "system_admin"]);
+  const raw = form.get("company_id");
+  const companyId = typeof raw === "string" ? raw.trim() : "";
+  if (!companyId) return { ok: false, message: "Choose the company the call was with." };
+  if (!(await isAssignedCoach(companyId))) {
+    return { ok: false, message: "You can only add a call for a company you coach." };
+  }
+  const result = await saveTranscript(companyId, "coaching", form);
+  if (result?.ok) revalidatePath("/hq");
+  return result;
+}
+
+// The file, read and saved as a meeting of `companyId`, then analysed.
+// Callers have already decided the caller may.
+async function saveTranscript(
+  companyId: string,
+  kind: "team" | "coaching",
+  form: FormData
+): Promise<UploadTranscriptState> {
+  const field = (k: string) => {
+    const v = form.get(k);
+    return typeof v === "string" ? v.trim() : "";
+  };
   const already =
     kind === "coaching" ? "This transcript is already in AiMS." : "This transcript is already in Meeting Summaries.";
 
@@ -179,6 +218,5 @@ export async function uploadTranscriptAction(
     void run();
   }
 
-  revalidatePath("/leadership");
   return { ok: true, title };
 }

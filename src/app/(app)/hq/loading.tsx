@@ -28,16 +28,14 @@ export default function Loading() {
           <h1 className={styles.h1}>Coach HQ</h1>
           <span className={styles.rule} aria-hidden="true" />
           <p className={styles.subtitle}>
-            Assembling your commitments, the attention queue for this
-            week, and a read on the shape of your caseload.
+            Gathering your companies and your coaching calls.
           </p>
         </div>
       </section>
       <div className={styles.content}>
-        <SkeletonSection title="My commitments" rowCount={3} />
-        <SkeletonSection title="Needs your attention" rowCount={2} />
+        <SkeletonSection title="Needs you this week" rowCount={2} />
         <SkeletonSection title="Your companies" rowCount={4} />
-        <SkeletonSection title="Recent activity" rowCount={3} />
+        <SkeletonSection title="Your commitments" rowCount={3} />
       </div>
     </div>
   );

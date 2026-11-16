@@ -42,7 +42,7 @@ function itemBody(item: RecentActivityItem) {
       if (item.insufficient) {
         return (
           <>
-            Facilitation review landed — transcript wasn&rsquo;t scoreable.{" "}
+            Facilitation review landed. The transcript couldn&rsquo;t be scored.{" "}
             <Link
               className={styles.activityLink}
               href={`/leadership/meetings/${item.meetingId}`}

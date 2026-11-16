@@ -1,7 +1,23 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { loadCompanyScorecardScores } from "@/lib/maturity/service";
+import {
+  loadCompanyScorecardScores,
+  loadOverallSnapshotsAsOf,
+} from "@/lib/maturity/service";
+import { compareOverall } from "@/lib/maturity/compute";
+import { scoreForRow, type StoredScoreRow } from "@/lib/leadership/facilitation/score";
+import {
+  changeBetween,
+  COMPARE_DAYS,
+  DAY_MS,
+  FTR_WINDOW_DAYS,
+  ftrNowAndThen,
+  priorityCounts,
+  type Change,
+  type FtrRow,
+  type PriorityLite,
+} from "./derive";
 import type {
   Commitment,
   Priority,
@@ -165,21 +181,31 @@ export async function loadMyCommitments(
   }));
 }
 
-// Per-company summary row for the "Your companies" section. Reads a
-// small fixed set of numbers per company; scorecard is a live compute
-// so this scales with N (single-digit for a typical caseload).
+// Per-company row for the "Your companies" table. Reads a small fixed
+// set of numbers per company; the scorecard is a live compute, so this
+// scales with N (single-digit for a typical caseload). Each number that
+// carries an arrow is compared with four weeks ago (derive.ts); a side
+// with no data gives no arrow.
 export type CompanyRollup = {
   id: string;
   name: string;
   scorecardOverall: number | null;
+  scorecardChange: Change | null;
   followThroughRate: number | null;
+  followThroughChange: Change | null;
   openQuarterLabel: string | null;
   // The open quarter's end date has passed. Nothing breaks when it
   // does, but its priorities have stopped matching the period the
   // team is working, and across a caseload nobody would otherwise
   // notice.
   openQuarterLapsed: boolean;
+  priorities: { onTrack: number; overdue: number } | null;
+  // The last TEAM meeting and its facilitation score, never a call.
   lastMet: string | null;
+  lastMetFacilitation: number | null;
+  // The last coaching call, read on the caller's own client: RLS shows
+  // it only to the company's coaches, so anyone else gets null.
+  lastCoachingCall: string | null;
 };
 
 export async function loadCompanyRollups(
@@ -189,14 +215,19 @@ export async function loadCompanyRollups(
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
 
   const now = Date.now();
-  const DAY = 24 * 60 * 60 * 1000;
-  const ftrStart = new Date(now - 30 * DAY).toISOString();
+  const ftrStart = new Date(
+    now - (COMPARE_DAYS + FTR_WINDOW_DAYS) * DAY_MS
+  ).toISOString();
+  const todayIso = new Date(now).toISOString().slice(0, 10);
+  const compareIso = new Date(now - COMPARE_DAYS * DAY_MS).toISOString();
 
   const [
     { data: companies },
     { data: quarters },
     { data: commitmentRows },
     { data: meetings },
+    { data: calls },
+    priorSnapshots,
   ] = await Promise.all([
     supabase.from("companies").select("id, name").in("id", companyIds),
     supabase
@@ -214,13 +245,23 @@ export async function loadCompanyRollups(
       .gte("completed_at", ftrStart),
     supabase
       .from("meetings")
-      .select("company_id, created_at")
+      .select("id, company_id, created_at")
       .in("company_id", companyIds)
       // "Last meeting" is the last team meeting, never a coaching
       // call (0326).
       .eq("kind", "team")
       .eq("status", "complete")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("meetings")
+      .select("company_id, created_at")
+      .in("company_id", companyIds)
+      // The coaching column only: the date of the last call, nothing
+      // of what was said. The caller's own client, so RLS decides.
+      .eq("kind", "coaching")
+      .neq("status", "failed")
+      .order("created_at", { ascending: false }),
+    loadOverallSnapshotsAsOf(companyIds, compareIso),
   ]);
 
   const nameById = new Map(
@@ -228,86 +269,142 @@ export async function loadCompanyRollups(
       (c) => [c.id, c.name] as const
     )
   );
-  const today = new Date().toISOString().slice(0, 10);
   const openQuarterByCompany = new Map<
     string,
-    { label: string; lapsed: boolean }
+    { id: string; label: string; lapsed: boolean }
   >();
   for (const q of (quarters ?? []) as Array<{
+    id: string;
     company_id: string;
     label: string;
     end_date: string;
   }>) {
     openQuarterByCompany.set(q.company_id, {
+      id: q.id,
       label: q.label,
-      lapsed: q.end_date < today,
+      lapsed: q.end_date < todayIso,
     });
   }
 
-  const ftrTallies = new Map<
-    string,
-    { kept_on_time: number; kept_late: number; missed: number }
-  >();
-  for (const c of (commitmentRows ?? []) as Array<{
-    company_id: string;
-    status: string;
-    completed_at: string | null;
-    deleted_at: string | null;
-    parked_at: string | null;
-  }>) {
-    if (c.deleted_at || c.parked_at || !c.completed_at) continue;
-    if (c.status === "open") continue;
-    const s = ftrTallies.get(c.company_id) ?? {
-      kept_on_time: 0,
-      kept_late: 0,
-      missed: 0,
-    };
-    if (c.status === "kept_on_time") s.kept_on_time += 1;
-    else if (c.status === "kept_late") s.kept_late += 1;
-    else if (c.status === "missed") s.missed += 1;
-    ftrTallies.set(c.company_id, s);
+  const openQuarterIds = Array.from(openQuarterByCompany.values()).map((q) => q.id);
+  const { data: priorityRows } = openQuarterIds.length
+    ? await supabase
+        .from("priorities")
+        .select("company_id, status, due_date, archived")
+        .in("quarter_id", openQuarterIds)
+    : { data: [] };
+  const prioritiesByCompany = new Map<string, PriorityLite[]>();
+  for (const p of (priorityRows ?? []) as Array<PriorityLite & { company_id: string }>) {
+    const list = prioritiesByCompany.get(p.company_id) ?? [];
+    list.push(p);
+    prioritiesByCompany.set(p.company_id, list);
   }
 
-  const lastMetByCompany = new Map<string, string>();
+  const ftrRowsByCompany = new Map<string, FtrRow[]>();
+  for (const c of (commitmentRows ?? []) as Array<FtrRow & { company_id: string }>) {
+    const list = ftrRowsByCompany.get(c.company_id) ?? [];
+    list.push(c);
+    ftrRowsByCompany.set(c.company_id, list);
+  }
+
+  const lastMeetingByCompany = new Map<string, { id: string; at: string }>();
   for (const m of (meetings ?? []) as Array<{
+    id: string;
     company_id: string | null;
     created_at: string;
   }>) {
-    if (!m.company_id) continue;
-    if (lastMetByCompany.has(m.company_id)) continue;
-    lastMetByCompany.set(m.company_id, m.created_at);
+    if (!m.company_id || lastMeetingByCompany.has(m.company_id)) continue;
+    lastMeetingByCompany.set(m.company_id, { id: m.id, at: m.created_at });
   }
+  const lastCallByCompany = new Map<string, string>();
+  for (const c of (calls ?? []) as Array<{ company_id: string | null; created_at: string }>) {
+    if (!c.company_id || lastCallByCompany.has(c.company_id)) continue;
+    lastCallByCompany.set(c.company_id, c.created_at);
+  }
+
+  const lastMeetingIds = Array.from(lastMeetingByCompany.values()).map((m) => m.id);
+  const facilitationByMeeting = await loadFacilitationScores(supabase, lastMeetingIds);
 
   const rollups = await Promise.all(
     companyIds.map(async (cid) => {
       let scorecardOverall: number | null = null;
+      let scorecardChange: Change | null = null;
       try {
-        // Live scores only — this rollup reads overall.score and
-        // nothing else, so it has no use for snapshot history.
+        // Live scores only: this rollup has no use for history beyond
+        // the one snapshot four weeks back.
         const sc = await loadCompanyScorecardScores(cid);
         scorecardOverall = sc.overall.score;
+        const prior = priorSnapshots.get(cid);
+        // Like for like, over the disciplines both points scored
+        // (compareOverall): see the attention queue for why.
+        const cmp = prior ? compareOverall(prior.scores, sc.disciplines) : null;
+        scorecardChange = cmp ? changeBetween(cmp.then, cmp.now, 1) : null;
       } catch {
         scorecardOverall = null;
       }
-      const t = ftrTallies.get(cid);
-      const denom = t
-        ? t.kept_on_time + t.kept_late + t.missed
-        : 0;
-      const ftr =
-        t && denom > 0 ? Math.round((t.kept_on_time / denom) * 100) : null;
+      const ftr = ftrNowAndThen(ftrRowsByCompany.get(cid) ?? [], now);
+      const quarter = openQuarterByCompany.get(cid);
+      const lastMeeting = lastMeetingByCompany.get(cid);
       return {
         id: cid,
         name: nameById.get(cid) ?? "(unnamed)",
         scorecardOverall,
-        followThroughRate: ftr,
-        openQuarterLabel: openQuarterByCompany.get(cid)?.label ?? null,
-        openQuarterLapsed: openQuarterByCompany.get(cid)?.lapsed ?? false,
-        lastMet: lastMetByCompany.get(cid) ?? null,
+        scorecardChange,
+        followThroughRate: ftr.now,
+        followThroughChange: changeBetween(ftr.then, ftr.now),
+        openQuarterLabel: quarter?.label ?? null,
+        openQuarterLapsed: quarter?.lapsed ?? false,
+        priorities: quarter
+          ? priorityCounts(prioritiesByCompany.get(cid) ?? [], todayIso)
+          : null,
+        lastMet: lastMeeting?.at ?? null,
+        lastMetFacilitation: lastMeeting
+          ? facilitationByMeeting.get(lastMeeting.id) ?? null
+          : null,
+        lastCoachingCall: lastCallByCompany.get(cid) ?? null,
       };
     })
   );
 
   return rollups.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// The facilitation score each meeting shows on its own page
+// (scoreForRow), rounded as the meetings list rounds it. Callers pass
+// ids from a team-only read.
+export async function loadFacilitationScores(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  meetingIds: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (meetingIds.length === 0) return out;
+  // meetings-kind: ids from a team-only read by the caller.
+  const { data } = await supabase
+    .from("meeting_analyses")
+    .select(
+      "meeting_id, created_at, facilitation_review_json, score_positive_framing, score_rhythm, score_accountability, score_alignment, score_agenda, score_weights"
+    )
+    .in("meeting_id", meetingIds);
+  for (const row of (data ?? []) as Array<
+    StoredScoreRow & {
+      meeting_id: string;
+      facilitation_review_json: { insufficient_transcript?: boolean; overall?: number | null } | null;
+    }
+  >) {
+    const review = row.facilitation_review_json;
+    const score = scoreForRow(
+      row,
+      review
+        ? { insufficient_transcript: Boolean(review.insufficient_transcript), overall: review.overall ?? null }
+        : null
+    );
+    if (!score) continue;
+    out.set(
+      row.meeting_id,
+      score.kind === "computed" ? score.score.rounded : Math.round(score.value)
+    );
+  }
+  return out;
 }
 
 // Recent activity feed. Merges a small number of event kinds into a

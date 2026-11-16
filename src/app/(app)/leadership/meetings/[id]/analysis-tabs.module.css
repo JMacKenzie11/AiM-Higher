@@ -71,6 +71,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A word badge, warning-toned: something is waiting. */
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-warning-tint);
+  color: var(--text-heading);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .tabActive .tabCount {
   background: var(--aims-cobalt-tint);
   color: var(--primary);

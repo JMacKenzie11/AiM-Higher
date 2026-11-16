@@ -1,4 +1,4 @@
-/* Coach HQ: your coaching calls folder and Calls to sort (0326).
+/* Coach HQ: the Coaching calls tab (0326).
    Two cards side by side on a wide screen, stacked on a phone. */
 
 .row {
@@ -165,4 +165,13 @@
   margin: 0;
   font: var(--text-body-sm);
   color: var(--aims-danger);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

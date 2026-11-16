@@ -24,7 +24,9 @@ export function MyCommitmentsSection({
   todayIso,
   isAdmin,
   readOnly = false,
+  title = "Your commitments",
 }: {
+  title?: string;
   rows: MyCommitmentRow[];
   currentUserId: string;
   todayIso: string;
@@ -34,12 +36,11 @@ export function MyCommitmentsSection({
   return (
     <section className={styles.card} aria-labelledby="hq-my-commitments">
       <h2 id="hq-my-commitments" className={styles.h2}>
-        My commitments
+        {title}
       </h2>
       <p className={styles.sectionCaption}>
-        Every commitment you own, across every company. Same resolve
-        and reschedule mechanics as the Commitments page — the company
-        chip on each row tells you which tenant the commitment lives in.
+        Every commitment you own, across every company. The chip on each
+        row names its company.
       </p>
       {rows.length === 0 ? (
         <p className={styles.empty}>

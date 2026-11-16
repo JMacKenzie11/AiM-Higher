@@ -5,10 +5,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { todayInTimezone } from "@/lib/dates";
 import { computeAttentionForCompanies } from "@/lib/hq/attention";
 import {
-  loadRecentBriefsForCompanies,
-  type SessionBriefRow,
-} from "@/lib/hq/brief";
-import {
   loadCaseload,
   loadCompanyRollups,
   loadMyCommitments,
@@ -60,7 +56,7 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
   const companyIds = caseload.map((c) => c.id);
   const zeroCaseload = caseload.length === 0;
 
-  const [myCommitments, attention, rollups, activity, briefsMap] =
+  const [myCommitments, attention, rollups, activity] =
     await Promise.all([
       loadMyCommitments(guideId),
       zeroCaseload
@@ -68,13 +64,7 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
         : computeAttentionForCompanies(companyIds),
       zeroCaseload ? Promise.resolve([]) : loadCompanyRollups(companyIds),
       zeroCaseload ? Promise.resolve([]) : loadRecentActivity(companyIds),
-      zeroCaseload
-        ? Promise.resolve(new Map<string, SessionBriefRow[]>())
-        : loadRecentBriefsForCompanies(companyIds),
     ]);
-  const briefsByCompany: Record<string, SessionBriefRow[]> = Object.fromEntries(
-    briefsMap
-  );
 
   const todayIso = todayInTimezone("UTC").iso;
 
@@ -104,8 +94,9 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
       <div className={styles.content}>
         <div className={styles.readOnlyBanner} role="status">
           You&rsquo;re viewing {guide.full_name}&rsquo;s Coach HQ.
-          Nothing here can be changed. Links still work, and a Session
-          Brief you prepare is saved as yours.
+          Nothing here can be changed. Links still work. Session briefs
+          and coaching calls are the coach&rsquo;s own and stay on their
+          Coach HQ.
         </div>
 
         {zeroCaseload ? (
@@ -127,14 +118,17 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
           todayIso={todayIso}
           isAdmin={true}
           readOnly={true}
+          title={`${guide.full_name}’s commitments`}
         />
 
         {!zeroCaseload ? (
           <>
-            <NeedsAttentionSection rows={attention} />
+            <NeedsAttentionSection rows={attention} prepare={false} />
             <YourCompaniesSection
               rows={rollups}
-              recentBriefsByCompany={briefsByCompany}
+              needsYou={new Set(attention.map((a) => a.companyId))}
+              prepare={false}
+              nowMs={Date.now()}
             />
             <RecentActivitySection items={activity} />
           </>

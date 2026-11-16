@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth/current-user";
 import { generateSessionBrief, type SessionBriefResult } from "./brief";
 
-// Server action wrapper for the "Prepare for {company}" button on
+// Server action wrapper for "Write the brief" on the session card on
 // Guide HQ. Only sysadmin + aims_guide roles reach this — Guide HQ
 // itself is behind the same guard, so any client-triggered call
 // already comes from a caller with the right role. The brief.ts

@@ -1,0 +1,479 @@
+/* Coach HQ's two tabs: Companies and Coaching calls. Tokens only.
+   Every table scrolls inside its own box on a phone, never the page. */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.caption {
+  margin: 0;
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.strong {
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.right {
+  text-align: right;
+}
+
+.headRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+/* ---- Tiles ----------------------------------------------------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: inherit;
+  text-decoration: none;
+}
+
+.tile:hover {
+  border-color: var(--primary);
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.tileNumber {
+  font: var(--text-stat);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.tileLabel {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+/* ---- Rows: Needs you, Waiting ---------------------------------- */
+
+.rowList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.needsRow,
+.waitRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border);
+}
+
+.needsText {
+  flex: 1 1 360px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.needsName {
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.needsReason {
+  font: var(--text-body);
+  color: var(--text);
+}
+
+.needsQuestion {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.doneLine {
+  margin: 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+  color: var(--aims-success);
+  font-weight: 600;
+}
+
+/* ---- Tables ---------------------------------------------------- */
+
+.tableScroll {
+  /* Positioned, so a visually hidden label in a far cell is clipped
+     here instead of widening the page. */
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  font: var(--text-body);
+}
+
+.callsTable {
+  min-width: 720px;
+}
+
+.table th,
+.table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+
+.table th {
+  font: var(--text-subhead);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.sub {
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.subAmber {
+  font: var(--text-body-sm);
+  color: var(--aims-warning);
+  font-weight: 600;
+}
+
+.needsMark {
+  font: var(--text-caption);
+  font-weight: 700;
+  color: var(--aims-warning);
+}
+
+.changeUp,
+.changeDown,
+.changeSame {
+  font: var(--text-body-sm);
+  white-space: nowrap;
+}
+
+.changeUp {
+  color: var(--aims-success);
+}
+
+.changeDown {
+  color: var(--aims-danger);
+}
+
+.changeSame {
+  color: var(--text-muted);
+}
+
+.overdue {
+  color: var(--aims-danger);
+}
+
+.textLink,
+.textLinkButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.textLink:hover,
+.textLinkButton:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.analysing {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+  font: var(--text-body-sm);
+}
+
+/* ---- Your commitments beside Recent activity ------------------- */
+
+.pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-start;
+}
+
+.pairItem {
+  flex: 1 1 420px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Recordings ------------------------------------------------ */
+
+.slim {
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
+}
+
+.slimRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.slimText {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.dotOk,
+.dotError {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--aims-success);
+}
+
+.dotError {
+  background: var(--aims-danger);
+}
+
+.panelBox {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ---- Call summaries -------------------------------------------- */
+
+.search {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--text-body-sm);
+  color: var(--text-muted);
+}
+
+.searchInput {
+  font: var(--text-body);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-interactive);
+  border-radius: var(--radius-btn);
+  background: var(--surface);
+  color: var(--text);
+  width: 220px;
+  max-width: 100%;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip,
+.chipOn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  font: var(--text-button);
+  text-decoration: none;
+  border: 1px solid var(--border-interactive);
+}
+
+.chip {
+  background: var(--surface);
+  color: var(--text-heading);
+}
+
+.chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.chipOn {
+  background: var(--aims-navy);
+  border-color: var(--aims-navy);
+  color: var(--aims-white);
+}
+
+.chip:focus-visible,
+.chipOn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ---- Your next session ----------------------------------------- */
+
+.sessionCard {
+  gap: var(--space-5);
+}
+
+.sessionTitle {
+  margin: 0;
+  font: var(--text-h2);
+  color: var(--text-heading);
+}
+
+.threeCols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.columnHead {
+  margin: 0;
+  font: var(--text-subhead);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.columnText {
+  margin: 0;
+  font: var(--text-body);
+  line-height: 1.5;
+}
+
+.toneUp {
+  font-weight: 700;
+  color: var(--aims-success);
+}
+
+.toneDown {
+  font-weight: 700;
+  color: var(--aims-danger);
+}
+
+.leftOff {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font: var(--text-body);
+  line-height: 1.5;
+}
+
+.promise {
+  background: var(--aims-chartreuse-tint);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font: var(--text-body-sm);
+  line-height: 1.5;
+}
+
+.inlineButton {
+  background: transparent;
+  border: none;
+  padding: 0 var(--space-1);
+  min-height: 44px;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inlineButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.briefBody {
+  font: var(--text-body);
+  color: var(--text-body);
+}
+
+@media (max-width: 960px) {
+  .threeCols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .searchInput {
+    width: 100%;
+  }
+  .search {
+    width: 100%;
+  }
+}
