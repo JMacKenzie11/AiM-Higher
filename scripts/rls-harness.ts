@@ -3145,7 +3145,7 @@ values ('${id}', '## ${title}', 'harness');`;
       const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
       const rows = /rows=(\d+)/.exec(msg);
       if (rows) return rows[1] === "0" ? "refused" : "allowed";
-      return /row-level security|permission denied|cannot be changed|only the company/i.test(msg)
+      return /row-level security|permission denied|cannot be changed|only the company|42501/i.test(msg)
         ? "refused"
         : `ERROR ${msg.slice(0, 70)}`;
     }
