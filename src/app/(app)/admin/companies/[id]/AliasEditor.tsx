@@ -56,7 +56,7 @@ export function AliasEditor({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       {aliases.length === 0 ? (
-        <p className={styles.emptyLine}>No aliases yet.</p>
+        <p className={styles.emptyLine}>No names yet.</p>
       ) : (
         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
           {aliases.map((a) => (
@@ -86,7 +86,7 @@ export function AliasEditor({
                   lineHeight: 1,
                   padding: 0,
                 }}
-                aria-label={`Remove alias ${a.alias}`}
+                aria-label={`Remove name ${a.alias}`}
               >
                 ×
               </button>
@@ -100,7 +100,7 @@ export function AliasEditor({
           className={styles.input}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add an alias (matched case-insensitively in file names)"
+          placeholder="Add a name, as it appears in file names"
           disabled={pending}
           style={{ flex: "1 1 auto" }}
         />
@@ -117,10 +117,10 @@ export function AliasEditor({
         open={pendingRemoval !== null}
         title={
           pendingRemoval
-            ? `Remove alias "${pendingRemoval.alias}"?`
-            : "Remove alias?"
+            ? `Remove "${pendingRemoval.alias}"?`
+            : "Remove this name?"
         }
-        message="Meetings whose filenames matched this alias will no longer be routed to this company."
+        message="Files whose names contain it will no longer be filed to this company. Meetings already filed stay where they are."
         confirmLabel="Remove"
         tone="danger"
         onConfirm={runRemove}

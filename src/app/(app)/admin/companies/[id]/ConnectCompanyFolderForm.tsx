@@ -6,18 +6,11 @@ import styles from "../admin.module.css";
 
 // Simpler than the platform-wide ConnectFolderForm: scope is
 // always "company" and companyId is fixed by the surrounding page.
-// The user only supplies the Drive folder URL.
+// The user only supplies the Drive folder URL. A company folder is
+// always team meetings; coaching calls are set up on Coach HQ.
 
-export function ConnectCompanyFolderForm({
-  companyId,
-  canMarkCoaching = false,
-}: {
-  companyId: string;
-  // The company's coach may connect a folder of coaching calls (0326).
-  canMarkCoaching?: boolean;
-}) {
+export function ConnectCompanyFolderForm({ companyId }: { companyId: string }) {
   const [folderUrl, setFolderUrl] = useState("");
-  const [coaching, setCoaching] = useState(false);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -30,7 +23,6 @@ export function ConnectCompanyFolderForm({
     fd.set("scope", "company");
     fd.set("company_id", companyId);
     fd.set("folder_url", folderUrl);
-    if (canMarkCoaching && coaching) fd.set("kind", "coaching");
     startTransition(async () => {
       const res = await connectGoogleFolderAction(fd);
       if (!res.ok) {
@@ -60,13 +52,6 @@ export function ConnectCompanyFolderForm({
           required
         />
       </div>
-
-      {canMarkCoaching ? (
-        <label style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-          <input type="checkbox" checked={coaching} onChange={(e) => setCoaching(e.target.checked)} disabled={pending} />
-          These are coaching calls
-        </label>
-      ) : null}
 
       {message ? (
         <p

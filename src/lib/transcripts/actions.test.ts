@@ -389,6 +389,26 @@ describe("connectGoogleFolderAction", () => {
     );
   });
 
+  it("always connects a company folder as team meetings, even if a form asks for coaching calls", async () => {
+    // Coaching calls come in only through the coach's own folder on
+    // Coach HQ, or an upload (Jason, 2026-11-16). A stale form posting
+    // kind=coaching must not create a coaching source on a company.
+    const { connectGoogleFolderAction } = await import("./actions");
+
+    const res = await connectGoogleFolderAction(
+      formDataFrom({
+        scope: "company",
+        company_id: "co_acme",
+        folder_url: "https://drive.google.com/x",
+        kind: "coaching",
+      })
+    );
+
+    expect(res.ok).toBe(true);
+    const patch = mocks.sourcesInsertPatch.mock.calls[0][0] as { kind: string };
+    expect(patch.kind).toBe("team");
+  });
+
   it("translates SQLSTATE 23505 into 'already connected' rather than a raw duplicate error", async () => {
     mocks.sourcesInsertSingle.mockResolvedValueOnce({
       data: null,
