@@ -35,6 +35,7 @@ async function markedInRecord(
   meetingId: string,
   text: string
 ): Promise<boolean> {
+  // meetings-kind: called after the action's team-only meeting read.
   const { data } = await supabase
     .from("meeting_analyses")
     .select("commitments_json, issues_json")
@@ -70,6 +71,9 @@ export async function addExtractedIssueToOpenIssuesAction(
     .from("meetings")
     .select("id, company_id")
     .eq("id", meetingId)
+    // Team meetings only: nothing from a coaching call goes on the
+    // company's lists (0326). A call reads as not found.
+    .eq("kind", "team")
     .maybeSingle<{ id: string; company_id: string }>();
   if (!meeting) return { ok: false, message: "Meeting not found." };
   if (!isAdminForCompany(session.profile, meeting.company_id)) {
@@ -157,6 +161,9 @@ export async function addExtractedIssueAsResolvedAction(
     .from("meetings")
     .select("id, company_id")
     .eq("id", meetingId)
+    // Team meetings only: nothing from a coaching call goes on the
+    // company's lists (0326). A call reads as not found.
+    .eq("kind", "team")
     .maybeSingle<{ id: string; company_id: string }>();
   if (!meeting) return { ok: false, message: "Meeting not found." };
   if (!isAdminForCompany(session.profile, meeting.company_id)) {
@@ -232,6 +239,9 @@ export async function addExtractedCommitmentAction(input: {
     .from("meetings")
     .select("id, company_id, created_at")
     .eq("id", input.meetingId)
+    // Team meetings only: nothing from a coaching call goes on the
+    // company's lists (0326). A call reads as not found.
+    .eq("kind", "team")
     .maybeSingle<{ id: string; company_id: string; created_at: string }>();
   if (!meeting) return { ok: false, message: "Meeting not found." };
   if (!isAdminForCompany(session.profile, meeting.company_id)) {
@@ -335,6 +345,9 @@ export async function convertExtractedCommitmentToIssueAction(
     .from("meetings")
     .select("id, company_id")
     .eq("id", meetingId)
+    // Team meetings only: nothing from a coaching call goes on the
+    // company's lists (0326). A call reads as not found.
+    .eq("kind", "team")
     .maybeSingle<{ id: string; company_id: string }>();
   if (!meeting) return { ok: false, message: "Meeting not found." };
   if (!isAdminForCompany(session.profile, meeting.company_id)) {

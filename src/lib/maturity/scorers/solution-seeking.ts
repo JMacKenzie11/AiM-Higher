@@ -38,9 +38,12 @@ export async function scoreSolutionSeeking(
   const { data: rows } = await admin
     .from("meeting_analyses")
     .select(
-      "meeting_id, facilitation_review_json, meetings!inner(created_at, company_id)"
+      "meeting_id, facilitation_review_json, meetings!inner(created_at, company_id, kind)"
     )
     .eq("meetings.company_id", companyId)
+    // Team meetings only: a coaching call is not the weekly meeting
+    // and never counts toward the scorecard (0326).
+    .eq("meetings.kind", "team")
     .gte("meetings.created_at", cutoffIso);
 
   const analyses = (rows ?? []) as unknown as MeetingAnalysisRow[];

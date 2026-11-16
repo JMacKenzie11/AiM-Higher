@@ -136,12 +136,14 @@ async function main() {
   const db = createClient(instance.supabaseUrl, instance.supabaseServiceKey);
 
   const { data: meeting } = await db
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     .from("meetings")
     .select("id, company_id, meeting_title, created_at, status")
     .eq("id", meetingId)
     .maybeSingle();
   if (!meeting) fail("Meeting not found on that instance.");
   const { data: company } = await db.from("companies").select("name").eq("id", meeting.company_id).maybeSingle();
+  // meetings-kind: an operator's dev tool, on the one meeting id it was given.
   const { data: previous } = await db.from("meeting_analyses").select("*").eq("meeting_id", meetingId).maybeSingle();
   if (!previous) fail("This meeting has no analysis to regenerate. Nothing to carry over.");
   const before = await readWork(db, meetingId);
@@ -165,6 +167,7 @@ async function main() {
     commitments_json: previous.commitments_json ?? [],
     issues_json: previous.issues_json ?? null,
   };
+  // meetings-kind: an operator's dev tool, on the one meeting id it was given.
   const { error: delErr } = await db.from("meeting_analyses").delete().eq("meeting_id", meetingId);
   if (delErr) fail(`Could not clear the old analysis: ${delErr.message}`);
   await db.from("meetings").update({ status: "pending", error: null }).eq("id", meetingId);
@@ -174,6 +177,7 @@ async function main() {
   } catch (err) {
     // Put the old analysis back. A failed regeneration must not leave
     // the meeting with none.
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     const { error: restoreErr } = await db.from("meeting_analyses").insert(previous);
     await db.from("meetings").update({ status: "complete", error: null }).eq("id", meetingId);
     fail(
@@ -184,6 +188,7 @@ async function main() {
 
   // Read back. "No error" is not evidence.
   const { data: after } = await db
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     .from("meeting_analyses")
     .select("analysis_markdown, truncated, coverage_json, commitments_json, issues_json, score_overall")
     .eq("meeting_id", meetingId)

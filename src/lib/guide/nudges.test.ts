@@ -17,7 +17,7 @@ vi.mock("./headline", () => ({
 
 type Notif = { id: string; kind: string; company_id: string; recipient_id: string; read_at: string | null };
 
-function fakeAdmin(notifications: Notif[]) {
+function fakeAdmin(notifications: Notif[], meetingKind: "team" | "coaching" = "team") {
   const inserted: Array<{ table: string; row: unknown }> = [];
   return {
     inserted,
@@ -47,6 +47,11 @@ function fakeAdmin(notifications: Notif[]) {
         if (table === "companies") return { data: { name: "Fixture Co", aims_champion_profile_id: "champ" }, error: null };
         if (table === "agents") return { data: { slug: "guide-meeting-debrief", archived: false }, error: null };
         if (table === "profiles") return { data: { full_name: "E2E Team Member" }, error: null };
+        // The meeting is found only when asked for as a team meeting (0326).
+        if (table === "meetings") {
+          const asked = filters.find(([k]) => k === "kind")?.[1];
+          return { data: asked === meetingKind ? { meeting_title: null } : null, error: null };
+        }
         return { data: null, error: null };
       };
       b.maybeSingle = async () => run();
@@ -101,5 +106,19 @@ describe("raising a Guide invitation", () => {
     expect(note.title).toBe("Your team found the real cause.");
     // No title recorded for the meeting in this fake: the plain name.
     expect(note.payload).toMatchObject({ meeting_label: "Leadership meeting, Monday Sep 28", invitation: "Want to look at how?" });
+  });
+
+  // 0326: a coaching call never invites anyone to a debrief with Aimee.
+  // The pipeline does not ask; this is the refusal if anything does.
+  it("raises nothing, and notifies nobody, for a coaching call", async () => {
+    const notifications: Notif[] = [
+      { id: "earlier", kind: "guide-nudge", company_id: "co1", recipient_id: "champ", read_at: null },
+    ];
+    const admin = fakeAdmin(notifications, "coaching");
+    const { raiseMeetingDebriefNudge } = await import("./nudges");
+    const res = await raiseMeetingDebriefNudge(admin as never, {} as Anthropic, input);
+    expect(res).toEqual({ raised: false, reason: "not a team meeting" });
+    expect(admin.inserted).toEqual([]);
+    expect(notifications[0].read_at).toBeNull();
   });
 });

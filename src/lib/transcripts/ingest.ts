@@ -96,6 +96,8 @@ export async function ingestSource(
         // unique constraint already prevents re-ingesting the same
         // provider file.
         if (companyId) {
+          // meetings-kind: the duplicate guard spans both kinds, as the
+          // unique index (company_id, content_hash) does.
           const { data: existing } = await admin
             .from("meetings")
             .select("id")
@@ -105,6 +107,7 @@ export async function ingestSource(
           if (existing) continue;
         }
 
+        // meetings-kind: a write; the kind comes from the source.
         const { error: insertError } = await admin
           .from("meetings")
           .insert({
@@ -117,6 +120,8 @@ export async function ingestSource(
             transcript_text: extracted.text,
             meeting_title: extracted.title,
             status,
+            // A folder or Teams meeting marked "Coaching calls" (0326).
+            kind: source.kind === "coaching" ? "coaching" : "team",
           });
         if (insertError) {
           // 23505 = unique violation, i.e. this (source, file) is
@@ -191,6 +196,7 @@ export async function processPendingMeetings(
   ).toISOString();
   let recovered = 0;
   {
+    // meetings-kind: both kinds recover the same way.
     let stuckQuery = admin
       .from("meetings")
       .select("id, company_id")
@@ -211,6 +217,7 @@ export async function processPendingMeetings(
         `Recovering ${ids.length} stuck-analyzing meeting(s) → pending:`,
         ids
       );
+      // meetings-kind: a write, to the stuck rows found above.
       await admin
         .from("meetings")
         .update({
@@ -228,6 +235,8 @@ export async function processPendingMeetings(
   // means a backlog of N pending meetings loads N × transcript_text
   // into memory just to iterate ids; a bad ingest run could OOM the
   // cron worker before any analysis starts.
+  // meetings-kind: both kinds are analysed here; analyzeMeeting reads
+  // the kind and decides what the run may write (coaching.ts).
   let query = admin
     .from("meetings")
     .select("id, company_id")

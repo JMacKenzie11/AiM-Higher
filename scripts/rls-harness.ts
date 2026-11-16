@@ -3019,6 +3019,310 @@ values ('${id}', '${company}', '${name}', '${role}', 'active');`;
   };
 }
 
+// ---- Coaching calls (0326) ----------------------------------------
+//
+// Jason, 2026-11-16: a coaching call is read by the company's assigned
+// coaches (aims_guide or system_admin holding a guide_assignments row)
+// and its current AiMS Champion, and by nobody else. B&B Electric's
+// calls were loaded as ordinary meetings and the whole company read
+// them.
+//
+// Seeded inside each rolled-back transaction: one team meeting and one
+// call in company CO, each with an analysis row, and the cast below.
+// The call is marked kind = 'coaching' only where the column exists, so
+// on a schema without 0326 it is exactly what B&B's were, an ordinary
+// meeting, and the refusals go RED: that is the before.
+//
+// Claims, each as the caller:
+//   readers     assigned coach, assigned system admin, the champion:
+//               the call and its analysis, 1 and 1
+//   refused     a team member, the company admin, a portfolio admin
+//               assigned AND switched on, an unassigned system admin,
+//               an unassigned coach, a coach of another company: 0 and 0
+//   unchanged   the team meeting, for every one of them as before
+//   moves       champion changed to the team member: the old champion
+//               reads 0, the new one 1
+//   holds       a planted `using (true)` read rule on meetings and on
+//               meeting_analyses still shows the team member 0
+//   fixed kind  a company admin cannot turn a team meeting into a call,
+//               an assigned coach cannot turn a call into a team meeting
+//   MCP         assistant_meeting_summaries never returns the call,
+//               even for its coach
+//   sources     a company admin cannot mark a source as coaching calls;
+//               an assigned coach can
+//   aliases     an assigned coach adds an alias for their company (the
+//               "Send future calls named ... here too" box) and is
+//               refused one for a company they do not coach. RLS has
+//               allowed this since 0181 (transcript_aliases_insert_guide,
+//               is_content_admin_for), so this probe guards it rather
+//               than proving a new grant.
+//   unsorted    a call from a coach's own folder, not yet filed, is read
+//               by that coach only (not an unassigned system admin, not
+//               another coach)
+//   sorting     that coach files it into a company they coach or sets
+//               it aside; filing it into a company they do not coach,
+//               or another coach filing it, is refused
+//   own folder  a coach writes a coach folder in their own name, not in
+//               another coach's; a team member writes none
+async function coachingCallProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const CO = ids.companyAdminCompany;
+  const OTHER = ids.otherCompany;
+  const ADMIN = ids.companyAdmin;
+  const uid = (tag: string) => `aaaa0326-0000-4000-8000-0000000000${tag}`;
+  const COACH = uid("01");
+  const SYSCOACH = uid("02");
+  const CHAMP = uid("03");
+  const MEMBER = uid("04");
+  const PA = uid("05");
+  const SYSADMIN = uid("06");
+  const FREECOACH = uid("07");
+  const OTHERCOACH = uid("08");
+  const TEAM = uid("20");
+  const CALL = uid("21");
+  const UNSORTED = uid("22");
+  const SRC = uid("30");
+  const person = (id: string, company: string | null, name: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status)
+values ('${id}', ${company ? `'${company}'` : "null"}, '${name}', '${role}', 'active');`;
+  const meeting = (id: string, title: string) => `
+insert into public.meetings (id, company_id, source_id, provider_file_id, file_name, content_hash, transcript_text, meeting_title, status)
+values ('${id}', '${CO}', null, 'harness:${id}', '${title}.txt', 'harness-${id}', 'Speaker 1: ${title}', '${title}', 'complete');
+insert into public.meeting_analyses (meeting_id, analysis_markdown, model)
+values ('${id}', '## ${title}', 'harness');`;
+  const seed = [
+    person(COACH, null, "Harness 0326 Coach", "aims_guide"),
+    person(SYSCOACH, null, "Harness 0326 Assigned SA", "system_admin"),
+    person(CHAMP, CO, "Harness 0326 Champion", "team_member"),
+    person(MEMBER, CO, "Harness 0326 Member", "team_member"),
+    person(PA, null, "Harness 0326 PA", "portfolio_admin"),
+    person(SYSADMIN, null, "Harness 0326 Unassigned SA", "system_admin"),
+    person(FREECOACH, null, "Harness 0326 Unassigned Coach", "aims_guide"),
+    person(OTHERCOACH, null, "Harness 0326 Other Coach", "aims_guide"),
+    `insert into public.guide_assignments (guide_id, company_id) values ('${COACH}', '${CO}'), ('${SYSCOACH}', '${CO}'), ('${OTHERCOACH}', '${OTHER}') on conflict do nothing;`,
+    `insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin) values ('${PA}', '${CO}', true) on conflict do nothing;`,
+    `update public.companies set aims_champion_profile_id = '${CHAMP}' where id = '${CO}';`,
+    meeting(TEAM, "Harness 0326 team meeting"),
+    meeting(CALL, "Harness 0326 coaching call"),
+    `do $$ begin
+       if exists (select 1 from information_schema.columns
+                   where table_schema = 'public' and table_name = 'meetings' and column_name = 'kind') then
+         execute 'update public.meetings set kind = ''coaching'' where id = ''${CALL}''';
+         -- The coach's own folder, and one call from it waiting to be sorted.
+         execute 'insert into public.transcript_sources (id, scope, provider, folder_id, folder_name, kind, owner_profile_id)
+                  values (''${SRC}'', ''coach'', ''google_drive'', ''harness-0326-src'', ''Meet Recordings'', ''coaching'', ''${COACH}'')';
+         execute 'insert into public.meetings (id, company_id, source_id, provider_file_id, file_name, content_hash, transcript_text, status, kind)
+                  values (''${UNSORTED}'', null, ''${SRC}'', ''harness-unsorted'', ''Benson 1-1.txt'', ''harness-${UNSORTED}'', ''Speaker 1: hi'', ''unrouted'', ''coaching'')';
+       end if;
+     end $$;`,
+  ].join("\n");
+  const claims = (sub: string) =>
+    `set local request.jwt.claims = '{"sub":"${sub}","role":"authenticated"}';`;
+  const tx = (sub: string, extra: string, sql: string) =>
+    ["begin;", pending, seed, extra, "set local role authenticated;", claims(sub), sql, "rollback;"].join("\n");
+
+  // "m/a": the row in meetings, and its analysis, as the caller sees them.
+  const sees = async (sub: string, id: string, extra = ""): Promise<string> => {
+    try {
+      const [row] = await run<{ m: number; a: number }>(tx(sub, extra,
+        `select (select count(*)::int from public.meetings where id = '${id}') as m,
+                (select count(*)::int from public.meeting_analyses where meeting_id = '${id}') as a;`));
+      return `${row?.m ?? "?"}/${row?.a ?? "?"}`;
+    } catch (err) {
+      return `ERROR ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 70)}`;
+    }
+  };
+  const counted = (stmt: string) =>
+    `do $$ declare n int; begin ${stmt}; get diagnostics n = row_count; raise exception 'rows=%', n; end $$;`;
+  const attempt = async (sub: string, stmt: string, count = true): Promise<string> => {
+    try {
+      await run(tx(sub, "", count ? counted(stmt) : `${stmt};`));
+      return "allowed";
+    } catch (err) {
+      const msg = unwrapDbError(err instanceof Error ? err.message : String(err));
+      const rows = /rows=(\d+)/.exec(msg);
+      if (rows) return rows[1] === "0" ? "refused" : "allowed";
+      return /row-level security|permission denied|cannot be changed|only the company|42501/i.test(msg)
+        ? "refused"
+        : `ERROR ${msg.slice(0, 70)}`;
+    }
+  };
+
+  const readers = {
+    "assigned coach": await sees(COACH, CALL),
+    "assigned system admin": await sees(SYSCOACH, CALL),
+    champion: await sees(CHAMP, CALL),
+  };
+  const refused = {
+    "team member": await sees(MEMBER, CALL),
+    "company admin": await sees(ADMIN, CALL),
+    "portfolio admin (assigned, switched on)": await sees(PA, CALL),
+    "unassigned system admin": await sees(SYSADMIN, CALL),
+    "unassigned coach": await sees(FREECOACH, CALL),
+    "coach of another company": await sees(OTHERCOACH, CALL),
+  };
+  const team = {
+    member: await sees(MEMBER, TEAM),
+    "company admin": await sees(ADMIN, TEAM),
+    "portfolio admin": await sees(PA, TEAM),
+    "unassigned system admin": await sees(SYSADMIN, TEAM),
+    "assigned coach": await sees(COACH, TEAM),
+    champion: await sees(CHAMP, TEAM),
+  };
+  const teamOther = await sees(OTHERCOACH, TEAM);
+  const moveChamp = `update public.companies set aims_champion_profile_id = '${MEMBER}' where id = '${CO}';`;
+  const oldChamp = await sees(CHAMP, CALL, moveChamp);
+  const newChamp = await sees(MEMBER, CALL, moveChamp);
+  const planted =
+    "create policy harness_planted_leak on public.meetings for select to authenticated using (true);" +
+    "create policy harness_planted_leak on public.meeting_analyses for select to authenticated using (true);";
+  const plantedMember = await sees(MEMBER, CALL, planted);
+  const flipTeam = await attempt(ADMIN, `update public.meetings set kind = 'coaching' where id = '${TEAM}'`);
+  const flipCall = await attempt(COACH, `update public.meetings set kind = 'team' where id = '${CALL}'`);
+  let mcp = "?";
+  try {
+    const [row] = await run<{ n: number }>(tx(COACH, "",
+      `select count(*)::int as n from public.assistant_meeting_summaries('${CO}', 20) s where s.meeting_id = '${CALL}';`));
+    mcp = String(row?.n ?? "?");
+  } catch (err) {
+    mcp = `ERROR ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 70)}`;
+  }
+  const source = (kind: string, folder: string) =>
+    `insert into public.transcript_sources (company_id, scope, provider, folder_id, folder_name, kind)
+       values ('${CO}', 'company', 'google_drive', '${folder}', 'Harness 0326', '${kind}')`;
+  const adminMarks = await attempt(ADMIN, source("coaching", "harness-0326-a"), false);
+  const coachMarks = await attempt(COACH, source("coaching", "harness-0326-b"), false);
+  const aliasOwn = await attempt(COACH,
+    `insert into public.transcript_aliases (company_id, alias) values ('${CO}', 'harness0326own')`, false);
+  const aliasOther = await attempt(COACH,
+    `insert into public.transcript_aliases (company_id, alias) values ('${OTHER}', 'harness0326other')`, false);
+  const aliasMember = await attempt(MEMBER,
+    `insert into public.transcript_aliases (company_id, alias) values ('${CO}', 'harness0326member')`, false);
+
+  // A coach's own folder, and the calls in it waiting to be sorted.
+  const unsortedOwner = await sees(COACH, UNSORTED);
+  const unsortedOthers = {
+    "unassigned system admin": await sees(SYSADMIN, UNSORTED),
+    "another coach": await sees(FREECOACH, UNSORTED),
+    "company admin": await sees(ADMIN, UNSORTED),
+  };
+  const fileOwn = await attempt(COACH,
+    `update public.meetings set company_id = '${CO}', status = 'pending' where id = '${UNSORTED}'`);
+  const fileElsewhere = await attempt(COACH,
+    `update public.meetings set company_id = '${OTHER}', status = 'pending' where id = '${UNSORTED}'`);
+  const fileByOther = await attempt(OTHERCOACH,
+    `update public.meetings set company_id = '${OTHER}', status = 'pending' where id = '${UNSORTED}'`);
+  const setAside = await attempt(COACH,
+    `update public.meetings set status = 'failed', error = 'dismissed', transcript_text = '' where id = '${UNSORTED}'`);
+  const coachSource = (owner: string, folder: string) =>
+    `insert into public.transcript_sources (scope, provider, folder_id, folder_name, kind, owner_profile_id)
+       values ('coach', 'google_drive', '${folder}', 'Meet Recordings', 'coaching', '${owner}')`;
+  const ownFolder = await attempt(FREECOACH, coachSource(FREECOACH, "harness-0326-own"), false);
+  const folderForOther = await attempt(FREECOACH, coachSource(COACH, "harness-0326-other"), false);
+  const memberFolder = await attempt(MEMBER, coachSource(MEMBER, "harness-0326-member"), false);
+
+  const fmt = (o: Record<string, string>) => Object.entries(o).map(([k, v]) => `${k} ${v}`).join(", ");
+  const unsortedOk =
+    unsortedOwner === "1/0" && Object.values(unsortedOthers).every((v) => v === "0/0");
+  const sortOk =
+    fileOwn === "allowed" && setAside === "allowed" &&
+    fileElsewhere === "refused" && fileByOther === "refused";
+  const folderOk = ownFolder === "allowed" && folderForOther === "refused" && memberFolder === "refused";
+  const readOk = Object.values(readers).every((v) => v === "1/1");
+  const refusedOk = Object.values(refused).every((v) => v === "0/0");
+  const teamOk = Object.values(team).every((v) => v === "1/1") && teamOther === "0/0";
+  const moveOk = oldChamp === "0/0" && newChamp === "1/1";
+  const plantedOk = plantedMember === "0/0";
+  const kindOk = flipTeam === "refused" && flipCall === "refused";
+  const mcpOk = mcp === "0";
+  const sourceOk = adminMarks === "refused" && coachMarks === "allowed";
+  const aliasOk = aliasOwn === "allowed" && aliasOther === "refused" && aliasMember === "refused";
+  return [
+    {
+      name: "coaching calls · the two readers",
+      granted: fmt(readers),
+      withheld: fmt(refused),
+      ok: readOk && refusedOk,
+      detail: readOk && refusedOk
+        ? "the call and its analysis are read by its assigned coaches and the champion, and by nobody else"
+        : "A COACHING CALL IS READ BY SOMEONE OUTSIDE ITS TWO READERS, or a reader cannot read it",
+    },
+    {
+      name: "coaching calls · team meetings unchanged",
+      granted: fmt(team),
+      withheld: `coach of another company ${teamOther}`,
+      ok: teamOk,
+      detail: teamOk ? "a team meeting is read exactly as before" : "TEAM MEETING READS CHANGED",
+    },
+    {
+      name: "coaching calls · access follows the champion",
+      granted: `new champion ${newChamp}`,
+      withheld: `old champion ${oldChamp}`,
+      ok: moveOk,
+      detail: moveOk ? "changing the champion moves the access with it" : "ACCESS DID NOT MOVE WITH THE CHAMPION",
+    },
+    {
+      name: "coaching calls · boundary holds a bad rule",
+      granted: "-",
+      withheld: `team member, with a planted using(true) read rule on meetings and meeting_analyses: ${plantedMember}`,
+      ok: plantedOk,
+      detail: plantedOk ? "the restrictive boundary refuses the call whatever permissive rule is added" : "A PERMISSIVE RULE OPENS COACHING CALLS",
+    },
+    {
+      name: "coaching calls · a meeting's kind is fixed",
+      granted: "-",
+      withheld: `company admin team->coaching: ${flipTeam}, assigned coach coaching->team: ${flipCall}`,
+      ok: kindOk,
+      detail: kindOk ? "nobody signed in can change a meeting's kind" : "A MEETING'S KIND CAN BE CHANGED FROM THE APP SIDE",
+    },
+    {
+      name: "coaching calls · MCP summaries",
+      granted: "-",
+      withheld: `assistant_meeting_summaries, as the call's own coach: ${mcp}`,
+      ok: mcpOk,
+      detail: mcpOk ? "the MCP meeting summaries never return a coaching call" : "THE MCP SERVER RETURNS A COACHING CALL",
+    },
+    {
+      name: "coaching calls · marking a source",
+      granted: `assigned coach marks a folder: ${coachMarks}`,
+      withheld: `company admin marks a folder: ${adminMarks}`,
+      ok: sourceOk,
+      detail: sourceOk ? "only the company's coach can mark a folder or Teams meeting as coaching calls" : "MARKING A SOURCE IS OPEN TO THE WRONG PEOPLE",
+    },
+    {
+      name: "coaching calls · coach adds an alias",
+      granted: `own company: ${aliasOwn}`,
+      withheld: `company they do not coach: ${aliasOther}, team member: ${aliasMember}`,
+      ok: aliasOk,
+      detail: aliasOk ? "a coach adds a file-name alias for a company they coach, and only there" : "ALIAS WRITES ARE WRONG FOR COACHES",
+    },
+    {
+      name: "coaching calls · a coach's unsorted calls",
+      granted: `the folder's coach ${unsortedOwner} (call/analysis)`,
+      withheld: fmt(unsortedOthers),
+      ok: unsortedOk,
+      detail: unsortedOk ? "a call waiting to be sorted is read by the coach whose folder it came from, and nobody else" : "AN UNSORTED COACHING CALL IS READ BY SOMEONE ELSE",
+    },
+    {
+      name: "coaching calls · sorting a call",
+      granted: `file into a company they coach: ${fileOwn}, set aside: ${setAside}`,
+      withheld: `file into a company they do not coach: ${fileElsewhere}, another coach files it: ${fileByOther}`,
+      ok: sortOk,
+      detail: sortOk ? "a coach files their own unsorted calls into their own companies, and nowhere else" : "SORTING IS OPEN TO THE WRONG COMPANY OR PERSON",
+    },
+    {
+      name: "coaching calls · a coach's own folder",
+      granted: `coach connects their own folder: ${ownFolder}`,
+      withheld: `a folder in another coach's name: ${folderForOther}, a team member: ${memberFolder}`,
+      ok: folderOk,
+      detail: folderOk ? "a coach writes their own coach folder and nobody else's" : "COACH FOLDER WRITES ARE WRONG",
+    },
+  ];
+}
+
 // Ask Aimee for assigned admins (0320).
 //
 // Promise One, 2026-11-03: a portfolio admin switched on as the
@@ -16776,6 +17080,7 @@ async function main(): Promise<void> {
   const portalPreview = await portalPreviewProbes(run, ids, pendingSql);
   const automationAccounts = await automationAccountProbes(run, ids, pendingSql);
   const attendance = await meetingAttendanceProbes(run, ids, pendingSql);
+  const coachingCalls = await coachingCallProbes(run, ids, pendingSql);
   const valueChanges = await measureEntryChangesProbes(run, ids, pendingSql);
   const conversations = await conversationPrivacyProbes(run, ids, pendingSql);
   const companyContent = await companyContentProbes(run, pendingSql);
@@ -16803,7 +17108,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...portalPreview, ...automationAccounts, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...portalPreview, ...automationAccounts, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents, ...coachingCalls]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {
@@ -16911,6 +17216,7 @@ async function main(): Promise<void> {
     strengthsPersonOnly.some((p) => !p.ok) ||
     assistant.some((p) => !p.ok) ||
     contactChange.some((p) => !p.ok) ||
+    coachingCalls.some((p) => !p.ok) ||
     !batchOk
   ) {
     process.exit(1);

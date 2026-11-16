@@ -155,6 +155,9 @@ export async function computeAttentionForCompanies(
       .from("meetings")
       .select("id, company_id")
       .in("company_id", companyIds)
+      // Team meetings only: the attention queue is about the weekly
+      // meeting, and a coaching call is never one (0326).
+      .eq("kind", "team")
       .eq("status", "complete")
       .order("created_at", { ascending: false }),
     supabase
@@ -164,7 +167,9 @@ export async function computeAttentionForCompanies(
     supabase
       .from("meetings")
       .select("file_name")
-      .eq("status", "unrouted"),
+      .eq("status", "unrouted")
+      // A coach's unsorted calls wait in their Calls to sort (0326).
+      .eq("kind", "team"),
   ]);
 
   const nameById = new Map(
@@ -250,6 +255,7 @@ export async function computeAttentionForCompanies(
   const latestMeetingIds = Array.from(latestMeetingByCompany.values());
   const facilitationByMeeting = new Map<string, FacilitationReview | null>();
   if (latestMeetingIds.length > 0) {
+    // meetings-kind: ids from the team-only read above.
     const { data: analyses } = await supabase
       .from("meeting_analyses")
       .select("meeting_id, facilitation_review_json")

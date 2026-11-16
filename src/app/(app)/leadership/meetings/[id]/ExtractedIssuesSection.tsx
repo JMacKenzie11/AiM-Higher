@@ -35,10 +35,14 @@ export function ExtractedIssuesSection({
   meetingId,
   rows,
   canAdd,
+  hint,
 }: {
   meetingId: string;
   rows: ExtractedIssueRow[];
   canAdd: boolean;
+  // In place of the line under the heading, e.g. on a coaching call,
+  // whose items are listed read-only (0326).
+  hint?: string;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -47,8 +51,8 @@ export function ExtractedIssuesSection({
         Issues identified
       </h2>
       <p className={styles.sectionHint}>
-        Unresolved questions the team raised. Add the ones worth
-        working on to the open issues list.
+        {hint ??
+          "Unresolved questions the team raised. Add the ones worth working on to the open issues list."}
       </p>
       <ul className={styles.rowList}>
         {rows.map((r, i) => (

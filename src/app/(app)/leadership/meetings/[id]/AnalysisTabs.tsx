@@ -25,6 +25,8 @@ export type AnalysisTab = {
   // Shown beside the label when it adds something, e.g. how many
   // commitments and issues the meeting produced.
   count?: number;
+  // Drawn before the label, e.g. the lock on Coaching calls.
+  icon?: ReactNode;
   content: ReactNode;
 };
 
@@ -67,6 +69,7 @@ export function AnalysisTabs({
               setActive(t.hash);
             }}
           >
+            {t.icon ?? null}
             {t.label}
             {typeof t.count === "number" && t.count > 0 ? (
               <span className={styles.tabCount}>{t.count}</span>

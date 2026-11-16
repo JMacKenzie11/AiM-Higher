@@ -8,6 +8,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import styles from "../../../../admin/companies/admin.module.css";
 import transcriptStyles from "./transcript.module.css";
 import { turnsOf } from "@/lib/transcripts/turns";
+import { canReadCoachingCalls } from "@/lib/coaching-calls/access";
 
 export const metadata = { title: "Meeting transcript" };
 
@@ -30,9 +31,12 @@ export default async function MeetingTranscriptPage({ params }: PageProps) {
   const { id } = await params;
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  // meetings-kind: either kind, on the caller's own client. A coaching
+  // call reaches only its coach and AiMS Champion (0326), and is asked
+  // again below before its transcript is shown.
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("id, company_id, meeting_title, file_name, created_at, transcript_text")
+    .select("id, company_id, meeting_title, file_name, created_at, transcript_text, kind")
     .eq("id", id)
     .maybeSingle<{
       id: string;
@@ -41,9 +45,12 @@ export default async function MeetingTranscriptPage({ params }: PageProps) {
       file_name: string;
       created_at: string;
       transcript_text: string | null;
+      kind?: "team" | "coaching";
     }>();
   if (!meeting) notFound();
   if (!meeting.company_id) redirect("/leadership");
+  const coaching = meeting.kind === "coaching";
+  if (coaching && !(await canReadCoachingCalls(meeting.company_id))) notFound();
   // The meeting page's check, for the same reason: RLS is the boundary,
   // and this avoids rendering a page for a row that slipped through.
   const callerCompanyId = await getEffectiveCompanyId(session);
@@ -59,7 +66,7 @@ export default async function MeetingTranscriptPage({ params }: PageProps) {
       <section className={styles.hero} aria-label="Meeting transcript">
         <div className={styles.heroInner}>
           <Link href={`/leadership/meetings/${meeting.id}`} className={styles.crumbLink}>
-            ← Meeting analysis
+            {coaching ? "← Coaching call analysis" : "← Meeting analysis"}
           </Link>
           <p className={styles.eyebrow}>Transcript</p>
           <h1 className={styles.h1}>{title}</h1>

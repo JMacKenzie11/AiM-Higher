@@ -158,10 +158,14 @@ async function guardForMeeting(
   const g = await guard();
   if (!g.ok) return g;
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  // Team meetings only. Moving or dismissing a coaching call is for its
+  // coach, and these actions would let a company admin or an
+  // unassigned system admin do it (0326).
   const { data } = await admin
     .from("meetings")
     .select("company_id")
     .eq("id", meetingId)
+    .eq("kind", "team")
     .maybeSingle<{ company_id: string | null }>();
   if (!data) return { ok: false, message: "Meeting not found." };
   const c = guardForCompany(g, data.company_id);
@@ -597,6 +601,7 @@ export async function routeMeetingAction(
   const dest = guardForCompany(g, companyId);
   if (!dest.ok) return dest;
   const supabase = await db();
+  // meetings-kind: a write, behind guardForMeeting's team-only read.
   const { data: routed, error } = await supabase
     .from("meetings")
     .update({
@@ -631,6 +636,7 @@ export async function dismissMeetingAction(
   const g = await guardForMeeting(meetingId);
   if (!g.ok) return g;
   const admin = await createSupabaseAdminClient(getCurrentInstanceConfig());
+  // meetings-kind: a write, behind guardForMeeting's team-only read.
   const { error } = await admin
     .from("meetings")
     .update({ status: "failed", error: "dismissed" })

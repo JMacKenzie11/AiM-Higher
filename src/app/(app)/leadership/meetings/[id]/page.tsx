@@ -43,6 +43,9 @@ import styles from "../../../admin/companies/admin.module.css";
 import processingStyles from "./extracted.module.css";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { NeedsRewordingTag } from "@/components/ui/NeedsRewordingTag";
+import { PrivacyNote } from "@/components/ui/PrivacyNote";
+import { canReadCoachingCalls, coachingCallReaders } from "@/lib/coaching-calls/access";
+import { COACHING_CALL_ITEMS_CAN_BE_ADDED, coachingReadersLine } from "@/lib/transcripts/coaching";
 
 export const metadata = { title: "Meeting summary" };
 
@@ -52,6 +55,13 @@ export const metadata = { title: "Meeting summary" };
 // profile.company_id matches. The facilitation review is for the
 // company's admins, guides, system admins and the AiMS champion; the
 // rerun button is system_admin only. Both gated in the render below.
+//
+// A COACHING CALL (0326) uses this page too. RLS shows it only to the
+// company's assigned coaches and its AiMS Champion; anyone else gets
+// not found, the same answer as for a meeting that does not exist. Its
+// page says who can see it, lists what was extracted read-only (no
+// Add, Convert or Resolved in meeting: COACHING_CALL_ITEMS_CAN_BE_ADDED),
+// and does no similarity work.
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -60,16 +70,22 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   const { id } = await params;
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  // meetings-kind: either kind, on the caller's own client. The read
+  // rule decides who sees a coaching call; the page branches on kind.
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("id, company_id, meeting_title, file_name, status, error, created_at")
+    .select("id, company_id, meeting_title, file_name, status, error, created_at, kind")
     .eq("id", id)
-    .maybeSingle<Pick<Meeting, "id" | "company_id" | "meeting_title" | "file_name" | "status" | "error" | "created_at">>();
+    .maybeSingle<Pick<Meeting, "id" | "company_id" | "meeting_title" | "file_name" | "status" | "error" | "created_at" | "kind">>();
   if (!meeting) notFound();
+  const coaching = meeting.kind === "coaching";
 
   // Unrouted meetings (no company yet) have no leadership home —
   // they're only reachable from the sysadmin routing surface.
   if (!meeting.company_id) redirect("/leadership");
+  // RLS already refused a call to anyone else; asked again so a page
+  // never renders one for a row that slipped through.
+  if (coaching && !(await canReadCoachingCalls(meeting.company_id))) notFound();
   const isAdmin = isAdminForCompany(session.profile, meeting.company_id);
   // Same-company gate: a team_member in company A can't read
   // meetings routed to company B. RLS also enforces this; the
@@ -83,6 +99,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   }
 
   const [{ data: analysis }, { data: commitments }] = await Promise.all([
+    // meetings-kind: keyed by the meeting read above.
     supabase
       .from("meeting_analyses")
       .select("*")
@@ -117,7 +134,9 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   const storedReview = (analysis?.facilitation_review_json ??
     null) as FacilitationReviewData | null;
   const facilitationReview =
-    facilitationOn && storedReview && isShowableReview(storedReview)
+    // A coaching call's review has no score by design (0326), so it is
+    // shown for its notes whatever isShowableReview says.
+    facilitationOn && storedReview && (coaching || isShowableReview(storedReview))
       ? storedReview
       : null;
 
@@ -148,13 +167,18 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   // (see src/lib/companies/features.ts) not a ModuleFeature, so we
   // hit company_features directly rather than through
   // companyHasFeature. Present + true = on.
-  const { data: autoTrackRow } = await supabase
-    .from("company_features")
-    .select("feature")
-    .eq("company_id", meeting.company_id)
-    .eq("feature", "automated_commitment_tracking")
-    .maybeSingle<{ feature: string }>();
-  const autoTrackOn = Boolean(autoTrackRow);
+  //
+  // A coaching call never creates commitments, so it reads as tracking
+  // off: what was extracted is listed, nothing was created.
+  const { data: autoTrackRow } = coaching
+    ? { data: null }
+    : await supabase
+        .from("company_features")
+        .select("feature")
+        .eq("company_id", meeting.company_id)
+        .eq("feature", "automated_commitment_tracking")
+        .maybeSingle<{ feature: string }>();
+  const autoTrackOn = !coaching && Boolean(autoTrackRow);
   const ownerIds = Array.from(
     new Set(
       [
@@ -321,9 +345,11 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
         issue,
         alreadyAdded: addedIssueTitles.has(issue.title),
         alreadyAddedAs: addedIssueStatusByTitle.get(issue.title) ?? null,
-        similar: stripSelfMatch(
-          await findSimilarOpenItem(companyId, issue.title)
-        ),
+        // No similarity work on a coaching call: nothing from it goes
+        // on the company's lists, so there is nothing to duplicate.
+        similar: coaching
+          ? null
+          : stripSelfMatch(await findSimilarOpenItem(companyId, issue.title)),
       }))
     ),
     Promise.all<ExtractedCommitmentRow>(
@@ -344,9 +370,9 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
             ? rosterById.get(c.owner_profile_id) ?? null
             : null,
           addedAs,
-          similar: stripSelfMatch(
-            await findSimilarOpenItem(companyId, c.description)
-          ),
+          similar: coaching
+            ? null
+            : stripSelfMatch(await findSimilarOpenItem(companyId, c.description)),
         };
       })
     ),
@@ -354,6 +380,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     // inside its own async — but the whole chain still runs
     // concurrently with the similarity loops above.
     (async () => {
+      if (coaching) return { data: [] as Array<Pick<Priority, "id" | "title">> };
       const openQuarter = await getCurrentQuarter(companyId);
       if (!openQuarter) {
         return { data: [] as Array<Pick<Priority, "id" | "title">> };
@@ -366,12 +393,14 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
         .eq("archived", false)
         .order("title");
     })(),
-    supabase
-      .from("functions")
-      .select("id, title")
-      .eq("company_id", companyId)
-      .eq("archived", false)
-      .order("title"),
+    coaching
+      ? Promise.resolve({ data: [] as Array<{ id: string; title: string }> })
+      : supabase
+          .from("functions")
+          .select("id, title")
+          .eq("company_id", companyId)
+          .eq("archived", false)
+          .order("title"),
   ]);
   const { data: priorityRows } = priorityResult;
   const { data: fnRows } = functionsResult;
@@ -388,7 +417,15 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   // Names only, from bullets or prose: the same names the owner check
   // reads (attendees.ts), so the two cannot disagree.
   const attendees = attendeesFromSummary(analysis?.analysis_markdown ?? "");
-  const score = facilitationReview
+  // Who can see a coaching call, named (the coach and the champion).
+  const readersLine = coaching
+    ? coachingReadersLine(await coachingCallReaders(meeting.company_id), "this call")
+    : null;
+  // The Add, Convert and Resolved in meeting buttons. Off on a coaching
+  // call (Jason, 2026-11-16); the routing actions refuse one as well.
+  const canAddItems = coaching ? isAdmin && COACHING_CALL_ITEMS_CAN_BE_ADDED : isAdmin;
+  // No score, signal or "How this is scored" on a coaching call (0326).
+  const score = facilitationReview && !coaching
     ? scoreForRow(analysis, facilitationReview)
     : null;
 
@@ -471,7 +508,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           rows={commitmentExtractionRows}
           priorityOptions={priorityOptions}
           functionalAreaOptions={functionalAreaOptions}
-          canAdd={isAdmin}
+          canAdd={canAddItems}
+          hint={coaching ? "Drawn from the call." : undefined}
         />
       ) : null}
 
@@ -480,13 +518,20 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
         <ExtractedIssuesSection
           meetingId={meeting.id}
           rows={issueRows}
-          canAdd={isAdmin}
+          canAdd={canAddItems}
+          hint={coaching ? "Questions raised on the call." : undefined}
         />
       ) : null}
 
       {!hasTab2 ? (
         <p className={styles.emptyLine}>
-          No commitments or issues came out of this meeting.
+          {coaching
+            ? "No commitments or issues came out of this call."
+            : "No commitments or issues came out of this meeting."}
+        </p>
+      ) : coaching && !canAddItems ? (
+        <p className={styles.emptyLine}>
+          Read only. Nothing from a coaching call goes on the company&apos;s lists.
         </p>
       ) : null}
     </>
@@ -528,10 +573,16 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     <div className={styles.stage}>
       <section className={styles.hero} aria-label="Meeting analysis">
         <div className={styles.heroInner}>
-          <Link href="/leadership" className={styles.crumbLink}>
-            ← All meetings
-          </Link>
-          <p className={styles.eyebrow}>Meeting analysis</p>
+          {coaching ? (
+            <Link href="/leadership#coaching-calls" className={styles.crumbLink}>
+              ← Coaching calls
+            </Link>
+          ) : (
+            <Link href="/leadership" className={styles.crumbLink}>
+              ← All meetings
+            </Link>
+          )}
+          <p className={styles.eyebrow}>{coaching ? "Coaching call analysis" : "Meeting analysis"}</p>
           <h1 className={styles.h1}>
             {meeting.meeting_title ?? meeting.file_name}
           </h1>
@@ -553,6 +604,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       </section>
 
       <div className={styles.content}>
+        {readersLine ? <PrivacyNote tone="private">{readersLine}</PrivacyNote> : null}
         {isProcessing ? (
           <div
             className={processingStyles.processingBanner}

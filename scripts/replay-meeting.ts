@@ -51,6 +51,7 @@ const devDb = createClient(dev.supabaseUrl, dev.supabaseServiceKey);
 async function main() {
   // ---- read production, and nothing else ----------------------
   const { data: meeting } = await prod
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     .from("meetings")
     .select("*")
     .eq("id", PROD_ID)
@@ -103,6 +104,7 @@ async function main() {
 
   // ---- stage the meeting on dev -------------------------------
   const devMeetingId = PROD_ID; // same id, so it is traceable
+  // meetings-kind: an operator's dev tool, on the one meeting id it was given.
   await devDb.from("meeting_analyses").delete().eq("meeting_id", devMeetingId);
   await devDb.from("commitments").delete().eq("source_meeting_id", devMeetingId);
   await devDb.from("issues").delete().eq("source_meeting_id", devMeetingId);
@@ -141,6 +143,7 @@ async function main() {
 
   // ---- read it back -------------------------------------------
   const { data: out } = await devDb
+    // meetings-kind: an operator's dev tool, on the one meeting id it was given.
     .from("meeting_analyses")
     .select("analysis_markdown, truncated, facilitation_review_json, commitments_json")
     .eq("meeting_id", devMeetingId)

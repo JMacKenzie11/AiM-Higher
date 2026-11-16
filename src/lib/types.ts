@@ -693,7 +693,9 @@ export type MarketingSnippet = {
 };
 
 // ---- Meeting transcripts (Section: ingestion pipeline) ----------
-export type TranscriptSourceScope = "company" | "shared";
+// "coach": a coach's own folder holding calls with all their clients
+// (0326). company_id is null and owner_profile_id is the coach.
+export type TranscriptSourceScope = "company" | "shared" | "coach";
 export type TranscriptProviderKind = "google_drive" | "teams";
 export type TranscriptSourceStatus = "active" | "paused" | "error";
 
@@ -710,6 +712,9 @@ export type TranscriptSource = {
   last_error: string | null;
   created_at: string;
   updated_at: string;
+  // 0326. Optional so rows written before the migration still type.
+  kind?: MeetingKind;
+  owner_profile_id?: string | null;
 };
 
 export type TranscriptAlias = {
@@ -727,6 +732,11 @@ export type MeetingStatus =
   | "complete"
   | "failed";
 
+// team: a company meeting, read by the company. coaching: a coach's
+// call with the company's leaders, read only by its assigned coaches
+// and its AiMS Champion, and never by Aimee (0326).
+export type MeetingKind = "team" | "coaching";
+
 export type Meeting = {
   id: string;
   company_id: string | null;
@@ -741,6 +751,9 @@ export type Meeting = {
   error: string | null;
   created_at: string;
   updated_at: string;
+  // 0326. Optional so rows written before the migration still type.
+  kind?: MeetingKind;
+  routed_by_person_id?: string | null;
 };
 
 // Shape of the extraction call's parsed JSON — validated server-side

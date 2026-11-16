@@ -53,6 +53,8 @@ export async function turnCheckFor(
         .from("meetings")
         .select("transcript_text")
         .eq("id", convo.debriefing_meeting_id)
+        // Never a coaching call: Aimee does not read them (0326).
+        .eq("kind", "team")
         .maybeSingle<{ transcript_text: string | null }>()
     : { data: null };
   const ctx: CheckContext = { userText, transcript: meeting?.transcript_text ?? "" };

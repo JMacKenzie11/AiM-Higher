@@ -84,7 +84,8 @@ export function ChampionForm({
           holds it — like the whole job.
 
           One sentence, Jason's own (2026-10-15). What the seat does
-          today and that it grants no access are in the help page for
+          today, and that it opens the company's coaching calls (0326),
+          are in the help page for
           this screen. */}
       <p className={styles.subtitleInline}>
         This is the person who will lead your implementation of AiMS, and

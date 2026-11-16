@@ -7,6 +7,8 @@ const m = vi.hoisted(() => ({
   profile: { id: "p1", role: "team_member", company_id: "co1" } as Record<string, unknown>,
   companyId: "co1" as string | null,
   champion: false,
+  // can_read_coaching_call for the caller (0326).
+  coachingReader: false,
   existing: null as { id: string } | null,
   inserted: [] as Array<Record<string, unknown>>,
   processed: [] as string[],
@@ -19,6 +21,7 @@ vi.mock("@/lib/auth/current-user", () => ({ requireProfile: async () => ({ profi
 vi.mock("@/lib/admin/scope", () => ({ getEffectiveCompanyId: async () => m.companyId }));
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
 vi.mock("@/lib/guide/champion", () => ({ isAimsChampion: async () => m.champion }));
+vi.mock("@/lib/coaching-calls/access", () => ({ canReadCoachingCalls: async () => m.coachingReader }));
 vi.mock("./ingest", () => ({
   processPendingMeetings: async ({ meetingId }: { meetingId: string }) => {
     m.processed.push(meetingId);
@@ -58,6 +61,7 @@ beforeEach(() => {
   m.profile = { id: "p1", role: "team_member", company_id: "co1" };
   m.companyId = "co1";
   m.champion = false;
+  m.coachingReader = false;
   m.existing = null;
   m.inserted = [];
   m.processed = [];
@@ -126,5 +130,32 @@ describe("uploadTranscriptAction", () => {
       message: "Upload a .docx, .txt or .vtt file.",
     });
     expect(m.inserted).toHaveLength(0);
+  });
+
+  // ---- A coaching call (0326) ----------------------------------------
+
+  it("adds a coaching call for one of its two readers, as kind coaching", async () => {
+    m.coachingReader = true;
+    const res = await uploadTranscriptAction(
+      null,
+      form({ transcript_file: txt("Coaching call with Sam\n00:00 Speaker 1 hi"), kind: "coaching" })
+    );
+    expect(res).toEqual({ ok: true, title: "Coaching call with Sam" });
+    expect(m.inserted).toHaveLength(1);
+    expect(m.inserted[0]).toMatchObject({ company_id: "co1", kind: "coaching", status: "pending" });
+  });
+
+  it("refuses a coaching call from a company admin who is not one of its readers", async () => {
+    m.profile = { id: "p1", role: "company_admin", company_id: "co1" };
+    m.coachingReader = false;
+    const res = await uploadTranscriptAction(null, form({ transcript_file: txt("hello"), kind: "coaching" }));
+    expect(res).toEqual({ ok: false, message: "Only the company's coach or AiMS Champion can add a coaching call." });
+    expect(m.inserted).toHaveLength(0);
+  });
+
+  it("a team upload stays a team meeting, whatever else the form says", async () => {
+    m.champion = true;
+    await uploadTranscriptAction(null, form({ transcript_file: txt("hello there"), kind: "something" }));
+    expect(m.inserted[0]).toMatchObject({ kind: "team" });
   });
 });

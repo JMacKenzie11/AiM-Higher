@@ -216,6 +216,9 @@ export async function loadCompanyRollups(
       .from("meetings")
       .select("company_id, created_at")
       .in("company_id", companyIds)
+      // "Last meeting" is the last team meeting, never a coaching
+      // call (0326).
+      .eq("kind", "team")
       .eq("status", "complete")
       .order("created_at", { ascending: false }),
   ]);
@@ -361,6 +364,8 @@ export async function loadRecentActivity(
         .from("meetings")
         .select("id, company_id, status, meeting_title, file_name, updated_at")
         .in("company_id", companyIds)
+        // Team meetings only (0326).
+        .eq("kind", "team")
         .eq("status", "complete")
         .gte("updated_at", since)
         .order("updated_at", { ascending: false })
@@ -390,6 +395,7 @@ export async function loadRecentActivity(
   if (meetingIds.length > 0) {
     // meeting_analyses has no updated_at: a reanalysis deletes the row
     // and writes a new one, so created_at is when the review was written.
+    // meetings-kind: ids from the team-only read above.
     const { data: analyses, error: analysesErr } = await supabase
       .from("meeting_analyses")
       .select("meeting_id, facilitation_review_json, created_at")

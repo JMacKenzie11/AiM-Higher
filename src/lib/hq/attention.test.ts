@@ -75,12 +75,14 @@ const mocks = vi.hoisted(() => {
               // The dispatch below picks based on which chain is called.
               if (col === "company_id") {
                 return {
-                  eq: () => ({ order: () => meetingsCompletedResult() }),
+                  // .eq("kind", "team") then .eq("status", "complete") (0326).
+                  eq: () => ({ eq: () => ({ order: () => meetingsCompletedResult() }) }),
                 };
               }
               throw new Error("unexpected meetings filter col: " + col);
             },
-            eq: () => meetingsUnroutedResult(),
+            // .eq("status", "unrouted").eq("kind", "team") (0326).
+            eq: () => ({ eq: () => meetingsUnroutedResult() }),
           }),
         };
       }

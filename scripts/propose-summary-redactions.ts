@@ -276,11 +276,15 @@ async function main() {
   const summary = await forEachActiveInstance<{ checked: number; proposals: Proposal[]; file: string | null }>({
     job: "summary-redactions",
     run: async ({ admin, instance }) => {
+      // meetings-kind: analyses are read only through the team-only meetings
+      // list below; a coaching call's analysis is never looked at.
       const [analyses, meetings, people, companies, commitments, issues] = await Promise.all([
         admin
           .from("meeting_analyses")
           .select("id, meeting_id, analysis_markdown, commitments_json, issues_json, coverage_json, facilitation_review_json"),
-        admin.from("meetings").select("id, company_id, created_at, meeting_title, file_name"),
+        // Team meetings only: a coaching call's summary is for its coach and
+        // champion, never a file on somebody's disk (0326).
+        admin.from("meetings").select("id, company_id, created_at, meeting_title, file_name").eq("kind", "team"),
         admin.from("profiles").select("full_name, company_id").not("company_id", "is", null),
         admin.from("companies").select("id, name"),
         admin

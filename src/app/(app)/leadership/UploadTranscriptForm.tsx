@@ -12,12 +12,22 @@ import up from "./upload.module.css";
 // file and button. Rendered only for the people the action admits
 // (system admin, the company's admin, an assigned guide, the AiMS
 // champion); the action checks again.
+//
+// The same form adds a coaching call on the Coaching calls tab
+// (kind="coaching", 0326), for the company's coach and its AiMS
+// Champion only; the action checks that too.
 
 // A server action's request body is capped at 1 MB. A larger file is
 // refused here with a sentence rather than by the framework.
 const MAX_FILE_BYTES = 900_000;
 
-export function UploadTranscriptForm({ today }: { today: string }) {
+export function UploadTranscriptForm({
+  today,
+  kind = "team",
+}: {
+  today: string;
+  kind?: "team" | "coaching";
+}) {
   const [state, formAction, pending] = useActionState<UploadTranscriptState, FormData>(
     uploadTranscriptAction,
     null
@@ -25,6 +35,9 @@ export function UploadTranscriptForm({ today }: { today: string }) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const coaching = kind === "coaching";
+  // Two of these can share a page (one per tab), so ids are per kind.
+  const fileId = coaching ? "coaching_call_file" : "transcript_file";
 
   useEffect(() => {
     if (state?.ok) {
@@ -51,9 +64,10 @@ export function UploadTranscriptForm({ today }: { today: string }) {
         }
       }}
     >
+      <input type="hidden" name="kind" value={kind} />
       <div className={up.row}>
         <label className={`${styles.field} ${up.name}`}>
-          <span className={styles.label}>Meeting name</span>
+          <span className={styles.label}>{coaching ? "Call name" : "Meeting name"}</span>
           <input
             name="meeting_title"
             className={styles.input}
@@ -67,7 +81,7 @@ export function UploadTranscriptForm({ today }: { today: string }) {
         </label>
         <div className={up.file}>
           <input
-            id="transcript_file"
+            id={fileId}
             name="transcript_file"
             type="file"
             accept=".docx,.txt,.vtt,text/plain,text/vtt,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -77,13 +91,13 @@ export function UploadTranscriptForm({ today }: { today: string }) {
               setFileError(null);
             }}
           />
-          <label htmlFor="transcript_file" className={styles.ghostButton}>
+          <label htmlFor={fileId} className={styles.ghostButton}>
             Choose file
           </label>
           <span className={up.fileName}>{fileName ?? ".docx, .txt or .vtt"}</span>
         </div>
         <button type="submit" className={styles.primaryButton} disabled={pending || !fileName}>
-          {pending ? "Uploading..." : "Analyse meeting"}
+          {pending ? "Uploading..." : coaching ? "Add call" : "Analyse meeting"}
         </button>
       </div>
 

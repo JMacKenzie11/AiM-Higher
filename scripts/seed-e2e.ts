@@ -728,12 +728,25 @@ async function main() {
     .eq("company_id", companyId)
     .in("kind", ["guide-nudge", "champion-empty"]);
   await admin
+    // meetings-kind: e2e fixture rows, written to the dev clone.
     .from("meetings")
     .delete()
     .eq("source_id", guideSourceId)
     .eq("file_name", GUIDE_FILE);
+  // The coaching calls coaching-calls.spec.ts added on earlier runs
+  // (0326): one per run, uploaded through the tab by the champion.
+  const { data: clearedCalls } = await admin
+    // meetings-kind: e2e fixture rows, written to the dev clone.
+    .from("meetings")
+    .delete()
+    .eq("company_id", companyId)
+    .eq("kind", "coaching")
+    .like("file_name", "e2e-coaching-call-%")
+    .select("id");
+  console.log(`  cleared ${(clearedCalls ?? []).length} coaching call(s) left by earlier test runs`);
 
   const { data: guideMeeting, error: meetingError } = await admin
+    // meetings-kind: e2e fixture rows, written to the dev clone.
     .from("meetings")
     .insert({
       company_id: companyId,
@@ -755,6 +768,7 @@ async function main() {
   if (meetingError) throw meetingError;
 
   const { error: analysisError } = await admin
+    // meetings-kind: e2e fixture rows, written to the dev clone.
     .from("meeting_analyses")
     .insert({
       meeting_id: guideMeeting!.id,
