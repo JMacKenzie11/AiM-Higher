@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   COACHING_CALL_ITEMS_CAN_BE_ADDED,
+  COACHING_CALL_NOTES_SHOWN,
   coachingReadersLine,
   withoutScores,
   coachingRunPlan,
@@ -65,6 +66,10 @@ describe("who can see a coaching call, said in words", () => {
 describe("the add buttons on a coaching call (a clean switch)", () => {
   it("are off", () => {
     expect(COACHING_CALL_ITEMS_CAN_BE_ADDED).toBe(false);
+  });
+
+  it("leave the Coaching notes tab hidden too", () => {
+    expect(COACHING_CALL_NOTES_SHOWN).toBe(false);
   });
 
   // While the switch is off, the server side refuses a call too: each
