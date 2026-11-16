@@ -150,14 +150,11 @@ export default async function GuideHqPage({
       </section>
       <NeedsAttentionSection rows={attention} />
       <YourCompaniesSection rows={rollups} needsYou={needsYou} nowMs={Date.now()} />
-      <div className={t.pair}>
-        <div id="your-commitments" className={t.pairItem}>
-          {commitmentsSection}
-        </div>
-        <div className={t.pairItem}>
-          <RecentActivitySection items={activity} />
-        </div>
-      </div>
+      {/* Stacked, full width: a commitment row carries checkboxes,
+          owner, text and dates, and squeezed into half the page its
+          text wrapped a letter at a time (Jason, 2026-11-16). */}
+      <div id="your-commitments">{commitmentsSection}</div>
+      <RecentActivitySection items={activity} />
     </>
   );
 
