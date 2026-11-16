@@ -134,7 +134,9 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   const storedReview = (analysis?.facilitation_review_json ??
     null) as FacilitationReviewData | null;
   const facilitationReview =
-    facilitationOn && storedReview && isShowableReview(storedReview)
+    // A coaching call's review has no score by design (0326), so it is
+    // shown for its notes whatever isShowableReview says.
+    facilitationOn && storedReview && (coaching || isShowableReview(storedReview))
       ? storedReview
       : null;
 
@@ -422,7 +424,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   // The Add, Convert and Resolved in meeting buttons. Off on a coaching
   // call (Jason, 2026-11-16); the routing actions refuse one as well.
   const canAddItems = coaching ? isAdmin && COACHING_CALL_ITEMS_CAN_BE_ADDED : isAdmin;
-  const score = facilitationReview
+  // No score, signal or "How this is scored" on a coaching call (0326).
+  const score = facilitationReview && !coaching
     ? scoreForRow(analysis, facilitationReview)
     : null;
 
