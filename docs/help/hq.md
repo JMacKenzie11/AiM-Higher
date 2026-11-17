@@ -62,6 +62,8 @@ Calls only ever go to companies you coach.
 
 ## Waiting to be analysed
 
+Calls AiMS-HQ couldn't match to a company on its own wait here for you to pick the company. Once you do, the call is analysed, and only you, the company's other coaches and its AiMS Champion will see it.
+
 Each call shows its date, how long it ran when the transcript says, and who was on it.
 
 - **AiMS's best guess.** When AiMS can tell which company it is, the card says so and why ("Looks like Ridgeline Electric: Sam Patel was on the call"), and that company is already chosen. When people from two of your companies were on it, the card asks which one it's for.

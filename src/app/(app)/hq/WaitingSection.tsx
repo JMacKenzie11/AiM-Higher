@@ -36,10 +36,11 @@ export function WaitingSection({
         <h2 id="hq-waiting" className={styles.h2}>
           Waiting to be analysed
         </h2>
-        <span className={t.caption}>{waiting.length} waiting</span>
+        {waiting.length > 0 ? <span className={t.caption}>{waiting.length} waiting</span> : null}
       </div>
       <p className={t.caption}>
-        Confirm the company and AiMS analyses the call. Only you, the company&apos;s other coaches and its AiMS Champion see it.
+        These are calls AiMS-HQ couldn&apos;t match to a company on its own. Pick the right company and AiMS-HQ
+        will analyse the call. Only you, the company&apos;s other coaches and its AiMS Champion will see it.
       </p>
 
       {done.map((d) => (
@@ -51,8 +52,8 @@ export function WaitingSection({
       {waiting.length === 0 ? (
         <p className={styles.empty}>
           {data.folder
-            ? "Nothing is waiting. Every call found its company."
-            : "Connect your folder and calls that can't be matched wait here."}
+            ? "You're all caught up. Every call found its company."
+            : "Once your folder is connected, any call AiMS-HQ can't match to a company will wait here for you."}
         </p>
       ) : (
         <ul className={t.rowList}>
