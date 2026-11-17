@@ -22,7 +22,7 @@ import t from "./hq-tabs.module.css";
 // history.pushState, which Next keeps in step with useSearchParams, so
 // Back, a pasted link and Prepare on the Companies tab all land on the
 // same view. The server still renders the chosen company on a full
-// load (initial), and a router.refresh (after Write the brief or Mark
+// load (initial), and a router.refresh (after Write coaching notes or Mark
 // done) brings a fresh copy, which replaces the kept one.
 
 export function CallsPanel({

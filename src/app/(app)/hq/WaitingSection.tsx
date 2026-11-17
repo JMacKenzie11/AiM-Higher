@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { CoachingCallsHq } from "@/lib/coaching-calls/hq";
 import { shortDay } from "@/lib/hq/derive";
 import { AnalyseCall, MoveCall } from "./CoachingCallsControls";
+import { UploadTranscriptForm } from "../leadership/UploadTranscriptForm";
+import ui from "@/components/ui/ui.module.css";
 import styles from "./hq.module.css";
 import cc from "./coaching-calls.module.css";
 import t from "./hq-tabs.module.css";
@@ -21,11 +23,16 @@ const NUMBER_WORDS = ["", "one", "two", "three", "four", "five"];
 export function WaitingSection({
   data,
   companies,
+  today,
 }: {
+  today: string;
   data: CoachingCallsHq;
   companies: ReadonlyArray<{ id: string; name: string }>;
 }) {
   const [done, setDone] = useState<Array<{ id: string; line: string }>>([]);
+  // Upload a call lives here, with the calls (Jason, 2026-11-17; it was
+  // on the recordings card).
+  const [uploading, setUploading] = useState(false);
   const doneIds = new Set(done.map((d) => d.id));
   const waiting = data.toSort.filter((c) => !doneIds.has(c.id));
   const nameOf = new Map(companies.map((c) => [c.id, c.name] as const));
@@ -36,8 +43,25 @@ export function WaitingSection({
         <h2 id="hq-waiting" className={styles.h2}>
           Waiting to be analysed
         </h2>
-        {waiting.length > 0 ? <span className={t.caption}>{waiting.length} waiting</span> : null}
+        <div className={t.headActions}>
+          {waiting.length > 0 ? <span className={t.caption}>{waiting.length} waiting</span> : null}
+          <button
+            type="button"
+            className={`${ui.btn} ${ui.btnSecondary}`}
+            aria-expanded={uploading}
+            onClick={() => setUploading((u) => !u)}
+          >
+            Upload a call
+          </button>
+        </div>
       </div>
+      {uploading ? (
+        <div className={t.panelBox}>
+          <h3 className={cc.h3}>Upload a call</h3>
+          <p className={t.caption}>Choose the company the call was with, then the transcript.</p>
+          <UploadTranscriptForm today={today} kind="coaching" companies={companies} />
+        </div>
+      ) : null}
       <p className={t.caption}>
         These are calls AiMS-HQ couldn&apos;t match to a company on its own. Pick the right company and AiMS-HQ
         will analyse the call. Only you, the company&apos;s other coaches and its AiMS Champion will see it.

@@ -30,14 +30,16 @@ Every commitment you own, across all your companies, with the company named on e
 2. *Your next session with {company}* shows three things:
    - **Since your last call.** How follow-through moved, any priority that became overdue, the team meetings held (with commitments, issues and facilitation score), and new issues. With no coaching call yet, it looks back four weeks and says so.
    - **Where you left off.** The decisions from your last call with the company, and your own open commitments to them. Click *Mark done* when you've kept one.
-   - **Session brief.** Click *Write the brief*. It takes a few seconds. The brief starts from your last call, pulls in the last team meeting, what's still open, how the scorecard moved and anything needing attention, and ends with three questions to open the session. Click *Copy* to put it on your clipboard, or *Write a new one* to start again.
+   - **Coaching notes**, across the bottom of the card. Click *Write coaching notes*. It takes a few seconds. The notes follow the AiMS coaching principles, in four parts: *What's working* (strengths and wins since your last call), *What they set out to do* (what the leader said they'd try on that call, and what has happened since), *Worth exploring* (one or two things to look into, starting from what the leader wants and how the work is set up), and *Questions to open with* (three questions to start the session). Click *Copy* to put them on your clipboard, or *Write new notes* to start again.
+
+   When a new coaching call or team meeting comes in after the notes were written, the notes are put away and the card says what's new since them, with *Write coaching notes* to write fresh ones.
 3. *Work inside {company}* takes you into the company.
 
-A brief that drew on a coaching call is shown only to the company's coaches.
+Coaching notes that drew on a coaching call are shown only to the company's coaches.
 
 ## Upload a call
 
-1. On *Connections*, click *Upload a call*.
+1. On *Coaching calls*, click *Upload a call* on the *Waiting to be analysed* card.
 2. Choose the company the call was with, and the day it was held. A name is optional.
 3. Click *Choose file*, pick the .docx, .txt or .vtt transcript, and click *Add call*.
 
@@ -47,7 +49,7 @@ It's analysed in a few minutes and appears in *Call summaries*. You can upload c
 
 The *Connections* tab is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion. Aimee never reads it.
 
-Once your folder is connected, the tab shows one line with the folder and when it was last checked. *Check now* looks straight away, *Upload a call* adds a transcript by hand, and *Settings* shows the Google account and *Change folder*.
+Once your folder is connected, the tab shows one line with the folder and when it was last checked. *Check now* looks straight away, and *Settings* shows the Google account and *Change folder*.
 
 1. Click *Connect Google* and sign in with the account your calls are recorded on. You come back to *Connections*.
 2. Open the folder in Google Drive, copy its address from your browser, paste it in and click *Use this folder*.
@@ -92,7 +94,7 @@ To step back out, use *Exit {company}* in the user menu.
 
 **Who else can see my coaching calls?** Only the company's other coaches and its AiMS Champion. Not the company's admins, and not a system admin unless they coach the company too.
 
-**Can I use a company's own folder instead?** No. Folders and Teams meetings on a company's Connections tab bring in team meetings. Coaching calls come in through your folder here, by *Upload a call* on *Connections*, or by uploading one on the company's *Coaching calls* tab of Meeting Summaries.
+**Can I use a company's own folder instead?** No. Folders and Teams meetings on a company's Connections tab bring in team meetings. Coaching calls come in through your folder here, by *Upload a call* on *Coaching calls*, or by uploading one on the company's *Coaching calls* tab of Meeting Summaries.
 
 **Where does "In a sentence" come from?** It's the first sentence of the call's own summary. Open the call to read the rest.
 

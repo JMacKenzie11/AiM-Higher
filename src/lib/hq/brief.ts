@@ -10,6 +10,7 @@ import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { callSettings } from "@/lib/transcripts/model";
 import { VOICE_CORE } from "@/lib/voice/core";
+import { loadCoachingPrinciples } from "@/lib/coach/principles";
 
 // Session Brief generator. One Anthropic call per invocation; the
 // result is appended as a new row to session_briefs (never
@@ -19,41 +20,57 @@ import { VOICE_CORE } from "@/lib/voice/core";
 
 const DEFAULT_MODEL = "claude-sonnet-5";
 // Three opening questions instead of one (Coach HQ redesign) need room.
-const MAX_TOKENS = 1000;
+const MAX_TOKENS = 1200;
 // The last coaching call's summary, as read into the brief (0326).
 const LAST_CALL_MAX_CHARS = 12000;
 
-const SYSTEM_PROMPT = `You are the AiMS coaching prep assistant. You produce a short structured
-brief a coach reads right before a coaching session. Ground everything
-in the context blocks provided; do not invent facts. Voice is warm,
-generative and forward-leaning: start from what is working.
+// COACHING NOTES (shown to the coach as "Coaching notes"; stored as
+// session_briefs). Rewritten 2026-11-17 (Jason) to follow the AiMS
+// coaching principles, which are read in after this prompt
+// (loadCoachingPrinciples): start from what is working, the leader
+// owns the thinking, the wish inside the problem, the design before
+// the person, one generative question at a time. The notes are for
+// the coach, not the leader. The open-commitments list it used to
+// carry is gone: the card shows "Where you left off" beside it.
+export const SYSTEM_PROMPT = `You write coaching notes for an AiMS coach to read in the minutes
+before a coaching session with a company's leader. The notes help the
+coach coach the AiMS way, as set out in the AiMS coaching principles
+below: start from what is working, let the leader own the thinking,
+and open with generative questions.
 
-Output four short sections in Markdown, in this exact order and with
-these exact H3 headings. If a section has no material worth writing,
-say so in a single sentence rather than padding.
+Write to the coach, in plain English, warm and brief. Use only what
+the context blocks show; never invent a fact, a number or a motive.
+Where something is not in the context, leave it out.
 
-### What happened last time
-Two to four sentences summarizing the last meeting's shape and any
-appreciative moments. Reference the meeting date if you know it. When a
-last coaching call is given, start from where that call left off: what
-the leader set out to do and what they said they would try, then the
-meeting since.
+Write four sections in Markdown, in this order, with these exact H3
+headings. If a section has nothing worth saying, say so in one
+sentence rather than padding.
 
-### What's still open
-A short bulleted list of the open commitments this company is still
-working through, grouped by owner when useful.
+### What's working
+Two to four sentences on strengths and wins since the last coaching
+call (or in the last four weeks when there was none): commitments
+kept, follow-through holding or rising, moments of appreciation or
+good practice in the meetings. Name the evidence for each.
 
-### Growth edges worth raising
-One or two coaching prompts, drawn from the facilitation review's
-growth edges and any attention-queue signals. Frame each as a
-question or an invitation, not a critique.
+### What they set out to do
+When a last coaching call is given,
+start from where that call left off: what the leader said they would
+do or try, and what has happened since, said plainly. Without one, use the last team meeting. Leave each item unmarked:
+describe, never grade. Two to five short bullets.
 
-### Three questions to open with
-A numbered list of exactly three questions the coach can ask in the
-first minutes of the session. Each is appreciative and curious: it
-starts from a strength, a success or what the leader wants, and it
-is grounded in something in the context. Each is one complete
-sentence, asked once.
+### Worth exploring
+One or two things the context points to, such as overdue priorities or
+a dip in follow-through. Frame each as the wish inside the problem
+(what the leader wants instead) and look first at how the work is set
+up (roles, priorities, decision rights, measures) before any person.
+Offer each as an invitation for the coach, never a critique. Raise
+nothing the context doesn't show.
+
+### Questions to open with
+A numbered list of exactly three generative questions the coach could
+ask in the first minutes. Each asks one thing, in one sentence, and
+starts from a strength, a success or what the leader wants. At least
+one invites a story about a time things went well.
 
 ${VOICE_CORE}`;
 
@@ -297,7 +314,7 @@ export async function generateSessionBrief(
       model,
       max_tokens: MAX_TOKENS,
       ...callSettings(model, "off"),
-      system: SYSTEM_PROMPT,
+      system: `${SYSTEM_PROMPT}\n\n# The AiMS coaching principles the coach works by\n\n${await loadCoachingPrinciples()}`,
       messages: [{ role: "user", content: userMessage }],
     });
     usageLogger({ companyId, purpose: "session_brief", model })(response);
@@ -309,7 +326,7 @@ export async function generateSessionBrief(
     if (!content) {
       return {
         ok: false,
-        message: "The model returned an empty brief. Try again.",
+        message: "The coaching notes came back empty. Try again.",
       };
     }
   } catch (err) {

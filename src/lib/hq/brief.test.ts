@@ -55,7 +55,7 @@ import { generateSessionBrief, loadRecentBriefs } from "./brief";
 beforeEach(() => {
   process.env.ANTHROPIC_API_KEY = "test";
   h.create.mockReset();
-  h.create.mockResolvedValue({ content: [{ type: "text", text: "### What happened last time\nGood." }] });
+  h.create.mockResolvedValue({ content: [{ type: "text", text: "### What's working\nGood." }] });
   h.inserted = [];
   h.call = { id: "call-1", meeting_title: "Call with Sam", file_name: "c.txt", created_at: "2026-11-12T15:00:00Z" };
 });
@@ -71,11 +71,16 @@ describe("the session brief and the last coaching call", () => {
     expect(h.inserted[0]).toMatchObject({ based_on_meeting_id: "call-1" });
   });
 
-  it("asks for three opening questions, under the house voice rules", async () => {
+  it("writes coaching notes the AiMS way: four sections, the principles, three questions", async () => {
     await generateSessionBrief("co1", "coach-1");
     const sent = h.create.mock.calls[0][0] as { system: string };
-    expect(sent.system).toContain("### Three questions to open with");
-    expect(sent.system).toContain("exactly three questions");
+    for (const heading of ["### What's working", "### What they set out to do", "### Worth exploring", "### Questions to open with"]) {
+      expect(sent.system).toContain(heading);
+    }
+    expect(sent.system).toContain("exactly three generative questions");
+    // The AiMS coaching principles, word for word from the file.
+    expect(sent.system).toContain("# AiMS coaching principles");
+    expect(sent.system).toContain("Start from what's working");
     expect(sent.system).toContain("Never use em-dashes");
     expect(sent.system).not.toContain("—");
   });

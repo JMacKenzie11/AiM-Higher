@@ -10,11 +10,11 @@ import ui from "@/components/ui/ui.module.css";
 import cc from "./coaching-calls.module.css";
 import t from "./hq-tabs.module.css";
 
-// The session brief, inline in "Your next session with {company}"
-// (it was a dialog off the companies table). Write the brief makes one
+// Coaching notes (the session brief; renamed 2026-11-17), full width
+// under "Your next session with {company}". Write coaching notes makes one
 // model call (generateSessionBriefAction, brief.ts) and appends a row
 // to session_briefs; the newest one the coach can see shows here, with
-// Copy, Write a new one, and when it was written. A failed call says
+// Copy, Write new notes, and when it was written. A failed call says
 // why and the button stays, so the page never fails on a brief.
 
 function writtenWhen(iso: string): string {
@@ -28,11 +28,18 @@ function writtenWhen(iso: string): string {
 export function SessionBrief({
   companyId,
   initial,
+  newSince,
 }: {
   companyId: string;
   initial: { id: string; content: string; createdAt: string } | null;
+  // The newest call or meeting for the company, from the card.
+  newSince: { label: string; heldOn: string } | null;
 }) {
   const [brief, setBrief] = useState(initial);
+  // Notes written before the newest call or meeting are out of date:
+  // hidden, not deleted, with an offer to write new ones. Compared by
+  // day: a meeting held the day the notes were written doesn't count.
+  const outOfDate = Boolean(brief && newSince && newSince.heldOn.slice(0, 10) > brief.createdAt.slice(0, 10));
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -62,31 +69,37 @@ export function SessionBrief({
   };
 
   return (
-    <div className={t.column}>
-      <h3 className={t.columnHead}>Session brief</h3>
-      {brief ? (
+    <div className={t.notes}>
+      <h3 className={t.columnHead}>Coaching notes</h3>
+      {brief && !outOfDate ? (
         <>
-          <div className={`${t.briefBody} aims-prose`}>
+          <div className={t.notesBody}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{brief.content}</ReactMarkdown>
           </div>
-          <div className={cc.actions}>
-            <button type="button" className={`${ui.btn} ${ui.btnSecondary}`} onClick={copy}>
-              {copied ? "Copied" : "Copy"}
-            </button>
-            <button type="button" className={`${ui.btn} ${ui.btnGhost}`} onClick={write} disabled={pending}>
-              {pending ? "Writing..." : "Write a new one"}
-            </button>
+          <div className={t.notesFoot}>
+            <span className={t.caption} suppressHydrationWarning>
+              {writtenWhen(brief.createdAt)}
+            </span>
+            <div className={cc.actions}>
+              <button type="button" className={`${ui.btn} ${ui.btnSecondary}`} onClick={copy}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+              <button type="button" className={`${ui.btn} ${ui.btnGhost}`} onClick={write} disabled={pending}>
+                {pending ? "Writing..." : "Write new notes"}
+              </button>
+            </div>
           </div>
-          <span className={t.caption} suppressHydrationWarning>
-            {writtenWhen(brief.createdAt)}
-          </span>
         </>
       ) : (
         <>
-          <p className={t.columnText}>A one-page brief from all of this, with three questions to open the session.</p>
+          <p className={t.columnText}>
+            {outOfDate && newSince
+              ? `New since your last coaching notes: ${newSince.label}. Write new notes to take it in.`
+              : "Notes for the session from all of this: what's working, what they set out to do, what's worth exploring, and three questions to open with."}
+          </p>
           <div>
             <button type="button" className={`${ui.btn} ${ui.btnPrimary}`} onClick={write} disabled={pending}>
-              {pending ? "Writing the brief..." : "Write the brief"}
+              {pending ? "Writing coaching notes..." : "Write coaching notes"}
             </button>
           </div>
         </>

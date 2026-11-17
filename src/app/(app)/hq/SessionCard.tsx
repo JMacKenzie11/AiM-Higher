@@ -10,8 +10,8 @@ import t from "./hq-tabs.module.css";
 // company chip is chosen. Three columns: what changed since the last
 // coaching call (four weeks back when there has been none, and it says
 // so), where that call left off (its Decisions Made, and the coach's
-// own open commitments for the company), and the session brief.
-// Everything but the brief is read from what is stored (calls.ts);
+// own open commitments for the company), then coaching notes below.
+// Everything but the notes is read from what is stored (calls.ts);
 // nothing here is generated.
 
 function plural(n: number, one: string, many = `${one}s`): string {
@@ -48,7 +48,7 @@ export function SessionCard({
         </ScopeIntoCompanyButton>
       </div>
 
-      <div className={t.threeCols}>
+      <div className={t.twoCols}>
         <div className={t.column}>
           <h3 className={t.columnHead}>{card.since.fromCall ? "Since your last call" : `Since ${since}`}</h3>
           {card.since.fromCall ? null : (
@@ -121,10 +121,24 @@ export function SessionCard({
           ))}
         </div>
 
-        <SessionBrief companyId={card.companyId} initial={brief} />
       </div>
+
+      {/* Coaching notes, full width under the two columns (Jason,
+          2026-11-17: down the right side they were squeezed). */}
+      <SessionBrief companyId={card.companyId} initial={brief} newSince={newSinceNotes(card)} />
     </section>
   );
+}
+
+// What arrived for the company most recently: the last coaching call
+// or a team meeting since it. Notes written before it are out of date
+// (Jason, 2026-11-17): the card hides them and offers new ones.
+function newSinceNotes(card: SessionCardData): { label: string; heldOn: string } | null {
+  const events: Array<{ label: string; heldOn: string }> = [];
+  if (card.lastCall) events.push({ label: `the coaching call on ${shortDay(card.lastCall.heldOn)}`, heldOn: card.lastCall.heldOn });
+  for (const m of card.teamMeetings) events.push({ label: `the team meeting on ${shortDay(m.heldOn)}`, heldOn: m.heldOn });
+  events.sort((a, b) => (a.heldOn < b.heldOn ? 1 : a.heldOn > b.heldOn ? -1 : 0));
+  return events[0] ?? null;
 }
 
 function listNames(names: readonly string[]): string {
