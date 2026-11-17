@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   facilitation: vi.fn(),
   nudge: vi.fn(),
   track: vi.fn(),
+  weeklyEmail: vi.fn(async () => ({ sent: 0, failed: 0 })),
   writes: [] as Array<{ table: string; op: string; payload?: unknown }>,
   features: [] as string[],
   simplify: [] as string[],
@@ -34,6 +35,7 @@ vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({})
 vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: vi.fn(), usageLogger: () => () => {} }));
 vi.mock("@/lib/analytics/track", () => ({ track: h.track }));
 vi.mock("@/lib/guide/nudges", () => ({ raiseMeetingDebriefNudge: h.nudge }));
+vi.mock("@/lib/meeting-email/send", () => ({ sendWeeklyMeetingEmail: h.weeklyEmail }));
 vi.mock("@/lib/leadership/facilitation/analyze", () => ({ analyzeMeetingFacilitation: h.facilitation }));
 vi.mock("@/lib/leadership/questions", () => ({
   generateMeetingQuestions: vi.fn(async () => ({ nextWeek: [], opened: [] })),
@@ -424,6 +426,11 @@ describe("a coaching call writes nothing outside its own analysis", () => {
     expect(h.writes.some((w) => w.table === "meeting_headlines")).toBe(true);
     expect(h.nudge).toHaveBeenCalledTimes(1);
     expect(h.track).toHaveBeenCalledTimes(1);
+    expect(h.weeklyEmail).toHaveBeenCalledTimes(1);
+    expect(h.weeklyEmail.mock.calls[0]).toEqual([
+      expect.anything(),
+      expect.objectContaining({ meetingId: "m1" }),
+    ]);
     expect(result.createdCommitmentCount).toBeGreaterThan(0);
   });
 
@@ -458,6 +465,7 @@ describe("a coaching call writes nothing outside its own analysis", () => {
     expect(h.writes.filter((w) => w.table === "commitments")).toEqual([]);
     expect(h.writes.filter((w) => w.table === "issues")).toEqual([]);
     expect(h.writes.filter((w) => w.table === "meeting_headlines")).toEqual([]);
+    expect(h.weeklyEmail).not.toHaveBeenCalled();
     expect(h.writes.filter((w) => w.table === "notifications" || w.table === "guide_nudges")).toEqual([]);
     expect(h.nudge).not.toHaveBeenCalled();
     expect(h.track).not.toHaveBeenCalled();

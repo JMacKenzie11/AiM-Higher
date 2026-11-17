@@ -6,6 +6,8 @@ title: Meeting Summaries
 
 Your company's leadership meetings, newest first. Open one to read what was discussed, what was decided, and the commitments that came out of it.
 
+When a meeting's summary is ready, everyone at the company, and its AiMS Coach, gets an email called *Your Weekly Meeting Summary* from AiMS-HQ. It lists the team's commitments due in the next week, person by person, with late ones first. A *New* label marks the ones agreed in that meeting. Click a commitment to open it in AiMS-HQ, or *Read the meeting summary* to open the meeting.
+
 ::: role team_member
 ## What you can do here
 

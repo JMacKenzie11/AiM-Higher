@@ -30,7 +30,8 @@ import { resolveDuePhrase, meetingDateIn } from "./due-phrase";
 import { checkCoverage } from "./coverage";
 import { extractHeadlines, fillMeetingHeadlines, loadHeadlineFunctions, type ExtractedHeadline } from "./headlines";
 import { simplifyOn } from "@/lib/ui/simplify";
-import { coachingRunPlan, withoutScores } from "./coaching";
+import { coachingRunPlan, isTeamMeeting, withoutScores } from "./coaching";
+import { sendWeeklyMeetingEmail } from "@/lib/meeting-email/send";
 import { COMMITMENT_CLARITY_RULES } from "./clarity-rules";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
@@ -663,6 +664,27 @@ export async function analyzeMeeting(
         meeting_title: meetingRow.meeting_title ?? deriveTitle(meetingRow.file_name),
       })
       .eq("id", meetingId);
+
+    // ---- The weekly meeting email (2026-11-17) ----------------
+    //
+    // Once the summary is stored and the meeting is complete: to
+    // everyone at the company and its assigned AiMS Coach, the team's
+    // commitments due in the next week with this meeting's marked New,
+    // and a link to this summary. Team meetings only, and never on a
+    // summary-only run (the meeting was emailed when first analysed).
+    // Never throws (meeting-email/send.ts), and production only.
+    if (!options.carryOver && isTeamMeeting(meetingRow.kind)) {
+      const instance = await getCurrentInstanceConfig();
+      const emailed = await sendWeeklyMeetingEmail(admin, {
+        meetingId,
+        companyId: meetingRow.company_id,
+        companyName: context.companyName,
+        timezone: context.timezone ?? "UTC",
+        meetingDateIso,
+        subdomain: instance.subdomain,
+      });
+      console.log(`[weekly-email] meeting ${meetingId}: ${JSON.stringify(emailed)}`);
+    }
 
     // ---- The Guide's one action in phase A --------------------
     //
