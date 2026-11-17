@@ -5,7 +5,7 @@ roles: [system_admin]
 
 # Viewing another coach's Coach HQ
 
-A read-only view of one coach's Coach HQ: their commitments across companies, the companies that need them this week, their companies and recent activity. Their coaching calls and session briefs are theirs alone and aren't shown here.
+A read-only view of one coach's Coach HQ: their commitments across companies, their companies and recent activity. Their coaching calls and coaching notes are theirs alone and aren't shown here.
 
 ## What you can do here
 

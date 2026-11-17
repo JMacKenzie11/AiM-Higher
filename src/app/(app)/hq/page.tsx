@@ -170,7 +170,7 @@ export default async function GuideHqPage({
 
   const callsTab = (
     <>
-      {coachingCalls ? <WaitingSection data={coachingCalls} companies={caseload} /> : null}
+      {coachingCalls ? <WaitingSection data={coachingCalls} companies={caseload} today={todayIso} /> : null}
       {/* Chips, the session card and the call list: a chip switches at
           once, without reloading the page (CallsPanel). */}
       <CallsPanel companies={caseload} rows={callRows} initial={initialSession} />
@@ -214,8 +214,6 @@ export default async function GuideHqPage({
             content: coachingCalls ? (
               <RecordingsSection
                 data={coachingCalls}
-                companies={caseload}
-                today={todayIso}
                 flash={{ connected: params.oauth_connected ?? null, error: params.oauth_error ?? null }}
               />
             ) : null,

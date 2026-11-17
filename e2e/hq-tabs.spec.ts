@@ -54,8 +54,8 @@ test.describe("Coach HQ tabs", () => {
     const card = page.getByRole("region", { name: `Your next session with ${FIXTURE_COMPANY_NAME}` });
     await expect(card).toBeVisible({ timeout: 30_000 });
     await expect(card.getByRole("heading", { name: "Where you left off" })).toBeVisible();
-    await expect(card.getByRole("heading", { name: "Session brief" })).toBeVisible();
-    await expect(card.getByRole("button", { name: /Write the brief|Write a new one/ })).toBeVisible();
+    await expect(card.getByRole("heading", { name: "Coaching notes" })).toBeVisible();
+    await expect(card.getByRole("button", { name: /Write coaching notes|Write new notes/ })).toBeVisible();
 
     // All companies takes the card away again.
     await chips.getByRole("link", { name: "All companies" }).click();

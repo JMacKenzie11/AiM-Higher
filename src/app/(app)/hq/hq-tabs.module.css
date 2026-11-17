@@ -482,3 +482,71 @@
 .sessionAnchor {
   scroll-margin-top: var(--space-6);
 }
+
+/* The session card's top: Since your last call, Where you left off. */
+.twoCols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+@media (max-width: 960px) {
+  .twoCols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Coaching notes: full width under the two columns, with the spacing a
+   written page needs (Jason, 2026-11-17: headings ran into the text). */
+.notes {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.notesBody {
+  font: var(--text-body);
+  color: var(--text-body);
+}
+
+.notesBody h3 {
+  font: var(--text-h4);
+  color: var(--text-heading);
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+.notesBody h3:first-child {
+  margin-top: 0;
+}
+
+.notesBody p {
+  margin: 0 0 var(--space-3);
+}
+
+.notesBody ul,
+.notesBody ol {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-6);
+}
+
+.notesBody li + li {
+  margin-top: var(--space-2);
+}
+
+.notesFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* A card heading's right side: a count and a button. */
+.headActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}

@@ -7,19 +7,17 @@ import {
   removeCoachFolderAction,
   type CoachActionResult,
 } from "@/lib/coaching-calls/actions";
-import { UploadTranscriptForm } from "../leadership/UploadTranscriptForm";
 import { FolderControls } from "./CoachingCallsControls";
 import ui from "@/components/ui/ui.module.css";
 import styles from "./hq.module.css";
 import cc from "./coaching-calls.module.css";
 import t from "./hq-tabs.module.css";
 
-// Recordings, at the top of the Coaching calls tab (0326). Connected:
-// one slim line (the folder, when it was last checked, Check now,
-// Upload a call, Settings). Not connected: the setup card, Connect
-// Google and how a call finds its company. Upload a call works either
-// way: choose the company, then the file (uploadCoachingCallAction,
-// for a company the coach is assigned to).
+// Recordings, on Coach HQ's Connections tab (0326; moved there
+// 2026-11-17). Connected: one slim line (the folder, when it was last
+// checked, Check now, Settings). Not connected: the setup card, Connect
+// Google and how a call finds its company. Upload a call is on the
+// Waiting to be analysed card (WaitingSection).
 
 function checkedAgo(iso: string | null): string {
   if (!iso) return "not checked yet";
@@ -34,16 +32,12 @@ function checkedAgo(iso: string | null): string {
 
 export function RecordingsSection({
   data,
-  companies,
-  today,
   flash,
 }: {
   data: CoachingCallsHq;
-  companies: ReadonlyArray<{ id: string; name: string }>;
-  today: string;
   flash: { connected: string | null; error: string | null };
 }) {
-  const [panel, setPanel] = useState<"upload" | "settings" | null>(null);
+  const [panel, setPanel] = useState<"settings" | null>(null);
   const [pending, start] = useTransition();
   const [result, setResult] = useState<CoachActionResult | null>(null);
   const run = (fn: () => Promise<CoachActionResult>) =>
@@ -60,7 +54,7 @@ export function RecordingsSection({
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
   }, []);
 
-  const toggle = (p: "upload" | "settings") => setPanel((cur) => (cur === p ? null : p));
+  const toggle = (p: "settings") => setPanel((cur) => (cur === p ? null : p));
 
   const flashLines = (
     <>
@@ -81,36 +75,17 @@ export function RecordingsSection({
     </>
   );
 
-  const uploadPanel =
-    panel === "upload" ? (
-      <div className={t.panelBox}>
-        <h3 className={cc.h3}>Upload a call</h3>
-        <p className={t.caption}>Choose the company the call was with, then the transcript.</p>
-        <UploadTranscriptForm today={today} kind="coaching" companies={companies} />
-      </div>
-    ) : null;
 
   if (!data.folder) {
     return (
       <section className={styles.card} aria-labelledby="hq-recordings">
-        <div className={t.headRow}>
-          <h2 id="hq-recordings" className={styles.h2}>
-            Your call recordings
-          </h2>
-          <button
-            type="button"
-            className={`${ui.btn} ${ui.btnSecondary}`}
-            aria-expanded={panel === "upload"}
-            onClick={() => toggle("upload")}
-          >
-            Upload a call
-          </button>
-        </div>
+        <h2 id="hq-recordings" className={styles.h2}>
+          Your call recordings
+        </h2>
         <p className={cc.text}>Set up your call recordings here, once, for every company you coach.</p>
         {flashLines}
         {data.connectionError ? <p className={cc.error}>{data.connectionError}</p> : null}
         <FolderControls account={data.account} folder={null} />
-        {uploadPanel}
         <div className={cc.how}>
           <h3 className={cc.h3}>How AiMS-HQ knows which company a call is with</h3>
           <p className={t.caption}>AiMS-HQ checks each new call in this order:</p>
@@ -155,14 +130,6 @@ export function RecordingsSection({
           </button>
           <button
             type="button"
-            className={`${ui.btn} ${ui.btnSecondary}`}
-            aria-expanded={panel === "upload"}
-            onClick={() => toggle("upload")}
-          >
-            Upload a call
-          </button>
-          <button
-            type="button"
             className={`${ui.btn} ${ui.btnGhost}`}
             aria-expanded={panel === "settings"}
             onClick={() => toggle("settings")}
@@ -178,7 +145,6 @@ export function RecordingsSection({
           {result.ok ? result.message ?? "Done." : result.message}
         </p>
       ) : null}
-      {uploadPanel}
       {panel === "settings" ? (
         <div className={t.panelBox}>
           <p className={cc.text}>
