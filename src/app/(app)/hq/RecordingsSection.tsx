@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { CoachingCallsHq } from "@/lib/coaching-calls/hq";
 import {
   checkCoachFolderNowAction,
@@ -50,11 +50,25 @@ export function RecordingsSection({
     start(async () => {
       setResult(await fn());
     });
+  // The line shows for this visit; the address drops ?oauth_connected=
+  // and ?oauth_error= so a reload or a shared link doesn't repeat it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("oauth_connected") && !url.searchParams.has("oauth_error")) return;
+    url.searchParams.delete("oauth_connected");
+    url.searchParams.delete("oauth_error");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, []);
+
   const toggle = (p: "upload" | "settings") => setPanel((cur) => (cur === p ? null : p));
 
   const flashLines = (
     <>
-      {flash.connected ? (
+      {/* Only while a connection is actually saved: the address keeps
+          ?oauth_connected= after a reload, and a disconnect since then
+          left it saying "connected" over a Connect Google button (dev,
+          2026-11-17). The address is cleaned up below either way. */}
+      {flash.connected && data.account ? (
         <p role="status" className={cc.ok}>
           Google connected as {flash.connected}.
         </p>

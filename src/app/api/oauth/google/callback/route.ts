@@ -63,14 +63,14 @@ export async function GET(req: NextRequest): Promise<Response> {
   if (state.split(".")[1] === "coach") {
     const hq = `${APP_URL()}/hq`;
     if (!["system_admin", "aims_guide"].includes(session.profile.role)) {
-      return NextResponse.redirect(`${hq}?oauth_error=forbidden#coaching-calls-folder`);
+      return NextResponse.redirect(`${hq}?oauth_error=forbidden#coaching-calls`);
     }
     try {
       const email = await exchangeCodeAndPersistForCoach(code, session.profile.id);
-      return NextResponse.redirect(`${hq}?oauth_connected=${encodeURIComponent(email)}#coaching-calls-folder`);
+      return NextResponse.redirect(`${hq}?oauth_connected=${encodeURIComponent(email)}#coaching-calls`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "connect_failed";
-      return NextResponse.redirect(`${hq}?oauth_error=${encodeURIComponent(message)}#coaching-calls-folder`);
+      return NextResponse.redirect(`${hq}?oauth_error=${encodeURIComponent(message)}#coaching-calls`);
     }
   }
 
