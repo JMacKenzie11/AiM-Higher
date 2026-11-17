@@ -53,7 +53,7 @@ From the company's settings page you can:
 - change its timezone, industry and features
 - archive it
 
-You can add people to a company as team members or company admins, from its Team page. You can't delete a company, or create a portfolio admin or system admin.
+You can add people to a company as team members or company admins, from its People page. You can't delete a company, or create a portfolio admin or system admin.
 :::
 
 ## Common questions

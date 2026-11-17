@@ -39,10 +39,10 @@ A coaching call's page shows its analysis with no tabs, with *Coaching call anal
 
 - **Send each commitment where it belongs.** When Automated Commitment Tracking is off, the *Commitments identified* card lists what the meeting agreed to. For each one, link it to a Priority, link it to a Functional Area, or choose *Convert to issue*. A chip then shows what happened: *Added to* the priority or function, *Captured as commitment*, or *Issue created*. It stays that way when you come back.
 - **Deal with the issues it raised.** *Issues identified* lists the open questions from the meeting. For each one:
-    - *Resolved in meeting* closes it straight away, for something the team already talked through. It lands on the resolved list on Issues/Solutions marked *Resolved in meeting*.
-    - *Add to open issues* puts it on the open list on Issues/Solutions, where someone can add the desired outcome, a commitment and an owner.
+    - *Resolved in meeting* closes it straight away, for something the team already talked through. It lands on the resolved list on the Issues page marked *Resolved in meeting*.
+    - *Add to open issues* puts it on the open list on the Issues page, where someone can add the desired outcome, a commitment and an owner.
   Whichever you click first wins, and clicking twice won't add it twice. A tick in a circle means it was closed in the room; a plus in a circle means it went on the list.
-- **Reword anything tagged *Needs rewording*.** It mentions something personal about someone, and AiMS couldn't reword it for you. Add it as usual. The commitment or issue it becomes carries the tag until someone edits its text on Commitments or Issues/Solutions.
+- **Reword anything tagged *Needs rewording*.** It mentions something personal about someone, and AiMS couldn't reword it for you. Add it as usual. The commitment or issue it becomes carries the tag until someone edits its text on Commitments or Issues.
 
 ## Possible duplicates
 
@@ -87,7 +87,7 @@ While it runs, an *Analyzing this meeting* banner shows above the write-up and t
 
 ## Common questions
 
-**A commitment from this meeting looks wrong.** Open it on Commitments to reassign it, reschedule it or fix the wording. If it's tied to an issue, change it on Issues/Solutions instead.
+**A commitment from this meeting looks wrong.** Open it on Commitments to reassign it, reschedule it or fix the wording. If it's tied to an issue, change it on the Issues page instead.
 
 **A commitment came out Unassigned.** Aimee only gives a commitment to someone she can tell was at the meeting. If she couldn't tell who said it, or it named someone who wasn't there ("I'll see if John can do it"), it comes out Unassigned so it doesn't land on the wrong person's list. Open it on Commitments and pick the owner.
 

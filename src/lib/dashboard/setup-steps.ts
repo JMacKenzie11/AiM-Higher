@@ -210,7 +210,7 @@ export async function computeCompanySetup(
     },
     {
       key: "issues",
-      label: "Track Issues / Solutions",
+      label: "Track issues",
       description: issuesDescription,
       href: "/issues",
       done: hasRecentIssue,

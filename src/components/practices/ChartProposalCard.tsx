@@ -127,7 +127,7 @@ export function ChartProposalCard({
       <header className={styles.header}>
         <div className={styles.headerMain}>
           <p className={styles.eyebrow}>Chart proposal</p>
-          <h3 className={styles.title}>Your Functional Accountability Chart</h3>
+          <h3 className={styles.title}>Your Functional Chart</h3>
           <span className={styles.rule} aria-hidden="true" />
           {fullSizeHref ? (
             <Link href={fullSizeHref} className={styles.fullSize}>

@@ -4,7 +4,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { PageShell } from "@/components/ui/PageShell";
 import { IssuesView } from "./IssuesView";
 
-export const metadata = { title: "Issues/Solutions" };
+export const metadata = { title: "Issues" };
 
 // Issues/Solutions — the Solution Seeking discipline. Name the
 // issue, decide what you want, and commit to the next step. The page
@@ -23,7 +23,7 @@ export default async function IssuesPage({ searchParams }: PageProps) {
   return (
     <PageShell
       eyebrow="Company"
-      title="Issues/Solutions"
+      title="Issues"
       subtitle="Name it, decide what you want, and commit to the next step."
     >
       <IssuesView session={session} companyId={companyId} searchParams={await searchParams} />

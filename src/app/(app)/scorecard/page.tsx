@@ -61,7 +61,7 @@ export default async function ScorecardPage() {
 
   return (
     <PageShell
-      eyebrow="Workspace"
+      eyebrow="Home"
       title="AiMS Implementation"
       subtitle={
         // Shorter under the "short-intros" switch (change 10).

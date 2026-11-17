@@ -1,13 +1,13 @@
 ---
-title: Week in Review
+title: This week
 ---
 
-# Week in Review
+# This week
 
 ::: feature ui_my_week
 ## Your week
 
-If you're a team member, Home opens on **Your week**: your open commitments, the ones past their date first, with a way to add a new one at the top. If you lead a function, it also says how many of last week's numbers you still have to log, with a link to log them. Press *How the company's week is going* at the foot of the page for Week in Review, described below.
+If you're a team member, Home opens on **Your week**: your open commitments, the ones past their date first, with a way to add a new one at the top. If you lead a function, it also says how many of last week's numbers you still have to log, with a link to log them. Press *How the company's week is going* at the foot of the page for the company view, described below.
 :::
 
 Your company's daily read: how this quarter and this week are going. Follow-Through Rate sits at the top, with four more numbers under it and the operating panels below.
@@ -90,7 +90,7 @@ Hover a square to see the count behind it. The line at the top sums it up, for e
 
 ## Common questions
 
-**Where do I log this week's numbers?** On **Critical Success Factors**, under Workspace. It saves one function at a time and tells you how many you have left.
+**Where do I log this week's numbers?** On **Critical Success Factors** in the sidebar. It saves one function at a time and tells you how many you have left.
 
 **Why is a panel missing?** Panels only appear when there's something behind them. An empty quarter means empty panels.
 

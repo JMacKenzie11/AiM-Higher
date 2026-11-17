@@ -29,7 +29,7 @@ The AiMS strengths assessment: a short set of questions that gives you a persona
 
 ## How to take the assessment
 
-1. Open *My assessment* and click *Start the assessment*.
+1. Open the assessment, as above, and click *Start the assessment*.
 2. Rate the statements, choose between paired options, and answer the written questions. Agreeing strongly and disagreeing are both useful.
 3. Finish. Your results appear on your results page once they're ready.
 

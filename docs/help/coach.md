@@ -5,7 +5,7 @@ roles: [system_admin, company_admin, aims_guide, portfolio_admin, team_member]
 
 # Coach conversations
 
-Private conversations with Aimee about one other person at your company: someone you manage, a colleague, or your own manager. Aimee helps you prepare to act, usually for a conversation with them. You get here from *Coach* on their row on the Team page, on their scorecard, or beside their name under *Where to lend support*.
+Private conversations with Aimee about one other person at your company: someone you manage, a colleague, or your own manager. Aimee helps you prepare to act, usually for a conversation with them. You get here from *Coach* on their row on the People page, on their scorecard, or beside their name under *Where to lend support*.
 
 Anyone at the company can coach about anyone else there. So can an AiMS Coach assigned to the company, and a portfolio admin a system admin has made its admin.
 

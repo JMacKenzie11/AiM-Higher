@@ -18,7 +18,7 @@ import adminStyles from "../admin/companies/admin.module.css";
 import { simplifyOn } from "@/lib/ui/simplify";
 import { AddPersonDrawer } from "./AddPersonDrawer";
 
-export const metadata = { title: "Team" };
+export const metadata = { title: "People" };
 
 // People roster — Section 8.6.
 

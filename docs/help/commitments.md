@@ -1,14 +1,14 @@
 ---
-title: Functional Commitments
+title: Commitments
 ---
 
-# Functional Commitments
+# Commitments
 
 Every commitment your team has made, week by week: who owns it, when it's due, and whether it got done.
 
 ## Reading the list
 
-Each commitment has an owner, a due date and a status: *open*, *kept on time*, *kept, but late*, or *missed*. Late still means the work got done, after the due date, and it shows with a small clock.
+Each commitment has an owner, a due date and a status: *open*, *kept on time* or *kept, but late*. Late still means the work got done, after the due date, and it shows with a small clock.
 
 The list runs soonest due first. Anything from an earlier week that's still open sits at the very top under **Needs attention**, with a count of how many are overdue beside the heading. A commitment due earlier this week stays under this week. Earlier weeks come below, newest first, and the **Parking lot** is at the bottom.
 
@@ -98,7 +98,7 @@ Tick **Repeats every week** (or **Ongoing (weekly)** on the add row) when you ad
 
 **What's *From meeting*?** The commitment came from a meeting summary. If nobody said a date, it's due a week after the meeting.
 
-**What's *From issue*?** It was made to solve an issue on Issues/Solutions. Click the tag to open the issue.
+**What's *From issue*?** It was made to solve an issue on the Issues page. Click the tag to open the issue.
 
 **Can I change the priority on a finished commitment?** No. Once it's closed out, its priority stays as it was, so the priority's progress doesn't change after the fact.
 
