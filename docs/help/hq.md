@@ -5,7 +5,7 @@ roles: [system_admin, aims_guide]
 
 # Coach HQ
 
-Your home base as an AiMS Coach. It covers only the companies you're assigned to coach, in three tabs: *Companies* (who needs you this week, and how each company is doing), *Coaching calls* (your calls, what was said, and your next session) and *Your commitments* (your own commitments across every company).
+Your home base as an AiMS Coach. It covers only the companies you're assigned to coach, in four tabs: *Companies* (how each company is doing), *Coaching calls* (your calls, what was said, and your next session), *Your commitments* (your own commitments across every company) and *Connections* (where your call recordings come from).
 
 ## Companies
 
@@ -17,7 +17,6 @@ Your home base as an AiMS Coach. It covers only the companies you're assigned to
 
 The tab shows how many calls are waiting, when any are.
 
-- **Recordings.** When your Google folder is connected, one line says which folder it is and when it was last checked. *Check now* looks straight away. *Upload a call* adds a transcript by hand. *Settings* shows the Google account and *Change folder*. When nothing is connected yet, this is where you set it up (see below).
 - **Waiting to be analysed.** Calls from your folder that didn't find their company on their own.
 - **Call summaries.** Every coaching call with your companies, newest first, with one sentence on what each was about. Choose a company to see only its calls and to prepare your next session with it. *Search* finds a call by a name or a topic. A call still being analysed says *Analysing*. *Open* shows the whole summary.
 
@@ -27,7 +26,7 @@ Every commitment you own, across all your companies, with the company named on e
 
 ## How to prepare a session
 
-1. Click *Prepare* on the company's row in *Your companies*. Or open *Coaching calls* and click the company's name.
+1. Click *Prepare* on the company's row in *Your companies*. Coaching calls opens on that company and scrolls to its next session. Or open *Coaching calls* and click the company's name.
 2. *Your next session with {company}* shows three things:
    - **Since your last call.** How follow-through moved, any priority that became overdue, the team meetings held (with commitments, issues and facilitation score), and new issues. With no coaching call yet, it looks back four weeks and says so.
    - **Where you left off.** The decisions from your last call with the company, and your own open commitments to them. Click *Mark done* when you've kept one.
@@ -38,17 +37,19 @@ A brief that drew on a coaching call is shown only to the company's coaches.
 
 ## Upload a call
 
-1. On *Coaching calls*, click *Upload a call*.
+1. On *Connections*, click *Upload a call*.
 2. Choose the company the call was with, and the day it was held. A name is optional.
 3. Click *Choose file*, pick the .docx, .txt or .vtt transcript, and click *Add call*.
 
 It's analysed in a few minutes and appears in *Call summaries*. You can upload calls only for companies you coach.
 
-## Your call recordings folder
+## Connections: your call recordings folder
 
-This is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion. Aimee never reads it.
+The *Connections* tab is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion. Aimee never reads it.
 
-1. Click *Connect Google* and sign in with the account your calls are recorded on.
+Once your folder is connected, the tab shows one line with the folder and when it was last checked. *Check now* looks straight away, *Upload a call* adds a transcript by hand, and *Settings* shows the Google account and *Change folder*.
+
+1. Click *Connect Google* and sign in with the account your calls are recorded on. You come back to *Connections*.
 2. Open the folder in Google Drive, copy its address from your browser, paste it in and click *Use this folder*.
 3. New calls come in on their own within about 15 minutes. Calls already in the folder before you connected it aren't brought in.
 
@@ -91,7 +92,7 @@ To step back out, use *Exit {company}* in the user menu.
 
 **Who else can see my coaching calls?** Only the company's other coaches and its AiMS Champion. Not the company's admins, and not a system admin unless they coach the company too.
 
-**Can I use a company's own folder instead?** No. Folders and Teams meetings on a company's Connections tab bring in team meetings. Coaching calls come in through your folder here, by *Upload a call* here, or by uploading one on the company's *Coaching calls* tab of Meeting Summaries.
+**Can I use a company's own folder instead?** No. Folders and Teams meetings on a company's Connections tab bring in team meetings. Coaching calls come in through your folder here, by *Upload a call* on *Connections*, or by uploading one on the company's *Coaching calls* tab of Meeting Summaries.
 
 **Where does "In a sentence" come from?** It's the first sentence of the call's own summary. Open the call to read the rest.
 

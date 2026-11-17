@@ -170,14 +170,6 @@ export default async function GuideHqPage({
 
   const callsTab = (
     <>
-      {coachingCalls ? (
-        <RecordingsSection
-          data={coachingCalls}
-          companies={caseload}
-          today={todayIso}
-          flash={{ connected: params.oauth_connected ?? null, error: params.oauth_error ?? null }}
-        />
-      ) : null}
       {coachingCalls ? <WaitingSection data={coachingCalls} companies={caseload} /> : null}
       {/* Chips, the session card and the call list: a chip switches at
           once, without reloading the page (CallsPanel). */}
@@ -211,6 +203,22 @@ export default async function GuideHqPage({
             label: "Your commitments",
             badge: dueThisWeek > 0 ? `${dueThisWeek} due this week` : undefined,
             content: commitmentsSection,
+          },
+          // Where the coach connects Google and chooses the folder their
+          // calls are saved in, and uploads a call by hand: set up once,
+          // so it's the last tab (Jason, 2026-11-17). Connect Google
+          // comes back here (#connections).
+          {
+            hash: "connections",
+            label: "Connections",
+            content: coachingCalls ? (
+              <RecordingsSection
+                data={coachingCalls}
+                companies={caseload}
+                today={todayIso}
+                flash={{ connected: params.oauth_connected ?? null, error: params.oauth_error ?? null }}
+              />
+            ) : null,
           },
         ]}
       />

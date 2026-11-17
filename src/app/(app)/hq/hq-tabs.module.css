@@ -477,3 +477,8 @@
     width: 100%;
   }
 }
+
+/* Where Prepare scrolls to: "Your next session", with room above it. */
+.sessionAnchor {
+  scroll-margin-top: var(--space-6);
+}
