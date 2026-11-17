@@ -111,8 +111,15 @@ describe("company admin pages ask isAdminForCompany", () => {
 
   it("company settings gives the champion and Start over cards to a switched-on portfolio admin", () => {
     const src = read("src/app/(app)/admin/companies/[id]/page.tsx");
-    expect(src).toContain("const championCard = isSystemAdmin || actsAsCompanyAdmin;");
+    expect(src).toContain("const championCard = isSystemAdmin || actsAsCompanyAdmin || isAssignedCoach;");
     expect(src).toContain("const startOverCard = (isSystemAdmin || actsAsCompanyAdmin) && hasResettable;");
+  });
+
+  it("company settings gives the champion card to an assigned coach, and only an assigned one", () => {
+    const src = read("src/app/(app)/admin/companies/[id]/page.tsx");
+    expect(src).toContain(
+      'session.profile.role === "aims_guide" && isAdminForCompany(session.profile, id);'
+    );
   });
 });
 

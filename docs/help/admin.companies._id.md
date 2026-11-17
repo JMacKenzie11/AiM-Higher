@@ -56,8 +56,9 @@ Where a system admin has made you this company's admin, you can also choose the 
 - **Open this company** with the button under the company's name, to work inside it.
 - **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* below.
+- **Choose the AiMS champion** on the People tab. See *AiMS champion* below.
 
-Industry, the AiMS champion, the quarter and Assigned access are managed by the company's admins.
+Industry, the quarter and Assigned access are managed by the company's admins.
 :::
 
 ::: role company_admin,system_admin,aims_guide,portfolio_admin
