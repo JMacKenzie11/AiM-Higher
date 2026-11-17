@@ -15,7 +15,8 @@ test.describe("Coach HQ tabs", () => {
     const companiesTab = tabs.getByRole("tab", { name: /^Companies/ });
     const callsTab = tabs.getByRole("tab", { name: /^Coaching calls/ });
     await expect(companiesTab).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("heading", { name: "Needs you this week" })).toBeVisible();
+    // No Needs you this week card (Jason, 2026-11-17): Your companies covers it.
+    await expect(page.getByRole("heading", { name: "Needs you this week" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Your companies" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Waiting to be analysed" })).toBeHidden();
 

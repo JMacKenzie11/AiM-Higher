@@ -11,7 +11,6 @@ import {
   loadRecentActivity,
 } from "@/lib/hq/service";
 import { MyCommitmentsSection } from "../../../../hq/MyCommitmentsSection";
-import { NeedsAttentionSection } from "../../../../hq/NeedsAttentionSection";
 import { YourCompaniesSection } from "../../../../hq/YourCompaniesSection";
 import { RecentActivitySection } from "../../../../hq/RecentActivitySection";
 import styles from "../../../../hq/hq.module.css";
@@ -123,7 +122,6 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
 
         {!zeroCaseload ? (
           <>
-            <NeedsAttentionSection rows={attention} prepare={false} />
             <YourCompaniesSection
               rows={rollups}
               needsYou={new Set(attention.map((a) => a.companyId))}

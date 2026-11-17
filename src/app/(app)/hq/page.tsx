@@ -15,7 +15,6 @@ import { loadCoachingCallsHq } from "@/lib/coaching-calls/hq";
 import { PageShell } from "@/components/ui/PageShell";
 import { AnalysisTabs } from "../leadership/meetings/[id]/AnalysisTabs";
 import { MyCommitmentsSection } from "./MyCommitmentsSection";
-import { NeedsAttentionSection } from "./NeedsAttentionSection";
 import { YourCompaniesSection } from "./YourCompaniesSection";
 import { RecentActivitySection } from "./RecentActivitySection";
 import { RecordingsSection } from "./RecordingsSection";
@@ -132,7 +131,7 @@ export default async function GuideHqPage({
           commitments have their own tab, Your commitments, last. */}
       <YourCompaniesSection rows={rollups} needsYou={needsYou} nowMs={Date.now()} />
       <section aria-label="This week" className={t.tiles}>
-        <a href="#needs-you" className={t.tile}>
+        <a href="#hq-companies" className={t.tile}>
           <span className={t.tileNumber}>{attention.length}</span>
           <span className={t.tileLabel}>
             {attention.length === 1 ? "company needs you" : "companies need you"}
@@ -151,7 +150,6 @@ export default async function GuideHqPage({
           </span>
         </a>
       </section>
-      <NeedsAttentionSection rows={attention} />
       <RecentActivitySection items={activity} />
     </>
   );
