@@ -5,12 +5,11 @@ roles: [system_admin, aims_guide]
 
 # Coach HQ
 
-Your home base as an AiMS Coach. It covers only the companies you're assigned to coach, in two tabs: *Companies* (who needs you this week, and how each company is doing) and *Coaching calls* (your calls, what was said, and your next session).
+Your home base as an AiMS Coach. It covers only the companies you're assigned to coach, in three tabs: *Companies* (who needs you this week, and how each company is doing), *Coaching calls* (your calls, what was said, and your next session) and *Your commitments* (your own commitments across every company).
 
 ## Companies
 
 - **Your companies, first.** One row each: scorecard out of 10, Follow-Through Rate, priorities on track and overdue in the open quarter, the last team meeting with its facilitation score, and the last coaching call. The arrows compare with four weeks ago; "no change" means the number is the same. With no figure from four weeks ago, there's no arrow. A coaching call more than 14 days ago shows in amber. *Needs you* marks a company that is also in *Needs you this week*, further down. *Prepare* opens the session for that company.
-- **Your commitments.** Every commitment you own, across all your companies, with the company named on each row. Close out, reschedule and park work the same as on Commitments.
 - **Three numbers.** How many companies need you, how many of your own commitments are due this week, and how many calls are waiting to be analysed. Click one to go to it.
 - **Needs you this week.** Your call list, most urgent first. Each row says why in a sentence: a scorecard drop, a low or falling Follow-Through Rate, a weak facilitation review, a priority more than 14 days past due, or a meeting recording that looks like it belongs to that company. Under it is a question worth asking, such as "What made the weeks at 81% work, and what changed?" Click *Prepare a session* to get ready for that company.
 - **Recent activity.** The latest meetings summarised, reviews finished, and quarters opened or closed.
@@ -22,6 +21,10 @@ The tab shows how many calls are waiting, when any are.
 - **Recordings.** When your Google folder is connected, one line says which folder it is and when it was last checked. *Check now* looks straight away. *Upload a call* adds a transcript by hand. *Settings* shows the Google account and *Change folder*. When nothing is connected yet, this is where you set it up (see below).
 - **Waiting to be analysed.** Calls from your folder that didn't find their company on their own.
 - **Call summaries.** Every coaching call with your companies, newest first, with one sentence on what each was about. Choose a company to see only its calls and to prepare your next session with it. *Search* finds a call by a name or a topic. A call still being analysed says *Analysing*. *Open* shows the whole summary.
+
+## Your commitments
+
+Every commitment you own, across all your companies, with the company named on each row. Close out, reschedule and park work the same as on Commitments. The tab says how many are due this week, when any are.
 
 ## How to prepare a session
 
