@@ -265,6 +265,19 @@ async function verifyFolderAccess(
 }
 
 // The coach's own folder: checked with the coach's own account.
+// A short-lived access token from the coach's own Google connection,
+// for Google's folder picker in their browser on Coach HQ (Jason,
+// 2026-11-17). Only ever for the signed-in coach's own connection (the
+// caller passes session.profile.id), with the scope they already gave
+// (drive.readonly), and it lasts about an hour. The refresh token never
+// leaves the server.
+export async function coachPickerAccessToken(coachProfileId: string): Promise<string> {
+  const client = await authenticatedClient({ coachProfileId });
+  const { token } = await client.getAccessToken();
+  if (!token) throw new Error("Google didn't give us access. Try connecting Google again.");
+  return token;
+}
+
 export async function verifyCoachFolderAccess(
   folderId: string,
   coachProfileId: string

@@ -112,6 +112,22 @@ export async function connectCoachFolderAction(formData: FormData): Promise<Coac
   return { ok: true, message: `Watching ${folderName}.` };
 }
 
+// The token Google's folder picker needs, for the caller's own Google
+// connection and no one else's (coachPickerAccessToken). Reads only.
+// Refused once a folder is chosen: the picker is only for choosing one.
+export async function coachPickerTokenAction(): Promise<{ ok: true; token: string } | { ok: false; message: string }> {
+  const session = await requireRole([...COACH_ROLES]);
+  if (await ownFolder(session.profile.id)) {
+    return { ok: false, message: "You already have a folder. Change folder first to choose another." };
+  }
+  try {
+    const { coachPickerAccessToken } = await import("@/lib/transcripts/providers/google-drive");
+    return { ok: true, token: await coachPickerAccessToken(session.profile.id) };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Couldn't reach Google. Try again." };
+  }
+}
+
 export async function removeCoachFolderAction(): Promise<CoachActionResult> {
   const session = await requireRole([...COACH_ROLES]);
   const folder = await ownFolder(session.profile.id);
