@@ -67,7 +67,7 @@ export const DISCIPLINES: readonly DisciplineConfig[] = [
   },
   {
     key: "chart",
-    label: "Accountability chart",
+    label: "Functional Chart",
     blurb: "Every function has a leader, an outcome, and something being measured.",
     weight: 1,
     href: "/chart",

@@ -4,7 +4,7 @@ import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { PageShell } from "@/components/ui/PageShell";
 import { CommitmentsView, commitmentFiltersFrom } from "./CommitmentsView";
 
-export const metadata = { title: "Functional Commitments" };
+export const metadata = { title: "Commitments" };
 
 // /commitments — one page, grouped by week, replacing /weekly-review.
 // The page is its header and CommitmentsView, which the weekly
@@ -22,7 +22,7 @@ export default async function CommitmentsPage({ searchParams }: PageProps) {
   return (
     <PageShell
       eyebrow="Company"
-      title="Functional Commitments"
+      title="Commitments"
       subtitle="Every agreement, in one place."
     >
       <CommitmentsView

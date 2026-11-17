@@ -24,7 +24,7 @@ import styles from "./dashboard.module.css";
 import { simplifyOn } from "@/lib/ui/simplify";
 import { MyWeek } from "./MyWeek";
 
-export const metadata = { title: "Week in Review" };
+export const metadata = { title: "This week" };
 
 // Company Dashboard — Section 8.2.
 

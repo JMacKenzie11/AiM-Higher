@@ -164,7 +164,7 @@ Choose *HubSpot* as the source. Your company's admin first adds a HubSpot key on
 Success Tracking is a company setting. It doesn't change anything on this page. When it's on:
 
 - On Friday, the person who leads a function gets a reminder in the notification bell for any measure they haven't logged: *"Log this week's numbers."* It's a reminder only. Nothing lands on anyone's commitments.
-- On Tuesday morning, a measure that came in below target for the week just finished raises an issue on Issues/Solutions: *"Off target: [measure] (42 vs. target 55)."* You get one issue per measure, and it stays open while the measure stays below target. Once it's resolved, it can be raised again if the measure slips back.
+- On Tuesday morning, a measure that came in below target for the week just finished raises an issue on the Issues page: *"Off target: [measure] (42 vs. target 55)."* You get one issue per measure, and it stays open while the measure stays below target. Once it's resolved, it can be raised again if the measure slips back.
 
 Nobody is chased for a number that was logged or came in from a connected spreadsheet.
 

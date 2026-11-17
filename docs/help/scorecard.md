@@ -23,11 +23,11 @@ How consistently your company is practising the AiMS disciplines, scored out of 
   2. **Invite the team:** send invitations to everyone on the roster.
   3. **Open a quarter:** every commitment lives inside one.
   4. **Start the weekly rhythm:** log a commitment in the last 14 days.
-  5. **Track Issues / Solutions:** log an issue in the last 14 days.
+  5. **Track issues:** log an issue in the last 14 days.
 
   The card stays up once everything's ticked, so it works as a map of the disciplines. Team members don't see it.
 - **Read the overall score** and each discipline's card: its score, an arrow comparing it with 90 days ago, a small trend line, and the evidence behind it.
-- **Find what to fix.** The Accountability chart card names the functions that are missing a Lead or a critical success factor.
+- **Find what to fix.** The Functional Chart card names the functions that are missing a Lead or a critical success factor.
 - **See how a card is scored.** Hover the *i* beside its name.
 - **Go and improve it.** Each card links to the page where that work happens.
 :::
@@ -43,7 +43,7 @@ Read the overall score and every discipline's card, the same view the company se
 Eight disciplines, each out of 10:
 
 - **Foundation:** a purpose statement, a vision, at least three core values and at least three differentiators on the One-Page Plan. 2.5 points each. It only checks they're filled in, so there's no trend arrow.
-- **Accountability chart:** every function has a Lead and at least one critical success factor. No trend arrow either.
+- **Functional Chart:** every function has a Lead and at least one critical success factor. No trend arrow either.
 - **Strategic plan:** an open quarter with focus areas and quarterly priorities in it, plus how well goals and priorities close by their due dates. Goals are optional, so a plan without them isn't marked down. A new plan with nothing past due gets full credit for closing on time.
 - **Execution:** your follow-through on commitments over the last 30 days, less a penalty for commitments still open more than 14 days past due. Deleted and parked commitments don't count.
 - **Success tracking:** every measure has a target and has a value logged in the last 7 days.

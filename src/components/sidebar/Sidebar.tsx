@@ -116,12 +116,12 @@ const APP_ITEMS: readonly NavItem[] = [
       },
       {
         kind: "link",
-        label: "Week in Review",
+        label: "This week",
         href: "/dashboard",
         icon: "dashboard",
       },
       { kind: "link", label: "One-Page Plan", href: "/foundation", icon: "doc" },
-      { kind: "link", label: "Team", href: "/people", icon: "people" },
+      { kind: "link", label: "People", href: "/people", icon: "people" },
       { kind: "link", label: "Functional Chart", href: "/chart", icon: "chart" },
       // Restored 2026-09-04 as Critical Success Factors, the rethink
       // the surface was pulled for. Deliberately NOT gated on
@@ -135,8 +135,8 @@ const APP_ITEMS: readonly NavItem[] = [
       // reason to hide a column.
       { kind: "link", label: "Critical Success Factors", href: "/measures", icon: "measure" },
       { kind: "link", label: "Goals & Priorities", href: "/plan", icon: "calendar" },
-      { kind: "link", label: "Issues/Solutions", href: "/issues", icon: "lightbulb" },
-      { kind: "link", label: "Functional Commitments", href: "/commitments", icon: "check" },
+      { kind: "link", label: "Issues", href: "/issues", icon: "lightbulb" },
+      { kind: "link", label: "Commitments", href: "/commitments", icon: "check" },
       {
         kind: "link",
         label: "Meeting Summaries",
