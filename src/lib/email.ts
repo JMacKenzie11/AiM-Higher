@@ -36,6 +36,43 @@ function from(): string {
   return senderFrom();
 }
 
+export type OutgoingEmail = { to: string; subject: string; html: string };
+
+// Many emails at once, for a send that goes to a whole team (the
+// weekly meeting email). Resend's batch call takes up to 100 a time,
+// one request for all of them rather than one each, which keeps a
+// team's send well inside the rate limit. Never throws: counts what
+// went and what did not, and logs why.
+export async function sendEmails(
+  messages: OutgoingEmail[]
+): Promise<{ sent: number; failed: number }> {
+  const c = client();
+  if (!c) {
+    console.warn("sendEmails skipped — RESEND_API_KEY is not set.");
+    return { sent: 0, failed: messages.length };
+  }
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100);
+    try {
+      const result = await c.batch.send(
+        chunk.map((m) => ({ from: from(), to: [m.to], subject: m.subject, html: m.html }))
+      );
+      if (result.error) {
+        console.error("Resend batch error", result.error);
+        failed += chunk.length;
+      } else {
+        sent += chunk.length;
+      }
+    } catch (err) {
+      console.error("sendEmails threw", err);
+      failed += chunk.length;
+    }
+  }
+  return { sent, failed };
+}
+
 export type InviteEmailInput = {
   to: string;
   firstName?: string | null;
