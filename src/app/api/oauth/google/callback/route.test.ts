@@ -92,7 +92,7 @@ describe("GET /api/oauth/google/callback", () => {
     expect(mocks.exchangeCodeAndPersistForCoach).toHaveBeenCalledWith("auth_code", "u1");
     expect(mocks.exchangeCodeAndPersist).not.toHaveBeenCalled();
     expect(res.headers.get("location")).toBe(
-      "http://localhost:3200/hq?oauth_connected=coach%40example.com#coaching-calls"
+      "http://localhost:3200/hq?oauth_connected=coach%40example.com#connections"
     );
   });
 
@@ -105,7 +105,7 @@ describe("GET /api/oauth/google/callback", () => {
     const res = await GET(callbackRequest(state));
 
     expect(mocks.exchangeCodeAndPersistForCoach).not.toHaveBeenCalled();
-    expect(res.headers.get("location")).toBe("http://localhost:3200/hq?oauth_error=forbidden#coaching-calls");
+    expect(res.headers.get("location")).toBe("http://localhost:3200/hq?oauth_error=forbidden#connections");
   });
 
   it("refuses to bind a credential to a company the caller does not admin", async () => {

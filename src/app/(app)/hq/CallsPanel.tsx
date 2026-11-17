@@ -69,7 +69,34 @@ export function CallsPanel({
     if (selected) fetchPanel(selected.id);
   }, [selected, fetchPanel]);
 
+  // Prepare on Your companies, or a link that names a company, opens
+  // this tab on it: bring "Your next session" into view, once the tab
+  // is showing (Jason, 2026-11-17). A chip click is already beside the
+  // card, so it doesn't scroll.
+  const sessionRef = useRef<HTMLDivElement | null>(null);
+  const chipChosen = useRef(false);
+  useEffect(() => {
+    if (!selected) return;
+    if (chipChosen.current) {
+      chipChosen.current = false;
+      return;
+    }
+    let frames = 0;
+    let handle = 0;
+    const tryScroll = () => {
+      const el = sessionRef.current;
+      if (el && el.offsetParent !== null) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (++frames < 120) handle = window.requestAnimationFrame(tryScroll);
+    };
+    handle = window.requestAnimationFrame(tryScroll);
+    return () => window.cancelAnimationFrame(handle);
+  }, [selected]);
+
   const choose = useCallback((id: string | null) => {
+    chipChosen.current = true;
     const url = id ? `/hq?company=${encodeURIComponent(id)}#coaching-calls` : "/hq#coaching-calls";
     window.history.pushState(null, "", url);
   }, []);
@@ -95,6 +122,7 @@ export function CallsPanel({
   return (
     <>
       {chips}
+      <div ref={sessionRef} className={t.sessionAnchor}>
       {data ? (
         <SessionCard key={selected.id} card={data.card} promises={data.promises} brief={data.brief} />
       ) : (
@@ -112,6 +140,7 @@ export function CallsPanel({
           )}
         </section>
       )}
+      </div>
       <CallSummaries
         rows={rows.filter((r) => r.companyId === selected.id)}
         title={`${selected.name} calls`}

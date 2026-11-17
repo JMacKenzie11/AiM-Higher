@@ -7,7 +7,7 @@ import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 // assigned to the fixture company.
 
 test.describe("Coach HQ tabs", () => {
-  test("a coach sees all three tabs", async ({ page }) => {
+  test("a coach sees all four tabs", async ({ page }) => {
     await signIn(page, users.guide());
     await page.goto("/hq");
 
@@ -35,6 +35,12 @@ test.describe("Coach HQ tabs", () => {
     await expect(commitmentsTab).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("heading", { name: "Your commitments" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Call summaries" })).toBeHidden();
+
+    // Connections, last: where the call recordings are set up.
+    const connectionsTab = tabs.getByRole("tab", { name: /^Connections/ });
+    await connectionsTab.click();
+    await expect(page).toHaveURL(/#connections$/);
+    await expect(page.getByRole("heading", { name: "Your call recordings" }).or(page.getByLabel("Your call recordings"))).toBeVisible();
   });
 
   test("choosing a company chip shows the session card", async ({ page }) => {
@@ -66,8 +72,9 @@ test.describe("Coach HQ tabs", () => {
     await expect(page).toHaveURL(/\/hq\?company=[0-9a-f-]{36}#coaching-calls$/);
     const callsTab = page.getByRole("tablist", { name: "Coach HQ" }).getByRole("tab", { name: /^Coaching calls/ });
     await expect(callsTab).toHaveAttribute("aria-selected", "true", { timeout: 30_000 });
-    await expect(
-      page.getByRole("region", { name: `Your next session with ${FIXTURE_COMPANY_NAME}` })
-    ).toBeVisible({ timeout: 30_000 });
+    const card = page.getByRole("region", { name: `Your next session with ${FIXTURE_COMPANY_NAME}` });
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    // And scrolled to it (Jason, 2026-11-17).
+    await expect(card).toBeInViewport({ timeout: 10_000 });
   });
 });
