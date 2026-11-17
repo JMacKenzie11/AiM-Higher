@@ -228,6 +228,7 @@ export function WorkDrawerProvider({ children, assignsOthers = false }: { childr
       registerCommitment,
       registerIssue,
       hasIssue: (id) => issues.current.has(id),
+      hasCommitment: (id) => commitments.current.has(id),
       openCommitment,
       openIssue,
       openNewIssue,

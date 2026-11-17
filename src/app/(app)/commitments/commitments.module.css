@@ -1578,3 +1578,24 @@ button.fromIssuePill {
 :root[data-simplify~="my-week"] .statBar {
   visibility: hidden;
 }
+
+/* The Switch to <company> button on a link into another company. */
+.switchButton {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.switchButton:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.switchButton:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
