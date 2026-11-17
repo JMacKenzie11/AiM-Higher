@@ -13,7 +13,6 @@ import {
 } from "@/lib/coaching-calls/actions";
 import ui from "@/components/ui/ui.module.css";
 import cc from "./coaching-calls.module.css";
-import { FolderPickerButton, folderPickerAvailable } from "./FolderPicker";
 
 // The buttons on Coach HQ's coaching calls cards (0326). Each action
 // checks the coach again and writes through their own client; these
@@ -45,8 +44,6 @@ export function FolderControls({
   const [url, setUrl] = useState("");
   const inputId = useId();
 
-  // The picker hands back a folder id; a pasted link is parsed the same
-  // way by the action (parseGoogleFolderId), so both land in one place.
   const connectFolder = (folder: string) => {
     const fd = new FormData();
     fd.set("folder_url", folder);
@@ -74,7 +71,7 @@ export function FolderControls({
       />
       <p className={cc.meta}>Open the folder in Google Drive and copy the address from your browser.</p>
       <div className={cc.actions}>
-        <button type="submit" className={`${ui.btn} ${folderPickerAvailable ? ui.btnSecondary : ui.btnPrimary}`} disabled={pending}>
+        <button type="submit" className={`${ui.btn} ${ui.btnPrimary}`} disabled={pending}>
           {pending ? "Connecting..." : "Use this folder"}
         </button>
       </div>
@@ -129,19 +126,7 @@ export function FolderControls({
         </div>
       ) : (
         <div className={cc.folderForm}>
-          {folderPickerAvailable ? (
-            <>
-              <div className={cc.actions}>
-                <FolderPickerButton disabled={pending} onPicked={(folderId) => connectFolder(folderId)} />
-              </div>
-              <details>
-                <summary className={cc.meta}>Paste a link instead</summary>
-                {pasteForm}
-              </details>
-            </>
-          ) : (
-            pasteForm
-          )}
+          {pasteForm}
           <div className={cc.actions}>
             <button type="button" className={`${ui.btn} ${ui.btnGhost}`} disabled={pending} onClick={() => run(disconnectCoachGoogleAction)}>
               Disconnect Google
