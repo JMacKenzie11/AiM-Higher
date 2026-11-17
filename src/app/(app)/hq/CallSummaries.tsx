@@ -7,39 +7,53 @@ import { shortDay } from "@/lib/hq/derive";
 import styles from "./hq.module.css";
 import t from "./hq-tabs.module.css";
 
-// The company chips over the call summaries. Plain links carrying the
-// company in the URL (?company=<id>#coaching-calls), so Prepare on the
-// Companies tab and a pasted link land on the same view.
+// The company chips over the call summaries. Links carrying the
+// company in the URL (?company=<id>#coaching-calls), so a pasted link,
+// a new tab and Prepare on the Companies tab land on the same view. A
+// plain click is handled in the page (CallsPanel: onChoose), with no
+// server round trip; hovering or focusing a chip starts its fetch.
 export function CompanyChips({
   companies,
   selectedId,
+  onChoose,
+  onPrefetch,
 }: {
   companies: ReadonlyArray<{ id: string; name: string }>;
   selectedId: string | null;
+  onChoose: (id: string | null) => void;
+  onPrefetch?: (id: string) => void;
 }) {
+  const click = (id: string | null) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // A new tab or window keeps the link's own behaviour.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    onChoose(id);
+  };
   return (
     <div role="group" aria-label="Company" className={t.chips}>
       <span className={t.chipsLabel} aria-hidden="true">
         Company
       </span>
-      <Link
+      <a
         href="/hq#coaching-calls"
-        scroll={false}
+        onClick={click(null)}
         aria-current={selectedId === null ? "true" : undefined}
         className={selectedId === null ? t.chipOn : t.chip}
       >
         All companies
-      </Link>
+      </a>
       {companies.map((c) => (
-        <Link
+        <a
           key={c.id}
           href={`/hq?company=${encodeURIComponent(c.id)}#coaching-calls`}
-          scroll={false}
+          onClick={click(c.id)}
+          onPointerEnter={onPrefetch ? () => onPrefetch(c.id) : undefined}
+          onFocus={onPrefetch ? () => onPrefetch(c.id) : undefined}
           aria-current={selectedId === c.id ? "true" : undefined}
           className={selectedId === c.id ? t.chipOn : t.chip}
         >
           {c.name}
-        </Link>
+        </a>
       ))}
     </div>
   );

@@ -20,8 +20,8 @@ import { YourCompaniesSection } from "./YourCompaniesSection";
 import { RecentActivitySection } from "./RecentActivitySection";
 import { RecordingsSection } from "./RecordingsSection";
 import { WaitingSection } from "./WaitingSection";
-import { CallSummaries, CompanyChips } from "./CallSummaries";
-import { SessionCard } from "./SessionCard";
+import { CallsPanel } from "./CallsPanel";
+import type { SessionPanelData } from "@/lib/hq/session-actions";
 import styles from "./hq.module.css";
 import t from "./hq-tabs.module.css";
 
@@ -160,15 +160,19 @@ export default async function GuideHqPage({
     </>
   );
 
-  const chips = <CompanyChips key="company-chips" companies={caseload} selectedId={chosen?.id ?? null} />;
-  const latestBrief = briefs[0]
-    ? { id: briefs[0].id, content: briefs[0].content_markdown, createdAt: briefs[0].created_at }
-    : null;
-  const promises = chosen
-    ? myCommitments.filter(
-        (c) => c.company_id === chosen.id && c.status === "open" && !c.deleted_at && !c.parked_at
-      )
-    : [];
+  const initialSession: SessionPanelData | null =
+    chosen && sessionCard
+      ? {
+          companyId: chosen.id,
+          card: sessionCard,
+          promises: myCommitments.filter(
+            (c) => c.company_id === chosen.id && c.status === "open" && !c.deleted_at && !c.parked_at
+          ),
+          brief: briefs[0]
+            ? { id: briefs[0].id, content: briefs[0].content_markdown, createdAt: briefs[0].created_at }
+            : null,
+        }
+      : null;
 
   const callsTab = (
     <>
@@ -181,25 +185,9 @@ export default async function GuideHqPage({
         />
       ) : null}
       {coachingCalls ? <WaitingSection data={coachingCalls} companies={caseload} /> : null}
-      {chosen && sessionCard ? (
-        <>
-          {chips}
-          <SessionCard card={sessionCard} promises={promises} brief={latestBrief} />
-          <CallSummaries
-            rows={callRows.filter((r) => r.companyId === chosen.id)}
-            title={`${chosen.name} calls`}
-            showCompany={false}
-          />
-        </>
-      ) : (
-        <CallSummaries
-          rows={callRows}
-          title="Call summaries"
-          showCompany
-          chips={chips}
-          hint="Choose a company to prepare your next session with it."
-        />
-      )}
+      {/* Chips, the session card and the call list: a chip switches at
+          once, without reloading the page (CallsPanel). */}
+      <CallsPanel companies={caseload} rows={callRows} initial={initialSession} />
     </>
   );
 
