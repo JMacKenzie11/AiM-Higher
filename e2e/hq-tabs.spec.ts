@@ -7,7 +7,7 @@ import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 // assigned to the fixture company.
 
 test.describe("Coach HQ tabs", () => {
-  test("a coach sees both tabs", async ({ page }) => {
+  test("a coach sees all three tabs", async ({ page }) => {
     await signIn(page, users.guide());
     await page.goto("/hq");
 
@@ -25,6 +25,15 @@ test.describe("Coach HQ tabs", () => {
     await expect(page.getByRole("heading", { name: "Waiting to be analysed" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Call summaries" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Your companies" })).toBeHidden();
+
+    // Your commitments, on their own tab after Coaching calls.
+    await expect(page.getByRole("heading", { name: "Your commitments" })).toBeHidden();
+    const commitmentsTab = tabs.getByRole("tab", { name: /^Your commitments/ });
+    await commitmentsTab.click();
+    await expect(page).toHaveURL(/#your-commitments$/);
+    await expect(commitmentsTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("heading", { name: "Your commitments" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Call summaries" })).toBeHidden();
   });
 
   test("choosing a company chip shows the session card", async ({ page }) => {

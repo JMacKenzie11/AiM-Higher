@@ -34,7 +34,6 @@ export default function Loading() {
       </section>
       <div className={styles.content}>
         <SkeletonSection title="Your companies" rowCount={4} />
-        <SkeletonSection title="Your commitments" rowCount={3} />
         <SkeletonSection title="Needs you this week" rowCount={2} />
       </div>
     </div>

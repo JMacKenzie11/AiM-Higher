@@ -128,13 +128,9 @@ export default async function GuideHqPage({
 
   const companiesTab = (
     <>
-      {/* Your companies first (Jason, 2026-11-17), then the coach's
-          own commitments, full width (2026-11-16): a commitment row
-          carries checkboxes, owner, text and dates, and squeezed into
-          half the page beside Recent activity its text wrapped a letter
-          at a time. */}
+      {/* Your companies first (Jason, 2026-11-17). The coach's own
+          commitments have their own tab, Your commitments, last. */}
       <YourCompaniesSection rows={rollups} needsYou={needsYou} nowMs={Date.now()} />
-      <div id="your-commitments">{commitmentsSection}</div>
       <section aria-label="This week" className={t.tiles}>
         <a href="#needs-you" className={t.tile}>
           <span className={t.tileNumber}>{attention.length}</span>
@@ -208,6 +204,15 @@ export default async function GuideHqPage({
             label: "Coaching calls",
             badge: waitingCount > 0 ? `${waitingCount} waiting` : undefined,
             content: callsTab,
+          },
+          // The coach's own commitments, across every company, on a tab
+          // of their own after Coaching calls (Jason, 2026-11-17). The
+          // "due this week" tile on Companies links here (#your-commitments).
+          {
+            hash: "your-commitments",
+            label: "Your commitments",
+            badge: dueThisWeek > 0 ? `${dueThisWeek} due this week` : undefined,
+            content: commitmentsSection,
           },
         ]}
       />
