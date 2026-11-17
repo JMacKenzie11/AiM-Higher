@@ -204,8 +204,13 @@ export default async function CompanyDetailPage({
   // Who the champion seat may point at: this company's own active
   // people. The membership trigger in 0235 refuses anybody else, so
   // a wider list would be a list of options that cannot be chosen.
+  // An assigned coach chooses the seat too (spec 14h; the column guard
+  // and the `champion seat · aims_guide` probe have allowed it since
+  // 0235). canViewCompany above has already refused an unassigned one.
+  const isAssignedCoach =
+    session.profile.role === "aims_guide" && isAdminForCompany(session.profile, id);
   const championCandidates: ChampionCandidate[] =
-    isSystemAdmin || actsAsCompanyAdmin
+    isSystemAdmin || actsAsCompanyAdmin || isAssignedCoach
       ? (
           (
             await supabase
@@ -233,7 +238,7 @@ export default async function CompanyDetailPage({
     mcpOpenTo(session.profile.role) &&
     (isSystemAdmin || isCompanyAdmin || session.profile.role === "aims_guide");
   const connectionsCard = isAdminForCompany(session.profile, company.id);
-  const championCard = isSystemAdmin || actsAsCompanyAdmin;
+  const championCard = isSystemAdmin || actsAsCompanyAdmin || isAssignedCoach;
   const assignedCard = managesContainer || isCompanyAdmin;
   const industryCard = managesContainer || isCompanyAdmin;
   const startOverCard = (isSystemAdmin || actsAsCompanyAdmin) && hasResettable;
@@ -376,10 +381,10 @@ export default async function CompanyDetailPage({
                     label: "People",
                     content: (
                       <>
-                        {/* AiMS champion — the company's own admins, not the
-                            container roles. It is a decision about this team,
-                            made by this team. The column guard in 0235 draws the
-                            same line below the app. */}
+                        {/* AiMS champion — the company's own admins and its
+                            assigned coaches, not the container roles. It is a
+                            decision about this team, made with this team. The
+                            column guard in 0235 draws the same line below the app. */}
                         {championCard ? (
                           <section className={styles.accentCard} aria-labelledby="champion-heading">
                             <h2 id="champion-heading" className={styles.h2}>
