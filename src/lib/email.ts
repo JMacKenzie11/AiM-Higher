@@ -16,11 +16,24 @@ function client(): Resend | null {
   return cached;
 }
 
-// Sender is the EMAIL_FROM env var; fallback matches the current
+// Every system email is from "AiMS-HQ" (Jason, 2026-11-17). The
+// ADDRESS is the EMAIL_FROM env var, so a domain migration is still a
+// Vercel env var change, not a code push; the fallback matches the
 // production domain so dev / test / first-boot has a sensible default.
-// A domain migration is a Vercel env var change, not a code push.
+// The NAME is fixed here and any name EMAIL_FROM carries is dropped,
+// so the sender reads the same whatever the variable says.
+export const SENDER_NAME = "AiMS-HQ";
+const DEFAULT_ADDRESS = "noreply@aims-hq.com";
+
+export function senderFrom(emailFrom: string | undefined = process.env.EMAIL_FROM): string {
+  const raw = (emailFrom ?? "").trim();
+  const bracketed = raw.match(/<([^>]+)>/);
+  const address = (bracketed ? bracketed[1] : raw).trim() || DEFAULT_ADDRESS;
+  return `${SENDER_NAME} <${address}>`;
+}
+
 function from(): string {
-  return process.env.EMAIL_FROM ?? "AiMS <noreply@aims-hq.com>";
+  return senderFrom();
 }
 
 export type InviteEmailInput = {

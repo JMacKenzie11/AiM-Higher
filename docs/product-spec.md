@@ -1699,7 +1699,7 @@ The home base for `aims_guide` and `system_admin` roles at `/hq`. Scoped to the 
   - `classroom-attachments` (private, server-signed URLs, 1-hour TTL) for lesson-section PDFs / decks / worksheets.
   - `classroom-images` (public) for inline images embedded in section bodies. Public because `<img src="...">` URLs live in body JSON and must not expire mid-session; writes are still sysadmin-only via storage RLS + server-action role check.
   - `profile-avatars` (public) for user profile photos. Write RLS gates the folder prefix to the caller's `auth.uid()` so users can only touch their own avatar; sysadmin bypasses for cleanup.
-- **Email:** Resend (transactional) for meeting-analysis commitment digests to participants, and for auth invitations / password reset emails via Supabase.
+- **Email:** Resend (transactional) for meeting-analysis commitment digests to participants, and for auth invitations / password reset emails via Supabase. Every system email's sender name is **AiMS-HQ** (2026-11-17), fixed in `src/lib/email.ts` (`senderFrom`); `EMAIL_FROM` supplies only the address, and any name it carries is dropped.
 - **External integrations:** Google Drive (OAuth per company, `0110_oauth_per_company`) for transcript ingest. No other external integrations.
 - **Cron jobs (Vercel):**
   - `/api/cron/transcripts` — every 15 min, polls all active Google Drive sources, ingests + analyzes + emails.
