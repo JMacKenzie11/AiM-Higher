@@ -8,6 +8,8 @@ import { test, expect, signIn, users, FIXTURE_COMPANY_NAME } from "./fixtures";
 
 test.describe("Coach HQ tabs", () => {
   test("a coach sees all four tabs", async ({ page }) => {
+    // Four tabs on one page load: past 30 seconds on a cold dev server.
+    test.setTimeout(120_000);
     await signIn(page, users.guide());
     await page.goto("/hq");
 
@@ -40,7 +42,9 @@ test.describe("Coach HQ tabs", () => {
     const connectionsTab = tabs.getByRole("tab", { name: /^Connections/ });
     await connectionsTab.click();
     await expect(page).toHaveURL(/#connections$/);
-    await expect(page.getByRole("heading", { name: "Your call recordings" }).or(page.getByLabel("Your call recordings"))).toBeVisible();
+    // A named region either way: labelled by its heading before Google is
+    // connected, by aria-label after.
+    await expect(page.getByRole("region", { name: "Your call recordings" })).toBeVisible();
   });
 
   test("choosing a company chip shows the session card", async ({ page }) => {
