@@ -53,6 +53,28 @@ type PickerWindow = Window & {
 
 let loading: Promise<GooglePicker> | null = null;
 
+// Google places its window by the page's scroll position and gets it
+// wrong on a scrolled page: on Coach HQ scrolled to the folder card it
+// opened 338px above the top of the screen, cut off (seen on dev,
+// 2026-11-17). Pinned to the middle of the screen instead, with its
+// backdrop over the whole screen. The class names are Google's.
+const PICKER_CSS = `
+.picker-dialog-bg { position: fixed !important; inset: 0 !important; width: auto !important; height: auto !important; }
+.picker-dialog {
+  position: fixed !important; top: 50% !important; left: 50% !important;
+  transform: translate(-50%, -50%);
+  max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow: auto;
+}
+`;
+
+function pinPickerToScreen() {
+  if (document.getElementById("aims-picker-css")) return;
+  const style = document.createElement("style");
+  style.id = "aims-picker-css";
+  style.textContent = PICKER_CSS;
+  document.head.appendChild(style);
+}
+
 function loadPicker(): Promise<GooglePicker> {
   if (loading) return loading;
   loading = new Promise<GooglePicker>((resolve, reject) => {
@@ -87,6 +109,7 @@ export function FolderPickerButton({
     setError(null);
     try {
       const [picker, tokenResult] = await Promise.all([loadPicker(), coachPickerTokenAction()]);
+      pinPickerToScreen();
       if (!tokenResult.ok) {
         setError(tokenResult.message);
         return;
