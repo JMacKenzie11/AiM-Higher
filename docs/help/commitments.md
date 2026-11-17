@@ -20,6 +20,8 @@ Use the arrows at the top of the panel, or the left and right arrow keys, to ste
 
 To read or add a commitment's notes, click its text, here or inside an issue.
 
+A link to a commitment, such as one in an email from AiMS-HQ, opens this page with that commitment already open. If you work with more than one company and are looking at a different one, the page says which company the commitment is in and offers *Switch to* that company.
+
 ## Notes
 
 Notes are for anything that doesn't fit in the commitment itself: background, links, what was agreed. You can use bold, italics, bullet or numbered lists, and links. To add a link, select the words, press *Link* and paste the address.

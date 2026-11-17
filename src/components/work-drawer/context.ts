@@ -64,6 +64,7 @@ export type WorkDrawerApi = {
   registerCommitment: (c: CommitmentWithMeta, ctx: CommitmentContext) => void;
   registerIssue: (issue: IssueWithCommitments, ctx: IssueContext) => void;
   hasIssue: (id: string) => boolean;
+  hasCommitment: (id: string) => boolean;
   // `from` is the element clicked: previous and next step through the
   // commitments listed around it, in the order they appear.
   openCommitment: (id: string, from: HTMLElement | null) => void;
