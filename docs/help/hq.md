@@ -47,7 +47,7 @@ It's analysed in a few minutes and appears in *Call summaries*. You can upload c
 This is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion. Aimee never reads it.
 
 1. Click *Connect Google* and sign in with the account your calls are recorded on.
-2. Paste the folder's address and click *Use this folder*.
+2. Click *Choose folder in Google Drive*. Google's window opens: type the folder's name in its search box, or click through My Drive or Shared drives, then choose the folder and click *Select*. Only folders can be chosen. If the window doesn't open, click *Paste a link instead*, paste the folder's address from your browser, and click *Use this folder*.
 3. New calls come in on their own within about 15 minutes. Calls already in the folder before you connected it aren't brought in.
 
 How AiMS-HQ knows which company a call is with. It checks each new call in this order:
