@@ -128,10 +128,12 @@ export default async function GuideHqPage({
 
   const companiesTab = (
     <>
-      {/* The coach's own commitments first, full width (Jason,
-          2026-11-16): a commitment row carries checkboxes, owner, text
-          and dates, and squeezed into half the page beside Recent
-          activity its text wrapped a letter at a time. */}
+      {/* Your companies first (Jason, 2026-11-17), then the coach's
+          own commitments, full width (2026-11-16): a commitment row
+          carries checkboxes, owner, text and dates, and squeezed into
+          half the page beside Recent activity its text wrapped a letter
+          at a time. */}
+      <YourCompaniesSection rows={rollups} needsYou={needsYou} nowMs={Date.now()} />
       <div id="your-commitments">{commitmentsSection}</div>
       <section aria-label="This week" className={t.tiles}>
         <a href="#needs-you" className={t.tile}>
@@ -154,7 +156,6 @@ export default async function GuideHqPage({
         </a>
       </section>
       <NeedsAttentionSection rows={attention} />
-      <YourCompaniesSection rows={rollups} needsYou={needsYou} nowMs={Date.now()} />
       <RecentActivitySection items={activity} />
     </>
   );

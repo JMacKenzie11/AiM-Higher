@@ -98,8 +98,8 @@ export function RecordingsSection({
         <FolderControls account={data.account} folder={null} />
         {uploadPanel}
         <div className={cc.how}>
-          <h3 className={cc.h3}>How AiMS knows which company a call is with</h3>
-          <p className={t.caption}>AiMS checks each new call in this order:</p>
+          <h3 className={cc.h3}>How AiMS-HQ knows which company a call is with</h3>
+          <p className={t.caption}>AiMS-HQ checks each new call in this order:</p>
           <ol className={cc.steps}>
             <li>
               <strong>The file name.</strong> If it includes a company&apos;s name, the call goes to that company. You can

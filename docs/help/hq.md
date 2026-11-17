@@ -9,10 +9,10 @@ Your home base as an AiMS Coach. It covers only the companies you're assigned to
 
 ## Companies
 
-- **Your commitments, first.** Every commitment you own, across all your companies, with the company named on each row. Close out, reschedule and park work the same as on Commitments.
+- **Your companies, first.** One row each: scorecard out of 10, Follow-Through Rate, priorities on track and overdue in the open quarter, the last team meeting with its facilitation score, and the last coaching call. The arrows compare with four weeks ago; "no change" means the number is the same. With no figure from four weeks ago, there's no arrow. A coaching call more than 14 days ago shows in amber. *Needs you* marks a company that is also in *Needs you this week*, further down. *Prepare* opens the session for that company.
+- **Your commitments.** Every commitment you own, across all your companies, with the company named on each row. Close out, reschedule and park work the same as on Commitments.
 - **Three numbers.** How many companies need you, how many of your own commitments are due this week, and how many calls are waiting to be analysed. Click one to go to it.
 - **Needs you this week.** Your call list, most urgent first. Each row says why in a sentence: a scorecard drop, a low or falling Follow-Through Rate, a weak facilitation review, a priority more than 14 days past due, or a meeting recording that looks like it belongs to that company. Under it is a question worth asking, such as "What made the weeks at 81% work, and what changed?" Click *Prepare a session* to get ready for that company.
-- **Your companies.** One row each: scorecard out of 10, Follow-Through Rate, priorities on track and overdue in the open quarter, the last team meeting with its facilitation score, and the last coaching call. The arrows compare with four weeks ago; "no change" means the number is the same. With no figure from four weeks ago, there's no arrow. A coaching call more than 14 days ago shows in amber. *Needs you* marks a company in the list above. *Prepare* opens the session for that company.
 - **Recent activity.** The latest meetings summarised, reviews finished, and quarters opened or closed.
 
 ## Coaching calls
@@ -50,7 +50,7 @@ This is where you set up call recordings for all the companies you coach. Calls 
 2. Paste the folder's address and click *Use this folder*.
 3. New calls come in on their own within about 15 minutes. Calls already in the folder before you connected it aren't brought in.
 
-How AiMS knows which company a call is with. It checks each new call in this order:
+How AiMS-HQ knows which company a call is with. It checks each new call in this order:
 
 1. **The file name.** If it includes a company's name, the call goes to that company. You can add other names a company goes by under *Names that identify this company* on its Connections tab.
 2. **The people on the call.** If someone on it works at one of your companies, by name or email, the call goes there.
