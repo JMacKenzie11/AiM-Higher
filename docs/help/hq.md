@@ -50,13 +50,13 @@ This is where you set up call recordings for all the companies you coach. Calls 
 2. Paste the folder's address and click *Use this folder*.
 3. New calls come in on their own within about 15 minutes. Calls already in the folder before you connected it aren't brought in.
 
-How a call finds its company:
+How AiMS knows which company a call is with. It checks each new call in this order:
 
-1. The file name holds one of the company's names. These are listed under *Names that identify this company* on the company's Connections tab.
-2. Otherwise, someone on the call is a person at one of your companies, by their name or email.
-3. Otherwise, or if it matches more than one company, it waits under *Waiting to be analysed*.
+1. **The file name.** If it includes a company's name, the call goes to that company. You can add other names a company goes by under *Names that identify this company* on its Connections tab.
+2. **The people on the call.** If someone on it works at one of your companies, by name or email, the call goes there.
+3. **You pick.** If neither one settles it, or the call could belong to two companies, it waits under *Waiting to be analysed* for you to choose.
 
-Only the companies you coach are ever chosen.
+Calls only ever go to companies you coach.
 
 *Change folder* (under *Settings*) removes the folder, so you can choose another. Calls already filed stay where they are. To disconnect Google, change folder first, then click *Disconnect Google*.
 
