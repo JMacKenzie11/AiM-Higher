@@ -195,6 +195,11 @@
   color: var(--aims-warning);
 }
 
+.needsWhy {
+  font: var(--text-caption);
+  color: var(--text-muted);
+}
+
 .changeUp,
 .changeDown,
 .changeSame {

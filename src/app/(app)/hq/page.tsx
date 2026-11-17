@@ -84,7 +84,6 @@ export default async function GuideHqPage({
   const todayIso = todayInTimezone("UTC").iso;
   const dueThisWeek = dueThisWeekCount(myCommitments, thisFriday("UTC"));
   const waitingCount = coachingCalls?.toSort.length ?? 0;
-  const needsYou = new Set(attention.map((a) => a.companyId));
 
   const subtitle = zeroCaseload
     ? "The companies you coach, and the calls you have with them."
@@ -129,7 +128,7 @@ export default async function GuideHqPage({
     <>
       {/* Your companies first (Jason, 2026-11-17). The coach's own
           commitments have their own tab, Your commitments, last. */}
-      <YourCompaniesSection rows={rollups} needsYou={needsYou} nowMs={Date.now()} />
+      <YourCompaniesSection rows={rollups} attention={attention} nowMs={Date.now()} />
       <section aria-label="This week" className={t.tiles}>
         <a href="#hq-companies" className={t.tile}>
           <span className={t.tileNumber}>{attention.length}</span>

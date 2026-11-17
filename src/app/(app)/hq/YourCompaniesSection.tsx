@@ -1,11 +1,23 @@
 import { CompanyNameLink } from "../admin/companies/CompanyNameLink";
+import type { CompanyAttention } from "@/lib/hq/attention";
 import type { CompanyRollup } from "@/lib/hq/service";
-import { CALL_STALE_DAYS, daysAgoLabel, daysSince, shortDay, type Change } from "@/lib/hq/derive";
+import {
+  CALL_STALE_DAYS,
+  daysAgoLabel,
+  daysSince,
+  needsYouLine,
+  orderByAttention,
+  shortDay,
+  type Change,
+} from "@/lib/hq/derive";
 import { PrepareButton } from "./PrepareButton";
 import styles from "./hq.module.css";
 import t from "./hq-tabs.module.css";
 
-// Your companies: one row per company in the caseload. The name scopes
+// Your companies: one row per company in the caseload, the ones that
+// need the coach first (heaviest on the attention queue first), then
+// the rest by name. A company on the queue shows "Needs you" and up to
+// two short reasons under its name (needsYouLine). The name scopes
 // into the company (CompanyNameLink, a button, never a link: see
 // scope-request.ts). Scorecard and Follow-through carry a change
 // against four weeks ago when both sides have data, "no change" when
@@ -29,24 +41,28 @@ function ChangeMark({ change, unit = "" }: { change: Change | null; unit?: strin
 
 export function YourCompaniesSection({
   rows,
-  needsYou,
+  attention,
   prepare = true,
   nowMs,
 }: {
   rows: CompanyRollup[];
-  needsYou: ReadonlySet<string>;
+  attention: readonly CompanyAttention[];
   // False on the oversight view: no Prepare, and no coaching-call
   // column, since calls are the coach's own (RLS would show none).
   prepare?: boolean;
   nowMs: number;
 }) {
+  const ordered = orderByAttention(rows, attention);
+  const needsYou = new Map(attention.map((a) => [a.companyId, a] as const));
   return (
     <section className={styles.card} aria-labelledby="hq-companies">
       <div className={t.headRow}>
         <h2 id="hq-companies" className={styles.h2}>
           Your companies
         </h2>
-        <span className={t.caption}>Arrows compare with four weeks ago. Click a company to work inside it.</span>
+        <span className={t.caption}>
+          Companies that need you come first. Arrows compare with four weeks ago. Click a company to work inside it.
+        </span>
       </div>
       {rows.length === 0 ? (
         <p className={styles.empty}>No companies assigned.</p>
@@ -69,13 +85,19 @@ export function YourCompaniesSection({
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
+              {ordered.map((row) => {
                 const callDays = row.lastCoachingCall ? daysSince(row.lastCoachingCall, nowMs) : null;
+                const flagged = needsYou.get(row.id);
                 return (
                   <tr key={row.id}>
                     <td>
                       <CompanyNameLink companyId={row.id} name={row.name} className={styles.attentionNameLink} />
-                      {needsYou.has(row.id) ? <div className={t.needsMark}>Needs you</div> : null}
+                      {flagged ? (
+                        <>
+                          <div className={t.needsMark}>Needs you</div>
+                          <div className={t.needsWhy}>{needsYouLine(flagged.triggers)}</div>
+                        </>
+                      ) : null}
                     </td>
                     <td className={t.nowrap}>
                       {row.scorecardOverall === null ? (
