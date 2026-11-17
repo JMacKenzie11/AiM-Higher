@@ -98,13 +98,23 @@ export function RecordingsSection({
         <FolderControls account={data.account} folder={null} />
         {uploadPanel}
         <div className={cc.how}>
-          <h3 className={cc.h3}>How a call finds its company</h3>
+          <h3 className={cc.h3}>How AiMS-HQ knows which company a call is with</h3>
+          <p className={t.caption}>AiMS-HQ checks each new call in this order:</p>
           <ol className={cc.steps}>
-            <li>The file name holds one of the company&apos;s names, listed under Names that identify this company on its Connections tab.</li>
-            <li>Someone on the call is a person at one of your companies, by name or email.</li>
-            <li>Otherwise it waits under Waiting to be analysed, and you choose.</li>
+            <li>
+              <strong>The file name.</strong> If it includes a company&apos;s name, the call goes to that company. You can
+              add other names a company goes by on its Connections tab.
+            </li>
+            <li>
+              <strong>The people on the call.</strong> If someone on it works at one of your companies, the call goes
+              there.
+            </li>
+            <li>
+              <strong>You pick.</strong> If neither one settles it, or the call could belong to two companies, it waits
+              under Waiting to be analysed for you to choose.
+            </li>
           </ol>
-          <p className={t.caption}>Only companies you coach are matched. A call that matches two companies waits for you.</p>
+          <p className={t.caption}>Calls only ever go to companies you coach.</p>
         </div>
       </section>
     );
