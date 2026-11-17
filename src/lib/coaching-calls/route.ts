@@ -111,7 +111,7 @@ export function matchedBecause(m: { routed_by_alias: string | null; personName: 
   return null;
 }
 
-// The alias offered beside "Send future calls named ... here too": the
+// The word prefilled under "Remember for next time" (the coach can edit it): the
 // first word of the file name that names something, so "Benson weekly
 // 1:1 - Transcript" offers "Benson".
 const NOT_A_NAME = new Set([

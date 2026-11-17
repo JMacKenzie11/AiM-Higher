@@ -190,7 +190,14 @@ export async function fileCoachingCallAction(formData: FormData): Promise<CoachA
 
   let message: string | undefined;
   const alias = String(formData.get("alias") ?? "").trim();
-  if (formData.get("add_alias") === "on" && alias) {
+  const ownName = aliasIsOwnName(alias, session.profile.full_name);
+  if (formData.get("add_alias") === "on" && alias && (alias.length < 3 || ownName)) {
+    // A short word or the coach's own name would send calls with every
+    // company to this one (Jason, 2026-11-17).
+    message = ownName
+      ? `Filed. "${alias}" is your own name, so it wasn't remembered: it's in every call's file name.`
+      : `Filed. "${alias}" is too short to remember. Use at least three letters.`;
+  } else if (formData.get("add_alias") === "on" && alias) {
     // RLS: transcript_aliases_insert_guide (is_content_admin_for, an
     // assigned guide) or _insert for a system admin.
     const { error: aliasError } = await supabase
@@ -207,6 +214,14 @@ export async function fileCoachingCallAction(formData: FormData): Promise<CoachA
   analyseSoon(meetingId);
   revalidatePath("/hq");
   return { ok: true, message: message ?? "Filed." };
+}
+
+// True when the word to remember is the coach's own name, or part of it.
+function aliasIsOwnName(alias: string, fullName: string | null): boolean {
+  const a = alias.trim().toLowerCase();
+  if (!a || !fullName) return false;
+  const name = fullName.trim().toLowerCase();
+  return a === name || name.split(/\s+/).includes(a);
 }
 
 export async function setAsideCoachingCallAction(meetingId: string): Promise<CoachActionResult> {
