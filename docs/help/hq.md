@@ -71,7 +71,7 @@ Each call shows its date, how long it ran when the transcript says, and who was 
 
 - **AiMS's best guess.** When AiMS can tell which company it is, the card says so and why ("Looks like Ridgeline Electric: Sam Patel was on the call"), and that company is already chosen. When people from two of your companies were on it, the card asks which one it's for.
 - **Analyse.** Check the company and click *Analyse*. A line confirms it's being analysed for that company, and it appears in *Call summaries* in a few minutes.
-- **Send future calls named "…" to the same company** is ticked for you. It adds that name to the company's names on its Connections tab, so the next call with it in the file name files itself.
+- **Remember for next time.** Under the company choice is a word from the call's file name, such as the company's name, with a tick beside it. When you click *Analyse*, that word is remembered for the company: from then on, any call with that word in its file name goes straight to that company. Change the word if AiMS-HQ picked the wrong one, or untick it to skip. Your own name is never remembered, because it's in every call. The words are listed, and can be removed, under *Names that identify this company* on the company's Connections tab.
 - **Not a coaching call.** Click it to set the call aside. The call is removed from the list and its words aren't kept.
 
 *Filed automatically this week* lists the calls that found their company on their own, and why. If one went to the wrong company, click *Move*, choose the right one and click *Move* again. It's summarised again for that company.

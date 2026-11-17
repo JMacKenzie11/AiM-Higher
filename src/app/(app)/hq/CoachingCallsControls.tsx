@@ -163,8 +163,13 @@ export function AnalyseCall({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [choice, setChoice] = useState(preselect ?? "");
-  const [addAlias, setAddAlias] = useState(true);
+  // The name to remember for next time: AiMS-HQ's guess, which the coach
+  // can change or clear (Jason, 2026-11-17: the guess can be the wrong
+  // word, such as the coach's own name).
+  const [addAlias, setAddAlias] = useState(Boolean(suggestedAlias));
+  const [alias, setAlias] = useState(suggestedAlias ?? "");
   const selectId = useId();
+  const aliasId = useId();
   const likely = companies.filter((c) => c.group === "likely");
   const others = companies.filter((c) => c.group !== "likely");
   const nameOf = (id: string) => companies.find((c) => c.id === id)?.name ?? "that company";
@@ -175,9 +180,9 @@ export function AnalyseCall({
       const fd = new FormData();
       fd.set("meeting_id", meetingId);
       fd.set("company_id", choice);
-      if (addAlias && suggestedAlias) {
+      if (addAlias && alias.trim()) {
         fd.set("add_alias", "on");
-        fd.set("alias", suggestedAlias);
+        fd.set("alias", alias.trim());
       }
       const r = await fileCoachingCallAction(fd);
       if (!r.ok) return setError(r.message);
@@ -234,12 +239,24 @@ export function AnalyseCall({
           Not a coaching call
         </button>
       </div>
-      {suggestedAlias ? (
+      <div className={cc.aliasRow}>
         <label className={cc.check}>
           <input type="checkbox" checked={addAlias} onChange={(e) => setAddAlias(e.target.checked)} />
-          Send future calls named &ldquo;{suggestedAlias}&rdquo; to the same company
+          Remember for next time: calls with this word in the file name go to the same company
         </label>
-      ) : null}
+        <label htmlFor={aliasId} className={cc.srOnly}>
+          Word to remember for {title}
+        </label>
+        <input
+          id={aliasId}
+          className={`${cc.input} ${cc.aliasInput}`}
+          value={alias}
+          maxLength={80}
+          placeholder="A word in the file name, such as the company's name"
+          disabled={!addAlias}
+          onChange={(e) => setAlias(e.target.value)}
+        />
+      </div>
       {error ? (
         <p role="alert" className={cc.error}>
           {error}
