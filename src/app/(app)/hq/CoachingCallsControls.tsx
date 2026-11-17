@@ -58,12 +58,12 @@ export function FolderControls({
         connectFolder(url);
       }}
     >
-      <label htmlFor={inputId} className={ui.label}>
+      <label htmlFor={inputId} className={cc.label}>
         The folder your calls are saved in
       </label>
       <input
         id={inputId}
-        className={ui.input}
+        className={cc.input}
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="https://drive.google.com/drive/folders/..."
@@ -200,7 +200,7 @@ export function AnalyseCall({
         <label htmlFor={selectId} className={cc.srOnly}>
           Company for {title}
         </label>
-        <select id={selectId} className={ui.select} value={choice} onChange={(e) => setChoice(e.target.value)}>
+        <select id={selectId} className={cc.select} value={choice} onChange={(e) => setChoice(e.target.value)}>
           <option value="">Choose a company</option>
           {likely.length > 0 && others.length > 0 ? (
             <>
@@ -281,7 +281,7 @@ export function MoveCall({
         run(() => moveCoachingCallAction(fd));
       }}
     >
-      <select aria-label="Move to" className={ui.select} value={to} onChange={(e) => setTo(e.target.value)} required>
+      <select aria-label="Move to" className={cc.select} value={to} onChange={(e) => setTo(e.target.value)} required>
         <option value="">Move to...</option>
         {others.map((c) => (
           <option key={c.id} value={c.id}>

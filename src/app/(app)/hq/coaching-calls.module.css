@@ -175,3 +175,44 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* Form fields on the coaching calls cards: the folder link and the
+   company choices. The same look as the company Connections form
+   (admin.module.css .input/.select/.label); these pointed at classes
+   ui.module.css never had and rendered as the browser's defaults,
+   smaller than the rest of the page (Jason, 2026-11-17). */
+.label {
+  font: var(--text-subhead);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.input,
+.select {
+  height: var(--control-h-md);
+  width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: var(--text-body);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+}
+
+/* Beside a button, a choice takes the room left on the line. */
+.sortRow .select,
+.moveForm .select {
+  width: auto;
+  flex: 1 1 220px;
+  min-width: 0;
+}
