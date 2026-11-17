@@ -283,3 +283,48 @@ export function shortDay(iso: string): string {
 export function prepareHref(companyId: string): string {
   return `/hq?company=${encodeURIComponent(companyId)}#coaching-calls`;
 }
+
+// ---- Your companies: order and the reason under "Needs you" ---------
+
+// The short reason a company is marked "Needs you", one per trigger.
+// Shorter than attention.ts's reasonPhrase: it sits under the company's
+// name in a table whose other columns already carry the numbers.
+export function needsYouReason(trigger: AttentionTrigger): string {
+  switch (trigger.kind) {
+    case "scorecard_dropped":
+      return `Scorecard down from ${trigger.from} to ${trigger.to}`;
+    case "ftr_low":
+      return `Follow-through below ${trigger.threshold}%`;
+    case "ftr_declining":
+      return "Follow-through falling";
+    case "facilitation_low":
+      return "Low facilitation score";
+    case "facilitation_insufficient":
+      return "Last meeting couldn't be scored";
+    case "priority_overdue":
+      return `${trigger.count} ${trigger.count === 1 ? "priority" : "priorities"} over two weeks late`;
+    case "unrouted_transcript":
+      return `${trigger.count} ${trigger.count === 1 ? "recording" : "recordings"} waiting to be filed`;
+  }
+}
+
+// At most two reasons on a row, in the order the queue lists a
+// company's triggers: scorecard, follow-through, facilitation,
+// priorities, recordings.
+export const NEEDS_YOU_REASONS_SHOWN = 2;
+
+export function needsYouLine(triggers: readonly AttentionTrigger[]): string {
+  return triggers.slice(0, NEEDS_YOU_REASONS_SHOWN).map(needsYouReason).join(" · ");
+}
+
+// Companies that need the coach first, the heaviest first, then the
+// rest; name breaks every tie. Severity is the attention queue's.
+export function orderByAttention<T extends { id: string; name: string }>(
+  rows: readonly T[],
+  attention: readonly { companyId: string; severity: number }[]
+): T[] {
+  const severity = new Map(attention.map((a) => [a.companyId, a.severity] as const));
+  return [...rows].sort(
+    (a, b) => (severity.get(b.id) ?? 0) - (severity.get(a.id) ?? 0) || a.name.localeCompare(b.name)
+  );
+}

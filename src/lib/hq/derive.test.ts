@@ -11,6 +11,9 @@ import {
   ftrInWindow,
   ftrNowAndThen,
   leftOffLines,
+  needsYouLine,
+  needsYouReason,
+  orderByAttention,
   oneSentenceSummary,
   overdueSince,
   prepareHref,
@@ -253,5 +256,68 @@ describe("since your last call", () => {
 describe("Prepare", () => {
   it("opens the Coaching calls tab on the company", () => {
     expect(prepareHref("abc")).toBe("/hq?company=abc#coaching-calls");
+  });
+});
+
+describe("orderByAttention", () => {
+  const rows = [
+    { id: "a", name: "Acme" },
+    { id: "b", name: "Bolt" },
+    { id: "c", name: "Cobalt" },
+    { id: "d", name: "Delta" },
+  ];
+  it("puts flagged companies first, heaviest first, then the rest by name", () => {
+    const out = orderByAttention(rows, [
+      { companyId: "d", severity: 2 },
+      { companyId: "c", severity: 7 },
+    ]);
+    expect(out.map((r) => r.id)).toEqual(["c", "d", "a", "b"]);
+  });
+  it("breaks a severity tie by name", () => {
+    const out = orderByAttention(rows, [
+      { companyId: "d", severity: 3 },
+      { companyId: "b", severity: 3 },
+    ]);
+    expect(out.map((r) => r.id)).toEqual(["b", "d", "a", "c"]);
+  });
+  it("is alphabetical with nobody flagged, and leaves the input alone", () => {
+    const shuffled = [rows[2], rows[0], rows[3], rows[1]];
+    expect(orderByAttention(shuffled, []).map((r) => r.id)).toEqual(["a", "b", "c", "d"]);
+    expect(shuffled.map((r) => r.id)).toEqual(["c", "a", "d", "b"]);
+  });
+});
+
+describe("needsYouReason / needsYouLine", () => {
+  it("says each trigger in a few words", () => {
+    const all: AttentionTrigger[] = [
+      { kind: "scorecard_dropped", from: 6.2, to: 5.1, priorDate: "2026-10-01" },
+      { kind: "ftr_low", rate: 41, threshold: 60 },
+      { kind: "ftr_declining", from: 80, to: 70 },
+      { kind: "facilitation_low", overall: 3, meetingId: "m" },
+      { kind: "facilitation_insufficient", meetingId: "m" },
+      { kind: "priority_overdue", count: 2, oldestDays: 30 },
+      { kind: "priority_overdue", count: 1, oldestDays: 20 },
+      { kind: "unrouted_transcript", count: 1 },
+    ];
+    expect(all.map(needsYouReason)).toEqual([
+      "Scorecard down from 6.2 to 5.1",
+      "Follow-through below 60%",
+      "Follow-through falling",
+      "Low facilitation score",
+      "Last meeting couldn't be scored",
+      "2 priorities over two weeks late",
+      "1 priority over two weeks late",
+      "1 recording waiting to be filed",
+    ]);
+    for (const line of all.map(needsYouReason)) expect(line).not.toMatch(/\u2014|\bAI\b/);
+  });
+  it("shows at most two reasons", () => {
+    expect(
+      needsYouLine([
+        { kind: "ftr_low", rate: 41, threshold: 60 },
+        { kind: "priority_overdue", count: 3, oldestDays: 30 },
+        { kind: "unrouted_transcript", count: 2 },
+      ])
+    ).toBe("Follow-through below 60% · 3 priorities over two weeks late");
   });
 });

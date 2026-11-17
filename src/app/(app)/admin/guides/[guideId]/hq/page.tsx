@@ -124,7 +124,7 @@ export default async function AdminGuideHqPage({ params }: PageProps) {
           <>
             <YourCompaniesSection
               rows={rollups}
-              needsYou={new Set(attention.map((a) => a.companyId))}
+              attention={attention}
               prepare={false}
               nowMs={Date.now()}
             />
