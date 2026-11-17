@@ -9,9 +9,8 @@ Your home base as an AiMS Coach. It covers only the companies you're assigned to
 
 ## Companies
 
-- **Your companies, first.** One row each: scorecard out of 10, Follow-Through Rate, priorities on track and overdue in the open quarter, the last team meeting with its facilitation score, and the last coaching call. The arrows compare with four weeks ago; "no change" means the number is the same. With no figure from four weeks ago, there's no arrow. A coaching call more than 14 days ago shows in amber. *Needs you* marks a company that is also in *Needs you this week*, further down. *Prepare* opens the session for that company.
+- **Your companies, first.** One row each: scorecard out of 10, Follow-Through Rate, priorities on track and overdue in the open quarter, the last team meeting with its facilitation score, and the last coaching call. The arrows compare with four weeks ago; "no change" means the number is the same. With no figure from four weeks ago, there's no arrow. A coaching call more than 14 days ago shows in amber. *Needs you* marks a company where something has slipped: a scorecard drop, a low or falling Follow-Through Rate, a weak facilitation review, a priority more than 14 days past due, or a meeting recording that looks like it belongs to that company. *Prepare* opens the session for that company.
 - **Three numbers.** How many companies need you, how many of your own commitments are due this week, and how many calls are waiting to be analysed. Click one to go to it.
-- **Needs you this week.** Your call list, most urgent first. Each row says why in a sentence: a scorecard drop, a low or falling Follow-Through Rate, a weak facilitation review, a priority more than 14 days past due, or a meeting recording that looks like it belongs to that company. Under it is a question worth asking, such as "What made the weeks at 81% work, and what changed?" Click *Prepare a session* to get ready for that company.
 - **Recent activity.** The latest meetings summarised, reviews finished, and quarters opened or closed.
 
 ## Coaching calls
@@ -28,7 +27,7 @@ Every commitment you own, across all your companies, with the company named on e
 
 ## How to prepare a session
 
-1. Click *Prepare a session* on a *Needs you this week* row, or *Prepare* on a row in *Your companies*. Or open *Coaching calls* and click the company's name.
+1. Click *Prepare* on the company's row in *Your companies*. Or open *Coaching calls* and click the company's name.
 2. *Your next session with {company}* shows three things:
    - **Since your last call.** How follow-through moved, any priority that became overdue, the team meetings held (with commitments, issues and facilitation score), and new issues. With no coaching call yet, it looks back four weeks and says so.
    - **Where you left off.** The decisions from your last call with the company, and your own open commitments to them. Click *Mark done* when you've kept one.
@@ -78,7 +77,7 @@ Each call shows its date, how long it ran when the transcript says, and who was 
 
 ## How to work inside a company
 
-Click the company's name in *Your companies* or on a *Needs you this week* row, or *Work inside {company}* on the session card. The sidebar then shows that company's pages.
+Click the company's name in *Your companies*, or *Work inside {company}* on the session card. The sidebar then shows that company's pages.
 
 Only clicking a company moves you into it. Opening a page or a conversation from another company doesn't. If you coach just one company, you're taken into it automatically.
 

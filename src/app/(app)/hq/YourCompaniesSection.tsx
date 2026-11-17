@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CompanyNameLink } from "../admin/companies/CompanyNameLink";
 import type { CompanyRollup } from "@/lib/hq/service";
 import { CALL_STALE_DAYS, daysAgoLabel, daysSince, prepareHref, shortDay, type Change } from "@/lib/hq/derive";
+import ui from "@/components/ui/ui.module.css";
 import styles from "./hq.module.css";
 import t from "./hq-tabs.module.css";
 
@@ -146,7 +147,7 @@ export function YourCompaniesSection({
                     ) : null}
                     {prepare ? (
                       <td className={t.right}>
-                        <Link href={prepareHref(row.id)} className={t.textLink} scroll={false}>
+                        <Link href={prepareHref(row.id)} className={`${ui.btn} ${ui.btnSecondary}`} scroll={false}>
                           Prepare<span className={t.srOnly}> a session with {row.name}</span>
                         </Link>
                       </td>
