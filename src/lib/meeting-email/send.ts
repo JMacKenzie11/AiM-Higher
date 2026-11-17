@@ -27,6 +27,13 @@ import {
 // addresses included, so a meeting analysed on a laptop or a preview
 // deployment would mail real customers. Anywhere else this logs what
 // it would have sent and stops.
+//
+// OFF UNTIL SWITCHED ON (Jason, 2026-11-17). Nothing is sent, or even
+// loaded, unless the WEEKLY_MEETING_EMAIL env var is "on". Turning it
+// on (or off again) is a Vercel env var change, no code push.
+export function weeklyEmailOn(env: string | undefined = process.env.WEEKLY_MEETING_EMAIL): boolean {
+  return env === "on";
+}
 
 export type WeeklyEmailResult =
   | { sent: number; failed: number }
@@ -43,6 +50,7 @@ export async function sendWeeklyMeetingEmail(
     subdomain: string;
   }
 ): Promise<WeeklyEmailResult> {
+  if (!weeklyEmailOn()) return { skipped: "switched off (WEEKLY_MEETING_EMAIL is not on)" };
   try {
     const { iso: todayIso } = todayInTimezone(args.timezone);
     const until = addDays(todayIso, WINDOW_DAYS);
