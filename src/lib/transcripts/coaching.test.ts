@@ -64,21 +64,22 @@ describe("who can see a coaching call, said in words", () => {
 });
 
 describe("the add buttons on a coaching call (a clean switch)", () => {
-  it("are off", () => {
-    expect(COACHING_CALL_ITEMS_CAN_BE_ADDED).toBe(false);
+  it("are on (Jason, 2026-11-18)", () => {
+    expect(COACHING_CALL_ITEMS_CAN_BE_ADDED).toBe(true);
   });
 
-  it("leave the Coaching notes tab hidden too", () => {
+  it("leave the Coaching notes tab hidden", () => {
     expect(COACHING_CALL_NOTES_SHOWN).toBe(false);
   });
 
-  // While the switch is off, the server side refuses a call too: each
-  // of the four Add/Convert actions reads its meeting as a team meeting.
-  it("every add-from-a-meeting action reads team meetings only", () => {
+  // With the switch on, the four Add/Convert actions take a call as
+  // well as a team meeting; each says why in a meetings-kind comment.
+  it("every add-from-a-meeting action reads either kind, and says so", () => {
     const src = readFileSync(path.join(__dirname, "routing-actions.ts"), "utf8");
     const reads = src.match(/\.from\("meetings"\)[\s\S]*?\.maybeSingle/g) ?? [];
     expect(reads).toHaveLength(4);
-    for (const r of reads) expect(r).toContain('.eq("kind", "team")');
+    for (const r of reads) expect(r).not.toContain('.eq("kind", "team")');
+    expect(src.match(/meetings-kind: both kinds/g) ?? []).toHaveLength(4);
   });
 });
 

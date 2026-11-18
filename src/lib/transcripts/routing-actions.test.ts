@@ -35,7 +35,7 @@ const mocks = vi.hoisted(() => {
     if (table === "meetings") {
       return {
         select: () => ({
-          // Chainable: the actions add .eq("kind", "team") (0326).
+          // Chainable: one .eq("id") (both kinds since 2026-11-18).
           eq: function eq() { return { eq, maybeSingle: meetingsSelectMaybeSingle }; },
         }),
       };

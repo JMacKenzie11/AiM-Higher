@@ -47,7 +47,7 @@ It's analysed in a few minutes and appears in *Call summaries*. You can upload c
 
 ## Connections: your call recordings folder
 
-The *Connections* tab is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and brings in only the calls with "coaching" in their title, so keep that word in the meeting name. Each one is filed as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion. Aimee never reads it.
+The *Connections* tab is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion. Aimee never reads it.
 
 Once your folder is connected, the tab shows one line with the folder and when it was last checked. *Check now* looks straight away, and *Settings* shows the Google account and *Change folder*.
 

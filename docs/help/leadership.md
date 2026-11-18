@@ -61,7 +61,7 @@ If you coach this company, a *Coaching calls* tab, with a lock, sits beside *Tea
 - **Read a call.** Click *View*. The page is laid out like a meeting's: the summary, what the call drew out, and coaching notes.
 - **Run a failed call again** with *Try again*, as for a meeting.
 
-A coaching call stays on this tab. It never appears under *Team meetings*, Aimee never reads it, and its commitments and issues are listed on its page without going on the company's lists.
+A coaching call stays on this tab. It never appears under *Team meetings*, Aimee never reads it, and nothing from it goes on the company's lists by itself. Its page lists the commitments and issues it drew out, and the company's admins and coaches can add each one with the button beside it.
 :::
 
 ::: role portfolio_admin

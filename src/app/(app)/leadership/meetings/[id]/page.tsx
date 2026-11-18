@@ -63,9 +63,9 @@ export const metadata = { title: "Meeting summary" };
 // A COACHING CALL (0326) uses this page too. RLS shows it only to the
 // company's assigned coaches and its AiMS Champion; anyone else gets
 // not found, the same answer as for a meeting that does not exist. Its
-// page says who can see it, lists what was extracted read-only (no
-// Add, Convert or Resolved in meeting: COACHING_CALL_ITEMS_CAN_BE_ADDED),
-// and does no similarity work.
+// page says who can see it, lists what was extracted with the add
+// buttons for the company's admins and coaches (never added by itself:
+// COACHING_CALL_ITEMS_CAN_BE_ADDED), and does no similarity work.
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -425,8 +425,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   const readersLine = coaching
     ? coachingReadersLine(await coachingCallReaders(meeting.company_id), "this call")
     : null;
-  // The Add, Convert and Resolved in meeting buttons. Off on a coaching
-  // call (Jason, 2026-11-16); the routing actions refuse one as well.
+  // The Add, Convert and Resolved in meeting buttons. On a coaching call
+  // too since 2026-11-18 (Jason), behind the same admin check.
   const canAddItems = coaching ? isAdmin && COACHING_CALL_ITEMS_CAN_BE_ADDED : isAdmin;
   // No score, signal or "How this is scored" on a coaching call (0326).
   const score = facilitationReview && !coaching
@@ -514,7 +514,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           functionalAreaOptions={functionalAreaOptions}
           canAdd={canAddItems}
           hint={coaching ? "Drawn from the call." : undefined}
-          readOnly={coaching}
+          readOnly={coaching && !COACHING_CALL_ITEMS_CAN_BE_ADDED}
         />
       ) : null}
 
@@ -525,7 +525,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           rows={issueRows}
           canAdd={canAddItems}
           hint={coaching ? "Questions raised on the call." : undefined}
-          readOnly={coaching}
+          readOnly={coaching && !COACHING_CALL_ITEMS_CAN_BE_ADDED}
         />
       ) : null}
 
@@ -699,9 +699,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
                 label: "Meeting Analysis",
                 content: fullRecord,
               },
-              // A coaching call has no Issues and commitments tab (Jason,
-              // 2026-11-16): what it drew out stays on the analysis row,
-              // and the tab comes back with the add buttons, one switch.
+              // A coaching call has the Issues and commitments tab while
+              // its add buttons are on (Jason, 2026-11-18).
               ...(coaching && !COACHING_CALL_ITEMS_CAN_BE_ADDED
                 ? []
                 : [
