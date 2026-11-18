@@ -66,7 +66,16 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 // observed output was ~6,300 — and the truncation flag below is what
 // tells us if it is ever not enough. A ceiling with nothing watching
 // it is how this went unnoticed for 36 meetings.
-const MAX_TOKENS_ANALYSIS = 10000;
+//
+// Raised to 16000 on 2026-11-18. Opus 5.5 cannot switch thinking off
+// (model.ts): at effort "low" it still thinks, and the thinking comes
+// out of this same budget. Re-running Benson Seafood's 17 Nov meeting
+// spent all 10,000 tokens and kept only ~5,000 as summary (20,278
+// characters, cut off); the first run of the same meeting thought
+// less and finished in 5,957. Only tokens used are billed, so the
+// higher ceiling costs nothing on a meeting that fits. Kept under
+// ~21,000, where the SDK refuses a non-streaming request.
+const MAX_TOKENS_ANALYSIS = 16000;
 // Bumped from 2000 → 4000 after seeing empty extractions on
 // meetings that generated both commitments AND issues. The dual-
 // array output plus clarity_note strings on every commitment can
