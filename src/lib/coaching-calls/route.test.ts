@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchedBecause, participantsOf, routeCoachCall, suggestAlias, type CoachCompany } from "./route";
+import { isCoachingTitle, matchedBecause, participantsOf, routeCoachCall, suggestAlias, type CoachCompany } from "./route";
 
 // A coach's own folder holds calls with every client. Each call goes to
 // one of the coach's ASSIGNED companies, or waits to be sorted (0326).
@@ -95,5 +95,18 @@ describe("the name offered for future calls", () => {
     expect(suggestAlias("Benson weekly 1:1 - Transcript")).toBe("Benson");
     expect(suggestAlias("Weekly call with Ridgeline.docx")).toBe("Ridgeline");
     expect(suggestAlias("2026-11-12 Meeting notes")).toBeNull();
+  });
+});
+
+describe("which files in a coach's own folder are coaching calls", () => {
+  it("takes a title with coaching in it, in any case", () => {
+    expect(isCoachingTitle("Benson coaching - 2026/11/18 - Transcript")).toBe(true);
+    expect(isCoachingTitle("Coaching call with Dana")).toBe(true);
+    expect(isCoachingTitle("COACHING 1:1")).toBe(true);
+  });
+  it("passes over any other meeting", () => {
+    expect(isCoachingTitle("Benson weekly leadership - Transcript")).toBe(false);
+    expect(isCoachingTitle("Coach sync")).toBe(false);
+    expect(isCoachingTitle("")).toBe(false);
   });
 });

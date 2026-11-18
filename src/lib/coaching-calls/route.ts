@@ -76,6 +76,15 @@ export function routeCoachCall(input: {
   return { kind: "unsorted", reason: "no_match", companyIds: [] };
 }
 
+// Whether a file in a coach's own folder is a coaching call at all
+// (Jason, 2026-11-18). That folder (Meet Recordings, say) holds every
+// meeting the coach records, so only a file whose title says
+// "coaching", in any case, is brought in. The rest are passed over
+// and never read.
+export function isCoachingTitle(fileName: string): boolean {
+  return /coaching/i.test(fileName);
+}
+
 // Who was on the call, as the transcript says: each turn's speaker
 // ("Dana Ruiz: ..."), the names on an "Attendees" line or block (Google
 // Meet starts its transcript with one), and every email address in the
