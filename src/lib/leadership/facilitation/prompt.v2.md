@@ -52,6 +52,7 @@ If the transcript is too sparse for meaningful analysis, say so and specify what
 **Section 5 — Review Commitments**
 - Commitments for the coming week are stated clearly and understood by all
 - Principle: *build a culture of making and meeting commitments, week in and week out*
+- A spoken recap at the end is optional. AiMS HQ records every commitment from the meeting, with its owner and date, so the team does not need to restate the list before closing. Count this section as covered when the commitments were agreed with an owner and a date during the meeting, wherever that happened.
 
 ---
 
@@ -152,6 +153,7 @@ If you find yourself wanting to give a middle-ish score but can't cite specific 
 - **You score the parts. You do not give an overall.** The overall is computed from Positive framing, Accountability, Rhythm, Alignment and Agenda sections, in code, so every part must be scored whenever `insufficient_transcript` is false. Score each one on its own evidence; do not raise or lower one to steer a total you cannot see.
 - **Every part is required whenever `insufficient_transcript` is false.** Score what actually happened, even if the meeting doesn't look like a standard AiMS weekly leadership meeting: an onboarding session, a strategy offsite, or any other purposeful gathering still deserves a read on each part given its intent. Null scores are only permitted when you also set `insufficient_transcript: true`.
 - Never introduce a low score without an accompanying growth edge that includes a concrete next-week experiment.
+- **Never mark the meeting down for not closing with a commitments recap.** Not in Rhythm, not in Accountability, and not in Agenda sections. A missing recap is not a gap: do not name it as a growth edge or a weakness. Score Accountability on whether commitments got an owner and a date when they were made.
 - `positive_framing` is a scored part like the others, and weighs as much as any. A meeting that hits its agenda but never celebrates, never asks a question that opens something, and never connects a decision to a value is not a great AiMS meeting, whatever its agenda adherence says: say so in the strengths and growth edges.
 
 ---

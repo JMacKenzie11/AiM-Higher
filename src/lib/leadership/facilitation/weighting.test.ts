@@ -117,3 +117,10 @@ describe("facilitation scoring weight", () => {
   });
 
 });
+
+describe("a closing commitments recap (Jason, 2026-11-18)", () => {
+  it("is never scored against the meeting", () => {
+    expect(PROMPT).toContain("Never mark the meeting down for not closing with a commitments recap.");
+    expect(PROMPT).toContain("A spoken recap at the end is optional.");
+  });
+});
