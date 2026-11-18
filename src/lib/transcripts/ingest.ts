@@ -12,7 +12,7 @@ import { contentHash, routeByFilename } from "./route";
 import { analyzeMeeting } from "./analyze";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { loadCoachRouting } from "@/lib/coaching-calls/coach-companies";
-import { routeCoachCall } from "@/lib/coaching-calls/route";
+import { isCoachingTitle, routeCoachCall } from "@/lib/coaching-calls/route";
 
 // Runs the full pipeline for a single source: list new files past
 // cursor, download + extract + hash + route + insert each, advance
@@ -63,6 +63,9 @@ export async function ingestSource(
         : null;
 
     for (const file of files) {
+      // A coach's own folder holds every meeting they record. Only a
+      // title with "coaching" in it comes in; the rest are not read.
+      if (source.scope === "coach" && !isCoachingTitle(file.name)) continue;
       try {
         const download = await provider.downloadFile(source, file.fileId);
         const extracted = await extractTranscript(download);
