@@ -11760,13 +11760,16 @@ export const ASSISTANT_MENU = {
   ],
   // Insertable, narrowed to a fresh row (assistant_insert).
   add: ["commitments", "issues", "success_measure_entries"],
-  // Readable only inside assistant_meeting_summaries().
-  summaries: ["meetings", "meeting_analyses"],
+  // Readable only inside the meeting functions (assistant_meeting_summaries,
+  // and since 0327 assistant_meetings and assistant_meeting_full).
+  summaries: ["meetings", "meeting_analyses", "meeting_attendance"],
   // An assistant may add here and read nothing back (0281).
   addOnly: ["aimee_handoffs"],
   // The only functions the gate lets an assistant call. The two bot
   // functions (0308) check for a system admin themselves.
-  rpc: ["assistant_meeting_summaries", "assistant_record_bot_run", "assistant_bots"],
+  // assistant_meetings, assistant_meeting_full and
+  // assistant_company_people since 0327.
+  rpc: ["assistant_meeting_summaries", "assistant_meetings", "assistant_meeting_full", "assistant_company_people", "assistant_record_bot_run", "assistant_bots"],
 } as const;
 
 // The restrictive rules a table must carry, by where it sits on the menu.
@@ -12480,6 +12483,107 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
     detail: readsOk && writesOk
       ? "an assistant reads the plan exactly as the person does, and changes none of it"
       : "AN ASSISTANT READS THE PLAN DIFFERENTLY FROM THE PERSON, OR CHANGES IT (is 0276 applied?)",
+  }];
+}
+
+// ---- Assistant meetings (0327) -----------------------------------------
+//
+// Jason, 2026-11-18. Through an AI app, a meeting's transcript, speaker
+// map and facilitation review reach only the company's assigned AiMS
+// Coach and a system admin. Everyone else who can read the meeting gets
+// its summary and attendance, with those three null. Coaching calls
+// reach nobody. Attendance is read inside the functions only, never
+// written. Red before 0327: the functions do not exist.
+async function assistantMeetingProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "assistant meetings · the coach reads the transcript";
+  const CO = ids.memberCompany;
+  const M = ids.member;
+  const uid = (tag: string) => `aaaa0327-0000-4000-8000-0000000000${tag}`;
+  const COACH = uid("01"), FREECOACH = uid("02"), SA = uid("03"), ADMIN = uid("04");
+  const TEAM = uid("20"), CALL = uid("21");
+  const person = (id: string, company: string | null, full: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values ('${id}', ${company ? `'${company}'` : "null"}, '${full}', '${role}', 'active');`;
+  const meeting = (id: string, kind: string) => `
+insert into public.meetings (id, company_id, provider_file_id, file_name, content_hash, transcript_text, meeting_title, status, kind)
+values ('${id}', '${CO}', 'harness:${id}', 'h.txt', 'harness-${id}', 'Speaker 1: HARNESS 0327 ${kind}', 'Harness 0327 ${kind}', 'complete', '${kind}');
+insert into public.meeting_analyses (meeting_id, analysis_markdown, model, facilitation_review_json)
+values ('${id}', 'harness 0327 summary', 'harness', '{"k":"HARNESS 0327 REVIEW"}');`;
+  const people: Array<[string, string]> = [["member", M], ["admin", ADMIN], ["coach", COACH], ["unassigned_coach", FREECOACH], ["system_admin", SA]];
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+create or replace function public.assistant_through_route() returns boolean language sql as 'select true';
+${person(COACH, null, "Harness 0327 Coach", "aims_guide")}
+${person(FREECOACH, null, "Harness 0327 Other Coach", "aims_guide")}
+${person(SA, null, "Harness 0327 SA", "system_admin")}
+${person(ADMIN, CO, "Harness 0327 Admin", "company_admin")}
+insert into public.guide_assignments (guide_id, company_id) values ('${COACH}', '${CO}') on conflict do nothing;
+${meeting(TEAM, "team")}
+${meeting(CALL, "coaching")}
+insert into public.meeting_attendance (company_id, week_ending, profile_id)
+select '${CO}', public.friday_of((now() at time zone c.timezone)::date), '${M}' from public.companies c where c.id = '${CO}' on conflict do nothing;
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+set local role authenticated;
+do $$
+declare who text; sub uuid; r record; n int; outcome text;
+begin
+  foreach who in array array[${people.map(([k]) => `'${k}'`).join(", ")}] loop
+    sub := case who ${people.map(([k, id]) => `when '${k}' then '${id}'::uuid`).join(" ")} end;
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated","client_id":"harness-0327"}', sub), true);
+    select * into r from public.assistant_meeting_full('${CO}', '${TEAM}');
+    insert into _p values (who || '_full', coalesce(r.full_access::text, 'no row') || '|' ||
+      (case when r.transcript like '%HARNESS 0327%' then 'transcript' else 'none' end) || '|' ||
+      (case when r.facilitation_review::text like '%HARNESS 0327 REVIEW%' then 'review' else 'none' end) || '|' ||
+      (case when r.summary = 'harness 0327 summary' then 'summary' else 'none' end) || '|' ||
+      coalesce(jsonb_array_length(r.attendees)::text, 'null'));
+    select count(*) into n from public.assistant_meeting_full('${CO}', '${CALL}');
+    insert into _p values (who || '_call', n::text);
+    select count(*) filter (where email is not null) into n from public.assistant_company_people('${CO}') where profile_id = '${M}';
+    insert into _p values (who || '_email', n::text);
+  end loop;
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated","client_id":"harness-0327"}', true);
+  select count(*) into n from public.assistant_meetings('${CO}', null, null, now() - interval '1 hour', 50) where meeting_id in ('${TEAM}', '${CALL}');
+  insert into _p values ('list', n::text);
+  select count(*) into n from public.meetings where id = '${TEAM}';
+  insert into _p values ('direct_meeting', n::text);
+  select count(*) into n from public.meeting_attendance where company_id = '${CO}';
+  insert into _p values ('direct_attendance', n::text);
+  begin
+    insert into public.meeting_attendance (company_id, week_ending, profile_id) values ('${CO}', '2099-01-02', '${M}');
+    outcome := 'inserted';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _p values ('add_attendance', outcome);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const full = "true|transcript|review|summary|1";
+  const summaryOnly = "false|none|none|summary|1";
+  const want: Record<string, string> = { member: summaryOnly, admin: summaryOnly, unassigned_coach: "no row", coach: full, system_admin: full };
+  const fullOk = Object.entries(want).every(([k, v]) => (r[`${k}_full`] ?? "").startsWith(v));
+  const callsOk = people.every(([k]) => r[`${k}_call`] === "0");
+  // The member's email, as profile_email() (0253) shows it in the app:
+  // themselves, their colleagues, the assigned coach and a system admin;
+  // not a coach assigned elsewhere.
+  const wantEmail: Record<string, string> = { member: "1", admin: "1", coach: "1", system_admin: "1", unassigned_coach: "0" };
+  const emailOk = Object.entries(wantEmail).every(([k, v]) => r[`${k}_email`] === v);
+  const restOk = emailOk && r.list === "1" && r.direct_meeting === "0" && r.direct_attendance === "0" && r.add_attendance === "refused 42501";
+  const ok = fullOk && callsOk && restOk;
+  return [{
+    name,
+    granted: `full read (access|transcript|review|summary|attendees): ${people.map(([k]) => `${k} ${r[`${k}_full`]}`).join("; ")}`,
+    withheld: `coaching call rows: ${people.map(([k]) => `${k} ${r[`${k}_call`]}`).join(", ")} (want 0) | list shows ${r.list} of team+call (want 1) | direct meetings read ${r.direct_meeting}, attendance read ${r.direct_attendance} (want 0, 0) | adds attendance: ${r.add_attendance} (want refused 42501) | member's email seen by: ${people.map(([k]) => `${k} ${r[`${k}_email`]}`).join(", ")} (want 1 each, unassigned_coach 0)`,
+    ok,
+    detail: ok
+      ? "only the assigned coach and a system admin get the transcript and review; nobody gets a coaching call; attendance is read inside the functions only and never written"
+      : "THE TRANSCRIPT OR REVIEW REACHES THE WRONG PERSON, A COACHING CALL LEAKS, OR ATTENDANCE IS OPEN (is 0327 applied?)",
   }];
 }
 
@@ -17098,6 +17202,7 @@ async function main(): Promise<void> {
     ...(await aimeeHandoffPrivacyProbes(run, ids, pendingSql)),
     ...(await assistantRoleProbes(run, ids, pendingSql)),
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
+    ...(await assistantMeetingProbes(run, ids, pendingSql)),
     ...(await assistantAddProbes(run, ids, pendingSql)),
     ...(await companyAssistantsSwitchProbes(run, ids, pendingSql)),
   ];

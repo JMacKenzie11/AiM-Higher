@@ -357,3 +357,14 @@ export function replaceSpeakerLabels(
   );
   return { text: out, replaced };
 }
+
+// What is stored on the analysis row (meeting_analyses.speaker_map,
+// 0327): each label, the name it resolved to and how sure. Null when
+// there was no map. The evidence is left out: it was the model's
+// working, and it quotes the transcript.
+export type StoredSpeaker = { label: string; name: string | null; confidence: SpeakerConfidence };
+
+export function storedSpeakerMap(map: SpeakerMap | null): StoredSpeaker[] | null {
+  if (!map) return null;
+  return map.speakers.map((s) => ({ label: s.label, name: s.name, confidence: s.confidence }));
+}

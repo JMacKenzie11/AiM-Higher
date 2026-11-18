@@ -12,10 +12,14 @@ import { listBots, recordBotRun } from "@/lib/mcp/bots";
 import { chooseCompany, type VisibleCompany } from "@/lib/mcp/company";
 import { limitBroken, limitMessage } from "@/lib/mcp/limits";
 import { recentCounts, recordAction } from "@/lib/mcp/log";
+import { companyPeople, getMeeting, listMeetings } from "@/lib/mcp/meetings";
+import { aimsBranding } from "@/lib/mcp/branding";
 import {
   ReadFailed,
   annualGoals,
+  companyContacts,
   companyPlan,
+  dashboardSnapshot,
   functionalChart,
   measures,
   meetingSummaries,
@@ -273,17 +277,23 @@ const handler = createMcpHandler(
       {
         title: "List my companies",
         description:
-          "The AiMS companies you can see, by name and id, and whether each has outside assistants switched on. Every other tool takes one of these as its company, and works only where they are on.",
+          "The AiMS companies (clients) you can see: name, id, main contact (the company's AiMS champion), its AiMS Coaches, and whether AI apps are switched on. Use it to match a short name like \"Benson\" to the company. Every other tool takes one of these as its company, and works only where AI apps are on.",
         annotations: READ_ONLY,
       },
       async (ctx) =>
-        runTool("list_my_companies", false, ctx, {}, async ({ db }) => ({
-          companies: (await visibleCompanies(db)).map((c) => ({
-            id: c.id,
-            name: c.name,
-            outside_assistants: c.assistantsOn ? "on" : "off: a company admin can switch them on",
-          })),
-        }))
+        runTool("list_my_companies", false, ctx, {}, async ({ db }) => {
+          const companies = await visibleCompanies(db);
+          const contacts = await companyContacts(db, companies.map((c) => c.id));
+          return {
+            companies: companies.map((c) => ({
+              id: c.id,
+              name: c.name,
+              main_contact: contacts.get(c.id)?.champion ?? null,
+              aims_coaches: contacts.get(c.id)?.coaches ?? [],
+              outside_assistants: c.assistantsOn ? "on" : "off: a company admin can switch them on",
+            })),
+          };
+        })
     );
 
     server.registerTool(
@@ -315,15 +325,19 @@ const handler = createMcpHandler(
       {
         title: "Measures and recent values",
         description:
-          "A company's critical success factors, grouped by function, with each one's target and its values for recent weeks. Weeks are named by the Monday they begin. Read only.",
+          "A company's critical success factors, grouped by function: each one's name, owner (its function's Lead), target, which direction is better, value type, and its weekly values newest first, each with the target that applied that week and whether it hit it. Also how many weeks in a row it has been on target. Recent weeks by count, or a date range. Weeks are named by the Monday they begin. Read only.",
         inputSchema: z.object({
           company,
-          weeks: z.number().int().min(1).max(13).optional().describe("How many recent weeks of values, 1 to 13. Default 6."),
+          weeks: z.number().int().min(1).max(52).optional().describe("How many recent weeks of values, 1 to 52. Default 6. Ignored when from is given."),
+          from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("First date of a range, YYYY-MM-DD. Up to 52 weeks."),
+          to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Last date of a range, YYYY-MM-DD. Default today."),
         }),
         annotations: READ_ONLY,
       },
       async (args, ctx) =>
-        runTool("measures", true, ctx, args, (c, a) => measures({ ...c, company: c.company! }, a.weeks ?? 6))
+        runTool("measures", true, ctx, args, (c, a) =>
+          measures({ ...c, company: c.company! }, { weeks: a.weeks, from: a.from, to: a.to })
+        )
     );
 
     server.registerTool(
@@ -351,6 +365,66 @@ const handler = createMcpHandler(
       },
       async (args, ctx) =>
         runTool("meeting_summaries", true, ctx, args, (c, a) => meetingSummaries({ ...c, company: c.company! }, a.limit ?? 5))
+    );
+
+    server.registerTool(
+      "list_meetings",
+      {
+        title: "List meetings",
+        description:
+          "A company's weekly team meetings, newest first, with id, title, date, and whether each analysis is ready to build from (analysis_ready: finished and not cut off). Filter by a date range, or by since (a date-time) for only what is new or re-analysed since then. Use an id with get_meeting. Read only.",
+        inputSchema: z.object({
+          company,
+          from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Held on or after this date, YYYY-MM-DD."),
+          to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Held on or before this date, YYYY-MM-DD."),
+          since: z.string().datetime({ offset: true }).optional().describe("Only meetings held or analysed after this moment, ISO 8601, e.g. 2026-11-11T00:00:00Z."),
+          limit: z.number().int().min(1).max(50).optional().describe("How many, 1 to 50. Default 20."),
+        }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) =>
+        runTool("list_meetings", true, ctx, args, (c, a) =>
+          listMeetings({ ...c, company: c.company! }, { from: a.from, to: a.to, since: a.since, limit: a.limit })
+        )
+    );
+
+    server.registerTool(
+      "get_meeting",
+      {
+        title: "One meeting in full",
+        description:
+          "One team meeting: the AiMS summary (wins, values in action, decisions and the rest), whether the analysis is ready, who was marked present, the commitments it produced and those completed in the week before it. For the company's AiMS Coach and AiMS system admins, also the full transcript with speaker names, the speaker list, the facilitation review and its scores. Read only.",
+        inputSchema: z.object({
+          company,
+          meeting_id: z.string().uuid().describe("The meeting's id, from list_meetings."),
+        }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("get_meeting", true, ctx, args, (c, a) => getMeeting({ ...c, company: c.company! }, a.meeting_id))
+    );
+
+    server.registerTool(
+      "company_people",
+      {
+        title: "A company's people",
+        description:
+          "Everyone at a company in AiMS HQ: name, job title, role, sign-in email, and whether they've been invited but not yet joined. An email shows only where you could see it in AiMS. Read only.",
+        inputSchema: z.object({ company }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("company_people", true, ctx, args, (c) => companyPeople({ ...c, company: c.company! }))
+    );
+
+    server.registerTool(
+      "dashboard_snapshot",
+      {
+        title: "Dashboard snapshot",
+        description:
+          "A company's dashboard numbers for the open quarter, by the same rules as its AiMS dashboard: priorities on track, complete, behind and not started; Follow-Through Rate (commitments kept on time) with its counts; and the critical success factors on target two or more weeks running. Read only.",
+        inputSchema: z.object({ company }),
+        annotations: READ_ONLY,
+      },
+      async (args, ctx) => runTool("dashboard_snapshot", true, ctx, args, (c) => dashboardSnapshot({ ...c, company: c.company! }))
     );
 
     server.registerTool(
@@ -397,11 +471,22 @@ const handler = createMcpHandler(
       {
         title: "Core values and plan",
         description:
-          "A company's purpose, vision, core values and strategic focus areas (with sponsor and status). Read only.",
+          "A company's foundation: purpose, vision, core values with what each means, and strategic focus areas (with sponsor and status). For the current priorities (rocks), use quarterly_priorities. Read only.",
         inputSchema: z.object({ company }),
         annotations: READ_ONLY,
       },
       async (args, ctx) => runTool("company_plan", true, ctx, args, (c) => companyPlan({ ...c, company: c.company! }))
+    );
+
+    server.registerTool(
+      "aims_branding",
+      {
+        title: "AiMS branding",
+        description:
+          "AiMS's own brand: logo files (links), colours with their uses, typeface and tagline. AiMS HQ holds no client branding. Read only.",
+        annotations: READ_ONLY,
+      },
+      async (ctx) => runTool("aims_branding", false, ctx, {}, async () => aimsBranding(await currentRequestOrigin()))
     );
 
     server.registerTool(

@@ -65,7 +65,7 @@ Enter your current password, then a new one of at least 8 characters, and save. 
 ::: feature outside_assistants
 ## Your connected AI apps
 
-You can use AiMS HQ inside an AI app, such as Claude or ChatGPT, so it can read your AiMS work for you. It signs in as you, sees only what you can see, and asks you to allow it first. Aimee is different: she's built into AiMS HQ and needs no connecting.
+You can use AiMS HQ inside an AI app, such as Claude or ChatGPT, so it can read your AiMS work for you. It signs in as you, sees only what you can see, and asks you to allow it first. It can read your company's people and their email addresses, commitments, plan, measures, dashboard numbers, issues, team meetings and their summaries. If you're the company's AiMS Coach or an AiMS system admin, it can also read meeting transcripts with speaker names and the facilitation reviews. It never reads a coaching call or an Aimee conversation. Aimee is different: she's built into AiMS HQ and needs no connecting.
 
 **How to connect** opens the steps for each app, with your AiMS HQ server address to copy.
 
