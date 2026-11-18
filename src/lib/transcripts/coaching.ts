@@ -89,11 +89,13 @@ function listNames(names: readonly string[]): string {
 }
 
 // THE ADD BUTTONS ON A COACHING CALL'S PAGE: Add, Convert to issue,
-// Resolved in meeting, Add to open issues. Off (Jason, 2026-11-16):
-// what a call extracts is listed read-only. To turn them on, set this
-// and take the kind = 'team' filter off the four meeting reads in
-// routing-actions.ts, which refuse a call today.
-export const COACHING_CALL_ITEMS_CAN_BE_ADDED: boolean = false;
+// Resolved in meeting, Add to open issues. On (Jason, 2026-11-18; off
+// from 2026-11-16): a call's page lists what it drew out with the same
+// buttons as a team meeting with automatic tracking off, for the
+// company's admins and coaches. A call still never creates anything by
+// itself (coachingRunPlan: no commitments, no issues); only a person
+// pressing a button does, through routing-actions.ts.
+export const COACHING_CALL_ITEMS_CAN_BE_ADDED: boolean = true;
 
 // THE COACHING NOTES TAB ON A COACHING CALL'S PAGE. Hidden (Jason,
 // 2026-11-16, "we'll decide if we want to keep it later"): the call is
