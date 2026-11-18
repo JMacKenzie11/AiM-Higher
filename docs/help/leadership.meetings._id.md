@@ -64,6 +64,8 @@ Open *How this is scored* in the *How the meeting was run* panel. It shows five 
 - **Alignment (15%):** Whether the team connected what it discussed to the company's goals and priorities. Strong meetings make it clear why each item matters to where the business is going.
 - **Agenda sections (15%):** How many of the five sections of the AiMS weekly meeting happened: Positive Check-In; Functional Updates; Forward Momentum on Strategy; Solve, Together; Review Commitments. Scored out of 5, then doubled to match the others.
 
+A meeting is not marked down for skipping a recap of commitments at the end. Review Commitments counts as covered when each commitment got an owner and a date during the meeting.
+
 The score is the weighted average. It shows to one decimal in the panel and rounded on the strip, with a half rounding up, so 7.5 shows as 8. The ⓘ beside each part says what it measures, in the same words.
 
 Meetings from before 25 September 2026 keep the score they were given at the time, with no breakdown. Now and then a meeting has coaching notes and no score, because the review left out one of the five parts. The notes are still there, and the panel says there's no score.
