@@ -17,6 +17,7 @@ import {
   formatSpeakerMap,
   identifiedSpeakers,
   replaceSpeakerLabels,
+  storedSpeakerMap,
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
 import { settleSummary } from "./summary";
@@ -607,6 +608,10 @@ export async function analyzeMeeting(
       // do we try first — the peak-mounted floodlight or a pole
       // light", because only the summary went through the dash pass.
       facilitation_review_json: stored.facilitation_review_json,
+      // Who each transcript label was (0327), so a reader of the
+      // transcript can name the speaker. Label, name and confidence
+      // only; the evidence was for the model.
+      speaker_map: storedSpeakerMap(speakerMap),
       model,
     });
     if (analysisErr) {

@@ -119,7 +119,7 @@ export default async function ConsentPage({
         </div>
       ) : canApprove ? (
         <div className={`${formStyles.helperText} ${consentStyles.copy}`}>
-          <p>It can read your commitments and your team&apos;s, your company&apos;s plan, priorities, goals and core values, your measures and their recent values, open issues, meeting summaries and the functional chart.</p>
+          <p>It can read your commitments and your team&apos;s, your company&apos;s people and their email addresses, its plan, priorities, goals and core values, your measures and their weekly values, the dashboard numbers, open issues, team meetings and their summaries, and the functional chart. For an AiMS Coach or an AiMS system admin, it can also read meeting transcripts and facilitation reviews.</p>
           <p>It can add a commitment of your own with a due date, an issue, or a value for a measure you lead (any measure, if you&apos;re an admin) in a week that has none.</p>
           <p>It can start a conversation with Aimee in AiMS for you.</p>
           <p>It cannot change or delete anything, mark a commitment kept or missed, or read any Aimee conversation.</p>
