@@ -63,6 +63,9 @@ the environment named in each section.
 | `PROD_SUPABASE_URL` | The production database |
 | `PROD_SUPABASE_ANON_KEY` | Production anon key |
 | `PROD_SUPABASE_SERVICE_KEY` | Production service-role key |
+| `MEETING_READY_WEBHOOK_URL` | Optional. Where the "meeting ready" webhook posts after a team meeting is analysed (a Cursor automation today). Unset means off |
+| `MEETING_READY_WEBHOOK_HEADER` | Optional. The header name that receiver checks |
+| `MEETING_READY_WEBHOOK_KEY` | Optional, mark Sensitive. That header's value |
 
 The control plane lives in the production project today, so
 `CONTROL_PLANE_SUPABASE_URL` and `PROD_SUPABASE_URL` currently hold the

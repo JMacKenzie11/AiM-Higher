@@ -33,6 +33,7 @@ import { extractHeadlines, fillMeetingHeadlines, loadHeadlineFunctions, type Ext
 import { simplifyOn } from "@/lib/ui/simplify";
 import { coachingRunPlan, isTeamMeeting, withoutScores } from "./coaching";
 import { sendWeeklyMeetingEmail } from "@/lib/meeting-email/send";
+import { sendMeetingReadyWebhook } from "@/lib/meeting-webhook/send";
 import { COMMITMENT_CLARITY_RULES } from "./clarity-rules";
 import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
@@ -698,6 +699,19 @@ export async function analyzeMeeting(
         subdomain: instance.subdomain,
       });
       console.log(`[weekly-email] meeting ${meetingId}: ${JSON.stringify(emailed)}`);
+
+      // The "meeting ready" webhook (2026-11-19), same moment and same
+      // rule: team meetings only, first analysis only. Never throws
+      // (meeting-webhook/send.ts).
+      const posted = await sendMeetingReadyWebhook({
+        meetingId,
+        companyId: meetingRow.company_id,
+        companyName: context.companyName,
+        meetingTitle: meetingRow.meeting_title ?? deriveTitle(meetingRow.file_name),
+        meetingDateIso,
+        subdomain: instance.subdomain,
+      });
+      console.log(`[meeting-webhook] meeting ${meetingId}: ${JSON.stringify(posted)}`);
     }
 
     // ---- The Guide's one action in phase A --------------------
