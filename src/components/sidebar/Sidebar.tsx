@@ -20,6 +20,7 @@ import { useArriving } from "@/lib/notifications/use-arriving";
 
 const NO_NOTIFICATIONS: readonly NotificationItem[] = [];
 import styles from "./Sidebar.module.css";
+import { needsAttentionCountAction } from "@/lib/welcome/attention-actions";
 import type { Role } from "@/lib/types";
 import { navBandsFor, type NavBand } from "./nav-bands";
 import { visibleSections, visibleTabs } from "./sections";
@@ -420,6 +421,23 @@ export function Sidebar({
     setMobileOpen(false);
   }, [pathname]);
 
+  // The Scoreboard design (on /welcome only) shows how many of the
+  // company's commitments need attention beside Commitments. Read only
+  // while it is on, so every other page is unchanged.
+  const skinned = pathname === "/welcome";
+  const [attention, setAttention] = useState<number | null>(null);
+  useEffect(() => {
+    if (!skinned) return;
+    let live = true;
+    needsAttentionCountAction().then((n) => {
+      if (live) setAttention(n);
+    });
+    return () => {
+      live = false;
+    };
+  }, [skinned]);
+  const badgeFor = (href: string) => (skinned && href === "/commitments" && attention ? attention : null);
+
   // Escape closes the mobile drawer and hands focus back to the button
   // that opened it. A menu open inside the drawer (the account menu)
   // takes the first Escape for itself and marks it handled, so one
@@ -632,7 +650,7 @@ export function Sidebar({
         data-mobile-open={mobileOpen ? "true" : undefined}
         // The Scoreboard design, on /welcome only (Jason, 2026-11-20):
         // every other page keeps the sidebar as it is.
-        data-skin={pathname === "/welcome" ? "scoreboard" : undefined}
+        data-skin={skinned ? "scoreboard" : undefined}
         aria-label="Primary"
       >
         <div className={styles.header}>
@@ -681,6 +699,7 @@ export function Sidebar({
                   icon={item.icon}
                   label={item.label}
                   active={isLinkActive(pathname, item.href)}
+                  badge={badgeFor(item.href)}
                   collapsed={collapsed}
                 />
               );
@@ -706,6 +725,7 @@ export function Sidebar({
                         icon={child.icon}
                         label={child.label}
                         active={isLinkActive(pathname, child.href)}
+                        badge={badgeFor(child.href)}
                         collapsed={collapsed}
                       />
                     ))}
@@ -752,6 +772,7 @@ export function Sidebar({
                             icon={child.icon}
                             label={child.label}
                             active={isLinkActive(pathname, child.href)}
+                            badge={badgeFor(child.href)}
                             collapsed={collapsed}
                           />
                         ))}
@@ -804,12 +825,15 @@ function NavRow({
   label,
   active,
   collapsed,
+  badge = null,
 }: {
   href: string;
   icon: IconName;
   label: string;
   active: boolean;
   collapsed: boolean;
+  // A count beside the label (the Scoreboard design's Commitments).
+  badge?: number | null;
 }) {
   return (
     <IntentLink
@@ -823,6 +847,11 @@ function NavRow({
         <Icon name={icon} />
       </span>
       <span className={styles.navLabel}>{label}</span>
+      {badge ? (
+        <span className={styles.navBadge} aria-label={`${badge} need attention`}>
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
     </IntentLink>
   );
 }

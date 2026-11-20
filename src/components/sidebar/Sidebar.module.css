@@ -798,10 +798,54 @@
   font-weight: 900;
 }
 
+/* The number on Commitments (needs attention). A chartreuse circle
+   with a navy number; on the Commitments page itself, where the row
+   is the chartreuse pill, it turns navy with a white number. Either
+   way it pulses gently every few seconds. Collapsed to icons, it is a
+   small dot on the icon. */
+.navBadge {
+  flex-shrink: 0;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  animation: skinBump 2.6s ease-in-out infinite;
+}
+
+.navRow[data-active="true"] .navBadge {
+  background: var(--aims-navy);
+  color: var(--aims-white);
+}
+
+@keyframes skinBump {
+  0%, 85%, 100% { transform: scale(1); }
+  92% { transform: scale(1.18); }
+}
+
+.sidebar[data-collapsed="true"] .navBadge {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  min-width: 0;
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  font-size: 0;
+  box-shadow: 0 0 0 2px var(--aims-navy);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar[data-skin="scoreboard"],
   .sidebar[data-skin="scoreboard"]::before,
-  .sidebar[data-skin="scoreboard"] .navRow {
+  .sidebar[data-skin="scoreboard"] .navRow,
+  .navBadge {
     animation: none;
     transition: none;
   }
