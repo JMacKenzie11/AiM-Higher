@@ -14,6 +14,7 @@ import { limitBroken, limitMessage } from "@/lib/mcp/limits";
 import { recentCounts, recordAction } from "@/lib/mcp/log";
 import { companyPeople, getMeeting, listMeetings } from "@/lib/mcp/meetings";
 import { aimsBranding } from "@/lib/mcp/branding";
+import { setRecapVideo } from "@/lib/mcp/recap";
 import {
   ReadFailed,
   annualGoals,
@@ -192,6 +193,11 @@ const HANDOFF = { readOnlyHint: false, destructiveHint: false, idempotentHint: f
 // about; the caller is a bot. Not destructive, not idempotent (each
 // call is a run).
 const RECORD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
+// set_recap_video (0328). It writes one row and replaces which video a
+// company's welcome page shows, so it is not read only. Not
+// destructive: every earlier link is kept. Not idempotent: each call is
+// a new row.
+const SETS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 const company = z
   .string()
   .max(200)
@@ -546,6 +552,31 @@ const handler = createMcpHandler(
       async (args, ctx) =>
         runTool("add_measure_value", true, ctx, args, (c, a) =>
           addMeasureValue({ ...c, company: c.company! }, { measure_id: a.measure_id, value: a.value, week_beginning: a.week_beginning }))
+    );
+
+    server.registerTool(
+      "set_recap_video",
+      {
+        title: "Set a company's recap video",
+        description:
+          "Saves a Vimeo link as a company's weekly recap video. The newest link is the one the company's welcome page shows, in place of the last one; earlier links are kept. Name the company by its exact name or its id (list_my_companies); a name that matches no company, or more than one, is refused. The link must be a Vimeo video, such as https://vimeo.com/123456789 (an unlisted one with its hash, https://vimeo.com/123456789/abcdef1234). Give meeting_id, from list_meetings, when the video recaps a particular meeting. Only a system admin or an admin of that company may call this.",
+        inputSchema: z.object({
+          company: z
+            .string()
+            .min(1)
+            .max(200)
+            .describe("The company, by its exact name or its id."),
+          video_url: z.string().min(1).max(500).describe("The video's Vimeo link."),
+          meeting_id: z.string().uuid().optional().describe("The team meeting this video recaps, from list_meetings."),
+        }),
+        annotations: SETS,
+      },
+      async (args, ctx) => {
+        const origin = await currentRequestOrigin();
+        return runTool("set_recap_video", true, ctx, args, (c, a) =>
+          setRecapVideo({ db: c.db, company: c.company! }, { video_url: a.video_url, meeting_id: a.meeting_id }, origin)
+        );
+      }
     );
 
     server.registerTool(

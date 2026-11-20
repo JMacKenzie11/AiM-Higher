@@ -11769,7 +11769,8 @@ export const ASSISTANT_MENU = {
   // functions (0308) check for a system admin themselves.
   // assistant_meetings, assistant_meeting_full and
   // assistant_company_people since 0327.
-  rpc: ["assistant_meeting_summaries", "assistant_meetings", "assistant_meeting_full", "assistant_company_people", "assistant_record_bot_run", "assistant_bots"],
+  // assistant_set_recap_video since 0328, which checks for an admin itself.
+  rpc: ["assistant_meeting_summaries", "assistant_meetings", "assistant_meeting_full", "assistant_company_people", "assistant_record_bot_run", "assistant_bots", "assistant_set_recap_video"],
 } as const;
 
 // The restrictive rules a table must carry, by where it sits on the menu.
@@ -12584,6 +12585,105 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
     detail: ok
       ? "only the assigned coach and a system admin get the transcript and review; nobody gets a coaching call; attendance is read inside the functions only and never written"
       : "THE TRANSCRIPT OR REVIEW REACHES THE WRONG PERSON, A COACHING CALL LEAKS, OR ATTENDANCE IS OPEN (is 0327 applied?)",
+  }];
+}
+
+// ---- Recap videos (0328) ------------------------------------------------
+//
+// Jason, 2026-11-20. An AI app hands back a company's recap video
+// through assistant_set_recap_video(). A system admin, the company's
+// company admin and its assigned AiMS Coach may; a team member, another
+// company's admin and a coach assigned elsewhere may not. The link must
+// be a Vimeo video; a named meeting must be one of the company's. The
+// table has no insert rule (an admin writing it directly is refused),
+// is read by the company's people, and stays closed to an AI app.
+// Red before 0328: the function and the table do not exist.
+async function recapVideoProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "recap video · an admin sets it, a member cannot";
+  const CO = ids.memberCompany, OTHER = ids.otherCompany, M = ids.member;
+  const uid = (tag: string) => `aaaa0328-0000-4000-8000-0000000000${tag}`;
+  const ADMIN = uid("01"), OTHERADMIN = uid("02"), COACH = uid("03"), FREECOACH = uid("04"), SA = uid("05");
+  const person = (id: string, company: string | null, full: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values ('${id}', ${company ? `'${company}'` : "null"}, '${full}', '${role}', 'active');`;
+  const callers: Array<[string, string]> = [["admin", ADMIN], ["coach", COACH], ["system_admin", SA], ["member", M], ["other_admin", OTHERADMIN], ["unassigned_coach", FREECOACH]];
+  let row: { r: string } | undefined;
+  try {
+    [row] = await run<{ r: string }>(["begin;", pending, `
+${person(ADMIN, CO, "Harness 0328 Admin", "company_admin")}
+${person(OTHERADMIN, OTHER, "Harness 0328 Other Admin", "company_admin")}
+${person(COACH, null, "Harness 0328 Coach", "aims_guide")}
+${person(FREECOACH, null, "Harness 0328 Other Coach", "aims_guide")}
+${person(SA, null, "Harness 0328 SA", "system_admin")}
+insert into public.guide_assignments (guide_id, company_id) values ('${COACH}', '${CO}') on conflict do nothing;
+create temp table _r (k text, v text) on commit drop;
+grant all on _r to authenticated;
+set local role authenticated;
+do $$
+declare who text; sub uuid; outcome text; n int; j jsonb;
+begin
+  foreach who in array array[${callers.map(([k]) => `'${k}'`).join(", ")}] loop
+    sub := case who ${callers.map(([k, id]) => `when '${k}' then '${id}'::uuid`).join(" ")} end;
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated","client_id":"harness-0328"}', sub), true);
+    begin
+      perform public.assistant_set_recap_video('${CO}', 'https://vimeo.com/1248248696');
+      outcome := 'set';
+    exception when others then outcome := 'refused ' || sqlstate; end;
+    insert into _r values (who, outcome);
+  end loop;
+
+  perform set_config('request.jwt.claims', '{"sub":"${ADMIN}","role":"authenticated","client_id":"harness-0328"}', true);
+  begin
+    perform public.assistant_set_recap_video('${CO}', 'https://www.youtube.com/watch?v=abc');
+    outcome := 'set';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _r values ('not_vimeo', outcome);
+  begin
+    perform public.assistant_set_recap_video('${CO}', 'https://vimeo.com/1248248696', gen_random_uuid());
+    outcome := 'set';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _r values ('other_meeting', outcome);
+  j := public.assistant_set_recap_video('${CO}', 'https://player.vimeo.com/video/1248248696?h=abcdef12&title=0');
+  insert into _r values ('unlisted', coalesce(j ->> 'vimeo_id', '') || '/' || coalesce(j ->> 'vimeo_hash', 'none'));
+  select count(*) into n from public.recap_videos where company_id = '${CO}';
+  insert into _r values ('assistant_reads', n::text);
+
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  select count(*) into n from public.recap_videos where company_id = '${CO}' and added_via = 'harness-0328';
+  insert into _r values ('member_reads', n::text);
+  perform set_config('request.jwt.claims', '{"sub":"${OTHERADMIN}","role":"authenticated"}', true);
+  select count(*) into n from public.recap_videos where company_id = '${CO}';
+  insert into _r values ('other_admin_reads', n::text);
+  perform set_config('request.jwt.claims', '{"sub":"${ADMIN}","role":"authenticated"}', true);
+  begin
+    insert into public.recap_videos (company_id, video_url, vimeo_id) values ('${CO}', 'https://vimeo.com/1248248696', '1248248696');
+    outcome := 'inserted';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _r values ('direct_insert', outcome);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _r;`, "rollback;"].join("\n"));
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const grantedOk = r.admin === "set" && r.coach === "set" && r.system_admin === "set";
+  const withheldOk =
+    r.member === "refused 42501" && r.other_admin === "refused 42501" && r.unassigned_coach === "refused 42501" &&
+    r.not_vimeo === "refused 22023" && r.other_meeting === "refused 22023" && r.direct_insert === "refused 42501" &&
+    r.assistant_reads === "0" && r.other_admin_reads === "0";
+  const readOk = r.unlisted === "1248248696/abcdef12" && r.member_reads === "4";
+  const ok = grantedOk && withheldOk && readOk;
+  return [{
+    name,
+    granted: `sets it: admin ${r.admin}, coach ${r.coach}, system_admin ${r.system_admin} | unlisted link stored as ${r.unlisted} (want 1248248696/abcdef12) | the company's member reads ${r.member_reads} (want 4)`,
+    withheld: `member ${r.member}, other company's admin ${r.other_admin}, unassigned coach ${r.unassigned_coach} (want refused 42501) | a YouTube link ${r.not_vimeo}, another meeting ${r.other_meeting} (want refused 22023) | admin inserts directly ${r.direct_insert} (want refused 42501) | rows an AI app reads ${r.assistant_reads}, another company's admin reads ${r.other_admin_reads} (want 0, 0)`,
+    ok,
+    detail: ok
+      ? "only a system admin, the company's admin or its coach sets a recap video, only a Vimeo link, and only through the function"
+      : "THE WRONG PERSON CAN SET A RECAP VIDEO, A BAD LINK GETS IN, OR THE TABLE IS OPEN (is 0328 applied?)",
   }];
 }
 
@@ -17203,6 +17303,7 @@ async function main(): Promise<void> {
     ...(await assistantRoleProbes(run, ids, pendingSql)),
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
     ...(await assistantMeetingProbes(run, ids, pendingSql)),
+    ...(await recapVideoProbes(run, ids, pendingSql)),
     ...(await assistantAddProbes(run, ids, pendingSql)),
     ...(await companyAssistantsSwitchProbes(run, ids, pendingSql)),
   ];
