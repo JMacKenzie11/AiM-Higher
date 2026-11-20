@@ -630,6 +630,9 @@ export function Sidebar({
         className={styles.sidebar}
         data-collapsed={collapsed ? "true" : undefined}
         data-mobile-open={mobileOpen ? "true" : undefined}
+        // The Scoreboard design, on /welcome only (Jason, 2026-11-20):
+        // every other page keeps the sidebar as it is.
+        data-skin={pathname === "/welcome" ? "scoreboard" : undefined}
         aria-label="Primary"
       >
         <div className={styles.header}>

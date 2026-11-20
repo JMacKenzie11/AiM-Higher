@@ -57,6 +57,9 @@ export const PAGES: readonly PageEntry[] = [
   // ---- The workspace (sidebar group gated on "execution") ----------
   { pattern: "/scorecard", roles: "all", feature: "execution", link: true },
   { pattern: "/dashboard", roles: "all", feature: "execution", link: true },
+  // The weekly recap page (Jason, 2026-11-20). Reached only by typing
+  // the address for now, so Aimee does not link to it.
+  { pattern: "/welcome", roles: "all", feature: null, link: false },
   { pattern: "/foundation", roles: "all", feature: "execution", link: true },
   { pattern: "/people", roles: "all", feature: "execution", link: true },
   { pattern: "/people/[id]", roles: "all", feature: "execution", link: false },

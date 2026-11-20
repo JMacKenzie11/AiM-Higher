@@ -636,3 +636,178 @@
     -webkit-backdrop-filter: blur(2px);
   }
 }
+
+/* ---- The Scoreboard design, on /welcome only -------------------------
+   Jason, 2026-11-20. Sidebar.tsx sets data-skin="scoreboard" on the
+   rail only while the page is /welcome, so every rule below is scoped
+   to it and no other page changes. A solid navy panel with a slow blue
+   glow; on a desktop it floats inside its usual 260px (68px collapsed)
+   with rounded corners, so the page beside it does not move. Sky-blue
+   section headings, the current page as a chartreuse pill with navy
+   text, Ask Aimee tinted chartreuse, and the account in a soft card. */
+
+.sidebar[data-skin="scoreboard"] {
+  background: var(--aims-navy);
+  border-right: 0;
+  isolation: isolate;
+}
+
+.sidebar[data-skin="scoreboard"]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 260px;
+  height: 260px;
+  top: -120px;
+  left: -80px;
+  border-radius: 50%;
+  background: var(--aims-cobalt);
+  filter: blur(80px);
+  opacity: 0.45;
+  pointer-events: none;
+  animation: skinDrift 14s ease-in-out infinite alternate;
+}
+
+@keyframes skinDrift {
+  to { transform: translate(60px, 40px); }
+}
+
+@keyframes skinIn {
+  from { opacity: 0; transform: translateX(-24px); }
+}
+
+@media (min-width: 769px) {
+  .sidebar[data-skin="scoreboard"] {
+    top: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: 236px;
+    border-radius: 28px;
+    box-shadow: 0 18px 50px -24px rgb(17 21 26 / 0.55);
+    animation: skinIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .sidebar[data-skin="scoreboard"][data-collapsed="true"] {
+    left: 6px;
+    width: 56px;
+    border-radius: 20px;
+  }
+}
+
+.sidebar[data-skin="scoreboard"] .collapseToggle {
+  border: 0;
+  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  background: rgb(255 255 255 / 0.08);
+  opacity: 1;
+}
+
+.sidebar[data-skin="scoreboard"] .collapseToggle:hover {
+  background: rgb(255 255 255 / 0.16);
+}
+
+.sidebar[data-skin="scoreboard"] .contextPill {
+  border: 0;
+  border-radius: 16px;
+  background: rgb(255 255 255 / 0.07);
+}
+
+.sidebar[data-skin="scoreboard"] .sectionLabel {
+  color: var(--aims-sky);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  padding: 14px 10px 6px;
+}
+
+.sidebar[data-skin="scoreboard"] .sectionLabel:hover {
+  color: var(--aims-white);
+  background: transparent;
+}
+
+.sidebar[data-skin="scoreboard"] .sectionLabelAccent {
+  color: var(--aims-chartreuse);
+}
+
+.sidebar[data-skin="scoreboard"] .sectionDivider {
+  width: 24px;
+  height: 2px;
+  margin: 10px auto 6px;
+  border-radius: 2px;
+  background: #2c4165;
+}
+
+.sidebar[data-skin="scoreboard"] .navRow {
+  height: 44px;
+  border-radius: 14px;
+  color: var(--aims-navy-tint);
+  opacity: 1;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+}
+
+.sidebar[data-skin="scoreboard"] .navRow::before {
+  display: none;
+}
+
+.sidebar[data-skin="scoreboard"] .navRow:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: var(--aims-white);
+  transform: translateX(3px);
+}
+
+.sidebar[data-skin="scoreboard"] .navRow[href="/ask-aimee"] {
+  background: color-mix(in srgb, var(--aims-chartreuse) 12%, transparent);
+}
+
+.sidebar[data-skin="scoreboard"] .navRow[href="/ask-aimee"] .navIcon {
+  color: var(--aims-chartreuse);
+}
+
+.sidebar[data-skin="scoreboard"] .navRow[data-active="true"] {
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+  font-weight: 800;
+  transform: none;
+  animation: skinPick 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.sidebar[data-skin="scoreboard"] .navRow[data-active="true"] .navIcon {
+  color: var(--aims-navy);
+}
+
+@keyframes skinPick {
+  from { transform: scale(0.94); }
+}
+
+.sidebar[data-skin="scoreboard"] .footer {
+  border-top: 0;
+  background: transparent;
+}
+
+.sidebar[data-skin="scoreboard"] .userButton {
+  border-radius: 16px;
+  background: rgb(255 255 255 / 0.07);
+  border-color: transparent;
+}
+
+.sidebar[data-skin="scoreboard"] .userButton:hover,
+.sidebar[data-skin="scoreboard"] .userButton[aria-expanded="true"] {
+  background: rgb(255 255 255 / 0.13);
+  border-color: transparent;
+}
+
+.sidebar[data-skin="scoreboard"] .userAvatar {
+  background: var(--aims-sky);
+  color: var(--aims-navy);
+  font-weight: 900;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar[data-skin="scoreboard"],
+  .sidebar[data-skin="scoreboard"]::before,
+  .sidebar[data-skin="scoreboard"] .navRow {
+    animation: none;
+    transition: none;
+  }
+}
