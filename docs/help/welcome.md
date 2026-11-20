@@ -24,4 +24,4 @@ Everyone who kept every commitment due last week. **Owned it** means they also m
 
 ## Open commitments
 
-Everything open and due by the end of next week, plus anything past its date. Show them **By day** or **By person**. Your own have a coloured edge on the left. Press a commitment to open it, the same as on Commitments, to mark it kept, change its date or add a note.
+Everything open and due by the end of next week, plus anything past its date. Show them **By day** or **By person**. A long list shows its first six, with **Show more** for the rest. Your own have a coloured edge on the left. Press a commitment to open it, the same as on Commitments, to mark it kept, change its date or add a note.
