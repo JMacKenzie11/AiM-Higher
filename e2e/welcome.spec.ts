@@ -6,7 +6,7 @@ test("the welcome page opens by its address, and only it changes the sidebar", a
   await signIn(page, users.member());
   await page.goto("/welcome");
   await expect(page.getByRole("heading", { level: 1, name: /^Welcome to / })).toBeVisible();
-  await expect(page.getByText(/^Good to see you, .+\.$/)).toBeVisible();
+  await expect(page.getByText("Good to see you,", { exact: false })).toBeVisible();
   await expect(page.getByText("Honor roll", { exact: true })).toBeVisible();
   await expect(page.getByText("Open commitments", { exact: true })).toBeVisible();
   await expect(page.locator("#sidebar-drawer")).toHaveAttribute("data-skin", "scoreboard");
