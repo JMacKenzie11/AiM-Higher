@@ -30,6 +30,10 @@ export type WelcomeBoardProps = {
   functionalAreaOptions: CommitmentContext["functionalAreaOptions"];
 };
 
+// Cards a lane shows before "Show N more", so a company far behind sees
+// the shape of its week rather than a wall of cards.
+const LANE_SHOWS = 6;
+
 const CONFETTI = ["var(--aims-chartreuse)", "var(--aims-sky)", "var(--aims-white)", "var(--aims-cobalt)"];
 
 function weekdayLabel(iso: string): string {
@@ -60,6 +64,8 @@ export function WelcomeBoard(props: WelcomeBoardProps) {
   const { recap, followThrough, honor, open, todayIso } = props;
   const pct = useCountUp(followThrough.rate);
   const [mode, setMode] = useState<"day" | "person">("day");
+  // Lanes opened past their first few cards, by mode and lane.
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
 
   const pastDue = useMemo(() => open.filter((c) => c.due_date < todayIso), [open, todayIso]);
   const lateBy = useMemo(() => {
@@ -280,7 +286,7 @@ export function WelcomeBoard(props: WelcomeBoardProps) {
                     {ln.title}
                     <span>{ln.items.length}</span>
                   </h3>
-                  {ln.items.map(({ c, top }, k) => (
+                  {(opened.has(`${mode}:${ln.key}`) ? ln.items : ln.items.slice(0, LANE_SHOWS)).map(({ c, top }, k) => (
                     <CommitmentCard
                       key={c.id}
                       commitment={c}
@@ -300,6 +306,15 @@ export function WelcomeBoard(props: WelcomeBoardProps) {
                       }}
                     />
                   ))}
+                  {ln.items.length > LANE_SHOWS && !opened.has(`${mode}:${ln.key}`) ? (
+                    <button
+                      type="button"
+                      className={styles.showMore}
+                      onClick={() => setOpened((prev) => new Set(prev).add(`${mode}:${ln.key}`))}
+                    >
+                      Show {ln.items.length - LANE_SHOWS} more
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </div>

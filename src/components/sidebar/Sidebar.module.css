@@ -672,10 +672,6 @@
   to { transform: translate(60px, 40px); }
 }
 
-@keyframes skinIn {
-  from { opacity: 0; transform: translateX(-24px); }
-}
-
 @media (min-width: 769px) {
   .sidebar[data-skin="scoreboard"] {
     top: 12px;
@@ -684,7 +680,6 @@
     width: 236px;
     border-radius: 28px;
     box-shadow: 0 18px 50px -24px rgb(17 21 26 / 0.55);
-    animation: skinIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .sidebar[data-skin="scoreboard"][data-collapsed="true"] {
     left: 6px;
