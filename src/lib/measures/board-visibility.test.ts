@@ -124,10 +124,10 @@ describe("hasEntries decides whether the board is worth showing", () => {
 // Source-level, because these are Server Components. What is pinned
 // is the placement and the gate, both of which are a line each and
 // both of which would be quietly wrong rather than broken.
-describe("the board lives on the dashboard, under the brief", () => {
+describe("the board lives on the Dashboard tab, under the numbers", () => {
   const ROOT = path.resolve(__dirname, "../../..");
   const dashboard = readFileSync(
-    path.join(ROOT, "src/app/(app)/dashboard/page.tsx"),
+    path.join(ROOT, "src/app/(app)/dashboard/CompanyDashboard.tsx"),
     "utf8"
   );
   const measures = readFileSync(
@@ -139,15 +139,15 @@ describe("the board lives on the dashboard, under the brief", () => {
     expect(dashboard).toContain("<BoardView data={board} />");
   });
 
-  it("sits directly under the brief card", () => {
-    // "What's worth knowing today" is BriefSection. The brief says
-    // what happened this week; the board says what the last thirteen
-    // look like. Order is the whole point of where it was asked for.
-    const brief = dashboard.indexOf("<BriefSection");
+  it("sits directly under the headline numbers", () => {
+    // It sat under the brief, "What's worth knowing today", until the
+    // brief moved to the This week tab (2026-11-21). On the Dashboard
+    // tab it is first under the navy numbers tile, before the insights.
+    const numbers = dashboard.indexOf("styles.statsTile");
     const board = dashboard.indexOf("<BoardView");
     const insights = dashboard.indexOf("<MeasureInsightsCards");
-    expect(brief).toBeGreaterThan(-1);
-    expect(board).toBeGreaterThan(brief);
+    expect(numbers).toBeGreaterThan(-1);
+    expect(board).toBeGreaterThan(numbers);
     expect(board).toBeLessThan(insights);
   });
 

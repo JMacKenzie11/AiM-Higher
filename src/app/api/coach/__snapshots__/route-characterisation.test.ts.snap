@@ -45,8 +45,8 @@ exports[`what each kind of conversation is sent > an agent 1`] = `
 
 exports[`what each kind of conversation is sent > plain Aimee in the panel 1`] = `
 {
-  "system": "366ab27c415edceb",
-  "systemChars": 48200,
+  "system": "af5933bc5e551c11",
+  "systemChars": 48157,
   "tools": [
     "search_help",
     "person_record",
@@ -68,8 +68,8 @@ exports[`what each kind of conversation is sent > plain Aimee in the panel 1`] =
 
 exports[`what each kind of conversation is sent > plain Aimee on the page 1`] = `
 {
-  "system": "7a2c5bcf33048c28",
-  "systemChars": 47822,
+  "system": "c073d7ed65eac62a",
+  "systemChars": 47779,
   "tools": [
     "search_help",
     "person_record",

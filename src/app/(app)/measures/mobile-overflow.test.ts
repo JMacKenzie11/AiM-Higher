@@ -70,15 +70,14 @@ describe("the hero's bleed cancels the frame's gutter exactly", () => {
     expect(mobile).toMatch(/padding:\s*var\(--space-5\)\s+var\(--page-gutter\)/);
   });
 
-  it("pulls the stage out by that property, not by a hard-coded space", () => {
-    // Top pull stays a plain token: it cancels `.main`'s VERTICAL
-    // padding, which does not change with the viewport. The two
-    // horizontal ones are the gutter, and are the pair that drifted.
-    // The fallback keeps PageShell honest anywhere --page-gutter is
-    // not in scope, which is the behaviour it had before.
-    expect(shell).toMatch(
-      /margin:\s*calc\(-1 \* var\(--space-6\)\)\s+calc\(-1 \* var\(--page-gutter,\s*var\(--space-6\)\)\)\s+0;/
-    );
+  it("no longer pulls the stage out at all", () => {
+    // The hero was full bleed, pulled out by exactly the gutter, which
+    // is how a drift between the two overflowed every page. Since the
+    // Scoreboard design (2026-11-21) it is a tile inside the gutter, so
+    // there is no pull left to drift.
+    const stage = shell.slice(shell.indexOf(".stage {"), shell.indexOf("}", shell.indexOf(".stage {")));
+    expect(stage).not.toMatch(/margin:\s*calc\(-1/);
+    expect(stage).toMatch(/margin:\s*0 auto;/);
   });
 });
 
