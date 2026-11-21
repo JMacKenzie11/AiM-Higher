@@ -467,7 +467,7 @@ Jason, 2026-11-21 (on `/welcome` alone from 2026-11-20).
 - **Page area:** navy tint (`layout.module.css`; dark mode keeps its own background).
 - **Page header (`PageShell`):** a rounded navy tile with a cobalt glow and a chartreuse rule, in line with the content, in place of the full-bleed gradient band the content overlapped. The content starts below it.
 - **Corners:** `--radius-md` (cards, panels) is 16px and `--radius-lg` (modals, hero panels) 24px, from 10 and 16.
-- Pages that draw their own gradient hero rather than using `PageShell` keep it.
+- Pages that draw their own hero rather than using `PageShell` (the `.stage`/`.hero`/`.content` rules in the hq, admin, foundation, classroom, people, portfolio, strengths, scorecard and dashboard modules) take the same tile. The client portal and the marketing pages are unchanged.
 
 ---
 

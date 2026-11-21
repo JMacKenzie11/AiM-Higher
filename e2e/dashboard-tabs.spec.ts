@@ -17,7 +17,7 @@ test("a team member lands on the Dashboard and can switch between its two tabs",
 
   await tabs.getByRole("link", { name: "Dashboard" }).click();
   await expect(page).toHaveURL(/\/dashboard\?tab=dashboard$/);
-  await expect(page.getByText("Follow-Through Rate", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("region", { name: "Company summary" }).getByText("Follow-Through Rate", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Commitment Clarity", { exact: true })).toHaveCount(0);
 
   // The old welcome address lands here.

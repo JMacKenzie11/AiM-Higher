@@ -9,8 +9,8 @@
 
 .content {
   position: relative;
-  margin: -32px auto 0;
-  padding: 0 var(--space-6) var(--space-6);
+  margin: var(--space-5) auto 0;
+  padding: 0 0 var(--space-6);
   max-width: 1160px;
   width: 100%;
   display: flex;
