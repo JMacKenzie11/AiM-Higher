@@ -1,4 +1,5 @@
 import { getLatestDashboardBrief, getOrGenerateDashboardBrief } from "@/lib/dashboard/brief";
+import { SplitTile } from "@/components/ui/SplitTile";
 import styles from "./brief.module.css";
 
 // The week in review on the Dashboard's This week tab: a navy panel
@@ -54,19 +55,15 @@ export function BriefLoading() {
 
 function BriefTile({ id, stamp, children }: { id: string; stamp: string | null; children: React.ReactNode }) {
   return (
-    <section className={styles.tile} aria-labelledby={id}>
-      <div className={styles.side}>
-        <p className={styles.eyebrow}>
-          <span className={styles.dot} aria-hidden="true" />
-          Week in review
-        </p>
-        <h2 id={id} className={styles.title}>
-          What&rsquo;s worth knowing today
-        </h2>
-        {stamp ? <span className={styles.stamp}>{stamp}</span> : null}
-      </div>
-      <div className={styles.body}>{children}</div>
-    </section>
+    <SplitTile
+      id={id}
+      eyebrow="Week in review"
+      title={<>What&rsquo;s worth knowing today</>}
+      footer={stamp}
+      bodyClassName={styles.body}
+    >
+      {children}
+    </SplitTile>
   );
 }
 

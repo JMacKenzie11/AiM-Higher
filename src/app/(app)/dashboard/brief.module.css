@@ -1,90 +1,8 @@
-/* The week in review tile (Jason, 2026-11-21): a navy panel with the
-   title beside the summary on white, matching the This week tiles. */
-
-.tile {
-  display: grid;
-  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
-  background: var(--aims-white);
-  border-radius: 24px;
-  overflow: hidden;
-  min-height: 200px;
-}
-
-.side {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: var(--aims-navy);
-  color: var(--aims-white);
-  padding: 26px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.side::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  width: 260px;
-  height: 260px;
-  bottom: -150px;
-  left: -90px;
-  border-radius: 50%;
-  background: var(--aims-cobalt);
-  filter: blur(70px);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--aims-sky);
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--aims-chartreuse);
-  box-shadow: 0 0 0 0 rgb(214 226 100 / 0.6);
-  animation: ping 2.4s ease-out infinite;
-}
-
-@keyframes ping {
-  0% { box-shadow: 0 0 0 0 rgb(214 226 100 / 0.6); }
-  70%, 100% { box-shadow: 0 0 0 8px rgb(214 226 100 / 0); }
-}
-
-.title {
-  margin: 0;
-  font-size: clamp(22px, 2.2vw, 28px);
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  color: var(--aims-white);
-}
-
-.stamp {
-  margin-top: auto;
-  padding-top: 12px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #a8b4c4;
-}
+/* The week in review's summary, inside SplitTile (2026-11-21). */
 
 .body {
   display: flex;
   align-items: center;
-  padding: 28px 34px;
-  min-width: 0;
 }
 
 .text {
@@ -133,20 +51,7 @@
   30% { transform: translateY(-4px); opacity: 1; }
 }
 
-@media (max-width: 760px) {
-  .tile {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .side {
-    padding: 22px;
-  }
-  .body {
-    padding: 22px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .dot,
   .dots span {
     animation: none;
   }
