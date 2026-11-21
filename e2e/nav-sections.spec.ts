@@ -40,12 +40,12 @@ test.describe("sidebar sections", () => {
     // Home starts closed, and once opened stays open for the session.
     const home = nav.getByRole("button", { name: "Home", exact: true });
     await expect(home).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
-    await expect(nav.getByRole("link", { name: "This week", exact: true })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Dashboard", exact: true })).toHaveCount(0);
     await home.click();
     await page.reload();
-    await expect(nav.getByRole("link", { name: "This week", exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(nav.getByRole("link", { name: "Dashboard", exact: true })).toBeVisible({ timeout: 30_000 });
     const names = (await nav.getByRole("link").allInnerTexts()).map((t) => t.trim()).filter(Boolean);
-    expect(names.indexOf("Ask Aimee")).toBe(names.indexOf("This week") - 1);
+    expect(names.indexOf("Ask Aimee")).toBe(names.indexOf("Dashboard") - 1);
     // Classroom, when the company has it, is the last page under Home.
     if (names.includes("Classroom")) expect(names.indexOf("Classroom")).toBe(names.indexOf("AiMS Implementation") + 1);
   });

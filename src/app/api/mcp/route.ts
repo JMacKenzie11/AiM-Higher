@@ -194,7 +194,7 @@ const HANDOFF = { readOnlyHint: false, destructiveHint: false, idempotentHint: f
 // call is a run).
 const RECORD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 // set_recap_video (0328). It writes one row and replaces which video a
-// company's welcome page shows, so it is not read only. Not
+// company's Dashboard shows, so it is not read only. Not
 // destructive: every earlier link is kept. Not idempotent: each call is
 // a new row.
 const SETS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
@@ -559,7 +559,7 @@ const handler = createMcpHandler(
       {
         title: "Set a company's recap video",
         description:
-          "Saves a Vimeo link as a company's weekly recap video. The newest link is the one the company's welcome page shows, in place of the last one; earlier links are kept. Name the company by its exact name or its id (list_my_companies); a name that matches no company, or more than one, is refused. The link must be a Vimeo video, such as https://vimeo.com/123456789 (an unlisted one with its hash, https://vimeo.com/123456789/abcdef1234). Give meeting_id, from list_meetings, when the video recaps a particular meeting. Only a system admin or an admin of that company may call this.",
+          "Saves a Vimeo link as a company's weekly recap video. The newest link is the one the company's Dashboard shows, in place of the last one; earlier links are kept. Name the company by its exact name or its id (list_my_companies); a name that matches no company, or more than one, is refused. The link must be a Vimeo video, such as https://vimeo.com/123456789 (an unlisted one with its hash, https://vimeo.com/123456789/abcdef1234). Give meeting_id, from list_meetings, when the video recaps a particular meeting. Only a system admin or an admin of that company may call this.",
         inputSchema: z.object({
           company: z
             .string()

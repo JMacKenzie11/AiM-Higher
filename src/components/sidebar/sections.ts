@@ -58,9 +58,9 @@ export const SECTIONS: readonly Section[] = [
     icon: "dashboard",
     feature: "execution",
     tabs: [
-      // A team member's Home is My week under its own switch; the tab
-      // keeps one name for both so the row does not change under them.
-      { label: "This week", href: "/dashboard", icon: "dashboard" },
+      // Where a company lands: This week and the company dashboard, as
+      // two tabs on the one page (2026-11-21).
+      { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
       // How the practice is landing: an admin's and a guide's question.
       { label: "AiMS Implementation", href: "/scorecard", icon: "gauge", roles: ADMINISH },
     ],

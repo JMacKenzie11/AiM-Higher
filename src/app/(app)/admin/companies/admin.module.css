@@ -12,13 +12,36 @@
      dragged every fixed panel with it, because `right: 0` resolves
      against the document. PageShell's copy of this rule was fixed in
      #242; these ten were not. See (app)/layout.module.css. */
-  margin: calc(-1 * var(--space-6)) calc(-1 * var(--page-gutter, var(--space-6))) 0;
+  max-width: 1160px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .hero {
-  background: var(--grad-brand);
+  /* The Scoreboard design (2026-11-21), as PageShell: a rounded navy
+     tile with a cobalt glow, in line with the content. */
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--aims-navy);
   color: var(--aims-white);
-  padding: var(--space-6) var(--space-6) var(--space-8);
+  border-radius: 24px;
+  padding: var(--space-6);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 420px;
+  height: 420px;
+  top: -220px;
+  right: -120px;
+  border-radius: 50%;
+  background: var(--aims-cobalt);
+  filter: blur(90px);
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 /* Keyboard focus on the navy hero: chartreuse, as on the sidebar
@@ -117,8 +140,8 @@
 
 .content {
   position: relative;
-  margin: -32px auto 0;
-  padding: 0 var(--space-6) var(--space-6);
+  margin: var(--space-5) auto 0;
+  padding: 0 0 var(--space-6);
   max-width: 1160px;
   width: 100%;
   display: flex;
@@ -760,7 +783,7 @@
 
 @media (max-width: 768px) {
   .stage {
-    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) 0;
+    margin: 0;
   }
   .hero,
   .content {

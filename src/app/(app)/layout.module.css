@@ -79,9 +79,8 @@
    width and the panel sits over its right-hand edge, with no scrim, so
    everything not under it stays usable. */
 
-/* /welcome's page area (Jason, 2026-11-20): navy tint behind the
-   Scoreboard tiles. Applies only while the sidebar carries the
-   Scoreboard design, which it does on /welcome alone (Sidebar.tsx). */
-.frame:has([data-skin="scoreboard"]) {
+/* The Scoreboard design's page area (Jason, 2026-11-21, every page):
+   navy tint behind white and navy tiles. Dark mode keeps its own. */
+:root:not([data-theme="dark"]) .frame {
   background: var(--aims-navy-tint);
 }

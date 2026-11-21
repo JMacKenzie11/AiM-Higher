@@ -1,4 +1,4 @@
-// THE HONOR ROLL on /welcome: who kept every commitment due last week.
+// THE HONOR ROLL on the Dashboard's This week tab: who kept every commitment due last week.
 //
 // Jason, 2026-11-19. The tile is always called "Honor roll".
 //   Owned it      every commitment due last week kept, and each one

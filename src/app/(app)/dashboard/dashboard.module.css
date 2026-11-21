@@ -14,13 +14,36 @@
      dragged every fixed panel with it, because `right: 0` resolves
      against the document. PageShell's copy of this rule was fixed in
      #242; these ten were not. See (app)/layout.module.css. */
-  margin: calc(-1 * var(--space-6)) calc(-1 * var(--page-gutter, var(--space-6))) 0;
+  max-width: 1160px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .hero {
-  background: var(--grad-brand);
+  /* The Scoreboard design (2026-11-21), as PageShell: a rounded navy
+     tile with a cobalt glow, in line with the content. */
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--aims-navy);
   color: var(--aims-white);
-  padding: var(--space-6) var(--space-6) var(--space-8);
+  border-radius: 24px;
+  padding: var(--space-6);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 420px;
+  height: 420px;
+  top: -220px;
+  right: -120px;
+  border-radius: 50%;
+  background: var(--aims-cobalt);
+  filter: blur(90px);
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 /* Keyboard focus on the navy hero: chartreuse, as on the sidebar
@@ -116,9 +139,46 @@
 /* Secondary strip — the four supporting stats. Now that Follow-
    Through Rate is out of this row, we have four instead of five,
    which lays out cleaner at every breakpoint. */
+/* The Dashboard tab's headline numbers: a navy tile, as on This week
+   (Jason, 2026-11-21). The stats were made for the navy hero, so they
+   keep their white-on-navy look here. */
+.statsTile {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--aims-navy);
+  color: var(--aims-white);
+  border-radius: 24px;
+  padding: var(--space-5);
+}
+.statsTile::before {
+  content: "";
+  position: absolute;
+  inset: -40% -10% auto auto;
+  width: 60%;
+  height: 160%;
+  background: radial-gradient(closest-side, rgba(53, 81, 164, 0.55), transparent);
+  z-index: -1;
+  pointer-events: none;
+}
+.statsTile :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+.statsEyebrow {
+  margin: 0 0 var(--space-3);
+  color: var(--aims-sky);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.statsEyebrow a {
+  color: var(--aims-chartreuse);
+}
+
 .statRow {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
   margin-top: var(--space-4);
 }
@@ -304,8 +364,8 @@
 
 .content {
   position: relative;
-  margin: -32px auto 0;
-  padding: 0 var(--space-6) var(--space-6);
+  margin: var(--space-5) auto 0;
+  padding: 0 0 var(--space-6);
   max-width: 1160px;
   width: 100%;
   display: flex;
@@ -804,28 +864,6 @@
   margin: 0;
 }
 
-/* Out of flow, so it takes no width and adds no wrap point: the text
-   wraps exactly as it will once the cursor is gone. With no offsets it
-   sits at its static position, right after the last revealed letter. */
-.briefCursor {
-  position: absolute;
-  width: 8px;
-  height: 1.1em;
-  background: var(--primary);
-  margin-top: 0.3em;
-  margin-left: 3px;
-  animation: briefCursorPulse 0.9s ease-in-out infinite;
-}
-
-.briefUnrevealed {
-  color: transparent;
-}
-
-@keyframes briefCursorPulse {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 1; }
-}
-
 .briefTimestamp {
   display: block;
   margin-top: var(--space-3);
@@ -976,7 +1014,7 @@
 
 @media (max-width: 768px) {
   .stage {
-    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) 0;
+    margin: 0;
   }
   .hero,
   .content {

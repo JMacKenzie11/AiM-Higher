@@ -117,7 +117,7 @@ const APP_ITEMS: readonly NavItem[] = [
       },
       {
         kind: "link",
-        label: "This week",
+        label: "Dashboard",
         href: "/dashboard",
         icon: "dashboard",
       },
@@ -421,13 +421,11 @@ export function Sidebar({
     setMobileOpen(false);
   }, [pathname]);
 
-  // The Scoreboard design (on /welcome only) shows how many of the
-  // company's commitments need attention beside Commitments. Read only
-  // while it is on, so every other page is unchanged.
-  const skinned = pathname === "/welcome";
+  // How many of the company's commitments need attention, beside
+  // Commitments (the Scoreboard design). Read again on each page, so a
+  // commitment closed on one page is off the count on the next.
   const [attention, setAttention] = useState<number | null>(null);
   useEffect(() => {
-    if (!skinned) return;
     let live = true;
     needsAttentionCountAction().then((n) => {
       if (live) setAttention(n);
@@ -435,8 +433,8 @@ export function Sidebar({
     return () => {
       live = false;
     };
-  }, [skinned]);
-  const badgeFor = (href: string) => (skinned && href === "/commitments" && attention ? attention : null);
+  }, [pathname]);
+  const badgeFor = (href: string) => (href === "/commitments" && attention ? attention : null);
 
   // Escape closes the mobile drawer and hands focus back to the button
   // that opened it. A menu open inside the drawer (the account menu)
@@ -535,7 +533,7 @@ export function Sidebar({
     const pages = visibleTabs(sec, userRole, features).map(
       (t): NavLink => ({ kind: "link", label: t.label, href: t.href, icon: t.icon })
     );
-    // Home keeps its own name when it is one page ("This week" is a
+    // Home keeps its own name when it is one page ("Dashboard" is a
     // tab's name, read beside the others).
     // Ask Aimee is the first link after Home and Classroom the last
     // (Jason, 2026-10-30: both back in the sidebar from the account
@@ -648,9 +646,8 @@ export function Sidebar({
         className={styles.sidebar}
         data-collapsed={collapsed ? "true" : undefined}
         data-mobile-open={mobileOpen ? "true" : undefined}
-        // The Scoreboard design, on /welcome only (Jason, 2026-11-20):
-        // every other page keeps the sidebar as it is.
-        data-skin={skinned ? "scoreboard" : undefined}
+        // The Scoreboard design, on every page (Jason, 2026-11-21).
+        data-skin="scoreboard"
         aria-label="Primary"
       >
         <div className={styles.header}>

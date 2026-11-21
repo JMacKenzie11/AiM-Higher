@@ -1,5 +1,7 @@
-/* Standard page chrome: full-bleed gradient hero + centered content
-   band that overlaps the hero by 32px. Applied to every top-level
+/* Standard page chrome, in the Scoreboard design (Jason, 2026-11-21):
+   the hero is a rounded navy tile with a slow blue glow, on the navy
+   tint page, and the content band starts below it. Until then it was a
+   full-bleed gradient band with the content overlapping its last 32px. Applied to every top-level
    app page via <PageShell> so the whole product reads as one design
    instead of a patchwork. Values mirror the legacy admin.module.css
    hero so pages that still import that module remain aligned. */
@@ -8,15 +10,41 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  /* Cancels the app frame's gutter exactly, whatever it currently
-     is. See --page-gutter in (app)/layout.module.css. */
-  margin: calc(-1 * var(--space-6)) calc(-1 * var(--page-gutter, var(--space-6))) 0;
+  max-width: 1160px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .hero {
-  background: var(--grad-brand);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--aims-navy);
   color: var(--aims-white);
-  padding: var(--space-6) var(--space-6) var(--space-8);
+  border-radius: 24px;
+  padding: var(--space-6);
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 420px;
+  height: 420px;
+  top: -220px;
+  right: -120px;
+  border-radius: 50%;
+  background: var(--aims-cobalt);
+  filter: blur(90px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: var(--space-5);
+    border-radius: 20px;
+  }
 }
 
 /* Keyboard focus on the hero. The global cobalt ring is 1.0 to
@@ -38,7 +66,6 @@
   flex-direction: column;
   gap: var(--space-3);
   width: 100%;
-  padding-bottom: var(--space-4);
 }
 
 /* Back link sits on top of the navy hero — the global `a` rule
@@ -100,10 +127,10 @@
 
 .rule {
   display: block;
-  height: 3px;
-  width: 72px;
+  height: 4px;
+  width: 56px;
   border-radius: var(--radius-pill);
-  background: var(--grad-rule);
+  background: var(--aims-chartreuse);
 }
 
 .subtitle {
@@ -115,9 +142,8 @@
 
 .content {
   position: relative;
-  margin: -32px auto 0;
-  padding: 0 var(--space-6) var(--space-6);
-  max-width: 1160px;
+  margin: var(--space-5) 0 0;
+  padding: 0 0 var(--space-6);
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -126,8 +152,7 @@
 
 /* PageShell's flush: below the hero, not over it (Company settings). */
 .contentFlush {
-  margin-top: 0;
-  padding-top: var(--space-6);
+  margin-top: var(--space-5);
 }
 
 /* A short message with one way forward, for pages that are only
