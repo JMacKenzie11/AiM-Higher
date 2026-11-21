@@ -17,6 +17,7 @@ import { scoreForRow } from "@/lib/leadership/facilitation/score";
 import { displayScore, signalTone } from "@/components/leadership/FacilitationReview";
 import { dueLabel } from "@/lib/commitments/due-label";
 import { AnalysisTabs } from "./AnalysisTabs";
+import { SplitTile } from "@/components/ui/SplitTile";
 import tabStyles from "./analysis-tabs.module.css";
 import type {
   ExtractedCommitment,
@@ -440,16 +441,13 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
           ordinary: the prompt omits the section rather than
           manufacture one, and then no card renders. */}
       {analysisParts.values ? (
-        <section className={styles.card} aria-labelledby="core-values">
-          <h2 id="core-values" className={styles.h2}>
-            Core Values in Action
-          </h2>
+        <SplitTile id="core-values" title="Core Values in Action" meta={coaching ? "Where the call showed the company's values." : "Where the meeting showed the company's values."}>
           <div className="aims-prose">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {analysisParts.values}
             </ReactMarkdown>
           </div>
-        </section>
+        </SplitTile>
       ) : null}
       {facilitationReview ? (
         <FacilitationReview review={facilitationReview} score={score} />
@@ -545,10 +543,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
 
   // ---- Tab 3: Meeting Analysis --------------------------------
   const fullRecord = (
-    <section className={styles.card} aria-labelledby="analysis">
-      <h2 id="analysis" className={styles.h2}>
-        Meeting Analysis
-      </h2>
+    // The Scoreboard split tile, stacked: the read needs the full width.
+    <SplitTile id="analysis" title="Meeting Analysis" stacked>
       {analysis?.analysis_markdown ? (
         <>
           {/* SAY SO WHEN IT IS CUT OFF, from the recorded flag
@@ -572,7 +568,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       ) : (
         <p className={styles.emptyLine}>Analysis not available.</p>
       )}
-    </section>
+    </SplitTile>
   );
 
   return (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SplitTile } from "@/components/ui/SplitTile";
 import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
@@ -110,18 +111,23 @@ export default async function ScorecardPage() {
             const trend = trajectoryFor(config.key, scorecard);
             const spark = scorecard.timeseries[config.key];
             return (
-              <article
+              // The Scoreboard split tile, stacked (2026-11-21): the
+              // discipline and its score on navy, the read below.
+              <SplitTile
                 key={config.key}
-                className={styles.card}
-                aria-label={config.label}
-              >
-                <header className={styles.cardHeader}>
-                  <div className={styles.cardTitleGroup}>
-                    <h2 className={styles.cardTitle}>{config.label}</h2>
+                as="article"
+                id={`discipline-${config.key}`}
+                stacked
+                className={styles.splitCard}
+                bodyClassName={styles.splitBody}
+                title={
+                  <span className={styles.cardTitleGroup}>
+                    {config.label}
                     <InfoTip note={config.scoringNote} label={config.label} />
-                  </div>
-                  <ScorePill score={score?.score ?? null} />
-                </header>
+                  </span>
+                }
+                aside={<ScorePill score={score?.score ?? null} />}
+              >
                 <p className={styles.cardBlurb}>{config.blurb}</p>
 
                 {config.showsTrend ? (
@@ -147,7 +153,7 @@ export default async function ScorecardPage() {
                 <Link href={config.href} className={styles.cardCta}>
                   {config.hrefLabel} →
                 </Link>
-              </article>
+              </SplitTile>
             );
           })}
         </div>

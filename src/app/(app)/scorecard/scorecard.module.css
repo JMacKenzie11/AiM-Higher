@@ -204,6 +204,17 @@
   gap: var(--space-2);
 }
 
+/* A discipline as a stacked SplitTile (2026-11-21). The info button
+   sits on the navy panel, so it takes the panel's light ink. */
+.splitCard .infoTip {
+  color: var(--aims-sky);
+}
+.splitBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .cardHeader {
   display: flex;
   align-items: center;

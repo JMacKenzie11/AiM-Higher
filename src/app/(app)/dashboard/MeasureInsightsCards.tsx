@@ -1,4 +1,4 @@
-import { CardAccent } from "@/components/ui/CardAccent";
+import { SplitTile, SplitTileStat } from "@/components/ui/SplitTile";
 import type {
   MeasureCardItem,
   MeasureInsights,
@@ -63,14 +63,12 @@ export function MeasureInsightsCards({
 function GainingGroundCard({ items }: { items: MeasureCardItem[] }) {
   const headingId = "gaining-ground";
   return (
-    <section className={styles.cardAccent} aria-labelledby={headingId}>
-      <CardAccent />
-      <h2 id={headingId} className={styles.h2}>
-        Gaining ground this quarter
-      </h2>
-      <p className={styles.cardMeta}>
-        Measures moving in the right direction across the last 6 weeks.
-      </p>
+    <SplitTile
+      id={headingId}
+      title="Gaining ground this quarter"
+      meta="Measures moving in the right direction across the last 6 weeks."
+      aside={<SplitTileStat value={items.length} label={items.length === 1 ? "measure" : "measures"} />}
+    >
       <ul className={styles.trendList}>
         {items.map((item, index) => (
           <li
@@ -91,7 +89,7 @@ function GainingGroundCard({ items }: { items: MeasureCardItem[] }) {
           </li>
         ))}
       </ul>
-    </section>
+    </SplitTile>
   );
 }
 
@@ -229,14 +227,12 @@ function Sparkline({
 function WinsThisWeekCard({ items }: { items: MeasureCardItem[] }) {
   const headingId = "wins-this-week";
   return (
-    <section className={styles.cardAccent} aria-labelledby={headingId}>
-      <CardAccent />
-      <h2 id={headingId} className={styles.h2}>
-        Wins this week
-      </h2>
-      <p className={styles.cardMeta}>
-        Measures that hit target for the week just ended.
-      </p>
+    <SplitTile
+      id={headingId}
+      title="Wins this week"
+      meta="Measures that hit target for the week just ended."
+      aside={<SplitTileStat value={items.length} label="on target" />}
+    >
       <ul className={styles.winList}>
         {items.map((item, index) => (
           <li
@@ -270,7 +266,7 @@ function WinsThisWeekCard({ items }: { items: MeasureCardItem[] }) {
           </li>
         ))}
       </ul>
-    </section>
+    </SplitTile>
   );
 }
 
@@ -351,13 +347,13 @@ function MeasureCard({
 }) {
   const headingId = heading.toLowerCase().replace(/[^a-z]+/g, "-");
   return (
-    <section className={styles.cardAccent} aria-labelledby={headingId}>
-      <CardAccent />
-      <h2 id={headingId} className={styles.h2}>
-        {heading}
-      </h2>
-      <p className={styles.cardMeta}>{meta}</p>
-      <ul style={{ listStyle: "none", padding: 0, margin: "var(--space-3) 0 0" }}>
+    <SplitTile
+      id={headingId}
+      title={heading}
+      meta={meta}
+      aside={<SplitTileStat value={items.length} label={items.length === 1 ? "measure" : "measures"} />}
+    >
+      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {items.map((item) => (
           <li
             key={item.measureId}
@@ -381,6 +377,6 @@ function MeasureCard({
           </li>
         ))}
       </ul>
-    </section>
+    </SplitTile>
   );
 }

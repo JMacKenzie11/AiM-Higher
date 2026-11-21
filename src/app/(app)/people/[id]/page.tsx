@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SplitTile, SplitTileStat } from "@/components/ui/SplitTile";
 import { isCompanyRole } from "@/lib/types";
 import { notFound } from "next/navigation";
 import { requireProfile } from "@/lib/auth/current-user";
@@ -139,22 +140,21 @@ export default async function PersonScorecardPage({ params }: PageProps) {
         ) : null}
 
         {/* ---- Scorecard ---- */}
-        <section className={styles.card} aria-labelledby="scorecard">
-          <h2 id="scorecard" className={styles.h2}>
-            Scorecard
-          </h2>
-          <p className={styles.cardMeta}>Open quarter.</p>
-
-          <div className={styles.personStatRow}>
-            <PersonStat
+        {/* The Scoreboard split tile (2026-11-21): the rate in the navy
+            panel, the counts and the trend beside it. */}
+        <SplitTile
+          id="scorecard"
+          title="Scorecard"
+          meta="Open quarter."
+          aside={
+            <SplitTileStat
+              value={data.stats.keepRate === null ? null : `${data.stats.keepRate}%`}
               label="Follow-Through Rate"
-              term="followThroughRate"
-              value={
-                data.stats.keepRate === null
-                  ? "—"
-                  : `${data.stats.keepRate}%`
-              }
+              empty="Nothing resolved yet"
             />
+          }
+        >
+          <div className={styles.personStatRow}>
             <PersonStat
               label="Kept"
               term="kept"
@@ -196,7 +196,7 @@ export default async function PersonScorecardPage({ params }: PageProps) {
               </PrivacyNote>
             )}
           </div>
-        </section>
+        </SplitTile>
 
         {/* ---- Open Commitments ---- */}
         <section className={styles.card} aria-labelledby="open">
