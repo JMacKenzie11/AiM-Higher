@@ -136,8 +136,8 @@
 
   /* ---- Radius (brand is round & friendly) ---- */
   --radius-sm: 6px;    /* inputs, table cells */
-  --radius-md: 10px;   /* cards, panels */
-  --radius-lg: 16px;   /* modals, hero panels */
+  --radius-md: 16px;   /* cards, panels (Scoreboard design, 2026-11-21) */
+  --radius-lg: 24px;   /* modals, hero panels */
   --radius-pill: 999px;/* badges and status chips — NOT buttons */
   /* Buttons. Deliberately not the pill: fully-rounded buttons and
      fully-rounded status chips were the same shape, so a chip read as

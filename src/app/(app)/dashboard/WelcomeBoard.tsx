@@ -1,25 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CommitmentWithMeta } from "@/lib/commitments/service";
 import type { HonorRoll } from "@/lib/welcome/honor-roll";
-import type { WelcomeRecap } from "@/lib/welcome/data";
+import type { WeekWins, WelcomeRecap } from "@/lib/welcome/data";
 import { formatShortDate } from "@/lib/dates";
 import { useRegisterCommitment, useWorkDrawer, type CommitmentContext } from "@/components/work-drawer/context";
 import styles from "./welcome.module.css";
 
 // THE SCOREBOARD (Jason, 2026-11-19): the recap video, last week's
-// Follow-Through, what is past due, the honor roll, and the open
-// commitments ahead. A commitment opens the same drawer as on
-// Commitments, with the same edits.
+// Follow-Through, what is done so far this week, the week in review,
+// the honor roll, and the open commitments ahead. A commitment opens
+// the same drawer as on Commitments, with the same edits. The "This
+// week" tab of the Dashboard (Jason, 2026-11-21); the page header and
+// tabs are the page's own (dashboard/page.tsx).
 
 export type WelcomeBoardProps = {
-  firstName: string;
-  companyName: string;
-  meetingLine: string;
   recap: WelcomeRecap | null;
   followThrough: { rate: number | null; keptOnTime: number; resolved: number };
   honor: HonorRoll;
+  wins: WeekWins;
+  // The week in review (BriefSection), streamed by the page.
+  brief: ReactNode;
   open: CommitmentWithMeta[];
   writable: string[];
   todayIso: string;
@@ -61,23 +63,17 @@ function useCountUp(target: number | null): number {
 }
 
 export function WelcomeBoard(props: WelcomeBoardProps) {
-  const { recap, followThrough, honor, open, todayIso } = props;
+  const { recap, followThrough, honor, wins, open, todayIso } = props;
   const pct = useCountUp(followThrough.rate);
   const [mode, setMode] = useState<"day" | "person">("day");
   // Lanes opened past their first few cards, by mode and lane.
   const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
 
   const pastDue = useMemo(() => open.filter((c) => c.due_date < todayIso), [open, todayIso]);
-  const lateBy = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const c of pastDue) {
-      const name = c.owner?.full_name ?? "Unassigned";
-      counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-    const rows = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    const max = rows[0]?.[1] ?? 1;
-    return rows.slice(0, 5).map(([name, n]) => ({ name, n, w: `${(n / max) * 100}%` }));
-  }, [pastDue]);
+  const winRows = useMemo(() => {
+    const max = wins.people[0]?.n ?? 1;
+    return wins.people.slice(0, 5).map((p) => ({ ...p, w: `${(p.n / max) * 100}%` }));
+  }, [wins]);
 
   const lanes = useMemo(() => {
     if (mode === "day") {
@@ -128,20 +124,6 @@ export function WelcomeBoard(props: WelcomeBoardProps) {
 
   return (
     <div className={styles.page}>
-      <header className={`${styles.head} ${styles.pop}`}>
-        <div>
-          <div className={styles.hi}>Good to see you, {props.firstName}.</div>
-          <h1 className={styles.h1}>Welcome to {props.companyName}</h1>
-          <div className={styles.sub}>{props.meetingLine}</div>
-        </div>
-        {recap?.isNew ? (
-          <span className={styles.live}>
-            <i aria-hidden="true" />
-            New recap this week
-          </span>
-        ) : null}
-      </header>
-
       <div className={styles.bento}>
         <section className={`${styles.tile} ${styles.vid} ${styles.pop}`} style={{ animationDelay: "0.05s" }} aria-label="Weekly recap video">
           <div className={styles.frame}>
@@ -198,14 +180,14 @@ export function WelcomeBoard(props: WelcomeBoardProps) {
           )}
         </section>
 
-        <section className={`${styles.tile} ${styles.late} ${styles.pop}`} style={{ animationDelay: "0.19s" }}>
-          <p className={styles.lbl}>Past due</p>
-          <div className={`${styles.lnum} ${pastDue.length === 0 ? styles.lateClear : ""}`}>{pastDue.length}</div>
-          {pastDue.length === 0 ? (
-            <p className={styles.empty} style={{ marginTop: 12 }}>Nothing open past its date.</p>
+        <section className={`${styles.tile} ${styles.wins} ${styles.pop}`} style={{ animationDelay: "0.19s" }}>
+          <p className={styles.lbl}>Done this week</p>
+          <div className={styles.lnum}>{wins.total}</div>
+          {wins.total === 0 ? (
+            <p className={styles.empty} style={{ marginTop: 12 }}>The first wins of the week show here.</p>
           ) : (
             <div className={styles.lwho}>
-              {lateBy.map((l) => (
+              {winRows.map((l) => (
                 <div key={l.name} className={styles.lrow}>
                   <span title={l.name}>{l.name}</span>
                   <span className={styles.lbar}>
@@ -217,6 +199,10 @@ export function WelcomeBoard(props: WelcomeBoardProps) {
             </div>
           )}
         </section>
+
+        <div className={`${styles.briefSlot} ${styles.pop}`} style={{ animationDelay: "0.24s" }}>
+          {props.brief}
+        </div>
 
         <section className={`${styles.tile} ${styles.honor} ${styles.pop}`} style={{ animationDelay: "0.26s" }}>
           <p className={styles.lbl} style={{ margin: 0 }}>

@@ -8,7 +8,7 @@ import { summarizeFollowThrough, type FollowThroughSummary } from "@/lib/commitm
 import { vimeoEmbedUrl } from "@/lib/recap-video/vimeo";
 import { honorRoll, type HonorRoll, type LastWeekRow } from "./honor-roll";
 
-// WHAT /welcome SHOWS (Jason, 2026-11-20). Read as the person, so every
+// WHAT THE DASHBOARD'S THIS WEEK TAB SHOWS (Jason, 2026-11-20). Read as the person, so every
 // read is what their own access rules allow, the same as the pages these
 // numbers come from.
 //
@@ -16,6 +16,9 @@ import { honorRoll, type HonorRoll, type LastWeekRow } from "./honor-roll";
 //   lastWeek      commitments due in the week that ended last Friday:
 //                 Follow-Through Rate by the product's one rule
 //                 (follow-through.ts) and the honor roll
+//   wins          what is done so far this week (due by this Friday and
+//                 kept), by person: the strengths-based tile that took
+//                 the past-due one's place (Jason, 2026-11-21)
 //   open          open commitments due by the end of next week, and
 //                 everything open past its date, as the Commitments page
 //                 lists them, so the same drawer opens on them
@@ -31,6 +34,7 @@ export type WelcomeData = {
   recap: WelcomeRecap | null;
   latestMeeting: { title: string; date: string } | null;
   lastWeek: { weekEnding: string; followThrough: FollowThroughSummary; honor: HonorRoll };
+  wins: WeekWins;
   open: CommitmentWithMeta[];
   todayIso: string;
   thisFriday: string;
@@ -40,7 +44,10 @@ export type WelcomeData = {
   functionalAreaOptions: Array<{ id: string; title: string }>;
 };
 
+export type WeekWins = { total: number; people: Array<{ name: string; n: number }> };
+
 const NEW_FOR_DAYS = 7;
+const KEPT = ["kept_on_time", "kept_late"];
 
 export async function getWelcomeData(companyId: string, viewerId: string, timezone: string): Promise<WelcomeData> {
   const db = await createSupabaseServerClient(getCurrentInstanceConfig());
@@ -49,7 +56,7 @@ export async function getWelcomeData(companyId: string, viewerId: string, timezo
   const weekEnding = lastFriday(timezone);
   const horizon = addDays(friday, 7);
 
-  const [videoRes, meetingRes, lastRes, occRes, page] = await Promise.all([
+  const [videoRes, meetingRes, lastRes, occRes, page, winRes, winOccRes] = await Promise.all([
     db
       .from("recap_videos")
       .select("vimeo_id, vimeo_hash, created_at, meeting:meetings(meeting_title, created_at)")
@@ -81,8 +88,24 @@ export async function getWelcomeData(companyId: string, viewerId: string, timezo
       .is("commitments.deleted_at", null)
       .is("commitments.parked_at", null),
     getCommitmentsPageData(companyId, viewerId, { owner: "all", status: "all", type: "all" }),
+    db
+      .from("commitments")
+      .select("owner_id")
+      .eq("company_id", companyId)
+      .eq("week_ending", friday)
+      .in("status", KEPT)
+      .is("deleted_at", null)
+      .is("parked_at", null),
+    db
+      .from("commitment_occurrences")
+      .select("commitments!inner(owner_id, company_id, deleted_at, parked_at)")
+      .eq("week_ending", friday)
+      .in("status", KEPT)
+      .eq("commitments.company_id", companyId)
+      .is("commitments.deleted_at", null)
+      .is("commitments.parked_at", null),
   ]);
-  for (const r of [videoRes, meetingRes, lastRes, occRes]) {
+  for (const r of [videoRes, meetingRes, lastRes, occRes, winRes, winOccRes]) {
     if (r.error) throw new Error(`welcome read failed: ${r.error.code ?? ""} ${r.error.message}`);
   }
 
@@ -125,7 +148,11 @@ export async function getWelcomeData(companyId: string, viewerId: string, timezo
     ...lastRows.map((r) => ({ owner_id: r.owner_id, status: r.status, by: r.resolved_by_profile_id })),
     ...occRows.map((o) => ({ owner_id: o.commitments.owner_id, status: o.status, by: o.resolved_by_profile_id })),
   ].filter((r): r is { owner_id: string; status: string; by: string | null } => Boolean(r.owner_id));
-  const unnamed = [...new Set(owned.map((r) => r.owner_id))].filter((id) => !names.has(id));
+  const winOwners = [
+    ...((winRes.data ?? []) as Array<{ owner_id: string | null }>).map((r) => r.owner_id),
+    ...((winOccRes.data ?? []) as unknown as Array<{ commitments: { owner_id: string | null } }>).map((o) => o.commitments.owner_id),
+  ];
+  const unnamed = [...new Set([...owned.map((r) => r.owner_id), ...winOwners.filter((id): id is string => Boolean(id))])].filter((id) => !names.has(id));
   if (unnamed.length > 0) {
     const { data } = await db.from("profiles").select("id, full_name").in("id", unnamed);
     for (const p of (data ?? []) as Array<{ id: string; full_name: string | null }>) names.set(p.id, p.full_name ?? "");
@@ -137,6 +164,18 @@ export async function getWelcomeData(companyId: string, viewerId: string, timezo
     resolved_by_profile_id: r.by,
   }));
 
+  const winCounts = new Map<string, number>();
+  for (const id of winOwners) {
+    const name = (id ? names.get(id)?.trim() : "") || "Unassigned";
+    winCounts.set(name, (winCounts.get(name) ?? 0) + 1);
+  }
+  const wins: WeekWins = {
+    total: winOwners.length,
+    people: [...winCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name, n]) => ({ name, n })),
+  };
+
   const open = [...page.mainList, ...page.futureList]
     .filter((c) => c.status === "open" && c.due_date <= horizon)
     .sort((a, b) => a.due_date.localeCompare(b.due_date) || (a.owner?.full_name ?? "").localeCompare(b.owner?.full_name ?? ""));
@@ -145,6 +184,7 @@ export async function getWelcomeData(companyId: string, viewerId: string, timezo
     recap,
     latestMeeting: asMeeting(((meetingRes.data ?? [])[0] as MeetingRef | undefined) ?? null),
     lastWeek: { weekEnding, followThrough, honor: honorRoll(honorRows) },
+    wins,
     open,
     todayIso: today,
     thisFriday: friday,

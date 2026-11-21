@@ -637,10 +637,10 @@
   }
 }
 
-/* ---- The Scoreboard design, on /welcome only -------------------------
-   Jason, 2026-11-20. Sidebar.tsx sets data-skin="scoreboard" on the
-   rail only while the page is /welcome, so every rule below is scoped
-   to it and no other page changes. A solid navy panel with a slow blue
+/* ---- The Scoreboard design -------------------------------------------
+   Jason, 2026-11-20; on every page since 2026-11-21. Sidebar.tsx sets
+   data-skin="scoreboard" on the rail, and every rule below is scoped
+   to it. A solid navy panel with a slow blue
    glow; on a desktop it floats inside its usual 260px (68px collapsed)
    with rounded corners, so the page beside it does not move. Sky-blue
    section headings, the current page as a chartreuse pill with navy

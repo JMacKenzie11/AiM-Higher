@@ -200,24 +200,22 @@
   margin: 24px 0 0;
 }
 
-/* Past due */
-.late {
+/* Done this week: what is landing, in place of what is late (Jason,
+   2026-11-21). */
+.wins {
   grid-column: span 4;
-  background: var(--aims-danger-tint);
+  background: var(--aims-success-tint);
 }
-.late .lbl {
-  color: var(--aims-danger);
+.wins .lbl {
+  color: var(--aims-success);
 }
 .lnum {
   font-size: 64px;
   font-weight: 900;
   letter-spacing: -0.04em;
-  color: var(--aims-danger);
+  color: var(--aims-success);
   line-height: 1;
   font-variant-numeric: tabular-nums;
-}
-.lateClear {
-  color: var(--aims-success);
 }
 .lwho {
   display: flex;
@@ -244,19 +242,30 @@
 .lbar {
   height: 8px;
   border-radius: 8px;
-  background: #ebd3d2;
+  background: #d3e3d3;
   overflow: hidden;
 }
 .lbar i {
   display: block;
   height: 100%;
-  background: var(--aims-danger);
+  background: var(--aims-success);
   border-radius: 8px;
   transform-origin: left;
   animation: grow 1s 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes grow {
   from { transform: scaleX(0); }
+}
+
+/* Week in review: full width under the video and honor roll. Placed
+   by order so the honor roll keeps its place beside the video. */
+.briefSlot {
+  grid-column: span 12;
+  order: 1;
+  min-width: 0;
+}
+.ahead {
+  order: 2;
 }
 
 /* Honor roll */
@@ -478,7 +487,7 @@
 @media (max-width: 1100px) {
   .vid,
   .score,
-  .late {
+  .wins {
     grid-column: span 6;
   }
   .vid {
@@ -491,7 +500,7 @@
 @media (max-width: 640px) {
   .vid,
   .score,
-  .late,
+  .wins,
   .honor {
     grid-column: span 12;
   }
@@ -544,4 +553,44 @@
 }
 .past .showMore {
   color: var(--aims-danger);
+}
+
+/* ---- The Dashboard's two tabs (Jason, 2026-11-21) ---- */
+.tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--aims-white);
+  box-shadow: 0 1px 2px rgba(17, 21, 26, 0.06);
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #5b6472;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+.tab:hover {
+  color: var(--aims-navy);
+  background: var(--aims-navy-tint);
+}
+.tab[aria-current="page"] {
+  background: var(--aims-navy);
+  color: var(--aims-white);
+}
+.tab[aria-current="page"]:hover {
+  background: var(--aims-navy);
+  color: var(--aims-white);
+}
+.dashTab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }

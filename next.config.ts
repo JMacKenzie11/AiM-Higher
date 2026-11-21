@@ -96,6 +96,9 @@ const nextConfig: NextConfig = {
         destination: "/admin/companies/:id#connections",
         permanent: false,
       },
+      // The welcome page became the Dashboard's This week tab
+      // (2026-11-21); the old address still lands there.
+      { source: "/welcome", destination: "/dashboard", permanent: false },
     ];
   },
 };

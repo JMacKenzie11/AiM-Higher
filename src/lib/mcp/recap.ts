@@ -10,7 +10,7 @@ import { ReadFailed } from "./reads";
 // SET A COMPANY'S RECAP VIDEO (0328). Jason, 2026-11-20: when a team
 // meeting's analysis is ready, a Grok Bot builds a 9:16 recap video,
 // posts it to Vimeo, and hands the link back here, signed in as an
-// admin. It names the company; the newest link is what /welcome shows.
+// admin. It names the company; the newest link is what the Dashboard's This week tab shows.
 //
 // Through assistant_set_recap_video() on the assistant's token, as the
 // person. The function decides who may (a system admin, the company's
@@ -51,7 +51,7 @@ export async function setRecapVideo(
     throw new ReadFailed(error.code ?? "unknown");
   }
   const row = data as { id: string; vimeo_id: string; vimeo_hash: string | null; meeting_id: string | null; created_at: string };
-  revalidatePath("/welcome");
+  revalidatePath("/dashboard");
   return {
     saved: true,
     company: company.name,
@@ -60,6 +60,6 @@ export async function setRecapVideo(
     meeting_id: row.meeting_id,
     saved_at: row.created_at,
     embed_url: vimeoEmbedUrl({ id: row.vimeo_id, hash: row.vimeo_hash }),
-    shows_on: `${origin}/welcome`,
+    shows_on: `${origin}/dashboard`,
   };
 }
