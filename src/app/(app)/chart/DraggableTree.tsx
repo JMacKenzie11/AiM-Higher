@@ -17,11 +17,13 @@ import {
   arrayMove,
   sortableKeyboardCoordinates,
   horizontalListSortingStrategy,
+  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { reorderFunctionsAction } from "@/lib/chart/actions";
 import type { ChartFunction } from "@/lib/chart/service";
 import { FunctionDrawer } from "./FunctionDrawer";
+import { fanDepth } from "./layout";
 import styles from "./chart.module.css";
 
 // Draggable chart tree. One SortableContext per parent (root list
@@ -46,6 +48,7 @@ export function DraggableTree({
   canEdit: boolean;
 }) {
   const [tree, setTree] = useState(roots);
+  const fan = fanDepth(tree);
   const [openFunctionId, setOpenFunctionId] = useState<string | null>(null);
 
   // The tree lives in state so a drag can move a card before the
@@ -84,12 +87,15 @@ export function DraggableTree({
         <SortableSiblings
           siblings={tree}
           canReorder={canReorder}
+          stacked={false}
           onReorder={(next) => setTree(next)}
         >
           {tree.map((fn) => (
             <FunctionBranch
               key={fn.id}
               fn={fn}
+              depth={0}
+              fan={fan}
               canReorder={canReorder}
               canEdit={canEdit}
               onOpen={setOpenFunctionId}
@@ -110,6 +116,8 @@ export function DraggableTree({
 
 function FunctionBranch({
   fn,
+  depth,
+  fan,
   canReorder,
   canEdit,
   onOpen,
@@ -117,6 +125,11 @@ function FunctionBranch({
   setChildrenAtPath,
 }: {
   fn: ChartFunction;
+  // This card's depth, and the depth of the first row that branches.
+  // Rows deeper than that stack in a column under their parent
+  // instead of spreading sideways (layout.ts).
+  depth: number;
+  fan: number;
   canReorder: boolean;
   canEdit: boolean;
   onOpen: (id: string) => void;
@@ -135,8 +148,16 @@ function FunctionBranch({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Am I in a stacked list, and are my children?
+  const inStack = depth > fan;
+  const childrenStacked = depth + 1 > fan;
+
   return (
-    <li ref={setNodeRef} style={style} className={styles.treeNode}>
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={inStack ? styles.stackNode : styles.treeNode}
+    >
       <FunctionBox
         fn={fn}
         canReorder={canReorder}
@@ -145,10 +166,11 @@ function FunctionBranch({
         dragHandleProps={{ ...attributes, ...listeners }}
       />
       {fn.children.length > 0 ? (
-        <ul className={styles.treeBranch}>
+        <ul className={childrenStacked ? styles.treeStack : styles.treeBranch}>
           <SortableSiblings
             siblings={fn.children}
             canReorder={canReorder}
+            stacked={childrenStacked}
             onReorder={(next) =>
               setChildrenAtPath(path, () => next)
             }
@@ -157,6 +179,8 @@ function FunctionBranch({
               <FunctionBranch
                 key={child.id}
                 fn={child}
+                depth={depth + 1}
+                fan={fan}
                 canReorder={canReorder}
                 canEdit={canEdit}
                 onOpen={onOpen}
@@ -178,11 +202,13 @@ function FunctionBranch({
 function SortableSiblings({
   siblings,
   canReorder,
+  stacked,
   onReorder,
   children,
 }: {
   siblings: ChartFunction[];
   canReorder: boolean;
+  stacked: boolean;
   onReorder: (next: ChartFunction[]) => void;
   children: React.ReactNode;
 }) {
@@ -219,7 +245,12 @@ function SortableSiblings({
       collisionDetection={closestCenter}
       onDragEnd={onDragEnd}
     >
-      <SortableContext items={items} strategy={horizontalListSortingStrategy}>
+      <SortableContext
+        items={items}
+        strategy={
+          stacked ? verticalListSortingStrategy : horizontalListSortingStrategy
+        }
+      >
         {children}
       </SortableContext>
     </DndContext>
