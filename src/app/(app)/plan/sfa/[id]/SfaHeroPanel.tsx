@@ -97,10 +97,15 @@ export function SfaHeroPanel({
             ← {meetingBack ? BACK_TO_MEETING : "Back to plan"}
           </Link>
         </div>
+        <div className={heroStyles.eyebrow}>Focus Area</div>
+            <h1 className={heroStyles.title}>{sfa.title}</h1>
+            <span className="aims-rule" aria-hidden="true" />
+            <div className={heroStyles.meta}>
+              <span>Sponsor: {sponsor?.full_name ?? "Unassigned"}</span>
+            </div>
       </div>
 
       <div className={heroStyles.card}>
-        <div className={heroStyles.eyebrow}>Focus Area</div>
 
         {editing ? (
           <form action={formAction} className={styles.form}>
@@ -200,11 +205,6 @@ export function SfaHeroPanel({
           </form>
         ) : (
           <>
-            <h1 className={heroStyles.title}>{sfa.title}</h1>
-            <span className="aims-rule" aria-hidden="true" />
-            <div className={heroStyles.meta}>
-              <span>Sponsor: {sponsor?.full_name ?? "Unassigned"}</span>
-            </div>
             <div className={heroStyles.stateRow}>
               <StatusChip status={sfa.status} />
               <div className={heroStyles.stateProgress}>

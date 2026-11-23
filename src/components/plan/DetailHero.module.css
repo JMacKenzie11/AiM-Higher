@@ -6,18 +6,45 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) var(--space-5);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
+/* The header (Scoreboard design, 2026-11-23): the navy tile every page
+   has (PageShell's .hero), holding the back link, the eyebrow, the
+   title and what it hangs off. It was a full-bleed gradient band with
+   the white card overlapping its foot. */
 .band {
-  background: var(--grad-brand);
-  padding: var(--space-5) var(--space-6) var(--space-7);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--aims-navy);
+  color: var(--aims-white);
+  border-radius: 24px;
+  padding: var(--space-6);
 }
 
-/* Keyboard focus on the navy hero: chartreuse, as on the sidebar
-   (cobalt is 1.0 to 1.7:1 here, chartreuse 5.2:1 on the lightest
-   stop). White popovers inside keep the standard ring. */
+.band::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 420px;
+  height: 420px;
+  top: -220px;
+  right: -120px;
+  border-radius: 50%;
+  background: var(--aims-cobalt);
+  filter: blur(90px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Keyboard focus on the navy tile: chartreuse, as on the sidebar
+   (cobalt is 1.0 to 1.7:1 here). White popovers inside keep the
+   standard ring. */
 .band :focus-visible {
   outline-color: var(--aims-chartreuse);
 }
@@ -35,12 +62,9 @@
   display: inline-flex;
   align-items: center;
   color: var(--aims-white);
-  opacity: 0.85;
-  font-family: var(--font-body);
-  font-size: 13px;
+  opacity: 0.8;
+  font: var(--text-body-sm);
   text-decoration: none;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
 }
 
 .crumb:hover {
@@ -50,12 +74,12 @@
   text-underline-offset: 3px;
 }
 
+/* What it is, its state and its actions, on white under the header. */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  margin: -32px var(--space-6) 0;
   padding: var(--space-6);
   display: flex;
   flex-direction: column;
@@ -66,13 +90,16 @@
   font: var(--text-subhead);
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: var(--text-muted);
+  color: var(--aims-white);
+  opacity: 0.8;
 }
 
 .title {
-  font: var(--text-h1);
-  color: var(--text-heading);
+  font: var(--text-display);
+  letter-spacing: -0.02em;
+  color: var(--aims-white);
   margin: 0;
+  text-wrap: balance;
 }
 
 .meta {
@@ -80,9 +107,23 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
-  color: var(--text-muted);
+  color: color-mix(in srgb, var(--aims-white) 80%, transparent);
   font: var(--text-body-sm);
   margin-top: var(--space-2);
+}
+
+/* The parent goal or focus area, linked: white and underlined on the
+   navy (the links' own navy would be 1.5:1 here). */
+.meta a {
+  color: var(--aims-white);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.meta a:hover {
+  color: var(--aims-white);
+  text-decoration-thickness: 2px;
 }
 
 /* State line — StatusChip + ProgressBar on their own row so they
@@ -94,7 +135,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  margin-top: var(--space-3);
 }
 
 .stateProgress {
@@ -104,21 +144,18 @@
 }
 
 .body {
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
 @media (max-width: 768px) {
-  .wrap {
-    margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) var(--space-4);
-  }
   .band {
-    padding: var(--space-4) var(--space-4) var(--space-6);
+    padding: var(--space-5);
+    border-radius: 20px;
   }
   .card {
-    margin: -20px var(--space-4) 0;
     padding: var(--space-5);
   }
 }

@@ -2,9 +2,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import styles from "./DetailHero.module.css";
 
-// Layered detail-page hero — Section 8.3.
-// Shallow --grad-brand band with a white card overlapping its bottom
-// by a small negative margin. Breadcrumb link renders inside the band.
+// Detail-page header (Scoreboard design, 2026-11-23): the navy tile
+// every page has, holding the back link, eyebrow, title and meta, then
+// a white card with the state and actions. It was a gradient band with
+// the card overlapping its foot.
 
 export type DetailHeroProps = {
   breadcrumbHref: string;
@@ -31,13 +32,13 @@ export function DetailHero({
             ← {breadcrumbLabel}
           </Link>
         </div>
-      </div>
-
-      <div className={styles.card}>
         {eyebrow ? <div className={styles.eyebrow}>{eyebrow}</div> : null}
         <h1 className={styles.title}>{title}</h1>
         <span className="aims-rule" aria-hidden="true" />
         {meta ? <div className={styles.meta}>{meta}</div> : null}
+      </div>
+
+      <div className={styles.card}>
         <div className={styles.body}>{children}</div>
       </div>
     </div>
