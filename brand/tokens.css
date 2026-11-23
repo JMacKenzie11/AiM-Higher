@@ -69,6 +69,12 @@
      is the boundary itself. Still far quieter than the 7.33:1 label,
      so the box stays subordinate to the words inside it. */
   --border-interactive: #7285BF;
+  /* The Scoreboard button's edge (2026-11-23): a white tile on the light
+     navy page, with a shadow. The label carries the contrast; this is
+     the quiet frame around it. */
+  --border-control: #C9D0DC;
+  /* A button being pressed. */
+  --control-pressed: var(--aims-cobalt-tint);
   --primary: var(--aims-cobalt);
   --primary-hover: var(--aims-cobalt-hover);
   --on-primary: var(--aims-white);
@@ -117,12 +123,12 @@
      instead of restating font-size/weight inline. line-height:1 keeps
      labels centered inside fixed-height controls.
 
-     500 rather than 600: at 14px the semibold weight made a row of
-     secondary buttons read as a row of headings. Medium keeps the
-     label legible without competing with the content it sits beside,
-     which is the whole point of a secondary button. */
-  --text-button: 500 14px/1 var(--font-sans);
-  --text-button-sm: 500 13px/1 var(--font-sans);
+     600 since the Scoreboard button (Jason, 2026-11-23): a white tile
+     with a navy label needs the weight to hold its own on the light
+     navy page. It was 500 while buttons were clear and outlined, when
+     600 made a row of them read as a row of headings. */
+  --text-button: 600 14px/1 var(--font-sans);
+  --text-button-sm: 600 13px/1 var(--font-sans);
 
   /* ---- Spacing (4px base, compact app density) ---- */
   --space-1: 4px;
@@ -142,8 +148,9 @@
   /* Buttons. Deliberately not the pill: fully-rounded buttons and
      fully-rounded status chips were the same shape, so a chip read as
      something you could press. Chips keep the pill; buttons get a
-     squarer corner and stop borrowing its meaning. */
-  --radius-btn: 8px;
+     squarer corner and stop borrowing its meaning. 12px since the
+     Scoreboard button (2026-11-23), to sit with the 16px cards. */
+  --radius-btn: 12px;
 
   /* ---- Elevation ---- */
   --shadow-sm: 0 1px 2px rgba(17, 21, 26, 0.06);
@@ -165,12 +172,12 @@
   /* Buttons have their own height. --control-h-md is shared with
      inputs and selects, so growing buttons through it would grow
      every form field on the platform too. */
-  --control-h-btn: 38px;
-  --control-h-btn-sm: 32px;
+  --control-h-btn: 42px;
+  --control-h-btn-sm: 34px;
 
   /* The minimum comfortable touch target. Applied as hit-area on
      coarse pointers rather than visual height, so a button stays
-     38px to the eye and 44px to a thumb. */
+     42px to the eye and 44px to a thumb. */
   --tap-min: 44px;
 
   /* ---- Charts (use in order) ---- */
@@ -194,6 +201,8 @@
   --border-strong: #3A5378;
   /* Lighter than the surface here, for the same 3:1 reason. */
   --border-interactive: #6B82C4;
+  --border-control: #3A5378;
+  --control-pressed: #263D5F;
   --primary: var(--aims-sky);
   --primary-hover: #A5D2E7;
   --on-primary: var(--aims-navy);

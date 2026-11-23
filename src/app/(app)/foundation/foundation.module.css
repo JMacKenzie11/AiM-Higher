@@ -137,22 +137,43 @@
   z-index: 15;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 4px;
   justify-content: center;
-  padding: var(--space-3) var(--space-4);
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: 5px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 24px;
   box-shadow: var(--shadow-sm);
 }
 
-/* Filled cobalt pill matching the primary CTA button treatment used
-   across the app (Save, Add, etc.). White text on cobalt bg; hover
-   deepens to primary-hover. Reads as unambiguously "action" chips
-   rather than the more subtle ghost-button outline. */
+/* The section links read as the Dashboard's switch (2026-11-23), the
+   same shape as every row of tabs inside a page (AnalysisTabs), with
+   no selected one: they jump down the page rather than switch it. */
 .pageNavLink {
-  composes: btnSecondary from "../../../components/ui/ui.module.css";
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  font: var(--text-button);
+  color: var(--text-muted);
+  text-decoration: none;
+  white-space: nowrap;
   flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.pageNavLink:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
+}
+
+.pageNavLink:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .inlineLink {
