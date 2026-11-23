@@ -162,8 +162,10 @@ export function PanZoomTree({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       // The function drawer opens over full screen and has its own
-      // Escape; that one closes the drawer, not this.
-      if (document.querySelector('[role="dialog"]')) return;
+      // Escape; that one closes the drawer, not this. An OPEN dialog
+      // only: Add function's drawer stays mounted, `hidden`, while
+      // closed, and counting it kept full screen from ever leaving.
+      if (document.querySelector('[role="dialog"]:not([hidden])')) return;
       setFullscreen(false);
     };
     document.addEventListener("keydown", onKey);

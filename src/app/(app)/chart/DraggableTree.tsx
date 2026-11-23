@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -213,6 +213,11 @@ function SortableSiblings({
   children: React.ReactNode;
 }) {
   const [, startTransition] = useTransition();
+  // A stable id for the context. Without one dnd-kit numbers its
+  // screen-reader ids from a module counter, which the server and
+  // the browser reach in a different order once there is a context
+  // per row, and React reports a hydration mismatch on every card.
+  const dndId = useId();
   const items = useMemo(() => siblings.map((s) => s.id), [siblings]);
 
   const sensors = useSensors(
@@ -241,6 +246,7 @@ function SortableSiblings({
 
   return (
     <DndContext
+      id={dndId}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={onDragEnd}
