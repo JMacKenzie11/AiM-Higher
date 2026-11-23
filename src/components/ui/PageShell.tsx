@@ -22,6 +22,10 @@ export type PageShellProps = {
   // 32px, as on Company settings: nothing sits in the hero but its
   // own title and text (Jason, 2026-10-29, the diagnostic pages).
   flush?: boolean;
+  // Drops the stage's max-width so the page runs the full width of
+  // the window. For a page whose content is a canvas that gets more
+  // legible with every pixel (the Functional Chart), not for reading.
+  wide?: boolean;
   children: ReactNode;
 };
 
@@ -43,10 +47,11 @@ export function PageShell({
   backLabel,
   ariaLabel,
   flush,
+  wide,
   children,
 }: PageShellProps) {
   return (
-    <div className={styles.stage}>
+    <div className={wide ? `${styles.stage} ${styles.stageWide}` : styles.stage}>
       <section
         className={styles.hero}
         aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}

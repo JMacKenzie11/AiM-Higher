@@ -113,3 +113,27 @@ test("the chart canvas is the size of the chart in it", async ({ page }) => {
     );
   }
 });
+
+// Full screen covers the window and gives it back (2026-11-23).
+// Escape must leave even though Add function's drawer is mounted,
+// hidden, the whole time: the first build counted that closed drawer
+// as an open dialog and full screen never left.
+test("full screen opens over the page and Escape leaves it", async ({ page }) => {
+  test.setTimeout(300_000);
+  await scopeIn(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/chart", { waitUntil: "networkidle" });
+
+  const open = page.getByRole("button", { name: "Full screen", exact: true });
+  await open.click();
+  const region = page.getByRole("region", { name: "Functional Chart, full screen" });
+  await expect(region).toBeVisible();
+  await expect(page.getByRole("button", { name: "Exit full screen" })).toBeFocused();
+  const box = await region.boundingBox();
+  expect(box?.width).toBe(1280);
+  expect(box?.height).toBe(900);
+
+  await page.keyboard.press("Escape");
+  await expect(region).toHaveCount(0);
+  await expect(open).toBeFocused();
+});

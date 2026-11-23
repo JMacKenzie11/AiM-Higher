@@ -283,6 +283,159 @@
   height: var(--space-5);
 }
 
+/* ---- Stacked rows -------------------------------------------
+   Below the first row that branches, siblings stack in a column
+   under their parent (layout.ts). A spine runs down the left with a
+   short tick into each card, folder-list style. The column is the
+   parent card's width, so a stacked branch never makes its row wider
+   than one card; nested stacks indent again inside it. */
+.treeStack {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 var(--space-3);
+  width: 220px;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.stackNode .treeStack {
+  width: 100%;
+}
+
+.stackNode {
+  position: relative;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) 0 0 var(--space-4);
+}
+
+/* The tick lands on the middle of the card's header band
+   (.fnHeader's 4.5rem floor), measured from the top of the li. */
+.stackNode {
+  --tick-y: calc(var(--space-3) + 2.25rem);
+}
+
+.stackNode::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-left: 2px solid var(--border-strong);
+}
+
+.stackNode::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--tick-y);
+  width: var(--space-4);
+  border-top: 2px solid var(--border-strong);
+}
+
+/* :last-of-type, not :last-child, for the reason given on
+   .treeNode above: dnd-kit adds a <div> beside the <li>s. The last
+   card ends the spine with a rounded elbow instead of running on. */
+.stackNode:last-of-type::before {
+  bottom: auto;
+  height: var(--tick-y);
+  width: var(--space-4);
+  border-bottom: 2px solid var(--border-strong);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.stackNode:last-of-type::after {
+  display: none;
+}
+
+.stackNode > .fnCardShell {
+  width: 100%;
+  flex: 0 0 auto;
+}
+
+/* A parent whose children stack keeps its natural height, like one
+   whose children spread (above). */
+.treeNode:has(> .treeStack) > .fnCardShell {
+  flex: 0 0 auto;
+}
+
+/* A row holding a stacked branch stops stretching its cards to the
+   tallest: the tallest is now a whole column, and a leaf beside it
+   would grow to match. */
+.treeBranch:has(.treeStack) {
+  align-items: flex-start;
+}
+
+/* ---- Full screen ---------------------------------------------
+   The chart over the whole window, sidebar and page header hidden.
+   Above the sidebar (30, its mobile drawer 40) and below the
+   function drawer (60), which still opens from a card in here. */
+.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.fullscreenBar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--aims-navy);
+  color: var(--aims-white);
+}
+
+.fullscreenTitle {
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--aims-white);
+}
+
+.fullscreenExit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+  font: var(--text-button);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fullscreenExit:focus-visible {
+  outline: 2px solid var(--aims-white);
+  outline-offset: 2px;
+}
+
+.fullscreenBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-4);
+}
+
+.panZoomLabelButton {
+  width: auto;
+  padding: 0 var(--space-3);
+  gap: 6px;
+  font: var(--text-button);
+  font-weight: 600;
+}
+
 /* ---- Company root box ------------------------------------- */
 
 .companyRoot {
@@ -2058,7 +2211,7 @@
 }
 
 .fnFactLabel {
-  font: var(--text-label);
+  font: var(--text-button);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);

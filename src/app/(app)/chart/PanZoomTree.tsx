@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   TransformWrapper,
   TransformComponent,
@@ -9,8 +15,8 @@ import {
 } from "react-zoom-pan-pinch";
 import styles from "./chart.module.css";
 
-// Pan-and-zoom canvas for the org chart. Standard org-chart UX —
-// scroll wheel or +/- to zoom, click-and-drag on empty space to
+// Pan-and-zoom canvas for the org chart. Ctrl/⌘ + scroll wheel,
+// a trackpad pinch, or +/- to zoom, click-and-drag on empty space to
 // pan, click the fit-to-view control to snap back to the full
 // tree. Handles arbitrarily wide/deep trees without clipping and
 // without shrinking cards past readability.
@@ -47,9 +53,18 @@ const CONTROLS_CLEARANCE = 56;
 // frame still reads as a canvas you can pan; in an 80px one it reads
 // as a clipping bug.
 const MIN_HEIGHT = 200;
-const MAX_HEIGHT = 720;
 
-function fitToView(api: ReactZoomPanPinchRef, frame: HTMLElement | null) {
+// How far the fit may ENLARGE the chart. On the page a card is never
+// drawn bigger than its own size; full screen, with the sidebar and
+// header gone, there is room to draw it a little larger.
+const MAX_FIT_PAGE = 1;
+const MAX_FIT_FULLSCREEN = 1.25;
+
+function fitToView(
+  api: ReactZoomPanPinchRef,
+  frame: HTMLElement | null,
+  maxFit: number
+) {
   const wrapper = api.instance.wrapperComponent;
   const content = api.instance.contentComponent;
   if (!wrapper || !content) return;
@@ -73,20 +88,19 @@ function fitToView(api: ReactZoomPanPinchRef, frame: HTMLElement | null) {
   // feed back into the height it was derived from. A width-derived
   // scale is fixed before the height moves, so the next pass computes
   // the same number and stops.
-  const widthScale = Math.min((cW - padX * 2) / nW, 1);
+  const widthScale = Math.min((cW - padX * 2) / nW, maxFit);
 
-  // THE FRAME TAKES THE HEIGHT OF WHAT IS IN IT.
+  // THE FRAME TAKES THE HEIGHT OF WHAT IS IN IT, all of it.
   //
-  // It was `min(70vh, 720px)` whatever the tree's shape. Measured on
-  // Benson at 393px: the tree rendered 145px tall inside a 596px
-  // frame — 451px of empty card under a chart, which is the "drowning
-  // in the card" this fixes.
-  const maxH = Math.min(
-    Math.round(window.innerHeight * 0.7),
-    MAX_HEIGHT
-  );
+  // It was `min(70vh, 720px)` whatever the tree's shape, then the
+  // tree's height capped at that. The cap is gone with the stacked
+  // layout (layout.ts): a stacked chart is narrow and tall, and
+  // capping its height made the HEIGHT set the scale, which shrank it
+  // back to the unreadable size stacking was meant to fix. Now the
+  // width alone sets the scale and the page scrolls down the chart,
+  // which is why the wheel no longer zooms without Ctrl/⌘ (below).
   const wanted = Math.round(nH * widthScale + padTop + padBottom);
-  const cH = Math.max(MIN_HEIGHT, Math.min(wanted, maxH));
+  const cH = Math.max(MIN_HEIGHT, wanted);
 
   if (frame) {
     // Only when it actually moves. Writing an identical value still
@@ -99,10 +113,7 @@ function fitToView(api: ReactZoomPanPinchRef, frame: HTMLElement | null) {
     }
   }
 
-  // Height only binds when the tree is too deep to fit at its
-  // width-fitted scale — a tall chart on a short screen, where the
-  // frame has already been clamped to maxH.
-  const scale = Math.min(widthScale, (cH - padTop - padBottom) / nH, 1);
+  const scale = widthScale;
   const x = (cW - nW * scale) / 2;
   // Centred in what is left BELOW the controls. On a wide screen
   // padTop and padBottom are both FIT_PADDING, so this is the plain
@@ -112,13 +123,61 @@ function fitToView(api: ReactZoomPanPinchRef, frame: HTMLElement | null) {
   api.setTransform(x, y, scale, 0);
 }
 
-export function PanZoomTree({ children }: { children: ReactNode }) {
+export function PanZoomTree({
+  title,
+  children,
+}: {
+  // Shown in the bar across the top in full screen.
+  title: string;
+  children: ReactNode;
+}) {
   const ref = useRef<ReactZoomPanPinchRef>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const openRef = useRef<HTMLButtonElement>(null);
+  const exitRef = useRef<HTMLButtonElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const fullscreenRef = useRef(false);
+  fullscreenRef.current = fullscreen;
 
   const doFit = useCallback(() => {
-    if (ref.current) fitToView(ref.current, frameRef.current);
+    if (ref.current) {
+      fitToView(
+        ref.current,
+        frameRef.current,
+        fullscreenRef.current ? MAX_FIT_FULLSCREEN : MAX_FIT_PAGE
+      );
+    }
   }, []);
+
+  // Full screen: Escape leaves, the page behind stops scrolling, and
+  // focus goes to Exit and comes back to the button that opened it.
+  // The resize observer refits on the way in and out, since the
+  // canvas changes width; the explicit fit covers a window where the
+  // width happens not to change.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    exitRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      // The function drawer opens over full screen and has its own
+      // Escape; that one closes the drawer, not this. An OPEN dialog
+      // only: Add function's drawer stays mounted, `hidden`, while
+      // closed, and counting it kept full screen from ever leaving.
+      if (document.querySelector('[role="dialog"]:not([hidden])')) return;
+      setFullscreen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const raf = requestAnimationFrame(doFit);
+    return () => {
+      document.body.style.overflow = before;
+      document.removeEventListener("keydown", onKey);
+      cancelAnimationFrame(raf);
+      requestAnimationFrame(doFit);
+      openRef.current?.focus();
+    };
+  }, [fullscreen, doFit]);
 
   // Fit on mount and on container resize. The library's built-in
   // centerOnInit only centres — it doesn't scale — so a wide tree
@@ -137,14 +196,39 @@ export function PanZoomTree({ children }: { children: ReactNode }) {
     };
   }, [doFit]);
 
+  // One structure in and out of full screen, so the canvas is never
+  // remounted (the resize observer above holds its wrapper): the
+  // outer div changes class, and the bar slots in ahead of the body.
   return (
+    <div
+      className={fullscreen ? styles.fullscreen : undefined}
+      role={fullscreen ? "region" : undefined}
+      aria-label={fullscreen ? `${title}, full screen` : undefined}
+    >
+      {fullscreen ? (
+        <div className={styles.fullscreenBar}>
+          <h2 className={styles.fullscreenTitle}>{title}</h2>
+          <button
+            ref={exitRef}
+            type="button"
+            className={styles.fullscreenExit}
+            onClick={() => setFullscreen(false)}
+          >
+            <span aria-hidden="true">✕</span> Exit full screen
+          </button>
+        </div>
+      ) : null}
+      <div className={fullscreen ? styles.fullscreenBody : undefined}>
     <TransformWrapper
       ref={ref}
       minScale={0.15}
       maxScale={2}
       initialScale={1}
       limitToBounds={false}
-      wheel={{ step: 0.15 }}
+      // The frame is now the chart's full height and the page scrolls
+      // down it, so a plain wheel must scroll. Ctrl/⌘ + wheel zooms,
+      // which is also what a trackpad pinch sends.
+      wheel={{ step: 0.15, activationKeys: ["Control", "Meta"] }}
       pinch={{ step: 5 }}
       doubleClick={{ disabled: true }}
       panning={{
@@ -154,10 +238,18 @@ export function PanZoomTree({ children }: { children: ReactNode }) {
         excluded: ["chart-no-pan"],
       }}
     >
-      <PanZoomInner onFit={doFit} frameRef={frameRef}>
+      <PanZoomInner
+        onFit={doFit}
+        frameRef={frameRef}
+        fullscreen={fullscreen}
+        onFullscreen={() => setFullscreen(true)}
+        openRef={openRef}
+      >
         {children}
       </PanZoomInner>
     </TransformWrapper>
+      </div>
+    </div>
   );
 }
 
@@ -165,14 +257,25 @@ function PanZoomInner({
   children,
   onFit,
   frameRef,
+  fullscreen,
+  onFullscreen,
+  openRef,
 }: {
   children: ReactNode;
   onFit: () => void;
   frameRef: React.RefObject<HTMLDivElement | null>;
+  fullscreen: boolean;
+  onFullscreen: () => void;
+  openRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <div className={styles.panZoomFrame} ref={frameRef}>
-      <PanZoomControls onFit={onFit} />
+      <PanZoomControls
+        onFit={onFit}
+        fullscreen={fullscreen}
+        onFullscreen={onFullscreen}
+        openRef={openRef}
+      />
       <TransformComponent
         wrapperClass={styles.panZoomWrapper}
         contentClass={styles.panZoomContent}
@@ -183,7 +286,17 @@ function PanZoomInner({
   );
 }
 
-function PanZoomControls({ onFit }: { onFit: () => void }) {
+function PanZoomControls({
+  onFit,
+  fullscreen,
+  onFullscreen,
+  openRef,
+}: {
+  onFit: () => void;
+  fullscreen: boolean;
+  onFullscreen: () => void;
+  openRef: React.RefObject<HTMLButtonElement | null>;
+}) {
   // useControls only works inside TransformWrapper — this is the
   // library's way of exposing zoom actions to arbitrary sibling
   // components without prop-drilling refs.
@@ -217,6 +330,29 @@ function PanZoomControls({ onFit }: { onFit: () => void }) {
       >
         ⤢
       </button>
+      {fullscreen ? null : (
+        <button
+          ref={openRef}
+          type="button"
+          onClick={onFullscreen}
+          className={`${styles.panZoomButton} ${styles.panZoomLabelButton} chart-no-pan`}
+        >
+          <svg
+            aria-hidden="true"
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" />
+          </svg>
+          Full screen
+        </button>
+      )}
     </div>
   );
 }

@@ -13,12 +13,18 @@ Your company's structure in one view: every function, who's in the seat, and wha
 - **Open a function.** Click its box to see everything it owns.
 :::
 
+## Reading the chart
+
+- **The top functions sit side by side. Everything under them is listed down the page**, joined by a line on the left. Scroll down to see a long list.
+- **Full screen.** Click *Full screen* beside the zoom buttons to fill the window with the chart. Press Escape or click *Exit full screen* to go back.
+- **Zoom.** Use the + and − buttons, or hold Ctrl (⌘ on a Mac) and scroll. The four-arrow button fits the chart back to the page.
+
 ::: role company_admin,aims_guide,system_admin
 ## What you can do here
 
 - **Add a function**, responsibilities and all, without leaving the chart.
 - **Edit a function in place.** Click its box and its detail opens in a panel on the right.
-- **Reorder functions.** Drag a box left or right to change its place among the functions beside it.
+- **Reorder functions.** Drag a box to change its place among the functions beside it, or above and below it in a list.
 - **Choose who's in the seat.** One person per function.
 - **Add and edit responsibilities.**
 - **Delete a function**, along with everything under it.

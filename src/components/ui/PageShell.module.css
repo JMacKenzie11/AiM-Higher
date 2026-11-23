@@ -15,6 +15,10 @@
   margin: 0 auto;
 }
 
+.stageWide {
+  max-width: none;
+}
+
 .hero {
   position: relative;
   overflow: hidden;

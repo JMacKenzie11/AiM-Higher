@@ -52,6 +52,9 @@ export default async function ChartPage() {
     <PageShell
       eyebrow="Company"
       title="Functional Chart"
+      // Full width on this page only: the chart is a canvas, and every
+      // pixel of width is a bigger card (Jason, 2026-11-23).
+      wide
       subtitle={
         // One line under the "short-intros" switch (change 10).
         simplifyOn("short-intros") ? (
@@ -77,7 +80,7 @@ export default async function ChartPage() {
           <EmptyChart isAdmin={isAdmin} />
         ) : (
           <div className={styles.tree}>
-            <PanZoomTree>
+            <PanZoomTree title="Functional Chart">
               <DraggableTree
                 roots={roots}
                 canReorder={isAdmin}
