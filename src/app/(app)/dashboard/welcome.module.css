@@ -603,7 +603,7 @@
 }
 .tab:hover {
   color: var(--aims-navy);
-  background: var(--aims-navy-tint);
+  background: var(--aims-chartreuse);
 }
 .tab[aria-current="page"] {
   background: var(--aims-navy);

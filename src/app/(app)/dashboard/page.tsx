@@ -44,7 +44,6 @@ export default async function DashboardPage({
 
   const { tab: tabParam } = await searchParams;
   const tab: Tab = tabParam === "dashboard" ? "dashboard" : "week";
-  const firstName = session.profile.full_name?.trim().split(/\s+/)[0] || "there";
   const isAdmin = isAdminForCompany(session.profile, companyId);
 
   const week = tab === "week" ? await getWelcomeData(companyId, session.profile.id, data.company.timezone) : null;
@@ -59,7 +58,6 @@ export default async function DashboardPage({
     <div className={styles.page}>
       <header className={`${styles.head} ${styles.pop}`}>
         <div>
-          <div className={styles.hi}>Good to see you, {firstName}.</div>
           <h1 className={styles.h1}>Welcome to {data.company.name}</h1>
           <div className={styles.sub}>{subline}</div>
         </div>

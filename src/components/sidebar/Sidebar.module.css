@@ -644,7 +644,9 @@
    glow; on a desktop it floats inside its usual 260px (68px collapsed)
    with rounded corners, so the page beside it does not move. Sky-blue
    section headings, the current page as a chartreuse pill with navy
-   text, Ask Aimee tinted chartreuse, and the account in a soft card. */
+   text, Ask Aimee's icon chartreuse, and the account in a soft card.
+   Ask Aimee's row had a chartreuse tint behind it too, which read as a
+   highlight that never went away (Jason, 2026-11-23: removed). */
 
 .sidebar[data-skin="scoreboard"] {
   background: var(--aims-navy);
@@ -749,10 +751,6 @@
   background: rgb(255 255 255 / 0.08);
   color: var(--aims-white);
   transform: translateX(3px);
-}
-
-.sidebar[data-skin="scoreboard"] .navRow[href="/ask-aimee"] {
-  background: color-mix(in srgb, var(--aims-chartreuse) 12%, transparent);
 }
 
 .sidebar[data-skin="scoreboard"] .navRow[href="/ask-aimee"] .navIcon {
