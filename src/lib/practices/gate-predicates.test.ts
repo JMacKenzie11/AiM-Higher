@@ -3,21 +3,18 @@ import type { Practice } from "./registry";
 import type { GateProfile } from "./gate";
 
 // The predicate half of the gate: what happens AFTER the role list
-// has said no.
+// has said no. The function_lead predicate is the only one since the
+// AiMS champion seat was retired (0329).
 //
-// Both modules are dynamically imported inside practiceGate, so they
-// are mocked by path here rather than injected.
+// The module is dynamically imported inside practiceGate, so it is
+// mocked by path here rather than injected.
 const mocks = vi.hoisted(() => ({
   leadsAnyFunction: vi.fn(),
-  isAimsChampion: vi.fn(),
   companyHasFeature: vi.fn(),
 }));
 
 vi.mock("./function-leads", () => ({
   leadsAnyFunction: mocks.leadsAnyFunction,
-}));
-vi.mock("@/lib/guide/champion", () => ({
-  isAimsChampion: mocks.isAimsChampion,
 }));
 vi.mock("@/lib/subscriptions/service", () => ({
   companyHasFeature: mocks.companyHasFeature,
@@ -25,7 +22,7 @@ vi.mock("@/lib/subscriptions/service", () => ({
 
 const { practiceGate } = await import("./gate");
 
-const debrief: Practice = {
+const adminsOnly: Practice = {
   id: "guide-meeting-debrief",
   title: "Debrief a meeting",
   description: "test",
@@ -34,7 +31,6 @@ const debrief: Practice = {
   basePromptMode: "full_coach",
   skipSetup: true,
   allowedRoles: ["company_admin", "system_admin", "aims_guide"],
-  alsoAimsChampion: true,
 };
 
 function member(overrides: Partial<GateProfile> = {}): GateProfile {
@@ -49,57 +45,34 @@ function member(overrides: Partial<GateProfile> = {}): GateProfile {
 
 beforeEach(() => {
   mocks.leadsAnyFunction.mockReset().mockResolvedValue(false);
-  mocks.isAimsChampion.mockReset().mockResolvedValue(false);
   mocks.companyHasFeature.mockReset().mockResolvedValue(true);
 });
 
-describe("practiceGate · the aims_champion predicate", () => {
-  it("admits a team member who holds the seat", async () => {
-    mocks.isAimsChampion.mockResolvedValue(true);
-    const result = await practiceGate(debrief, member(), "co_acme");
-    expect(result.ok).toBe(true);
-  });
-
-  it("refuses a team member who does not", async () => {
-    const result = await practiceGate(debrief, member(), "co_acme");
+describe("practiceGate · predicates", () => {
+  it("refuses a team member when the agent names no predicate", async () => {
+    const result = await practiceGate(adminsOnly, member(), "co_acme");
     expect(result.ok).toBe(false);
+    expect(mocks.leadsAnyFunction).not.toHaveBeenCalled();
   });
 
-  it("admits a company_admin without asking who the champion is", async () => {
-    // The point of the widening. An admin reaches the debrief on
-    // their role, so the seat is never consulted — they can already
-    // read the meeting it is about.
-    const result = await practiceGate(
-      debrief,
-      member({ role: "company_admin" }),
-      "co_acme"
-    );
-    expect(result.ok).toBe(true);
-    expect(mocks.isAimsChampion).not.toHaveBeenCalled();
-  });
-
-  it("does not ask about the seat for an agent that never names it", async () => {
-    const plain: Practice = { ...debrief, alsoAimsChampion: undefined };
-    const result = await practiceGate(plain, member(), "co_acme");
-    expect(result.ok).toBe(false);
-    expect(mocks.isAimsChampion).not.toHaveBeenCalled();
-  });
-
-  it("admits on either predicate when an agent names both", async () => {
-    const both: Practice = { ...debrief, alsoFunctionLeads: true };
+  it("admits a team member who leads a function when the agent names function leads", async () => {
     mocks.leadsAnyFunction.mockResolvedValue(true);
-    expect((await practiceGate(both, member(), "co_acme")).ok).toBe(true);
-
-    mocks.leadsAnyFunction.mockResolvedValue(false);
-    mocks.isAimsChampion.mockResolvedValue(true);
-    expect((await practiceGate(both, member(), "co_acme")).ok).toBe(true);
+    const leads: Practice = { ...adminsOnly, alsoFunctionLeads: true };
+    expect((await practiceGate(leads, member(), "co_acme")).ok).toBe(true);
   });
 
-  it("still refuses the champion when the company lacks the feature", async () => {
+  it("admits a company_admin without asking about function leads", async () => {
+    const leads: Practice = { ...adminsOnly, alsoFunctionLeads: true };
+    const result = await practiceGate(leads, member({ role: "company_admin" }), "co_acme");
+    expect(result.ok).toBe(true);
+    expect(mocks.leadsAnyFunction).not.toHaveBeenCalled();
+  });
+
+  it("still refuses a lead when the company lacks the feature", async () => {
     // The predicate widens WHO, never WHAT the company bought.
-    mocks.isAimsChampion.mockResolvedValue(true);
+    mocks.leadsAnyFunction.mockResolvedValue(true);
     mocks.companyHasFeature.mockResolvedValue(false);
-    const gated: Practice = { ...debrief, feature: "classroom" };
+    const gated: Practice = { ...adminsOnly, alsoFunctionLeads: true, feature: "classroom" };
     const result = await practiceGate(gated, member(), "co_acme");
     expect(result.ok).toBe(false);
   });

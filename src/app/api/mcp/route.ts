@@ -283,7 +283,7 @@ const handler = createMcpHandler(
       {
         title: "List my companies",
         description:
-          "The AiMS companies (clients) you can see: name, id, main contact (the company's AiMS champion), its AiMS Coaches, and whether AI apps are switched on. Use it to match a short name like \"Benson\" to the company. Every other tool takes one of these as its company, and works only where AI apps are on.",
+          "The AiMS companies (clients) you can see: name, id, its AiMS Coaches, and whether AI apps are switched on. Use it to match a short name like \"Benson\" to the company. Every other tool takes one of these as its company, and works only where AI apps are on.",
         annotations: READ_ONLY,
       },
       async (ctx) =>
@@ -294,7 +294,6 @@ const handler = createMcpHandler(
             companies: companies.map((c) => ({
               id: c.id,
               name: c.name,
-              main_contact: contacts.get(c.id)?.champion ?? null,
               aims_coaches: contacts.get(c.id)?.coaches ?? [],
               outside_assistants: c.assistantsOn ? "on" : "off: a company admin can switch them on",
             })),

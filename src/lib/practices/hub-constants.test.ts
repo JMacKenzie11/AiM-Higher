@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   mergeAccessPredicates,
   FUNCTION_LEAD_PREDICATE,
-  AIMS_CHAMPION_PREDICATE,
 } from "./hub-constants";
 
 // The access drawer renders ONE checkbox and the agents table holds
@@ -16,28 +15,28 @@ describe("mergeAccessPredicates", () => {
   });
 
   it("keeps a predicate the drawer does not model", () => {
-    // The debrief agent. An admin opening its access drawer, ticking
-    // nothing and pressing Save must not take the champion's access
-    // away — they were never shown a control for it.
+    // An admin opening an agent's access drawer, ticking nothing and
+    // pressing Save must not take away access they were never shown a
+    // control for.
     expect(
-      mergeAccessPredicates([AIMS_CHAMPION_PREDICATE], false)
-    ).toEqual([AIMS_CHAMPION_PREDICATE]);
+      mergeAccessPredicates(["some_other_predicate"], false)
+    ).toEqual(["some_other_predicate"]);
   });
 
   it("keeps it while also setting the one it does model", () => {
-    expect(mergeAccessPredicates([AIMS_CHAMPION_PREDICATE], true)).toEqual([
+    expect(mergeAccessPredicates(["some_other_predicate"], true)).toEqual([
       FUNCTION_LEAD_PREDICATE,
-      AIMS_CHAMPION_PREDICATE,
+      "some_other_predicate",
     ]);
   });
 
   it("does not duplicate the modelled one when it is already there", () => {
     expect(
       mergeAccessPredicates(
-        [FUNCTION_LEAD_PREDICATE, AIMS_CHAMPION_PREDICATE],
+        [FUNCTION_LEAD_PREDICATE, "some_other_predicate"],
         true
       )
-    ).toEqual([FUNCTION_LEAD_PREDICATE, AIMS_CHAMPION_PREDICATE]);
+    ).toEqual([FUNCTION_LEAD_PREDICATE, "some_other_predicate"]);
   });
 
   it("treats a null column as empty", () => {

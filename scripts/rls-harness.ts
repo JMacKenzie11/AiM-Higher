@@ -3019,13 +3019,16 @@ values ('${id}', '${company}', '${name}', '${role}', 'active');`;
   };
 }
 
-// ---- Coaching calls (0326) ----------------------------------------
+// ---- Coaching calls (0326, 0329) ----------------------------------
 //
 // Jason, 2026-11-16: a coaching call is read by the company's assigned
 // coaches (aims_guide or system_admin holding a guide_assignments row)
-// and its current AiMS Champion, and by nobody else. B&B Electric's
-// calls were loaded as ordinary meetings and the whole company read
-// them.
+// and nobody outside a short list. B&B Electric's calls were loaded as
+// ordinary meetings and the whole company read them. Since 0329
+// (Jason, 2026-11-23) the list is the company's admins (company_admin,
+// or a portfolio admin switched on as its admin) and the people on
+// coaching_call_viewers, which a coach or company admin manages. The
+// AiMS champion seat no longer grants anything.
 //
 // Seeded inside each rolled-back transaction: one team meeting and one
 // call in company CO, each with an analysis row, and the cast below.
@@ -3034,14 +3037,25 @@ values ('${id}', '${company}', '${name}', '${role}', 'active');`;
 // meeting, and the refusals go RED: that is the before.
 //
 // Claims, each as the caller:
-//   readers     assigned coach, assigned system admin, the champion:
-//               the call and its analysis, 1 and 1
-//   refused     a team member, the company admin, a portfolio admin
-//               assigned AND switched on, an unassigned system admin,
-//               an unassigned coach, a coach of another company: 0 and 0
+//   readers     assigned coach, assigned system admin, the company
+//               admin, a portfolio admin switched on as its admin,
+//               someone on the list: the call and its analysis, 1 and 1
+//               (the company admin, portfolio admin and listed person
+//               are red before 0329)
+//   refused     a team member not on the list, a portfolio admin
+//               assigned but NOT switched on, an unassigned system
+//               admin, an unassigned coach, a coach of another company,
+//               the old AiMS champion (seat set, not on the list), a
+//               listed person who has been made inactive: 0 and 0
 //   unchanged   the team meeting, for every one of them as before
-//   moves       champion changed to the team member: the old champion
-//               reads 0, the new one 1
+//   the list    who may add and remove people (0329): an assigned coach
+//               and a company admin add a team member; a switched-on
+//               portfolio admin adds one; someone on the list, a team
+//               member and a switched-off portfolio admin are refused;
+//               nobody adds a person from another company or signs the
+//               row as someone else; a company admin removes a person,
+//               someone on the list cannot; a person who was added
+//               reads the call, and once removed does not
 //   holds       a planted `using (true)` read rule on meetings and on
 //               meeting_analyses still shows the team member 0
 //   fixed kind  a company admin cannot turn a team meeting into a call,
@@ -3071,7 +3085,7 @@ async function coachingCallProbes(run: Runner, ids: Identities, pending: string)
   const uid = (tag: string) => `aaaa0326-0000-4000-8000-0000000000${tag}`;
   const COACH = uid("01");
   const SYSCOACH = uid("02");
-  const CHAMP = uid("03");
+  const VIEWER = uid("03");
   const MEMBER = uid("04");
   const PA = uid("05");
   const SYSADMIN = uid("06");
@@ -3081,6 +3095,9 @@ async function coachingCallProbes(run: Runner, ids: Identities, pending: string)
   const CALL = uid("21");
   const UNSORTED = uid("22");
   const SRC = uid("30");
+  const PAOFF = uid("09");
+  const SEAT = uid("10");
+  const OUTSIDER = uid("11");
   const person = (id: string, company: string | null, name: string, role: string) => `
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                         email_confirmed_at, created_at, updated_at)
@@ -3096,15 +3113,25 @@ values ('${id}', '## ${title}', 'harness');`;
   const seed = [
     person(COACH, null, "Harness 0326 Coach", "aims_guide"),
     person(SYSCOACH, null, "Harness 0326 Assigned SA", "system_admin"),
-    person(CHAMP, CO, "Harness 0326 Champion", "team_member"),
+    person(VIEWER, CO, "Harness 0329 Listed", "team_member"),
+    person(SEAT, CO, "Harness 0329 Old Champion", "team_member"),
+    person(PAOFF, null, "Harness 0329 PA switched off", "portfolio_admin"),
+    person(OUTSIDER, OTHER, "Harness 0329 Other Company Member", "team_member"),
     person(MEMBER, CO, "Harness 0326 Member", "team_member"),
     person(PA, null, "Harness 0326 PA", "portfolio_admin"),
     person(SYSADMIN, null, "Harness 0326 Unassigned SA", "system_admin"),
     person(FREECOACH, null, "Harness 0326 Unassigned Coach", "aims_guide"),
     person(OTHERCOACH, null, "Harness 0326 Other Coach", "aims_guide"),
     `insert into public.guide_assignments (guide_id, company_id) values ('${COACH}', '${CO}'), ('${SYSCOACH}', '${CO}'), ('${OTHERCOACH}', '${OTHER}') on conflict do nothing;`,
-    `insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin) values ('${PA}', '${CO}', true) on conflict do nothing;`,
-    `update public.companies set aims_champion_profile_id = '${CHAMP}' where id = '${CO}';`,
+    `insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin) values ('${PA}', '${CO}', true), ('${PAOFF}', '${CO}', false) on conflict do nothing;`,
+    // The seat still exists until a later migration drops it; set, it
+    // must grant nothing.
+    `update public.companies set aims_champion_profile_id = '${SEAT}' where id = '${CO}';`,
+    `do $$ begin
+       if to_regclass('public.coaching_call_viewers') is not null then
+         execute 'insert into public.coaching_call_viewers (company_id, profile_id, added_by) values (''${CO}'', ''${VIEWER}'', ''${ADMIN}'')';
+       end if;
+     end $$;`,
     meeting(TEAM, "Harness 0326 team meeting"),
     meeting(CALL, "Harness 0326 coaching call"),
     `do $$ begin
@@ -3154,15 +3181,18 @@ values ('${id}', '## ${title}', 'harness');`;
   const readers = {
     "assigned coach": await sees(COACH, CALL),
     "assigned system admin": await sees(SYSCOACH, CALL),
-    champion: await sees(CHAMP, CALL),
+    "company admin": await sees(ADMIN, CALL),
+    "portfolio admin (assigned, switched on)": await sees(PA, CALL),
+    "on the list": await sees(VIEWER, CALL),
   };
   const refused = {
     "team member": await sees(MEMBER, CALL),
-    "company admin": await sees(ADMIN, CALL),
-    "portfolio admin (assigned, switched on)": await sees(PA, CALL),
+    "portfolio admin (assigned, switched off)": await sees(PAOFF, CALL),
     "unassigned system admin": await sees(SYSADMIN, CALL),
     "unassigned coach": await sees(FREECOACH, CALL),
     "coach of another company": await sees(OTHERCOACH, CALL),
+    "old champion": await sees(SEAT, CALL),
+    "on the list, made inactive": await sees(VIEWER, CALL, `update public.profiles set status = 'inactive' where id = '${VIEWER}';`),
   };
   const team = {
     member: await sees(MEMBER, TEAM),
@@ -3170,12 +3200,9 @@ values ('${id}', '## ${title}', 'harness');`;
     "portfolio admin": await sees(PA, TEAM),
     "unassigned system admin": await sees(SYSADMIN, TEAM),
     "assigned coach": await sees(COACH, TEAM),
-    champion: await sees(CHAMP, TEAM),
+    "on the list": await sees(VIEWER, TEAM),
   };
   const teamOther = await sees(OTHERCOACH, TEAM);
-  const moveChamp = `update public.companies set aims_champion_profile_id = '${MEMBER}' where id = '${CO}';`;
-  const oldChamp = await sees(CHAMP, CALL, moveChamp);
-  const newChamp = await sees(MEMBER, CALL, moveChamp);
   const planted =
     "create policy harness_planted_leak on public.meetings for select to authenticated using (true);" +
     "create policy harness_planted_leak on public.meeting_analyses for select to authenticated using (true);";
@@ -3224,6 +3251,34 @@ values ('${id}', '## ${title}', 'harness');`;
   const folderForOther = await attempt(FREECOACH, coachSource(COACH, "harness-0326-other"), false);
   const memberFolder = await attempt(MEMBER, coachSource(MEMBER, "harness-0326-member"), false);
 
+  // ---- The list (0329) ----
+  const add = (person: string, by: string, company = CO) =>
+    `insert into public.coaching_call_viewers (company_id, profile_id, added_by) values ('${company}', '${person}', '${by}')`;
+  const adds = {
+    "assigned coach": await attempt(COACH, add(MEMBER, COACH), false),
+    "company admin": await attempt(ADMIN, add(MEMBER, ADMIN), false),
+    "portfolio admin (switched on)": await attempt(PA, add(MEMBER, PA), false),
+  };
+  const addsRefused = {
+    "someone on the list": await attempt(VIEWER, add(MEMBER, VIEWER), false),
+    "team member": await attempt(MEMBER, add(MEMBER, MEMBER), false),
+    "portfolio admin (switched off)": await attempt(PAOFF, add(MEMBER, PAOFF), false),
+    "a person from another company": await attempt(ADMIN, add(OUTSIDER, ADMIN), false),
+    "signed as someone else": await attempt(ADMIN, add(MEMBER, COACH), false),
+    "into another company": await attempt(ADMIN, add(OUTSIDER, ADMIN, OTHER), false),
+  };
+  const removeRow = `delete from public.coaching_call_viewers where company_id = '${CO}' and profile_id = '${VIEWER}'`;
+  const removes = await attempt(ADMIN, removeRow);
+  const removeByListed = await attempt(VIEWER, removeRow);
+  const removeByMember = await attempt(MEMBER, removeRow);
+  const addedReads = await sees(MEMBER, CALL, `insert into public.coaching_call_viewers (company_id, profile_id) values ('${CO}', '${MEMBER}');`);
+  const removedReads = await sees(VIEWER, CALL, `${removeRow};`);
+  const listOk =
+    Object.values(adds).every((v) => v === "allowed") &&
+    Object.values(addsRefused).every((v) => v === "refused") &&
+    removes === "allowed" && removeByListed === "refused" && removeByMember === "refused" &&
+    addedReads === "1/1" && removedReads === "0/0";
+
   const fmt = (o: Record<string, string>) => Object.entries(o).map(([k, v]) => `${k} ${v}`).join(", ");
   const unsortedOk =
     unsortedOwner === "1/0" && Object.values(unsortedOthers).every((v) => v === "0/0");
@@ -3234,7 +3289,6 @@ values ('${id}', '## ${title}', 'harness');`;
   const readOk = Object.values(readers).every((v) => v === "1/1");
   const refusedOk = Object.values(refused).every((v) => v === "0/0");
   const teamOk = Object.values(team).every((v) => v === "1/1") && teamOther === "0/0";
-  const moveOk = oldChamp === "0/0" && newChamp === "1/1";
   const plantedOk = plantedMember === "0/0";
   const kindOk = flipTeam === "refused" && flipCall === "refused";
   const mcpOk = mcp === "0";
@@ -3242,13 +3296,22 @@ values ('${id}', '## ${title}', 'harness');`;
   const aliasOk = aliasOwn === "allowed" && aliasOther === "refused" && aliasMember === "refused";
   return [
     {
-      name: "coaching calls · the two readers",
+      name: "coaching calls · who reads them",
       granted: fmt(readers),
       withheld: fmt(refused),
       ok: readOk && refusedOk,
       detail: readOk && refusedOk
-        ? "the call and its analysis are read by its assigned coaches and the champion, and by nobody else"
-        : "A COACHING CALL IS READ BY SOMEONE OUTSIDE ITS TWO READERS, or a reader cannot read it",
+        ? "the call and its analysis are read by its coaches, its admins and the people on its list, and by nobody else"
+        : "A COACHING CALL IS READ BY SOMEONE OUTSIDE ITS READERS, or a reader cannot read it",
+    },
+    {
+      name: "coaching calls · who can see them, managed",
+      granted: `${fmt(adds)}, company admin removes: ${removes}, added person reads ${addedReads}`,
+      withheld: `${fmt(addsRefused)}, listed person removes: ${removeByListed}, team member removes: ${removeByMember}, removed person reads ${removedReads}`,
+      ok: listOk,
+      detail: listOk
+        ? "a coach or company admin adds and removes people at the company, and the list decides who reads the calls"
+        : "THE LIST IS MANAGED BY THE WRONG PEOPLE, or does not decide who reads",
     },
     {
       name: "coaching calls · team meetings unchanged",
@@ -3256,13 +3319,6 @@ values ('${id}', '## ${title}', 'harness');`;
       withheld: `coach of another company ${teamOther}`,
       ok: teamOk,
       detail: teamOk ? "a team meeting is read exactly as before" : "TEAM MEETING READS CHANGED",
-    },
-    {
-      name: "coaching calls · access follows the champion",
-      granted: `new champion ${newChamp}`,
-      withheld: `old champion ${oldChamp}`,
-      ok: moveOk,
-      detail: moveOk ? "changing the champion moves the access with it" : "ACCESS DID NOT MOVE WITH THE CHAMPION",
     },
     {
       name: "coaching calls · boundary holds a bad rule",
@@ -10649,94 +10705,11 @@ async function grantProbes(
       : "THE COLUMN GUARD IS TOO WIDE: it is constraining system_admin too",
   });
 
-  // ---- The AiMS champion seat (0235) ---------------------------
+  // ---- The AiMS champion seat (0235): retired by 0329 -----------
   //
-  // A role widening, so it is probed the way the convention says:
-  // the write that must now succeed, and a write the same role must
-  // still be refused, in the same probe.
-  //
-  // THREE refusals, not one, because the seat has three ways to go
-  // wrong and they are refused by three different mechanisms:
-  //
-  //   status on own company      the column guard, by raising
-  //   the seat on another        RLS, by matching no rows
-  //   a seat pointed outside     the membership trigger (section 1)
-  //
-  // The third is the one worth having. A champion in another
-  // company would be a person receiving nudges about meetings they
-  // cannot open, and it is the only one of the three that the
-  // column guard and RLS both wave through.
-
-  const setChampionToOwnMember = (company: string) =>
-    `update public.companies set aims_champion_profile_id =
-       (select id from public.profiles
-         where company_id = '${company}' and status = 'active' limit 1)
-     where id = '${company}' returning id;`;
-  // Resolved to a CONCRETE id before the probe runs, not left as a
-  // subselect in the statement.
-  //
-  // The first draft embedded the subselect. The clone's "other
-  // company" has no active members, so it returned null, the update
-  // set the seat to NULL, the trigger's null branch waved it
-  // through, and the probe reported THE SEAT CAN POINT OUTSIDE THE
-  // COMPANY about a trigger that was working perfectly. E17: a
-  // harness failure wearing a product bug's clothes.
-  //
-  // "Anybody in a different company", resolved per role, rather than
-  // "somebody in ids.otherCompany" — which the second draft used and
-  // which came back null, because that company has no members in the
-  // clone. The trigger only cares that the profile's company is not
-  // this one.
-  const outsiderFor = async (own: string): Promise<string | null> => {
-    const [row] = await run<{ id: string | null }>(
-      `select (select id from public.profiles
-                where company_id is not null
-                  and company_id <> '${own}'
-                  and status = 'active' limit 1) as id;`
-    );
-    return row?.id ?? null;
-  };
-  const setChampionToOutsider = (company: string, outsider: string) =>
-    `update public.companies set aims_champion_profile_id = '${outsider}'
-     where id = '${company}' returning id;`;
-
-  for (const [label, sub, own] of [
-    ["company_admin", ids.companyAdmin, ids.companyAdminCompany],
-    ["aims_guide", ids.guide, ids.guideCompany],
-  ] as const) {
-    const granted = await attempt(sub, setChampionToOwnMember(own));
-    const otherColumn = await attempt(sub, setStatus(own));
-    const otherCompany = await attempt(sub, setChampionToOwnMember(ids.otherCompany));
-    const outsiderId = await outsiderFor(own);
-    const outsider = outsiderId
-      ? await attempt(sub, setChampionToOutsider(own, outsiderId))
-      : "NOT RUN: no active profile outside this company";
-
-    const ok =
-      granted.includes("row(s) written") &&
-      otherColumn === "refused by the column guard" &&
-      otherCompany.startsWith("0 rows") &&
-      outsider.includes("champion must be a member");
-
-    probes.push({
-      name: `champion seat · ${label}`,
-      granted: `champion on own company: ${granted}`,
-      withheld:
-        `status on own company: ${otherColumn} | ` +
-        `champion on another company: ${otherCompany} | ` +
-        `champion from another company: ${outsider}`,
-      ok,
-      detail: ok
-        ? "names the champion on a company they hold, and nothing else"
-        : !granted.includes("row(s) written")
-          ? "THE GRANT DOES NOT WORK: the role cannot name a champion the settings page offers them"
-          : outsiderId === null
-            ? "CANNOT ANSWER: no outsider to try, so the membership trigger went untested"
-            : !outsider.includes("champion must be a member")
-              ? "THE SEAT CAN POINT OUTSIDE THE COMPANY: nudges would go to somebody who cannot open the meeting"
-              : "the grant is wider than intended",
-    });
-  }
+  // The seat grants nothing since 0329 (coaching-call access moved to
+  // coaching_call_viewers), so its write probes went with it. The
+  // column goes in a later migration.
 
   // ---- guide_nudges: a nudge is addressed, not broadcast --------
   //
@@ -10787,7 +10760,7 @@ values ('${ids.companyAdminCompany}', '${ids.companyAdmin}',
     ids.member,
     // Rows addressed to somebody else. The member can be a recipient
     // themselves: seed:e2e makes the fixture's team member its
-    // champion, and reading their own invitation is the grant.
+    // invitee, and reading their own invitation is the grant.
     `select id from public.guide_nudges where recipient_profile_id <> '${ids.member}';`
   );
   const nudgeInsert = await attempt(
@@ -10829,130 +10802,6 @@ values ('${ids.companyAdminCompany}', '${ids.companyAdmin}',
             ? "A USER ROLE CAN CREATE A NUDGE, or is refused by policy rather than privilege — E8 asks for the privilege"
             : "the read is wider than intended",
   });
-
-  // ---- The seat empties itself (0235) ---------------------------
-  //
-  // A deactivated champion still sitting in the seat is the worst
-  // of the three states: nudges keep being raised, they are
-  // addressed to somebody who cannot sign in, and every one of them
-  // reads in guide_nudge_weekly as an invitation the champion
-  // ignored. The trigger clears the seat in the same statement that
-  // deactivates them.
-  //
-  // Probed as POSTGRES, not as a role. The question is not "may
-  // somebody do this" — it is "does it happen at all", whoever does
-  // the deactivating, which is the property a trigger has and a line
-  // in a server action does not.
-  const seatProbe = async (
-    label: string,
-    mutation: (champion: string, company: string) => string
-  ): Promise<void> => {
-    // A champion who is NOT the company's only admin, so there is
-    // somebody left to notify. Seating the sole admin and then
-    // deactivating them is a real state, but it makes "0 admins
-    // notified" correct and the probe blind.
-    const [setup] = await run<{
-      company: string | null;
-      champion: string | null;
-      admins: number;
-    }>(
-      `select
-         '${ids.companyAdminCompany}'::uuid as company,
-         coalesce(
-           (select id from public.profiles
-             where company_id = '${ids.companyAdminCompany}'
-               and status = 'active' and role <> 'company_admin' limit 1),
-           (select id from public.profiles
-             where company_id = '${ids.companyAdminCompany}'
-               and status = 'active' limit 1)) as champion,
-         (select count(*) from public.profiles
-           where company_id = '${ids.companyAdminCompany}'
-             and status = 'active' and role = 'company_admin') as admins;`
-    );
-    const company = setup?.company ?? null;
-    const champion = setup?.champion ?? null;
-    const admins = Number(setup?.admins ?? 0);
-    if (!company || !champion) {
-      probes.push({
-        name: `champion seat clears · ${label}`,
-        granted: "NOT RUN",
-        withheld: "NOT RUN",
-        ok: false,
-        detail: "CANNOT ANSWER: no active member to seat as champion",
-      });
-      return;
-    }
-
-    let seatAfter = "ERROR";
-    let notified = "ERROR";
-    try {
-      const rows = await run<{ seat: string | null; notified: number }>(
-        [
-          "begin;",
-          pending,
-          `update public.companies set aims_champion_profile_id = '${champion}'
-             where id = '${company}';`,
-          mutation(champion, company),
-          `select
-             (select aims_champion_profile_id from public.companies
-               where id = '${company}')::text as seat,
-             (select count(*) from public.notifications
-               where company_id = '${company}'
-                 and kind = 'champion-empty') as notified;`,
-          "rollback;",
-        ].join("\n")
-      );
-      const row = rows[0];
-      seatAfter = row?.seat === null || row?.seat === undefined ? "empty" : "still set";
-      notified = String(row?.notified ?? 0);
-    } catch (err) {
-      seatAfter = describeOutcome(null, err);
-    }
-
-    // Two assertions, and the second is the one that nearly got
-    // away. The seat emptying is necessary; TELLING THE ADMINS is
-    // what keeps a company from silently going quiet. The first
-    // version of this probe asserted only the first and printed
-    // "company admins notified: 0" beside a green tick on all three
-    // cases — which is what a green over a zero looks like.
-    //
-    // A company with no other active admin has nobody to tell, and
-    // that is a fact about the clone rather than a failure, so the
-    // count is only required where there is somebody to count.
-    const ok =
-      seatAfter === "empty" && (admins === 0 || Number(notified) > 0);
-    probes.push({
-      name: `champion seat clears · ${label}`,
-      granted: `seat afterwards: ${seatAfter} | company admins notified: ${notified}`,
-      withheld: "nothing — this is a consequence, not a permission",
-      ok,
-      detail: ok
-        ? admins === 0
-          ? "the seat empties in the same statement; no other admin to tell"
-          : "the seat empties in the same statement, and the admins are told"
-        : seatAfter !== "empty"
-          ? "THE SEAT KEEPS A PERSON WHO IS GONE: nudges would go to somebody who cannot read them, and count as ignored"
-          : "NOBODY IS TOLD: the company stops hearing from Aimee with nothing on screen saying why",
-    });
-  };
-
-  await seatProbe(
-    "deactivated",
-    (champion) =>
-      `update public.profiles set status = 'inactive' where id = '${champion}';`
-  );
-  await seatProbe(
-    "moved to another company",
-    (champion) =>
-      `update public.profiles set company_id =
-         (select id from public.companies
-           where id <> '${ids.companyAdminCompany}' limit 1)
-       where id = '${champion}';`
-  );
-  await seatProbe(
-    "deleted",
-    (champion) => `delete from public.profiles where id = '${champion}';`
-  );
 
   // ---- The baseline function role, and who may touch it --------
   //

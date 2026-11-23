@@ -4,11 +4,10 @@ import type { MeetingKind } from "@/lib/types";
 //
 // A team meeting's analysis reaches into the rest of the company: it
 // creates commitments when automatic tracking is on, fills the week's
-// Headlines boxes, invites the champion to a debrief with Aimee, and
-// counts in analytics. A coaching call does none of it. Its summary,
+// Headlines boxes, and counts in analytics. A coaching call does none of it. Its summary,
 // coaching notes and extracted lists are stored on the analysis row
 // like any meeting's, and read only on the call's own page by its
-// coach and its AiMS Champion.
+// coaches, its admins and the people they have added (0329).
 //
 // One switch per effect, so a later decision (Jason may want "Add to
 // commitments" on a call one day) changes one line here rather than a
@@ -16,7 +15,6 @@ import type { MeetingKind } from "@/lib/types";
 export type AnalysisRunPlan = {
   createCommitments: boolean;
   fillHeadlines: boolean;
-  raiseNudge: boolean;
   trackEvent: boolean;
   // The facilitation score: the five parts, the overall and the
   // Facilitation signal. Built for the weekly leadership meeting, so a
@@ -30,7 +28,6 @@ export function coachingRunPlan(kind: MeetingKind | null | undefined): AnalysisR
   return {
     createCommitments: team,
     fillHeadlines: team,
-    raiseNudge: team,
     trackEvent: team,
     scoreReview: team,
   };
@@ -66,21 +63,38 @@ export function isTeamMeeting(kind: MeetingKind | null | undefined): boolean {
 }
 
 // Who can see a coaching call, said on its page and its tab. Names
-// only; the roles in brackets are the app's words for them.
+// only; the roles in brackets are the app's words for them. The people
+// a coach or admin added carry no bracket: being on the list is the
+// whole reason.
+//   "Only Jason MacKenzie (coach), Taylor Jones and Anna Lane (admins),
+//    and Sam Patel can see these calls."
 export function coachingReadersLine(
-  readers: { coaches: readonly string[]; champion: string | null },
+  readers: {
+    coaches: readonly string[];
+    admins: readonly string[];
+    viewers: ReadonlyArray<{ name: string }>;
+  },
   what: "this call" | "these calls"
 ): string {
-  const coaches = readers.coaches.filter((n) => n.trim() !== "");
-  const parts: string[] = [];
-  if (coaches.length > 0) {
-    parts.push(`${listNames(coaches)} (${coaches.length === 1 ? "coach" : "coaches"})`);
-  }
-  if (readers.champion?.trim()) {
-    parts.push(`${readers.champion.trim()} (AiMS Champion)`);
-  }
-  if (parts.length === 0) return `Only the company's coach and its AiMS Champion can see ${what}.`;
-  return `Only ${parts.join(coaches.length > 1 ? ", and " : " and ")} can see ${what}.`;
+  const clean = (names: readonly string[]) => names.map((n) => n.trim()).filter((n) => n !== "");
+  const coaches = clean(readers.coaches);
+  const admins = clean(readers.admins).filter((n) => !coaches.includes(n));
+  const others = clean(readers.viewers.map((v) => v.name)).filter((n) => !coaches.includes(n) && !admins.includes(n));
+  const groups: string[] = [];
+  if (coaches.length > 0) groups.push(`${listNames(coaches)} (${coaches.length === 1 ? "coach" : "coaches"})`);
+  if (admins.length > 0) groups.push(`${listNames(admins)} (${admins.length === 1 ? "admin" : "admins"})`);
+  if (others.length > 0) groups.push(listNames(others));
+  if (groups.length === 0) return `Only the company's coach and its admins can see ${what}.`;
+  if (groups.length === 1) return `Only ${groups[0]} can see ${what}.`;
+  // Two groups read "A (coach) and B (admin)", unless the first is
+  // itself a list ("A and B (coaches), and C"), where a plain "and"
+  // would blur where one group ends. Three read with commas.
+  const firstIsList = groups.length === 2 && [coaches, admins, others].find((g) => g.length > 0)!.length > 1;
+  const joined =
+    groups.length === 2 && !firstIsList
+      ? `${groups[0]} and ${groups[1]}`
+      : `${groups.slice(0, -1).join(", ")}, and ${groups[groups.length - 1]}`;
+  return `Only ${joined} can see ${what}.`;
 }
 
 function listNames(names: readonly string[]): string {

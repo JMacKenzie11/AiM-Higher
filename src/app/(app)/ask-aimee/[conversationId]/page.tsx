@@ -16,7 +16,6 @@ import { getCurrentRoleDescription } from "@/lib/role-descriptions/roles-list";
 import { RoleDescriptionView } from "@/components/role-descriptions/RoleDescriptionView";
 import styles from "../revision.module.css";
 import { leadsAnyFunction } from "@/lib/practices/function-leads";
-import { isAimsChampion } from "@/lib/guide/champion";
 import { PageShell } from "@/components/ui/PageShell";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
@@ -94,7 +93,7 @@ export default async function AskAimeeChatPage({
     { registryAgent, runtime },
     revisingDoc,
     companyFeatures,
-    { agents, isFunctionLead, isAimsChampionHere },
+    { agents, isFunctionLead },
   ] = await Promise.all([
     getAccessForConversation(conversation.id, session.profile.id),
     getMessages(conversationId),
@@ -110,15 +109,10 @@ export default async function AskAimeeChatPage({
     getCompanyFeatures(conversation.company_id),
     (async () => {
       const list = await listAgents();
-      const [leads, champion] = await Promise.all([
-        list.some((p) => p.alsoFunctionLeads)
-          ? leadsAnyFunction(session.profile.id, conversation.company_id)
-          : Promise.resolve(false),
-        list.some((p) => p.alsoAimsChampion)
-          ? isAimsChampion(session.profile.id, conversation.company_id)
-          : Promise.resolve(false),
-      ]);
-      return { agents: list, isFunctionLead: leads, isAimsChampionHere: champion };
+      const leads = list.some((p) => p.alsoFunctionLeads)
+        ? await leadsAnyFunction(session.profile.id, conversation.company_id)
+        : false;
+      return { agents: list, isFunctionLead: leads };
     })(),
   ]);
   if (access === null) notFound();
@@ -204,11 +198,6 @@ export default async function AskAimeeChatPage({
   // so a company with no such agent pays nothing for the concept.
   // Merged, so the Hub's renames, reordering and access edits reach
   // the picker. Archived agents are already dropped by listAgents.
-  // Same shape, same reason. A champion who is a team_member is
-  // admitted by practiceGate and would otherwise find the debrief
-  // agent only by guessing its URL — which is exactly what they do
-  // NOT do, because they arrive from a notification and then look
-  // for it again a week later.
   const agentPickerPractices =
     access === "owner"
       ? agents.filter((p) => {
@@ -225,10 +214,7 @@ export default async function AskAimeeChatPage({
           // The card and the gate have to agree. A lead who is
           // refused here and admitted by practiceGate would find the
           // agent only by guessing the URL.
-          return (
-            (p.alsoFunctionLeads === true && isFunctionLead) ||
-            (p.alsoAimsChampion === true && isAimsChampionHere)
-          );
+          return p.alsoFunctionLeads === true && isFunctionLead;
         })
       : null;
 

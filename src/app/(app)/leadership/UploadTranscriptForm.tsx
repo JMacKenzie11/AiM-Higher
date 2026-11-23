@@ -11,12 +11,12 @@ import up from "./upload.module.css";
 
 // Upload a transcript on Meeting Summaries: one row of name, date,
 // file and button. Rendered only for the people the action admits
-// (system admin, the company's admin, an assigned guide, the AiMS
-// champion); the action checks again.
+// (system admin, the company's admin, an assigned guide); the action
+// checks again.
 //
 // The same form adds a coaching call on the Coaching calls tab
-// (kind="coaching", 0326), for the company's coach and its AiMS
-// Champion only; the action checks that too.
+// (kind="coaching", 0326), for anyone who can see the company's
+// coaching calls (0329); the action checks that too.
 
 // A server action's request body is capped at 1 MB. A larger file is
 // refused here with a sentence rather than by the framework.

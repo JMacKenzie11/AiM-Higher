@@ -273,7 +273,7 @@ export function AimeePanelChat({
 }
 
 // "Not now" on an invitation: the same action as the bell's, which
-// records that the champion declined (guide_nudges) as well as putting
+// records that the recipient declined (guide_nudges) as well as putting
 // the notification away. Disabled while in flight; the item leaves when
 // the layout revalidates.
 function NotNow({ id }: { id: string }) {

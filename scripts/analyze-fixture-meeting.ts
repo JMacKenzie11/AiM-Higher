@@ -13,8 +13,8 @@
 // reading the seed script's own prose back.
 //
 // This runs the pipeline for real: speaker mapping, the analysis
-// call, extraction, the facilitation review, the coverage check, and
-// the Guide nudge at the end. Everything a client's meeting goes
+// call, extraction, the facilitation review and the coverage check.
+// Everything a client's meeting goes
 // through, against a company with no client data in it.
 //
 // ---- WHY NOT BENSON --------------------------------------------
@@ -158,7 +158,7 @@ async function main() {
   if (!source) fail("The fixture transcript source is missing. Run npm run seed:e2e first.");
 
   // One meeting, reused. Deleting and recreating would change the
-  // meeting id every run, and the nudge, the commitments and any
+  // meeting id every run, and the commitments and any
   // conversation pinned to it all hang off that id.
   const { data: existing } = await db
     // meetings-kind: an operator's dev tool, on the one meeting id it was given.
@@ -222,7 +222,7 @@ async function main() {
   console.log(`  transcript:${transcript.length} chars`);
   console.log(`\n  analysing for real…\n`);
 
-  const result = await runWithInstance(instance, () => analyzeMeeting(meetingId));
+  await runWithInstance(instance, () => analyzeMeeting(meetingId));
 
   // Read back. "No error" is not evidence.
   const { data: analysis } = await db
@@ -242,20 +242,6 @@ async function main() {
     .from("commitments")
     .select("description, due_date, owner_id")
     .eq("source_meeting_id", meetingId);
-  // THIS run's nudge, by the id the raise returned. Reading the
-  // company's latest row instead printed an earlier run's headline
-  // whenever this one raised nothing (no champion set, which is the
-  // state seed:e2e leaves), and it read as this run's result.
-  const nudge = result.nudge.raised
-    ? (
-        await db
-          .from("guide_nudges")
-          .select("state, headline")
-          .eq("id", result.nudge.nudgeId)
-          .maybeSingle<{ state: string; headline: string }>()
-      ).data
-    : null;
-
   console.log(`\n  model:       ${analysis.model}`);
   console.log(`  summary:     ${analysis.analysis_markdown.length} chars, truncated=${analysis.truncated}`);
   console.log(`  coverage:    ${analysis.coverage_json?.missed?.length ?? 0} possible miss(es)`);
@@ -263,15 +249,6 @@ async function main() {
   for (const c of commitments ?? []) {
     console.log(`    - ${c.due_date ?? "no date"}  ${c.description.slice(0, 70)}`);
   }
-  console.log(
-    `  nudge:       ${
-      !result.nudge.raised
-        ? `no nudge raised: ${result.nudge.reason}`
-        : nudge
-          ? `${nudge.state}: "${nudge.headline}"`
-          : `raised (${result.nudge.nudgeId}) but could not be read back`
-    }`
-  );
   console.log(`\n  Read it at /leadership/meetings/${meetingId}\n`);
 }
 

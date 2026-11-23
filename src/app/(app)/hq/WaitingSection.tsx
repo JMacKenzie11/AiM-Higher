@@ -64,7 +64,7 @@ export function WaitingSection({
       ) : null}
       <p className={t.caption}>
         These are calls AiMS-HQ couldn&apos;t match to a company on its own. Pick the right company and AiMS-HQ
-        will analyse the call. Only you, the company&apos;s other coaches and its AiMS Champion will see it.
+        will analyse the call. Only the company&apos;s coaches, its admins and the people they have added will see it.
       </p>
 
       {done.map((d) => (

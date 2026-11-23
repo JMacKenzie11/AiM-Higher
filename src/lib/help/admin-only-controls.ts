@@ -13,8 +13,8 @@
 //                                  proves the names are the real ones
 //
 // Only controls hidden from a PLAIN team member (no function led, no
-// seat, no reports). Controls an owner, a function lead, a manager or
-// the champion can use are left out on purpose.
+// seat, no reports). Controls an owner, a function lead or a manager
+// can use are left out on purpose.
 
 export type AdminOnlyControls = {
   path: string;

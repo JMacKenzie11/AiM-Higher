@@ -55,19 +55,6 @@
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isEntryPoint } from "./lib/entry-point.ts";
-import { meetingLabel } from "../src/lib/guide/meeting-label.ts";
-
-// The fixture invitation. e2e/guide-champion.spec.ts checks the card
-// and the first message against it.
-const GUIDE_CARD = {
-  headline: "The team debated pricing openly and kept it constructive.",
-  invitation: "Want to look at what made that work?",
-  opener:
-    "When pricing came up, the team put the disagreement on the table and kept talking.\n\n" +
-    '"Let\'s argue about the numbers and keep it about the numbers."\n\n' +
-    "That gives the team a way to settle hard calls together.\n\n" +
-    "What made it easy to disagree that openly?",
-};
 
 const COMPANY_NAME = "E2E Fixture Co";
 
@@ -667,19 +654,13 @@ async function main() {
   if (valuesError) throw valuesError;
   console.log(`  foundation → purpose, vision and ${VALUES.length} core values`);
 
-  // ---- a meeting to debrief, and an invitation to debrief it ----
+  // ---- an analysed team meeting --------------------------------
   //
-  // The Guide's open path (0235) turns a NOTIFICATION into a
-  // conversation, and no user role may create either — the nudge's
-  // INSERT is revoked from `authenticated` on purpose. So the
-  // fixture has to come from here, on the service client, the same
-  // way the analysis pipeline would have produced it.
-  //
-  // Rebuilt from scratch on every seed, because the spec CONSUMES
-  // it: opening a nudge moves it to `opened` and it is not pending
-  // again afterwards. A suite that only works on a fresh seed is
-  // worse than one that resets its own fixture, and this is the
-  // reset.
+  // One complete meeting with an analysis, rebuilt from scratch on
+  // every seed. It was also the meeting of the Guide's debrief
+  // invitation until those were switched off with the AiMS champion
+  // seat (0329); the invitation and the seat are no longer seeded, and
+  // any left by an earlier seed are cleared below.
   const GUIDE_FILE = "e2e-guide-debrief.txt";
 
   // Select-then-insert rather than upsert. PostgREST resolves
@@ -734,7 +715,7 @@ async function main() {
     .eq("source_id", guideSourceId)
     .eq("file_name", GUIDE_FILE);
   // The coaching calls coaching-calls.spec.ts added on earlier runs
-  // (0326): one per run, uploaded through the tab by the champion.
+  // (0326): one per run, uploaded through the tab by the member.
   const { data: clearedCalls } = await admin
     // meetings-kind: e2e fixture rows, written to the dev clone.
     .from("meetings")
@@ -782,54 +763,21 @@ async function main() {
     });
   if (analysisError) throw analysisError;
 
-  const { data: guideNudge, error: nudgeError } = await admin
-    .from("guide_nudges")
-    .insert({
-      company_id: companyId,
-      recipient_profile_id: memberId,
-      trigger_kind: "meeting_analyzed",
-      meeting_id: guideMeeting!.id,
-      // The card (0241), written the way the Guide writes one: a
-      // strength, an invitation, and a first message that adds the
-      // moment and a quote rather than repeating the card.
-      headline: GUIDE_CARD.headline,
-      invitation: GUIDE_CARD.invitation,
-      opener: GUIDE_CARD.opener,
-    })
-    .select("id")
-    .single<{ id: string }>();
-  if (nudgeError) throw nudgeError;
-
-  const { error: notifyError } = await admin.from("notifications").insert({
-    recipient_id: memberId,
-    company_id: companyId,
-    kind: "guide-nudge",
-    eyebrow: "Aimee",
-    title: GUIDE_CARD.headline,
-    href: `/guide/nudge/${guideNudge!.id}`,
-    payload: {
-      nudge_id: guideNudge!.id,
-      meeting_id: guideMeeting!.id,
-      meeting_label: meetingLabel("E2E Leadership Meeting", new Date().toISOString().slice(0, 10)),
-      invitation: GUIDE_CARD.invitation,
-    },
-  });
-  if (notifyError) throw notifyError;
-  console.log(`  guide nudge → ${memberEmail}, about "E2E Leadership Meeting"`);
-
-  // The invitation above goes to the member, so the member holds the
-  // champion seat, on every seed. It used to start EMPTY, which sent
-  // the invitation to somebody who was not the champion: on dev the
-  // member saw an invitation they could not open (2026-09-29), and an
-  // invitation now shows only to whoever holds the seat. Setting it
-  // here also means a champion spec that died mid-way does not leave
-  // the next run asserting against a seat somebody else set.
-  const { error: seatError } = await admin
-    .from("companies")
-    .update({ aims_champion_profile_id: memberId })
-    .eq("id", companyId);
-  if (seatError) throw seatError;
-  console.log(`  champion seat → ${memberEmail}, who holds the invitation`);
+  // Someone on the coaching-calls list (0329): the member, a team
+  // member who sees the company's calls only because a coach or admin
+  // added them. e2e/coaching-calls.spec.ts signs in as them.
+  const { error: viewerError } = await admin
+    .from("coaching_call_viewers")
+    .upsert({ company_id: companyId, profile_id: memberId }, { onConflict: "company_id,profile_id" });
+  if (viewerError) throw viewerError;
+  // And nobody else from earlier runs: the spec adds and removes the
+  // function lead, and one that died mid-way would leave them on.
+  await admin
+    .from("coaching_call_viewers")
+    .delete()
+    .eq("company_id", companyId)
+    .neq("profile_id", memberId);
+  console.log(`  coaching calls list → ${memberEmail}`);
 
   // ---- the clone is an authoring instance --------------------
   //

@@ -1,5 +1,4 @@
 import "server-only";
-import { isAimsChampion } from "@/lib/guide/champion";
 import { invitationCard, noticeBody } from "./kinds";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -39,17 +38,17 @@ export type NotificationKind =
   | "overdue-commitments"
   | "due-today-commitments"
   | "chat_shared"
-  // Aimee inviting the AiMS champion to debrief a meeting. The only
-  // kind in the tray that carries its own "Not now": the others are
-  // either a state that is still true or news that has already been
-  // delivered, and neither has a second thing to record when the
-  // reader waves it away. A nudge does — see guide_nudges in 0235.
+  // Aimee inviting the AiMS champion to debrief a meeting. Switched
+  // off with the champion seat (0329; Jason, 2026-11-23): nothing
+  // raises one any more, and rows already sent are not shown (below).
+  // Kept in the type for the rows and the code that still names it.
   | "guide-nudge"
-  // The champion seat is empty, so nobody is being invited. Raised
-  // by the database itself (0235) at the moment the seat is
-  // vacated, because the alternative is a company that quietly
-  // stops hearing from Aimee with nothing on screen saying why.
+  // The champion seat is empty. Raised by the database until 0329
+  // dropped the trigger; rows already sent are not shown (below).
   | "champion-empty"
+  // A coach or company admin added this person to who can see the
+  // company's coaching calls (0329).
+  | "coaching-access"
   // A one-off notice to company admins and assigned guides that AI apps
   // are now on for their company (Jason, 2026-10-14). Sent once, by
   // hand, when AI apps went on by default (0284); it carries a body
@@ -160,6 +159,9 @@ export async function getHeaderNotifications({
     .eq("recipient_id", userId)
     .eq("company_id", companyId)
     .is("read_at", null)
+    // Retired kinds (0329), left out here too so they never take a
+    // place in the twenty.
+    .not("kind", "in", "(guide-nudge,champion-empty)")
     .order("created_at", { ascending: false })
     .limit(20);
   const [commitmentCounts, pending, { data: persistedRows }] = await Promise.all([
@@ -246,16 +248,14 @@ export async function getHeaderNotifications({
     created_at: string;
     payload: Record<string, unknown> | null;
   }>;
-  // AN INVITATION IS FOR WHOEVER HOLDS THE CHAMPION SEAT NOW
-  // (2026-09-29). Moving the seat does nothing to invitations already
-  // sent, so the previous champion kept one they could not open. Only
-  // the current champion sees them, in the badge and in "For you".
-  const holdsSeat = persisted.some((r) => r.kind === "guide-nudge")
-    ? await isAimsChampion(userId, companyId)
-    : true;
+  // RETIRED KINDS (0329; Jason, 2026-11-23). The weekly debrief
+  // invitation is off and the champion seat is gone, so an invitation
+  // or "the seat is empty" notice already sent is never shown: neither
+  // leads anywhere now.
+  const RETIRED: readonly string[] = ["guide-nudge", "champion-empty"];
 
   for (const row of persisted) {
-    if (row.kind === "guide-nudge" && !holdsSeat) continue;
+    if (RETIRED.includes(row.kind)) continue;
     items.push({
       id: row.id,
       kind: row.kind as NotificationKind,

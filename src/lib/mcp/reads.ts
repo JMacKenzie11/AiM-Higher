@@ -48,35 +48,25 @@ export async function visibleCompanies(db: Db): Promise<VisibleCompany[]> {
   return rows.map((r) => ({ id: r.id, name: r.name, assistantsOn: r.assistants_enabled === true }));
 }
 
-// Each company's main contact, its AiMS champion, and its AiMS Coaches,
-// by name, for list_my_companies (Jason, 2026-11-18): so "do Benson"
-// can be matched to Benson Seafood and its people. A name the person
-// cannot read comes back null.
+// Each company's AiMS Coaches, by name, for list_my_companies (Jason,
+// 2026-11-18): so "do Benson" can be matched to Benson Seafood and its
+// people. A name the person cannot read is left out. The main contact
+// (the company's AiMS champion) went with the seat (0329).
 export async function companyContacts(db: Db, companyIds: string[]) {
-  if (companyIds.length === 0) return new Map<string, { champion: string | null; coaches: string[] }>();
-  const [cos, guides] = await Promise.all([
-    db
-      .from("companies")
-      .select("id, aims_champion_profile_id")
-      .in("id", companyIds)
-      .then((res) => must(res) as Array<{ id: string; aims_champion_profile_id: string | null }>),
-    db
-      .from("guide_assignments")
-      .select("guide_id, company_id")
-      .in("company_id", companyIds)
-      .then((res) => must(res) as Array<{ guide_id: string; company_id: string }>),
-  ]);
-  const ids = [...new Set([...cos.map((c) => c.aims_champion_profile_id), ...guides.map((g) => g.guide_id)].filter((x): x is string => !!x))];
+  if (companyIds.length === 0) return new Map<string, { coaches: string[] }>();
+  const guides = must(
+    await db.from("guide_assignments").select("guide_id, company_id").in("company_id", companyIds)
+  ) as Array<{ guide_id: string; company_id: string }>;
+  const ids = [...new Set(guides.map((g) => g.guide_id))];
   const people = ids.length
     ? (must(await db.from("profiles").select("id, full_name").in("id", ids)) as Array<{ id: string; full_name: string | null }>)
     : [];
   const name = new Map(people.map((p) => [p.id, p.full_name]));
-  const out = new Map<string, { champion: string | null; coaches: string[] }>();
-  for (const c of cos) {
-    out.set(c.id, {
-      champion: c.aims_champion_profile_id ? name.get(c.aims_champion_profile_id) ?? null : null,
+  const out = new Map<string, { coaches: string[] }>();
+  for (const id of companyIds) {
+    out.set(id, {
       coaches: guides
-        .filter((g) => g.company_id === c.id)
+        .filter((g) => g.company_id === id)
         .map((g) => name.get(g.guide_id))
         .filter((n): n is string => !!n),
     });

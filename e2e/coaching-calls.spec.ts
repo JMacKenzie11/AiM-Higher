@@ -1,18 +1,18 @@
 import { test, expect, signIn, users } from "./fixtures";
 
-// Coaching calls (0326). A coach's calls with a company's leaders,
-// read by the company's assigned coaches and its AiMS Champion only.
+// Coaching calls (0326, 0329). A coach's calls with a company's
+// leaders, read by the company's assigned coaches, its admins and the
+// people they add.
 //
-// users.member() is the fixture company's AiMS Champion
-// (guide-champion.spec.ts leaves it in the seat). users.lead() is a team
-// member of the same company who holds no seat: the person who must
-// see the page exactly as before.
+// users.member() is on the fixture company's list (npm run seed:e2e
+// adds them). users.lead() is a team member of the same company who is
+// not: the person who must see the page exactly as before.
 //
-// ONE REAL MODEL RUN. The champion adds a call through the tab, the way
+// ONE REAL MODEL RUN. The member adds a call through the tab, the way
 // a person would, and the spec waits for its analysis (a few minutes,
 // as for any meeting), because the read-only lists are only there once
 // the call has been analysed. The call stays on the fixture company,
-// readable by its coach and champion only; npm run seed:e2e clears the
+// readable by the people who can see calls; npm run seed:e2e clears the
 // ones earlier runs left (files named "e2e-coaching-call-*").
 //
 // The RLS harness proves the boundary for every role
@@ -36,7 +36,7 @@ const TRANSCRIPT = [
 
 let callUrl = "";
 
-test("the champion sees Coaching calls beside Team meetings, and adds a call", async ({ page }) => {
+test("someone on the list sees Coaching calls beside Team meetings, and adds a call", async ({ page }) => {
   // Its own wait for the upload is 60s; the default 30s test budget
   // ended it first on a cold dev server, with the call already added.
   test.setTimeout(3 * 60_000);
@@ -50,7 +50,9 @@ test("the champion sees Coaching calls beside Team meetings, and adds a call", a
   await expect(page).toHaveURL(/#coaching-calls$/);
 
   const panel = page.getByRole("tabpanel", { name: "Coaching calls" });
-  await expect(panel.getByText(/\(AiMS Champion\) can see these calls/)).toBeVisible();
+  await expect(panel.getByText(/\(admins?\), and .*E2E Team Member.* can see these calls/)).toBeVisible();
+  // Someone on the list sees who else can, and cannot change it.
+  await expect(panel.getByRole("button", { name: "Manage access" })).toHaveCount(0);
 
   const card = panel.getByRole("region", { name: "Add a coaching call" });
   await card.getByLabel("Call name").fill(TITLE);
@@ -94,7 +96,7 @@ test("once analysed, the call's page says who can see it and has no add buttons"
 
   await page.goto(callUrl);
   await expect(page.getByText("Coaching call analysis")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/^Only .*\(AiMS Champion\) can see this call\.$/)).toBeVisible();
+  await expect(page.getByText(/^Only .*\(coach(es)?\).* can see this call\.$/)).toBeVisible();
   await expect(page.getByRole("link", { name: "← Coaching calls" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Read the transcript/ })).toBeVisible();
   // No meeting score on a call: no signal on the strip, no breakdown.
@@ -110,7 +112,7 @@ test("once analysed, the call's page says who can see it and has no add buttons"
   await expect(page.getByRole("button", { name: /add|convert|resolved in meeting/i })).toHaveCount(0);
 });
 
-test("a team member who isn't the champion sees no tab, and the call is not found", async ({ page }) => {
+test("a team member not on the list sees no tab, and the call is not found", async ({ page }) => {
   expect(callUrl, "the previous test found the call").not.toBe("");
   await signIn(page, users.lead());
   await page.goto("/leadership");
@@ -128,4 +130,41 @@ test("a team member who isn't the champion sees no tab, and the call is not foun
   await page.goto(`${callUrl}/transcript`);
   await expect(page.getByRole("heading", { name: "That page isn’t here." })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(TITLE)).toHaveCount(0);
+});
+
+// Managing the list (0329). The company admin sees the calls without
+// being added, opens Manage access, adds the function lead, sees them
+// listed and in the line on the tab, then removes them again so the
+// test before this one stays true on the next run.
+test("a company admin adds a person to the list and removes them", async ({ page }) => {
+  await signIn(page, users.companyAdmin());
+  await page.goto("/leadership");
+  await page.getByRole("tab", { name: "Coaching calls" }).click();
+  const tab = page.getByRole("tabpanel", { name: "Coaching calls" });
+  await tab.getByRole("button", { name: "Manage access" }).click();
+
+  const drawer = page.getByRole("dialog", { name: "Who can see coaching calls" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("heading", { name: "Always" })).toBeVisible();
+  await expect(drawer.getByText("Coach", { exact: true }).first()).toBeVisible();
+  await expect(drawer.getByText("E2E Team Member")).toBeVisible();
+
+  // A run that died mid-way may have left the lead on the list.
+  const leftOver = drawer.getByRole("button", { name: "Remove E2E Function Lead" });
+  if (await leftOver.count()) {
+    await leftOver.click();
+    await expect(leftOver).toHaveCount(0, { timeout: 30_000 });
+  }
+
+  const lead = await drawer.getByLabel("Add a person").locator("option", { hasText: "E2E Function Lead" }).getAttribute("value");
+  expect(lead).toBeTruthy();
+  await drawer.getByLabel("Add a person").selectOption(lead!);
+  await drawer.getByRole("button", { name: "Add", exact: true }).click();
+  const remove = drawer.getByRole("button", { name: "Remove E2E Function Lead" });
+  await expect(remove).toBeVisible({ timeout: 30_000 });
+  await expect(tab.getByText(/E2E Function Lead.* can see these calls/)).toBeVisible();
+
+  await remove.click();
+  await expect(remove).toHaveCount(0, { timeout: 30_000 });
+  await expect(tab.getByText(/E2E Function Lead/)).toHaveCount(0);
 });

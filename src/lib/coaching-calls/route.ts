@@ -14,7 +14,7 @@ import { turnsOf } from "@/lib/transcripts/turns";
 //      waits in the coach's Calls to sort.
 //
 // Strict on purpose, as routeByFilename is: a call filed under the
-// wrong company is read by that company's champion. "More than one"
+// wrong company is read by that company's admins. "More than one"
 // never guesses.
 //
 // Pure: no database, no server imports, so every case is a unit test.

@@ -2,10 +2,10 @@ import type { NotificationItem, NotificationKind } from "./service";
 
 // WHICH NOTIFICATIONS ARE AIMEE'S (docs/investigations/aimee-panel.md,
 // Step 5). A Guide invitation is Aimee asking to talk a meeting
-// through, and a shared chat is an Aimee conversation: both open in
-// her panel and show on her icon's badge. Everything else (the live
-// commitment and measure counts, the empty champion seat) is a status
-// or an admin task, and stays in the bell.
+// through (none raised since 0329), and a shared chat is an Aimee
+// conversation: both open in her panel and show on her icon's badge.
+// Everything else (the live commitment and measure counts, being given
+// access to coaching calls) is a status or news, and stays in the bell.
 //
 // One query feeds both (getHeaderNotifications); this splits it, so
 // nothing is fetched twice and nothing is in both places.

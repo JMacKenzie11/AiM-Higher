@@ -6,14 +6,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // piece can: the analysis, the extraction and the facilitation review
 // are all in flight before any of them returns, and when one of the
 // two load-bearing calls fails, the meeting is marked failed with
-// nothing written: no analysis row, no commitment, no nudge.
+// nothing written: no analysis row, no commitment.
 
 vi.mock("server-only", () => ({}));
 
 const h = vi.hoisted(() => ({
   create: vi.fn(),
   facilitation: vi.fn(),
-  nudge: vi.fn(),
   track: vi.fn(),
   weeklyEmail: vi.fn(async () => ({ sent: 0, failed: 0 })),
   writes: [] as Array<{ table: string; op: string; payload?: unknown }>,
@@ -34,7 +33,6 @@ vi.mock("@/lib/ui/simplify", () => ({ simplifyOn: (name: string) => h.simplify.i
 vi.mock("@/lib/instances/current", () => ({ getCurrentInstanceConfig: () => ({}) }));
 vi.mock("@/lib/coach/usage", () => ({ logCoachTokenUsage: vi.fn(), usageLogger: () => () => {} }));
 vi.mock("@/lib/analytics/track", () => ({ track: h.track }));
-vi.mock("@/lib/guide/nudges", () => ({ raiseMeetingDebriefNudge: h.nudge }));
 vi.mock("@/lib/meeting-email/send", () => ({ sendWeeklyMeetingEmail: h.weeklyEmail }));
 vi.mock("@/lib/leadership/facilitation/analyze", () => ({ analyzeMeetingFacilitation: h.facilitation }));
 vi.mock("@/lib/leadership/questions", () => ({
@@ -122,7 +120,6 @@ beforeEach(() => {
   h.meetingKind = "team";
   h.profiles = [];
   process.env.ANTHROPIC_API_KEY = "test";
-  h.nudge.mockResolvedValue({ raised: false, reason: "test" });
 });
 
 describe("analyzeMeeting runs its three calls at once", () => {
@@ -176,7 +173,6 @@ describe("one failing call fails the meeting cleanly", () => {
       expect(meetingUpdates.at(-1)?.payload).toMatchObject({ status: "failed", error: `${failing} overloaded` });
       expect(h.writes.filter((w) => w.table === "meeting_analyses")).toEqual([]);
       expect(h.writes.filter((w) => w.table === "commitments")).toEqual([]);
-      expect(h.nudge).not.toHaveBeenCalled();
       expect(h.track).not.toHaveBeenCalled();
     });
   }
@@ -380,7 +376,7 @@ describe("headlines from the transcript", () => {
 
 // A coaching call (0326) is summarised like a meeting and writes
 // nothing anywhere else: no commitments even with automatic tracking
-// on, no Headlines boxes, no Guide nudge, no analytics event. The same
+// on, no Headlines boxes, no analytics event. The same
 // run as a team meeting is the control: it does each of those, so the
 // zeros below are the kind deciding, not an empty fixture.
 describe("a coaching call writes nothing outside its own analysis", () => {
@@ -407,7 +403,6 @@ describe("a coaching call writes nothing outside its own analysis", () => {
     h.functions = [{ id: "fn-ops", title: "Operations", lead_id: null }];
     h.profiles = [{ id: "p-pat", full_name: "Pat", position: null, status: "active" }];
     h.facilitation.mockResolvedValue(null);
-    h.nudge.mockResolvedValue({ raised: true });
     h.create.mockImplementation(async (req: { system: Array<{ text: string }> }) => {
       const k = kindOf(req);
       return text(k === "analysis" ? SUMMARY : k === "headlines" ? HEADLINES : COMMITTED);
@@ -420,11 +415,12 @@ describe("a coaching call writes nothing outside its own analysis", () => {
     return analyzeMeeting("m1");
   };
 
-  it("control: a team meeting creates commitments, fills a headline, asks for a nudge and counts", async () => {
+  it("control: a team meeting creates commitments, fills a headline and counts, and invites nobody to a debrief", async () => {
     const result = await run("team");
     expect(h.writes.some((w) => w.table === "commitments" && w.op === "insert")).toBe(true);
     expect(h.writes.some((w) => w.table === "meeting_headlines")).toBe(true);
-    expect(h.nudge).toHaveBeenCalledTimes(1);
+    // The weekly debrief invitation is off (0329; Jason, 2026-11-23).
+    expect(h.writes.filter((w) => w.table === "notifications" || w.table === "guide_nudges")).toEqual([]);
     expect(h.track).toHaveBeenCalledTimes(1);
     expect(h.weeklyEmail).toHaveBeenCalledTimes(1);
     expect(h.weeklyEmail.mock.calls[0]).toEqual([
@@ -467,11 +463,9 @@ describe("a coaching call writes nothing outside its own analysis", () => {
     expect(h.writes.filter((w) => w.table === "meeting_headlines")).toEqual([]);
     expect(h.weeklyEmail).not.toHaveBeenCalled();
     expect(h.writes.filter((w) => w.table === "notifications" || w.table === "guide_nudges")).toEqual([]);
-    expect(h.nudge).not.toHaveBeenCalled();
     expect(h.track).not.toHaveBeenCalled();
     expect(h.create.mock.calls.map(([req]) => kindOf(req))).not.toContain("headlines");
     expect(result.createdCommitmentCount).toBe(0);
-    expect(result.nudge).toEqual({ raised: false, reason: "coaching call" });
     // No facilitation score of any kind: not computed, not stored.
     const stored = analysis!.payload as Record<string, unknown>;
     for (const k of ["score_positive_framing", "score_rhythm", "score_accountability", "score_alignment", "score_agenda", "score_overall", "score_weights"]) {

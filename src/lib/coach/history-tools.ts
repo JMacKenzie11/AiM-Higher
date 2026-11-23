@@ -111,7 +111,7 @@ export function buildHistoryTools(args: {
 // comes back as nothing, because the database refuses the read.
 //
 // TEAM MEETINGS ONLY (0326). Aimee never reads a coaching call, for
-// anyone, the coach and the champion included, and their own client
+// anyone, the coach and the company's admins included, and their own client
 // would pass the read rules. Both tools ask for kind = 'team' by name.
 //
 // Two tools, because a summary averages 20,000 characters: the list

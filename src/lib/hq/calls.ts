@@ -23,7 +23,7 @@ import { loadFacilitationScores } from "./service";
 //
 // Every read is on the coach's own client, so RLS decides who sees a
 // coaching call (meetings_select_coaching: the company's assigned
-// coaches and its AiMS Champion). Coach HQ admits only aims_guide and
+// coaches, its admins and the people they have added, 0329). Coach HQ admits only aims_guide and
 // system_admin, and lists only the caller's assigned companies, so in
 // practice the reader is the company's coach. Nothing here is a model
 // call: every sentence is cut from what the analysis already stored.

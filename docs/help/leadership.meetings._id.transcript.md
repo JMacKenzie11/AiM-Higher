@@ -19,7 +19,7 @@ The transcript is the recording's own words, so it can include mistakes the reco
 **Who can read this?** Everyone at your company, along with your AiMS coach. It's the same group that can read the meeting's write-up.
 
 ::: role team_member,company_admin,aims_guide,system_admin
-**And a coaching call's transcript?** Only the company's coach and its AiMS Champion can read it, the same two people who can read the call.
+**And a coaching call's transcript?** Only the people who can see the call can read it: the company's coaches, its admins and anyone they've added.
 :::
 
 **Can I change it?** No. The transcript is the record of what was said. To correct the write-up or a commitment, use the meeting page or Commitments.

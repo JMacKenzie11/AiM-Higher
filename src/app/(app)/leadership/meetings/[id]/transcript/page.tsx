@@ -32,7 +32,8 @@ export default async function MeetingTranscriptPage({ params }: PageProps) {
 
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
   // meetings-kind: either kind, on the caller's own client. A coaching
-  // call reaches only its coach and AiMS Champion (0326), and is asked
+  // call reaches only the people who can see the company's coaching
+  // calls (0326, 0329), and is asked
   // again below before its transcript is shown.
   const { data: meeting } = await supabase
     .from("meetings")

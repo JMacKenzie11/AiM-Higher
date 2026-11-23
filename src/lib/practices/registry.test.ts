@@ -83,10 +83,9 @@ describe("the meeting debrief agent", () => {
     expect(debrief.scriptedOpener).toMatch(/\?$/);
   });
 
-  // The champion is frequently a team_member. The role list alone
-  // would refuse the person the notification was addressed to.
-  it("admits the champion on top of the three admin roles", () => {
-    expect(debrief.alsoAimsChampion).toBe(true);
+  // Company admins, guides and system admins. The AiMS champion was
+  // admitted on top until the seat was retired (0329).
+  it("admits the three admin roles", () => {
     expect([...(debrief.allowedRoles ?? [])].sort()).toEqual([
       "aims_guide",
       "company_admin",
@@ -94,9 +93,8 @@ describe("the meeting debrief agent", () => {
     ]);
   });
 
-  // The seat routes attention; it is not an access boundary. An
-  // admin can already open the meeting the debrief is about.
-  it("does not fence company admins out behind the seat", () => {
+  // An admin can already open the meeting the debrief is about.
+  it("admits company admins", () => {
     expect(debrief.allowedRoles).toContain("company_admin");
   });
 

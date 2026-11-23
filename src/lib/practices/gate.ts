@@ -80,10 +80,9 @@ export async function practiceGate(
 ): Promise<PracticeGateResult> {
   const role = practiceRoleGate(practice, profile, companyId);
   // A refusal by ROLE is not final when the practice names an access
-  // PREDICATE. A seat's Lead is usually a team_member, and the AiMS
-  // champion often is too; no list of platform roles can say "the
-  // person who runs a function" or "the person who runs the rhythm
-  // here". A relationship can. Predicates are asked only once the
+  // PREDICATE. A seat's Lead is usually a team_member; no list of
+  // platform roles can say "the person who runs a function". A
+  // relationship can. Predicates are asked only once the
   // role list has already said no, so the extra read costs nothing
   // for an admin, who was admitted on the first line.
   if (!role.ok) {
@@ -113,10 +112,6 @@ async function admittedByPredicate(
   if (practice.alsoFunctionLeads) {
     const { leadsAnyFunction } = await import("./function-leads");
     if (await leadsAnyFunction(profile.id, companyId)) return true;
-  }
-  if (practice.alsoAimsChampion) {
-    const { isAimsChampion } = await import("@/lib/guide/champion");
-    if (await isAimsChampion(profile.id, companyId)) return true;
   }
   return false;
 }

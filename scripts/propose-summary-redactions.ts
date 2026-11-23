@@ -282,8 +282,9 @@ async function main() {
         admin
           .from("meeting_analyses")
           .select("id, meeting_id, analysis_markdown, commitments_json, issues_json, coverage_json, facilitation_review_json"),
-        // Team meetings only: a coaching call's summary is for its coach and
-        // champion, never a file on somebody's disk (0326).
+        // Team meetings only: a coaching call's summary is for the people
+        // who can see the company's calls, never a file on somebody's
+        // disk (0326).
         admin.from("meetings").select("id, company_id, created_at, meeting_title, file_name").eq("kind", "team"),
         admin.from("profiles").select("full_name, company_id").not("company_id", "is", null),
         admin.from("companies").select("id, name"),

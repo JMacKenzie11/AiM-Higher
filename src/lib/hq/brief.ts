@@ -389,7 +389,8 @@ export async function loadRecentBriefs(
 // Its based_on_meeting_id is that call. session_briefs' read rule admits
 // every system admin, and a system admin can open a coach's HQ, so a
 // brief whose meeting the viewer cannot read (RLS hides a coaching call
-// from all but the company's coaches and champion) is left out. A brief
+// from all but the people who can see the company's coaching calls)
+// is left out. A brief
 // on a team meeting, or on none, is unaffected.
 async function briefsVisible(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,

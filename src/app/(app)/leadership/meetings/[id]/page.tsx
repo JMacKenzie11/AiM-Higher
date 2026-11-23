@@ -57,12 +57,12 @@ export const metadata = { title: "Meeting summary" };
 // Full meeting analysis + commitments the meeting spawned. Reached
 // from /leadership. Open to every same-company member; RLS on
 // meetings + meeting_analyses admits authenticated users whose
-// profile.company_id matches. The facilitation review is for the
-// company's admins, guides, system admins and the AiMS champion; the
-// rerun button is system_admin only. Both gated in the render below.
+// profile.company_id matches. Everyone in the company sees the
+// facilitation review; the rerun button is system_admin only.
 //
 // A COACHING CALL (0326) uses this page too. RLS shows it only to the
-// company's assigned coaches and its AiMS Champion; anyone else gets
+// company's assigned coaches, its admins and the people they have
+// added (0329); anyone else gets
 // not found, the same answer as for a meeting that does not exist. Its
 // page says who can see it, lists what was extracted with the add
 // buttons for the company's admins and coaches (never added by itself:
@@ -121,8 +121,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   // analyzed while the flag was off, stay null and render nothing).
   // Everyone in the company sees the full Coaching notes tab, scores
   // included (Jason, 2026-10-01: company content is open to the
-  // company; it was admins, guides and the AiMS champion from
-  // 2026-09-25).
+  // company; before that it was the company's admins, guides and its
+  // AiMS champion, from 2026-09-25).
   const facilitationFeatureOn = await companyHasFeature(
     meeting.company_id,
     "meeting_facilitation_review"
@@ -422,7 +422,8 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   // Names only, from bullets or prose: the same names the owner check
   // reads (attendees.ts), so the two cannot disagree.
   const attendees = attendeesFromSummary(analysis?.analysis_markdown ?? "");
-  // Who can see a coaching call, named (the coach and the champion).
+  // Who can see a coaching call, named (its coaches, admins and the
+  // people added).
   const readersLine = coaching
     ? coachingReadersLine(await coachingCallReaders(meeting.company_id), "this call")
     : null;
