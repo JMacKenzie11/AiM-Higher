@@ -5,54 +5,122 @@
    card does not: the agenda row on the header, the rows inside a step,
    and the foot. */
 
-.heroBar {
+/* The agenda, under the header (2026-11-23): the Dashboard's switch
+   (AnalysisTabs), with the timer at the right. */
+.agendaBar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-top: var(--space-5);
+  margin-bottom: var(--space-5);
 }
 
 .steps {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  max-width: 100%;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .step {
-  padding: var(--space-1) var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--space-4);
   border-radius: var(--radius-pill);
-  color: color-mix(in srgb, var(--aims-white) 72%, transparent);
-  background: color-mix(in srgb, var(--aims-white) 8%, transparent);
-  font: var(--text-body);
-  font-weight: 600;
+  color: var(--text-muted);
+  font: var(--text-button);
+  font-size: 15px;
   text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.step:hover {
+  background: var(--aims-navy-tint);
+  color: var(--text-heading);
 }
 
 .step[data-done="true"] {
-  color: var(--aims-white);
+  color: var(--text-heading);
 }
 
 .step[aria-current="step"] {
-  background: var(--aims-white);
-  color: var(--aims-navy);
+  background: var(--aims-navy);
+  color: var(--aims-white);
+  font-weight: 700;
 }
 
 .step:focus-visible {
-  outline: 2px solid var(--aims-chartreuse);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 .timer {
-  color: color-mix(in srgb, var(--aims-white) 80%, transparent);
-  font: var(--text-body);
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-heading);
+  font: var(--text-button);
   font-variant-numeric: tabular-nums;
+}
+
+.timer:empty {
+  display: none;
+}
+
+/* The step's card (2026-11-23): white, rounded, with a navy title band
+   as on a meeting's Meeting Analysis tab. No overflow: hidden, which
+   would clip the priority picker opening downward. */
+.stepCard,
+.navCard {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.stepHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--aims-navy);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.stepTitle {
+  flex: 1 1 auto;
+  margin: 0;
+  font: var(--text-h3);
+  color: var(--aims-white);
+}
+
+.stepMeta {
+  font: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--aims-sky);
 }
 
 /* Text inside a step's card, padded as the card's rows are. */
 .cardBody {
-  padding: var(--space-4);
+  padding: var(--space-2) var(--space-5) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -64,7 +132,7 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--border);
 }
 
@@ -73,22 +141,21 @@
 }
 
 /* A heading inside the card: "Kept this week", or a person's name on
-   Commitments. */
+   Commitments. A small label in the Scoreboard's tile style
+   (2026-11-23); it was a cobalt-tint band ruled above and below. A
+   thin rule above keeps sections apart. */
 .subhead {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
   margin: 0;
-  padding: var(--space-3) var(--space-4) var(--space-2);
+  padding: var(--space-5) var(--space-5) var(--space-2);
   border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  /* A band in the brand's cobalt tint, lighter than the card's navy
-     header, so a section heading reads apart from the rows under it
-     (Jason, 2026-10-20). */
-  background: var(--aims-cobalt-tint);
-  font: var(--text-body);
-  font-weight: 600;
-  color: var(--text-heading);
+  font: var(--text-caption);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 /* The rows right under a band carry no top rule of their own. */
@@ -142,7 +209,7 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   border-top: 1px solid var(--border);
   font: var(--text-body);
 }
@@ -154,7 +221,7 @@
 
 .mutedPad {
   margin: 0;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   color: var(--text-muted);
   font: var(--text-body);
 }
