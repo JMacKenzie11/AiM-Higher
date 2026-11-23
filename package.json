@@ -60,6 +60,7 @@
     "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
+    "@vimeo/player": "2.30.4",
     "docx": "^9.7.1",
     "googleapis": "^173.0.0",
     "mammoth": "^1.12.0",
