@@ -114,36 +114,24 @@
 }
 
 .heroAction {
-  /* margin-top lives on the parent .heroActions row so every
-     button (heroAction + heroCoachAction) shares one baseline.
-     Was previously margin-top: space-2 here + margin-top: 0 on
-     heroCoachAction, which put the two pills on different lines. */
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-4);
-  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
-  border: 1px solid var(--glass-border);
-  color: var(--aims-white);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
-  text-decoration: none;
-  transition: background var(--duration-fast) var(--ease-out);
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
-.heroAction:hover {
-  background: color-mix(in srgb, var(--aims-white) 20%, transparent);
-  color: var(--aims-white);
-}
-
+/* The person's actions (Edit my profile, Ask Aimee, Coach, Edit my
+   strengths), under the header rather than on it (2026-11-23). They
+   were translucent pills on the navy. Empty when none apply. */
 .heroActions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-top: var(--space-3);
+  max-width: 1160px;
+  width: 100%;
+  margin: var(--space-4) auto 0;
+}
+
+.heroActions:empty {
+  display: none;
 }
 
 .heroCoachAction {

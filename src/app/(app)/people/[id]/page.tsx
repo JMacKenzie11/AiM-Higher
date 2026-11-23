@@ -68,36 +68,39 @@ export default async function PersonScorecardPage({ params }: PageProps) {
           <p className={styles.subtitle}>
             {data.profile.position ?? "Team member"} · {data.company.name}
           </p>
-          <div className={styles.heroActions}>
-            {isSelf ? (
-              <Link href="/profile" className={styles.heroAction}>
-                Edit my profile →
-              </Link>
-            ) : null}
-            {isSelf ? (
-              <Link href="/ask-aimee" className={styles.heroCoachAction}>
-                Ask Aimee
-              </Link>
-            ) : null}
-            {canCoach ? (
-              <Link
-                href={`/coach/${id}`}
-                className={styles.heroCoachAction}
-              >
-                Coach {data.profile.full_name.split(" ")[0]}
-              </Link>
-            ) : null}
-            {isSelf ? (
-              <Link
-                href={`/people/${id}/strengths`}
-                className={styles.heroAction}
-              >
-                Edit my strengths →
-              </Link>
-            ) : null}
-          </div>
         </div>
       </section>
+
+      {/* Actions under the header, not on it (nothing in the hero;
+          Jason, 2026-11-23), as the app's standard buttons. */}
+      <div className={styles.heroActions}>
+        {isSelf ? (
+          <Link href="/profile" className={styles.heroAction}>
+            Edit my profile
+          </Link>
+        ) : null}
+        {isSelf ? (
+          <Link href="/ask-aimee" className={styles.heroCoachAction}>
+            Ask Aimee
+          </Link>
+        ) : null}
+        {canCoach ? (
+          <Link
+            href={`/coach/${id}`}
+            className={styles.heroCoachAction}
+          >
+            Coach {data.profile.full_name.split(" ")[0]}
+          </Link>
+        ) : null}
+        {isSelf ? (
+          <Link
+            href={`/people/${id}/strengths`}
+            className={styles.heroAction}
+          >
+            Edit my strengths
+          </Link>
+        ) : null}
+      </div>
 
       <div className={styles.content}>
         {editorBundle ? (
