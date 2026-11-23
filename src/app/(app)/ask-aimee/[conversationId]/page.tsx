@@ -16,7 +16,7 @@ import { getCurrentRoleDescription } from "@/lib/role-descriptions/roles-list";
 import { RoleDescriptionView } from "@/components/role-descriptions/RoleDescriptionView";
 import styles from "../revision.module.css";
 import { leadsAnyFunction } from "@/lib/practices/function-leads";
-import { PageShell } from "@/components/ui/PageShell";
+import { ChatPageStage } from "../../coach/ChatPageStage";
 import { ChatView } from "../../coach/[profileId]/[conversationId]/ChatView";
 import { ShareChatButton } from "./ShareChatButton";
 import { MemorySweep } from "../MemorySweep";
@@ -220,12 +220,7 @@ export default async function AskAimeeChatPage({
 
   const back = backLinkForFrom(from);
   return (
-    <PageShell
-      backHref={back.href}
-      backLabel={back.label}
-      eyebrow="Coaching"
-      title={practice ? practice.title : "Ask Aimee"}
-    >
+    <ChatPageStage backHref={back.href} backLabel={back.label}>
       {/* Opening one conversation summarizes the OTHERS. The one in
           front of the person is never distilled while they are in it:
           the thought is not finished until they move on. */}
@@ -269,6 +264,6 @@ export default async function AskAimeeChatPage({
           />
         }
       />
-    </PageShell>
+    </ChatPageStage>
   );
 }

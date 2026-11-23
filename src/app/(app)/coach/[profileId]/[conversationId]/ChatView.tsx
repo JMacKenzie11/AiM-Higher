@@ -840,19 +840,25 @@ export function ChatView({
               ) : null}
             </div>
           ) : isOwner ? (
-            <button
-              type="button"
-              className={styles.chatHeaderTitle}
-              onClick={() => setRenaming(true)}
-              title="Click to rename"
-            >
-              {title}
-            </button>
+            // The page's heading: the conversation's page has no page
+            // header since 2026-11-23, so its title is the h1.
+            <h1 className={styles.chatHeaderH1}>
+              <button
+                type="button"
+                className={styles.chatHeaderTitle}
+                onClick={() => setRenaming(true)}
+                title="Click to rename"
+              >
+                {title}
+              </button>
+            </h1>
           ) : (
             // Non-owners see the title as static text — the rename
             // affordance is owner-only. Static <span> keeps the same
             // visual weight as the button without inviting a click.
-            <span className={styles.chatHeaderTitle}>{title}</span>
+            <h1 className={styles.chatHeaderH1}>
+              <span className={styles.chatHeaderTitle}>{title}</span>
+            </h1>
           )}
         </div>
         {showAgentPicker ? (
