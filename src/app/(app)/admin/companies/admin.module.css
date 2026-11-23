@@ -235,6 +235,21 @@
   gap: var(--space-3);
 }
 
+/* A group of fields drawn as a fieldset (Strengths and Superpowers):
+   no browser frame, the legend as the field's label (2026-11-23). It
+   showed the browser's grey box with the legend cut into its edge. */
+fieldset.field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+fieldset.field > legend {
+  padding: 0;
+  margin-bottom: var(--space-3);
+}
+
 .label {
   font: var(--text-subhead);
   text-transform: uppercase;
