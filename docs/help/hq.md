@@ -47,7 +47,7 @@ It's analysed in a few minutes and appears in *Call summaries*. You can upload c
 
 ## Connections: your call recordings folder
 
-The *Connections* tab is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches and its AiMS Champion. Aimee never reads it.
+The *Connections* tab is where you set up call recordings for all the companies you coach. Calls with all your clients can live in one folder, such as Google Meet's *Meet Recordings*. AiMS reads it with your own Google account and files each call as a coaching call under one of your companies. A coaching call is seen only by the company's coaches, its admins and the people they've added. Aimee never reads it.
 
 Once your folder is connected, the tab shows one line with the folder and when it was last checked. *Check now* looks straight away, and *Settings* shows the Google account and *Change folder*.
 
@@ -67,7 +67,7 @@ Calls only ever go to companies you coach.
 
 ## Waiting to be analysed
 
-Calls AiMS-HQ couldn't match to a company on its own wait here for you to pick the company. Once you do, the call is analysed, and only you, the company's other coaches and its AiMS Champion will see it.
+Calls AiMS-HQ couldn't match to a company on its own wait here for you to pick the company. Once you do, the call is analysed, and only the company's coaches, its admins and the people they've added will see it.
 
 Each call shows its date, how long it ran when the transcript says, and who was on it.
 
@@ -92,7 +92,7 @@ To step back out, use *Exit {company}* in the user menu.
 
 **Why can't I reassign a commitment or link it to a priority from Your commitments?** Those need the company's own page. Open Commitments inside that company.
 
-**Who else can see my coaching calls?** Only the company's other coaches and its AiMS Champion. Not the company's admins, and not a system admin unless they coach the company too.
+**Who else can see my coaching calls?** The company's other coaches, its admins, and anyone you or an admin add with *Manage access* on the company's *Coaching calls* tab. Not a system admin unless they coach the company too.
 
 **Can I use a company's own folder instead?** No. Folders and Teams meetings on a company's Connections tab bring in team meetings. Coaching calls come in through your folder here, by *Upload a call* on *Coaching calls*, or by uploading one on the company's *Coaching calls* tab of Meeting Summaries.
 

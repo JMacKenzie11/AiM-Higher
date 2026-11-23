@@ -70,7 +70,7 @@ describe("no prompt uses a phrase the banned list bans", () => {
   it("finds the prompts it is guarding", () => {
     // A control: a guard that found nothing to scan would pass forever.
     expect(MARKDOWN.length).toBeGreaterThan(5);
-    expect(CODE).toEqual(expect.arrayContaining(["src/lib/leadership/questions.ts", "src/lib/guide/headline.ts"]));
+    expect(CODE).toEqual(expect.arrayContaining(["src/lib/leadership/questions.ts"]));
   });
 
   it.each(MARKDOWN)("%s", (file) => {

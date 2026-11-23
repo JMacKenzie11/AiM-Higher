@@ -69,7 +69,8 @@ export async function addExtractedIssueToOpenIssuesAction(
 
   // meetings-kind: both kinds. A coaching call's items can be added by
   // a person pressing a button (Jason, 2026-11-18); RLS shows a call only
-  // to its coach and champion, and the admin check below still applies.
+  // to the people who can see coaching calls (0329), and the admin check
+  // below still applies.
   const { data: meeting } = await supabase
     .from("meetings")
     .select("id, company_id")
@@ -159,7 +160,8 @@ export async function addExtractedIssueAsResolvedAction(
 
   // meetings-kind: both kinds. A coaching call's items can be added by
   // a person pressing a button (Jason, 2026-11-18); RLS shows a call only
-  // to its coach and champion, and the admin check below still applies.
+  // to the people who can see coaching calls (0329), and the admin check
+  // below still applies.
   const { data: meeting } = await supabase
     .from("meetings")
     .select("id, company_id")
@@ -237,7 +239,8 @@ export async function addExtractedCommitmentAction(input: {
 
   // meetings-kind: both kinds. A coaching call's items can be added by
   // a person pressing a button (Jason, 2026-11-18); RLS shows a call only
-  // to its coach and champion, and the admin check below still applies.
+  // to the people who can see coaching calls (0329), and the admin check
+  // below still applies.
   const { data: meeting } = await supabase
     .from("meetings")
     .select("id, company_id, created_at")
@@ -343,7 +346,8 @@ export async function convertExtractedCommitmentToIssueAction(
 
   // meetings-kind: both kinds. A coaching call's items can be added by
   // a person pressing a button (Jason, 2026-11-18); RLS shows a call only
-  // to its coach and champion, and the admin check below still applies.
+  // to the people who can see coaching calls (0329), and the admin check
+  // below still applies.
   const { data: meeting } = await supabase
     .from("meetings")
     .select("id, company_id")

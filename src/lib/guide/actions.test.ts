@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // "Not now" moves TWO rows, and the second one is the point.
 //
-//   notifications  the champion stops seeing it. Housekeeping.
-//   guide_nudges   the champion SAID no. That is a finding.
+//   notifications  the recipient stops seeing it. Housekeeping.
+//   guide_nudges   the recipient SAID no. That is a finding.
 //
 // Without the nudge write, a declined invitation and an ignored one
 // are the same row in guide_nudge_weekly, and they mean opposite

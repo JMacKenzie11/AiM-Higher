@@ -6,22 +6,20 @@ import { requireProfile, requireRole } from "@/lib/auth/current-user";
 import { getEffectiveCompanyId } from "@/lib/admin/scope";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
-import { isAimsChampion } from "@/lib/guide/champion";
 import { canReadCoachingCalls, isAssignedCoach } from "@/lib/coaching-calls/access";
 import { extractTranscript } from "./extract";
 import { contentHash } from "./route";
 import { processPendingMeetings } from "./ingest";
 import { canManageCompanyMeetings } from "./retry";
-import { canUploadTranscript, meetingInstant, uploadFileId, uploadTitle, ymdIn } from "./upload";
+import { meetingInstant, uploadFileId, uploadTitle, ymdIn } from "./upload";
 
 // Upload a transcript on Meeting Summaries: a .docx, .txt or .vtt file
 // becomes a meeting of the company in scope, analysed exactly as one
 // that arrived from a Drive folder or a Teams meeting.
 //
-// Allowed roles: system_admin, the company's own company_admin, an
-// assigned aims_guide (canManageCompanyMeetings), and the company's
-// AiMS champion whatever their role (companies.aims_champion_profile_id).
-// A portfolio admin is not one of them, as elsewhere in transcripts.
+// Allowed roles: system_admin, the company's own company_admin and an
+// assigned aims_guide (canManageCompanyMeetings). A portfolio admin is
+// not one of them, as elsewhere in transcripts.
 //
 // The meeting row is written with the service-role client, as ingest
 // writes it, so these checks ARE the boundary: no RLS sits behind
@@ -29,10 +27,11 @@ import { canUploadTranscript, meetingInstant, uploadFileId, uploadTitle, ymdIn }
 // value, so nobody can upload into a company they don't hold.
 //
 // A COACHING CALL (0326), from the Coaching calls tab: the form sends
-// kind=coaching, and only the company's assigned coaches and its AiMS
-// Champion may add one (can_read_coaching_call, the function the
-// meetings read rule calls). It lands as kind 'coaching', so it is
-// read by those two and nobody else, and its analysis writes nothing
+// kind=coaching, and anyone who can see the company's coaching calls
+// may add one (its assigned coaches, its admins and the people they
+// have added: can_read_coaching_call, the function the meetings read
+// rule calls; 0329). It lands as kind 'coaching', so it is read by
+// those people and nobody else, and its analysis writes nothing
 // outside its own page (coaching.ts).
 
 export type UploadTranscriptState =
@@ -69,15 +68,11 @@ export async function uploadTranscriptAction(
 
   if (kind === "coaching") {
     if (!(await canReadCoachingCalls(companyId))) {
-      return { ok: false, message: "Only the company's coach or AiMS Champion can add a coaching call." };
+      return { ok: false, message: "Only people who can see this company's coaching calls can add one." };
     }
   } else {
-    const allowed = canUploadTranscript({
-      managesMeetings: canManageCompanyMeetings(session.profile, companyId),
-      isChampion: await isAimsChampion(session.profile.id, companyId),
-    });
-    if (!allowed) {
-      return { ok: false, message: "Only an admin, coach or AiMS champion can upload a transcript." };
+    if (!canManageCompanyMeetings(session.profile, companyId)) {
+      return { ok: false, message: "Only an admin or coach can upload a transcript." };
     }
   }
   const result = await saveTranscript(companyId, kind, form);
@@ -88,8 +83,9 @@ export async function uploadTranscriptAction(
 // UPLOAD A CALL FROM COACH HQ: the coach chooses the company on the
 // form, since Coach HQ is never scoped into one. Allowed: an aims_guide
 // or system_admin who is an ASSIGNED coach of that company
-// (is_assigned_coach(), the function the coaching-call rules use). Not
-// the champion, who uploads from the company's Coaching calls tab. The
+// (is_assigned_coach(), the function the coaching-call rules use).
+// Anyone else who can see the calls adds one from the company's
+// Coaching calls tab. The
 // company is a form value here, so this check is the boundary, as the
 // scoped company is above. Always a coaching call.
 export async function uploadCoachingCallAction(

@@ -104,8 +104,8 @@ export async function retryFailedMeetingAction(
 // reads as not found.
 async function loadMeeting(meetingId: string): Promise<RerunMeeting | null> {
   const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
-  // meetings-kind: both kinds. RLS shows a coaching call only to its
-  // coach and champion, and a rerun of one runs the coaching plan
+  // meetings-kind: both kinds. RLS shows a coaching call only to the
+  // people who can see the company's calls (0329), and a rerun of one runs the coaching plan
   // (coaching.ts), so it still writes nothing anywhere else.
   const { data } = await supabase
     .from("meetings")

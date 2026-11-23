@@ -35,7 +35,6 @@ import { coachingRunPlan, isTeamMeeting, withoutScores } from "./coaching";
 import { sendWeeklyMeetingEmail } from "@/lib/meeting-email/send";
 import { sendMeetingReadyWebhook } from "@/lib/meeting-webhook/send";
 import { COMMITMENT_CLARITY_RULES } from "./clarity-rules";
-import { raiseMeetingDebriefNudge, type RaiseResult } from "@/lib/guide/nudges";
 import type { FacilitationReview } from "@/lib/leadership/facilitation/types";
 import type {
   CompanyFoundation,
@@ -93,10 +92,6 @@ export type AnalysisResult = {
   commitments: ExtractedCommitment[];
   model: string;
   createdCommitmentCount: number;
-  // Whether this run raised a Guide nudge, and why not when it
-  // didn't. Returned so a caller can report THIS run's nudge rather
-  // than reading the latest row and presenting an older one as new.
-  nudge: RaiseResult;
 };
 
 export type AnalyzeOptions = {
@@ -109,8 +104,8 @@ export type AnalyzeOptions = {
   // beyond the commitment rows: the page matches "already added"
   // issues and commitments by exact text, so a regenerated list with
   // new wording would offer Add again on work already added, and one
-  // click would duplicate it. No commitment rows are written, no Guide
-  // nudge is raised and no analytics event fires.
+  // click would duplicate it. No commitment rows are written and no
+  // analytics event fires.
   // scripts/resummarize-once.ts is the one caller.
   carryOver?: {
     commitments_json: ExtractedCommitment[];
@@ -144,8 +139,7 @@ export async function analyzeMeeting(
 
   // A COACHING CALL (0326) is summarised exactly as a meeting is, and
   // writes nothing anywhere else: no commitments (whatever automatic
-  // tracking says), no Headlines boxes, no Guide nudge, no analytics
-  // event. The extracted commitments and issues are stored on the
+  // tracking says), no Headlines boxes, no analytics event. The extracted commitments and issues are stored on the
   // analysis row and listed read-only on the call's page. See
   // coachingRunPlan in ./coaching.ts.
   const plan = coachingRunPlan(meetingRow.kind);
@@ -240,7 +234,7 @@ export async function analyzeMeeting(
     // fails fails the meeting exactly as it did in sequence: the
     // analysis or the extraction throwing rejects Promise.all, the
     // catch at the bottom marks the meeting failed, and no analysis
-    // row, commitment or nudge exists yet to be left half-made. The
+    // row or commitment exists yet to be left half-made. The
     // review is best effort, as before: its own failure is caught
     // here and becomes "no review".
 
@@ -714,36 +708,9 @@ export async function analyzeMeeting(
       console.log(`[meeting-webhook] meeting ${meetingId}: ${JSON.stringify(posted)}`);
     }
 
-    // ---- The Guide's one action in phase A --------------------
-    //
-    // The meeting is complete and its analysis is stored, so this is
-    // the moment "this meeting has been analyzed" becomes a knowable
-    // event. Until now nothing in-app fired here: the only thing
-    // listening was a PostHog call, which leaves our infrastructure
-    // and cannot drive behaviour.
-    //
-    // AFTER the analysis row is written, deliberately. A nudge that
-    // pointed at a meeting whose summary failed to save would invite
-    // somebody to debrief a blank page.
-    //
-    // Best effort, and isolated: raiseMeetingDebriefNudge never
-    // throws. A broken invitation must not break a meeting summary.
-    // Not on a summary-only run: the meeting was already analysed,
-    // and a second invitation about it would be noise.
-    const nudge: RaiseResult = options.carryOver
-      ? { raised: false, reason: "summary-only regeneration" }
-      : !plan.raiseNudge
-        ? { raised: false, reason: "coaching call" }
-        : await raiseMeetingDebriefNudge(admin, client, {
-          model,
-          companyId: meetingRow.company_id!,
-          meetingId,
-          meetingDateIso,
-          analysisMarkdown,
-          transcript: meetingRow.transcript_text,
-          strengths: (facilitationReview?.strengths ?? []).map((s) => s.title),
-          spell: spelled,
-        });
+    // No debrief invitation. Aimee used to invite the company's AiMS
+    // champion to talk the meeting through here; that was switched off
+    // with the champion seat (0329; Jason, 2026-11-23).
 
     // One line for every correction this run made, the headline's
     // included, so a wrong one is findable in the logs.
@@ -773,7 +740,6 @@ export async function analyzeMeeting(
       commitments: stored.commitments_json,
       model,
       createdCommitmentCount: created,
-      nudge,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

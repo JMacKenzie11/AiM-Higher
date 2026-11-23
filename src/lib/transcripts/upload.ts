@@ -9,17 +9,11 @@ export function uploadFileId(hash: string): string {
   return `upload:${hash}`;
 }
 
-// The roles Meeting Summaries offers Upload to: everyone who manages
-// the company's meetings (system_admin, its company_admin, an assigned
-// aims_guide: canManageCompanyMeetings), plus the company's AiMS
-// champion, whatever their role. The champion is the person who runs
-// the rhythm, often a team_member.
-export function canUploadTranscript(opts: {
-  managesMeetings: boolean;
-  isChampion: boolean;
-}): boolean {
-  return opts.managesMeetings || opts.isChampion;
-}
+// Who Meeting Summaries offers Upload to (a team meeting): everyone who
+// manages the company's meetings (system_admin, its company_admin, an
+// assigned aims_guide: canManageCompanyMeetings). The AiMS champion
+// could too until the seat was retired (0329). A coaching call is
+// added by anyone who can see the company's calls (upload-action.ts).
 
 // The title shown in Meeting Summaries. What the person typed, else the
 // transcript's first line when it reads like a heading (Teams and Otter

@@ -17,7 +17,7 @@ test.describe("Aimee's panel, desktop", () => {
     await page.goto("/plan");
     const launcher = page.getByTestId("corner-launcher");
     // "Aimee", or "Aimee, 1 waiting for you" when something is in For you
-    // (the member is the fixture's AiMS champion, so a debrief can be).
+    // (a chat shared with the member, say).
     await expect(launcher).toHaveAttribute("aria-label", /^Aimee(, \d+ waiting for you)?$/);
 
     // The page's own title, measured before and after.
@@ -103,7 +103,7 @@ test.describe("the conversation in the panel", () => {
     await page.goto("/plan");
     const launcher = page.getByTestId("corner-launcher");
     // "Aimee", or "Aimee, 1 waiting for you" when something is in For you
-    // (the member is the fixture's AiMS champion, so a debrief can be).
+    // (a chat shared with the member, say).
     await expect(launcher).toHaveAttribute("aria-label", /^Aimee(, \d+ waiting for you)?$/);
     await launcher.click();
     const panel = page.locator('[data-testid="aimee-panel"]');

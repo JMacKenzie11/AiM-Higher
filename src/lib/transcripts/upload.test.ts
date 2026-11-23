@@ -1,19 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { canUploadTranscript, meetingInstant, uploadFileId, uploadTitle } from "./upload";
+import { meetingInstant, uploadFileId, uploadTitle } from "./upload";
 
 describe("uploadFileId", () => {
   it("prefixes the hash", () => {
     expect(uploadFileId("abc")).toBe("upload:abc");
-  });
-});
-
-describe("canUploadTranscript", () => {
-  it("admits people who manage meetings, and the champion", () => {
-    expect(canUploadTranscript({ managesMeetings: true, isChampion: false })).toBe(true);
-    expect(canUploadTranscript({ managesMeetings: false, isChampion: true })).toBe(true);
-  });
-  it("refuses everyone else", () => {
-    expect(canUploadTranscript({ managesMeetings: false, isChampion: false })).toBe(false);
   });
 });
 

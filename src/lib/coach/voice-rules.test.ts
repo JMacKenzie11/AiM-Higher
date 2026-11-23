@@ -1,20 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { VOICE_RULES_COACH } from "./voice-rules";
 import { VOICE_RULES } from "@/lib/strengths/voice-rules";
-import { HEADLINE_RULES_FOR_TEST } from "@/lib/guide/headline";
 import { withVoiceRules } from "@/lib/transcripts/analyze";
 
 // The rules that have to hold in EVERY generated voice, held in one
 // place so a new surface cannot quietly ship without them.
 //
-// Two rule blocks plus the Guide's headline prompt. The header on
+// Two rule blocks plus the meeting summariser (the Guide's headline
+// prompt went with the debrief invitation, 0329). The header on
 // voice-rules.ts says to keep the first two in sync where they
 // overlap, and until now nothing checked that they were.
 
 const SURFACES: Array<[string, string]> = [
   ["coach", VOICE_RULES_COACH],
   ["strengths", VOICE_RULES],
-  ["guide headline", HEADLINE_RULES_FOR_TEST],
   // The meeting summariser. It reached production with a four-line
   // style guide of adjectives and no banned list at all, which is
   // the gap this whole file exists to make visible: the most-read

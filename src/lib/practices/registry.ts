@@ -133,18 +133,6 @@ export type Practice = {
   //   and saveRoleDescriptionAction says so before the database is
   //   asked.
   alsoFunctionLeads?: boolean;
-  // alsoAimsChampion
-  //   Admits the person holding this company's AiMS champion seat,
-  //   on top of allowedRoles. Same shape as alsoFunctionLeads and
-  //   for the same reason: the champion is frequently a team_member,
-  //   and no list of platform roles can name "the person who runs
-  //   the rhythm here".
-  //
-  //   It WIDENS and never narrows. The debrief agent names it while
-  //   also admitting every company_admin, because the seat routes
-  //   Aimee's attention — it is not an access boundary, and an admin
-  //   can already read the meeting the debrief is about.
-  alsoAimsChampion?: boolean;
   // maxTokens
   //   Ceiling for one assistant turn, when the default is not
   //   enough. Absent means the route's default, which suits a
@@ -293,25 +281,23 @@ export const PRACTICES: readonly Practice[] = [
     // SCRIPTED, both ways in. From a Guide invitation the first turn
     // is the invitation's own line, supplied at launch by the nudge
     // page (practices/create.ts): written and checked when it was
-    // raised, and read by the champion before they clicked. This line
+    // raised, and read by its recipient before they clicked. No new
+    // invitations are sent (0329). This line
     // is the other way in, the agent list, where no meeting is
     // attached and get_meeting_debrief is not available, so there is
     // nothing meeting-specific a generated opener could say.
     //
     // It was "generate" until 2026-09-28. The generated opener had to
-    // avoid repeating the line the champion had just read, and in
+    // avoid repeating the line the reader had just read, and in
     // doing so kept leaving its subject, turning its strength into a
     // post-mortem, or breaking voice rules the line had already been
     // held to.
     firstTurn: "scripted",
     scriptedOpener:
       "I talk through a leadership meeting with you once its summary is written. What happened in your last one that you want to think through?",
-    // Company admins, guides and system admins, PLUS whoever holds
-    // the champion seat — who is frequently a team_member. The seat
-    // routes Aimee's attention; it does not fence the agent off from
-    // the admins who can already read the meeting.
+    // Company admins, guides and system admins. Until 0329 the AiMS
+    // champion too; the seat is retired.
     allowedRoles: ["company_admin", "system_admin", "aims_guide"],
-    alsoAimsChampion: true,
     // Registers only when the conversation is pinned to a meeting,
     // which the nudge's open path always does.
     tools: ["get_meeting_debrief"],

@@ -9,8 +9,8 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 //
 // Two rows move, and the difference between them is the point:
 //
-//   notifications  the champion stops seeing it. Housekeeping.
-//   guide_nudges   the champion SAID no. That is a finding.
+//   notifications  the recipient stops seeing it. Housekeeping.
+//   guide_nudges   the recipient SAID no. That is a finding.
 //
 // Without the second write, a declined invitation and an ignored one
 // look identical in the measurement, and they mean opposite things

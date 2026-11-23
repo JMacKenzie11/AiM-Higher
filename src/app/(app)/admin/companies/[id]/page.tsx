@@ -20,7 +20,6 @@ import { AssignedAccessList } from "./AssignedAccessList";
 import { FeaturesForm } from "./FeaturesForm";
 import { IndustryForm } from "./IndustryForm";
 import { TimezoneForm } from "./TimezoneForm";
-import { ChampionForm, type ChampionCandidate } from "./ChampionForm";
 import { CompanyRowActions } from "../CompanyRowActions";
 import { CompanyNameLink } from "../CompanyNameLink";
 import { CompanyTranscriptsPanel } from "./CompanyTranscriptsPanel";
@@ -201,28 +200,6 @@ export default async function CompanyDetailPage({
       ) as unknown as TimezoneChange[]
     : [];
 
-  // Who the champion seat may point at: this company's own active
-  // people. The membership trigger in 0235 refuses anybody else, so
-  // a wider list would be a list of options that cannot be chosen.
-  // An assigned coach chooses the seat too (spec 14h; the column guard
-  // and the `champion seat · aims_guide` probe have allowed it since
-  // 0235). canViewCompany above has already refused an unassigned one.
-  const isAssignedCoach =
-    session.profile.role === "aims_guide" && isAdminForCompany(session.profile, id);
-  const championCandidates: ChampionCandidate[] =
-    isSystemAdmin || actsAsCompanyAdmin || isAssignedCoach
-      ? (
-          (
-            await supabase
-              .from("profiles")
-              .select("id, full_name")
-              .eq("company_id", id)
-              .eq("status", "active")
-              .order("full_name")
-          ).data ?? []
-        ) as ChampionCandidate[]
-      : [];
-
   const hasResettable =
     resetImpact.sfaCount +
       resetImpact.goalCount +
@@ -238,7 +215,6 @@ export default async function CompanyDetailPage({
     mcpOpenTo(session.profile.role) &&
     (isSystemAdmin || isCompanyAdmin || session.profile.role === "aims_guide");
   const connectionsCard = isAdminForCompany(session.profile, company.id);
-  const championCard = isSystemAdmin || actsAsCompanyAdmin || isAssignedCoach;
   const assignedCard = managesContainer || isCompanyAdmin;
   const industryCard = managesContainer || isCompanyAdmin;
   const startOverCard = (isSystemAdmin || actsAsCompanyAdmin) && hasResettable;
@@ -374,30 +350,13 @@ export default async function CompanyDetailPage({
                   },
                 ]
               : []),
-            ...(championCard || assignedCard
+            ...(assignedCard
               ? [
                   {
                     hash: "people",
                     label: "People",
                     content: (
                       <>
-                        {/* AiMS champion — the company's own admins and its
-                            assigned coaches, not the container roles. It is a
-                            decision about this team, made with this team. The
-                            column guard in 0235 draws the same line below the app. */}
-                        {championCard ? (
-                          <section className={styles.accentCard} aria-labelledby="champion-heading">
-                            <h2 id="champion-heading" className={styles.h2}>
-                              AiMS champion
-                            </h2>
-                            <ChampionForm
-                              companyId={company.id}
-                              initial={company.aims_champion_profile_id}
-                              candidates={championCandidates}
-                            />
-                          </section>
-                        ) : null}
-
                         {/* Assigned access — who administers this company without
                             being part of its team. Spec §1a, decision 9.
 

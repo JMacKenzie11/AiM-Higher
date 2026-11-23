@@ -15,7 +15,6 @@ describe("what an analysis run may write, by kind (0326)", () => {
     expect(coachingRunPlan("team")).toEqual({
       createCommitments: true,
       fillHeadlines: true,
-      raiseNudge: true,
       trackEvent: true,
       scoreReview: true,
     });
@@ -31,7 +30,6 @@ describe("what an analysis run may write, by kind (0326)", () => {
     expect(coachingRunPlan("coaching")).toEqual({
       createCommitments: false,
       fillHeadlines: false,
-      raiseNudge: false,
       trackEvent: false,
       scoreReview: false,
     });
@@ -39,26 +37,45 @@ describe("what an analysis run may write, by kind (0326)", () => {
 });
 
 describe("who can see a coaching call, said in words", () => {
-  it("names the coach and the champion", () => {
-    expect(coachingReadersLine({ coaches: ["Jason MacKenzie"], champion: "Sam Patel" }, "this call")).toBe(
-      "Only Jason MacKenzie (coach) and Sam Patel (AiMS Champion) can see this call."
+  const none = { coaches: [] as string[], admins: [] as string[], viewers: [] as Array<{ name: string }> };
+
+  it("names the coach and the admin", () => {
+    expect(coachingReadersLine({ ...none, coaches: ["Jason MacKenzie"], admins: ["Taylor Jones"] }, "this call")).toBe(
+      "Only Jason MacKenzie (coach) and Taylor Jones (admin) can see this call."
     );
   });
 
-  it("names every assigned coach", () => {
+  it("names coaches, admins and the people added", () => {
     expect(
-      coachingReadersLine({ coaches: ["Jason MacKenzie", "Kim Lee"], champion: "Sam Patel" }, "these calls")
-    ).toBe("Only Jason MacKenzie and Kim Lee (coaches), and Sam Patel (AiMS Champion) can see these calls.");
+      coachingReadersLine(
+        {
+          coaches: ["Jason MacKenzie"],
+          admins: ["Taylor Jones", "Anna Lane"],
+          viewers: [{ name: "Sam Patel" }],
+        },
+        "these calls"
+      )
+    ).toBe("Only Jason MacKenzie (coach), Taylor Jones and Anna Lane (admins), and Sam Patel can see these calls.");
   });
 
-  it("says so when the company has no champion", () => {
-    expect(coachingReadersLine({ coaches: ["Jason MacKenzie"], champion: null }, "this call")).toBe(
-      "Only Jason MacKenzie (coach) can see this call."
+  it("keeps groups apart when the first is a list", () => {
+    expect(coachingReadersLine({ ...none, coaches: ["Jason MacKenzie", "Kim Lee"], admins: ["Taylor Jones"] }, "these calls")).toBe(
+      "Only Jason MacKenzie and Kim Lee (coaches), and Taylor Jones (admin) can see these calls."
     );
+  });
+
+  it("names a person once, under their first group", () => {
+    expect(
+      coachingReadersLine({ coaches: ["Jason MacKenzie"], admins: ["Jason MacKenzie"], viewers: [{ name: "Jason MacKenzie" }] }, "this call")
+    ).toBe("Only Jason MacKenzie (coach) can see this call.");
+  });
+
+  it("says who in general when nobody is named", () => {
+    expect(coachingReadersLine(none, "this call")).toBe("Only the company's coach and its admins can see this call.");
   });
 
   it("never uses an em dash", () => {
-    const line = coachingReadersLine({ coaches: ["A", "B", "C"], champion: "D" }, "these calls");
+    const line = coachingReadersLine({ coaches: ["A", "B", "C"], admins: ["D"], viewers: [{ name: "E" }] }, "these calls");
     expect(line).not.toMatch(/—/);
   });
 });

@@ -36,12 +36,11 @@ describe("the AiMS coaching principles", () => {
     expect(text).toContain("## Name a serious risk plainly");
   });
 
-  // Every Aimee conversation and the invitations she writes: the chat
-  // route builds every conversation's system prompt (turn/prompt.ts), the card has its own.
-  it("reach every conversation and every invitation", () => {
+  // Every Aimee conversation: the chat route builds every
+  // conversation's system prompt (turn/prompt.ts). The invitation card
+  // had its own until the debrief invitation was switched off (0329).
+  it("reach every conversation", () => {
     const route = readFileSync("src/lib/coach/turn/prompt.ts", "utf8");
     expect(route).toMatch(/\$\{composed\}\\n\\n\$\{await loadCoachingPrinciples\(\)\}\\n\\n\$\{COMMITMENT_DRAFT_BLOCK\}\\n\\n\$\{VOICE_RULES_COACH\}/);
-    const card = readFileSync("src/lib/guide/headline.ts", "utf8");
-    expect(card).toMatch(/text: `\$\{SYSTEM\}\\n\\n\$\{principles\}`/);
   });
 });

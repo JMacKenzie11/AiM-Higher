@@ -25,8 +25,8 @@ import type { CoachTool } from "@/lib/coach/tools";
 // ============================================================
 //
 // RLS APPLIES. The query runs on the CALLER'S client, so the tool
-// returns what they could already open. A champion who is a
-// team_member sees what a team_member sees, and no more.
+// returns what they could already open. A team_member sees what a
+// team_member sees, and no more.
 //
 // THE MEETING ID IS CLOSED OVER, not a parameter. It is stamped on
 // the conversation at launch (0235) by the code that verified the

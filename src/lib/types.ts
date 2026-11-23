@@ -112,12 +112,6 @@ export type Company = {
   // reorder rewrites only the rows that moved, so ties are normal and
   // resolve by name.
   sort_order: number | null;
-  // The person Aimee invites to debrief each leadership meeting
-  // (migration 0235). Null is the ordinary state for a company that
-  // has not picked one, and it means no nudges are sent rather than
-  // that they go to somebody else. Not a permission: see the header
-  // in 0235 and the help line on the settings card.
-  aims_champion_profile_id: string | null;
   // Outside assistants may read and add for this company only while
   // true (0279). Off by default; optional on the type because loaders
   // that name their columns may not ask for it.
@@ -733,8 +727,9 @@ export type MeetingStatus =
   | "failed";
 
 // team: a company meeting, read by the company. coaching: a coach's
-// call with the company's leaders, read only by its assigned coaches
-// and its AiMS Champion, and never by Aimee (0326).
+// call with the company's leaders, read only by its assigned coaches,
+// its admins and the people they have added (0329), and never by Aimee
+// (0326).
 export type MeetingKind = "team" | "coaching";
 
 export type Meeting = {

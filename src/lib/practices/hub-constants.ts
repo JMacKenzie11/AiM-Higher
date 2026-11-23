@@ -31,18 +31,6 @@ export const HUB_ROLE_VALUES = new Set<string>(
 // capability the runtime does not have.
 export const FUNCTION_LEAD_PREDICATE = "function_lead";
 
-// The AiMS champion: the one person per company Aimee sends the
-// week's nudge to. A predicate and not a role because the seat
-// routes attention rather than granting access — an agent naming it
-// admits the champion ON TOP OF its role list, and the company
-// admins it already admits keep their access whether or not they
-// hold the seat.
-//
-// Same reason as function_lead for staying a query rather than
-// becoming data: the answer is a column on `companies` and a copy
-// here would be a second truth to keep in step.
-export const AIMS_CHAMPION_PREDICATE = "aims_champion";
-
 // Every predicate the Hub's access editor MODELS. Anything stored
 // on an agent outside this set is preserved untouched on save.
 //

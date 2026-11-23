@@ -19,12 +19,15 @@ import {
 } from "@/lib/transcripts/retry";
 import { RetryFailedMeetingButton } from "./RetryFailedMeetingButton";
 import { UploadTranscriptForm } from "./UploadTranscriptForm";
-import { isAimsChampion } from "@/lib/guide/champion";
-import { canUploadTranscript, ymdIn } from "@/lib/transcripts/upload";
-import { canReadCoachingCalls, coachingCallReaders } from "@/lib/coaching-calls/access";
+import { ymdIn } from "@/lib/transcripts/upload";
+import {
+  canManageCoachingCallAccess,
+  canReadCoachingCalls,
+  coachingCallReaders,
+} from "@/lib/coaching-calls/access";
+import { CoachingCallAccess } from "./CoachingCallAccess";
 import { coachingReadersLine } from "@/lib/transcripts/coaching";
 import { AnalysisTabs } from "./meetings/[id]/AnalysisTabs";
-import { PrivacyNote } from "@/components/ui/PrivacyNote";
 import type { ReactNode } from "react";
 
 export const metadata = { title: "Meeting Summaries" };
@@ -44,13 +47,15 @@ export const maxDuration = 300;
 // docs/investigations/open-data.md). This file selects only metadata
 // columns; the transcript has its own page.
 //
-// COACHING CALLS (0326). The company's assigned coaches and its AiMS
-// Champion see a second tab, Coaching calls, listing the coach's calls
-// with the company's leaders. Everyone else gets the page exactly as
-// before, with no tab and no hint of one. The tab is decided by
-// can_read_coaching_call(), the function the read rule itself calls,
-// and the Team meetings list asks for kind = 'team' by name, so a
-// coach or champion never sees a call among the team's meetings.
+// COACHING CALLS (0326, 0329). The company's assigned coaches, its
+// admins and the people they have added see a second tab, Coaching
+// calls, listing the coach's calls with the company's leaders. Everyone
+// else gets the page exactly as before, with no tab and no hint of
+// one. The tab is decided by can_read_coaching_call(), the function the
+// read rule itself calls, and the Team meetings list asks for kind =
+// 'team' by name, so a coaching call never shows among the team's
+// meetings. A coach or admin manages who else sees them from the tab
+// (Manage access).
 
 export default async function LeadershipPage() {
   const session = await requireProfile();
@@ -75,12 +80,9 @@ export default async function LeadershipPage() {
   // meetings (system admin, its company admin, an assigned guide).
   // retryFailedMeetingAction checks the same rule.
   const canRetry = canManageCompanyMeetings(session.profile, companyId);
-  // Upload a transcript: the same people, plus the AiMS champion.
-  // uploadTranscriptAction checks the same rule.
-  const canUpload = canUploadTranscript({
-    managesMeetings: canRetry,
-    isChampion: await isAimsChampion(session.profile.id, companyId),
-  });
+  // Upload a transcript: the same people. uploadTranscriptAction checks
+  // the same rule.
+  const canUpload = canRetry;
   let today = ymdIn(new Date(), "UTC");
   if (canUpload) {
     const { data: co } = await supabase
@@ -241,8 +243,8 @@ export default async function LeadershipPage() {
     </>
   );
 
-  // Everyone who is not one of the company's two coaching-call readers
-  // gets the page exactly as it was: no tab, no hint of one.
+  // Everyone who cannot see the company's coaching calls gets the page
+  // exactly as it was: no tab, no hint of one.
   if (!(await canReadCoachingCalls(companyId))) {
     return (
       <PageShell eyebrow="Company" title="Meeting Summaries" subtitle={subtitle}>
@@ -271,10 +273,10 @@ export default async function LeadershipPage() {
 
 // ---- The Coaching calls tab (0326) ---------------------------------
 //
-// Only reached by the company's assigned coaches and its AiMS Champion
+// Only reached by someone who can see the company's coaching calls
 // (canReadCoachingCalls above). Read through the caller's own client,
-// so the read rule decides as well: kind = 'coaching' rows reach these
-// two people and nobody else.
+// so the read rule decides as well: kind = 'coaching' rows reach those
+// people and nobody else.
 async function coachingCallsTab({
   companyId,
   today,
@@ -286,7 +288,7 @@ async function coachingCallsTab({
   canRetry: boolean;
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>;
 }): Promise<ReactNode> {
-  const [{ data: rows }, readers] = await Promise.all([
+  const [{ data: rows }, readers, canManage] = await Promise.all([
     supabase
       .from("meetings")
       .select("id, meeting_title, file_name, status, error, created_at")
@@ -295,14 +297,36 @@ async function coachingCallsTab({
       .order("created_at", { ascending: false })
       .limit(100),
     coachingCallReaders(companyId),
+    canManageCoachingCallAccess(companyId),
   ]);
   const calls = (rows ?? []) as MeetingListRow[];
+  // Who a coach or admin can add: the company's active people who don't
+  // already see the calls. Company admins see them anyway, so they are
+  // never offered. Read on the caller's own client.
+  let candidates: Array<{ id: string; name: string }> = [];
+  if (canManage) {
+    const listed = new Set(readers.viewers.map((v) => v.profileId));
+    const { data: people } = await supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .eq("company_id", companyId)
+      .eq("status", "active")
+      .neq("role", "company_admin")
+      .order("full_name", { ascending: true });
+    candidates = ((people ?? []) as Array<{ id: string; full_name: string | null; role: string }>)
+      .filter((p) => !listed.has(p.id) && (p.full_name ?? "").trim() !== "")
+      .map((p) => ({ id: p.id, name: (p.full_name ?? "").trim() }));
+  }
   return (
     <>
-      <PrivacyNote tone="private">
-        {coachingReadersLine(readers, "these calls")} Aimee does not read them, and
-        nothing here goes on the company&apos;s lists.
-      </PrivacyNote>
+      <CoachingCallAccess
+        line={`${coachingReadersLine(readers, "these calls")} Aimee does not read them, and nothing here goes on the company's lists.`}
+        canManage={canManage}
+        coaches={readers.coaches}
+        admins={readers.admins}
+        viewers={readers.viewers}
+        candidates={candidates}
+      />
       <section className={styles.card} aria-labelledby="add-coaching-call">
         <h2 id="add-coaching-call" className={styles.h2}>
           Add a coaching call

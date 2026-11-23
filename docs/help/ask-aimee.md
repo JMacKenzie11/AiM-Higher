@@ -33,7 +33,7 @@ The agent picker shows the agents open to you. These are open to everyone:
 - **Ask great questions.** Helps you write generative questions for a conversation, meeting or one-to-one.
 
 ::: role team_member
-If you head up a function on the Functional Chart, you'll also see **Role Description Creator**. If you're your company's AiMS champion, you'll also see **Debrief a meeting**.
+If you head up a function on the Functional Chart, you'll also see **Role Description Creator**.
 :::
 
 ::: role company_admin,aims_guide,system_admin
@@ -80,8 +80,6 @@ Aimee's icon sits in the bottom-right corner of every page. Click it, or press *
 - **She knows the page you're on.** On a page about one thing (a person, a function, a goal, a priority, a meeting) she can read its name and description, so you can ask "what is this for?" On the Functional Chart that includes the function open beside it. She only sees what you could open yourself.
 - **Charts and role descriptions open full size.** A chart proposal or role description in the panel has an *Open full size* link, which opens the same conversation on the Aimee page with room to lay it out. The buttons on the card work the same in either place.
 - **The panel only adds to what Aimee remembers when you ask.** Say "remember that…" and she saves it and tells you what she saved. Otherwise she doesn't take notes from the panel, though she still uses what she already knows. For coaching you want her to note as you go, use the Aimee page.
-
-If you're your company's AiMS champion, *For you* also shows Aimee's invitations to talk a meeting through. Click *Talk it through* to start.
 
 Panel conversations are listed here with your others.
 

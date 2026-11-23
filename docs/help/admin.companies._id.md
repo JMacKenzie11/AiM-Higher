@@ -8,7 +8,7 @@ roles: [system_admin, company_admin, aims_guide, portfolio_admin]
 Everything that sets up one company, in tabs by what you came to do:
 
 - **Company**: industry, and for AiMS, timezone, features and archiving.
-- **People**: the AiMS champion and who else administers the company.
+- **People**: who else administers the company.
 - **Planning**: roll to the next quarter, or start the strategy again after an annual planning session.
 - **Connections**: Google, Microsoft 365, HubSpot, meeting transcripts and AI apps.
 
@@ -18,7 +18,6 @@ You only see the tabs and cards that are yours to use.
 ## What you can do here
 
 - **Set the industry** on the Industry card.
-- **Choose your AiMS champion** on the AiMS champion card. More on this below.
 - **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
 - **Connect your meeting recordings.** See *Connecting Google Drive* or *Connecting a Teams meeting* below.
 - **See who else administers your company** under Assigned access, and remove an AiMS Coach.
@@ -32,7 +31,7 @@ You only see the tabs and cards that are yours to use.
 Everything on the page:
 
 - **Open this company** with the button under the company's name. **Archive or reactivate it** on the Archive card, on the Company tab. Once a company is archived, *Delete* appears too.
-- **Set the industry, timezone and features**, and choose the AiMS champion.
+- **Set the industry, timezone and features.**
 - **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* or *Connecting a Teams meeting* below.
 - **See who else administers the company** under Assigned access, and remove an AiMS Coach.
@@ -47,7 +46,7 @@ Everything on the page:
 - **See who else administers the company** under Assigned access.
 - **See the meeting transcript folders.**
 
-Where a system admin has made you this company's admin, you can also choose the AiMS champion, roll the quarter and start the strategy again, the same as its admins. Otherwise, those are done by the company's own admins.
+Where a system admin has made you this company's admin, you can also roll the quarter and start the strategy again, the same as its admins. Otherwise, those are done by the company's own admins.
 :::
 
 ::: role aims_guide
@@ -56,7 +55,6 @@ Where a system admin has made you this company's admin, you can also choose the 
 - **Open this company** with the button under the company's name, to work inside it.
 - **Connect Google, Microsoft 365 and HubSpot** on the External connections card. See *External connections* below.
 - **Connect meeting recordings.** See *Connecting Google Drive* below.
-- **Choose the AiMS champion** on the People tab. See *AiMS champion* below.
 
 Industry, the quarter and Assigned access are managed by the company's admins.
 :::
@@ -139,17 +137,6 @@ This isn't how you move to the next quarter. It's for after an annual planning s
 
 Nothing is deleted. Open commitments become Operational: still open, no longer linked to a Priority. Closed ones keep their link, so past progress still shows. The card only appears when there's something to archive. To close just a few things, archive them one by one from their own pages in Goals & Priorities.
 
-## AiMS champion
-
-The person who will lead your company's implementation of AiMS, and who Aimee coaches through it. After each leadership meeting is summarised, Aimee invites them to talk it through. More will follow as the implementation goes on.
-
-Anyone on the team can hold the seat. It doesn't have to be an admin: often the right person is whoever drives the work day to day.
-
-The seat decides who Aimee works with, and one thing more: the champion and your coach are the only people who can see your company's coaching calls, on the *Coaching calls* tab of Meeting Summaries. Choose someone else and the calls go with the seat to them.
-
-**Nobody yet** is a normal setting. With the seat empty, Aimee has nobody to work with at your company and those invitations aren't sent.
-
-If the champion is deactivated or moves to another company, the seat empties and the company's admins get a notification saying so.
 :::
 
 ::: feature outside_assistants
@@ -220,5 +207,5 @@ Once a company is archived, *Delete* appears. It removes the company from every 
 :::
 
 ::: role portfolio_admin
-**Why can't I change the AiMS champion or the quarter?** Those are decisions for the company's own admins.
+**Why can't I change the quarter?** That's a decision for the company's own admins.
 :::
