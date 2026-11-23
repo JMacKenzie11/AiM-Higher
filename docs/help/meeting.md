@@ -5,7 +5,7 @@ title: Weekly meeting
 # Weekly meeting
 
 ::: feature ui_meeting_mode
-The weekly leadership meeting in one view, for the screen everyone is looking at. It walks the agenda in order, and the timer at the top right shows how long you've been going.
+The weekly leadership meeting in one view, for the screen everyone is looking at. It walks the agenda in order. The agenda is the row under the header, with a tick beside each step you've finished, and the timer at its right shows how long you've been going.
 
 ## The steps
 
@@ -17,7 +17,7 @@ The weekly leadership meeting in one view, for the screen everyone is looking at
 - **Solve.** Open with the question at the top: what do you need support on, and what haven't you been able to solve on your own? Under it is the whole Issues page, with open and resolved issues and the same filters. *Add an issue* puts each one on the list. Drag the list into the order you want to talk them through; the Issues page keeps that order. Click one to open it in the panel, talk it through, and add the next commitment there.
 - **Close.** A reminder that commitments live here and get marked complete as you go, then how many people were here and what changed while the meeting ran: commitments kept and added, issues resolved and raised.
 
-Press *Next* at the foot of the card to move on (under Numbers, Strategy, Commitments and Solve it's on its own card below the page), or *Back* to go back. You can also click any step in the row at the top to jump to it. Whatever you change here is the same as changing it on its own page.
+Press *Next* at the foot of the card to move on (under Numbers, Strategy, Commitments and Solve it's on its own card below the page), or *Back* to go back. You can also click any step in the agenda row to jump to it. Whatever you change here is the same as changing it on its own page.
 
 ## Common questions
 

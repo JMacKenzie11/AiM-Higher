@@ -14,7 +14,6 @@ import { headlineAreas } from "@/lib/meeting/areas";
 import { PageShell } from "@/components/ui/PageShell";
 import { HeadlineField } from "./HeadlineField";
 import { Attendance } from "./Attendance";
-import commitmentStyles from "../commitments/commitments.module.css";
 import issueStyles from "../issues/issues.module.css";
 import { MEETING_STEPS, checkInQuestions, stepAfter, stepBefore, type MeetingStep } from "./steps";
 import { MeetingTimer } from "./MeetingTimer";
@@ -118,25 +117,31 @@ export default async function MeetingPage({ searchParams }: PageProps) {
       eyebrow="Weekly meeting"
       title={company?.name ?? "Weekly meeting"}
       subtitle={MEETING_STEPS[index].lead}
-      heroExtras={
-        <div className={styles.heroBar}>
-          <nav className={styles.steps} aria-label="Meeting agenda">
-            {MEETING_STEPS.map((s, i) => (
-              <Link
-                key={s.key}
-                href={href(s.key)}
-                className={styles.step}
-                aria-current={s.key === step ? "step" : undefined}
-                data-done={i < index ? "true" : undefined}
-              >
-                {s.label}
-              </Link>
-            ))}
-          </nav>
-          <MeetingTimer started={started} />
-        </div>
-      }
     >
+      {/* The agenda, under the header rather than in it (nothing in the
+          hero; Jason, 2026-11-23), as the Dashboard's switch: the step
+          you're on is navy, the ones done are ticked. */}
+      <div className={styles.agendaBar}>
+        <nav className={styles.steps} aria-label="Meeting agenda">
+          {MEETING_STEPS.map((s, i) => (
+            <Link
+              key={s.key}
+              href={href(s.key)}
+              className={styles.step}
+              aria-current={s.key === step ? "step" : undefined}
+              data-done={i < index ? "true" : undefined}
+            >
+              {i < index ? (
+                <svg aria-hidden="true" viewBox="0 0 16 16" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 8.5l3 3 7-7" />
+                </svg>
+              ) : null}
+              {s.label}
+            </Link>
+          ))}
+        </nav>
+        <MeetingTimer started={started} />
+      </div>
       {step === "checkin" ? (
         <CheckIn
           companyId={companyId}
@@ -178,9 +183,10 @@ export default async function MeetingPage({ searchParams }: PageProps) {
 
 // ---- The card every step sits in ---------------------------------
 //
-// The Commitments and Issues pages' card: a tinted header with the
-// title, a count beside it, and the main action top right; then the
-// step's content; then Back and Next.
+// A Scoreboard card (2026-11-23): a navy band with the title, a count
+// beside it and the main action on the right, as on a meeting's
+// Meeting Analysis tab; then the step's content under small section
+// labels; then Back and Next.
 function StepCard({
   id,
   title,
@@ -197,12 +203,12 @@ function StepCard({
   children: ReactNode;
 }) {
   return (
-    <section className={commitmentStyles.group} aria-labelledby={id}>
-      <div className={commitmentStyles.groupHeader}>
-        <h2 id={id} className={commitmentStyles.groupTitle}>
+    <section className={styles.stepCard} aria-labelledby={id}>
+      <div className={styles.stepHeader}>
+        <h2 id={id} className={styles.stepTitle}>
           {title}
         </h2>
-        {meta !== undefined && meta !== null ? <span className={commitmentStyles.groupMeta}>{meta}</span> : null}
+        {meta !== undefined && meta !== null ? <span className={styles.stepMeta}>{meta}</span> : null}
         {action ? <span className={issueStyles.headerAdd}>{action}</span> : null}
       </div>
       {children}
@@ -373,7 +379,7 @@ async function Headlines({ companyId, timezone, footer }: { companyId: string; t
 // with them, and the page they open offers the way back.
 function StepNav({ footer }: { footer: ReactNode }) {
   return (
-    <nav className={commitmentStyles.group} aria-label="Meeting steps">
+    <nav className={styles.navCard} aria-label="Meeting steps">
       <div className={`${styles.cardFooter} ${styles.cardFooterAlone}`}>{footer}</div>
     </nav>
   );
