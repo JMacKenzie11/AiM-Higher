@@ -6,6 +6,7 @@ import { getCurrentInstanceConfig } from "@/lib/instances/current";
 import { getCommitmentsPageData, type CommitmentWithMeta } from "@/lib/commitments/service";
 import { summarizeFollowThrough, type FollowThroughSummary } from "@/lib/commitments/follow-through";
 import { vimeoEmbedUrl } from "@/lib/recap-video/vimeo";
+import { resolveVideoThumbnail, shareUrlFor } from "@/lib/classroom/video-thumbnail";
 import { honorRoll, type HonorRoll, type LastWeekRow } from "./honor-roll";
 
 // WHAT THE DASHBOARD'S THIS WEEK TAB SHOWS (Jason, 2026-11-20). Read as the person, so every
@@ -25,6 +26,9 @@ import { honorRoll, type HonorRoll, type LastWeekRow } from "./honor-roll";
 
 export type WelcomeRecap = {
   embedUrl: string;
+  // The video's cover image (Vimeo oEmbed), shown over the player when
+  // the video has finished. Null when Vimeo does not answer.
+  poster: string | null;
   savedAt: string;
   isNew: boolean;
   meeting: { title: string; date: string } | null;
@@ -119,6 +123,7 @@ export async function getWelcomeData(companyId: string, viewerId: string, timezo
   const recap: WelcomeRecap | null = video
     ? {
         embedUrl: vimeoEmbedUrl({ id: video.vimeo_id, hash: video.vimeo_hash }),
+        poster: await recapPoster(video.vimeo_id, video.vimeo_hash),
         savedAt: video.created_at,
         isNew: Date.now() - new Date(video.created_at).getTime() < NEW_FOR_DAYS * 86_400_000,
         meeting: asMeeting(video.meeting),
@@ -193,4 +198,13 @@ export async function getWelcomeData(companyId: string, viewerId: string, timezo
     priorityOptions: page.priorityOptions,
     functionalAreaOptions: page.functionalAreaOptions,
   };
+}
+
+// The recap's cover image, from Vimeo's oEmbed (the same resolver the
+// Classroom uses, cached a day per video). Only it knows an unlisted
+// video's cover. Null on any failure: the tile then shows its own dark
+// background behind the play button.
+async function recapPoster(id: string, hash: string | null): Promise<string | null> {
+  const url = shareUrlFor("vimeo", id, hash);
+  return url ? resolveVideoThumbnail(url) : null;
 }

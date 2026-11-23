@@ -123,6 +123,30 @@
   height: 100%;
   border: 0;
 }
+/* The recap's cover and a play mark, over the player once the video
+   has finished (RecapPlayer). A picture only: clicks go through to the
+   player underneath. */
+.replay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  background-size: cover;
+  background-position: center;
+}
+.replayCircle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 18, 32, 0.72);
+  color: var(--aims-white);
+}
 .noVideo {
   position: absolute;
   inset: 0;
