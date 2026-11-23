@@ -14,9 +14,9 @@
   height: 36px;
   padding: 0;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  background: var(--surface);
   border: 1px solid transparent;
-  color: var(--primary);
+  color: var(--aims-navy);
   cursor: pointer;
   transition:
     background var(--duration-fast) var(--ease-out),
@@ -24,10 +24,12 @@
     border-color var(--duration-fast) var(--ease-out);
 }
 
+/* A white disc on the conversation's navy title band (2026-11-23), so
+   it shows; lime on hover, like the tabs. */
 .shareIconButton:hover {
-  background: var(--primary);
-  color: var(--on-primary);
-  border-color: var(--primary);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+  border-color: var(--aims-chartreuse);
 }
 
 .shareIconButton:focus-visible {

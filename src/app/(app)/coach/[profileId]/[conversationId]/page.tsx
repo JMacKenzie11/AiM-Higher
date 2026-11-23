@@ -8,7 +8,7 @@ import {
   getMessageSenders,
   listSharesForConversation,
 } from "@/lib/coach/service";
-import { PageShell } from "@/components/ui/PageShell";
+import { ChatPageStage } from "../../ChatPageStage";
 import { ChatView } from "./ChatView";
 import { MemorySweep } from "../../../ask-aimee/MemorySweep";
 import { ShareChatButton } from "../../../ask-aimee/[conversationId]/ShareChatButton";
@@ -87,13 +87,7 @@ export default async function CoachChatPage({ params }: PageProps) {
   const firstName = subject.full_name.split(" ")[0] ?? subject.full_name;
 
   return (
-    <PageShell
-      backHref={`/coach/${profileId}`}
-      backLabel="All conversations"
-      eyebrow="Coaching"
-      title={subject.full_name}
-      subtitle={subject.position ?? undefined}
-    >
+    <ChatPageStage backHref={`/coach/${profileId}`} backLabel="All conversations">
       {/* Opening one conversation summarizes the OTHERS, exactly as
           on the Ask Aimee side: the thread in front of the person is
           never distilled while they are still in it. */}
@@ -126,6 +120,6 @@ export default async function CoachChatPage({ params }: PageProps) {
           />
         }
       />
-    </PageShell>
+    </ChatPageStage>
   );
 }
