@@ -45,8 +45,14 @@
 }
 
 .tab:hover {
-  background: var(--aims-navy-tint);
-  color: var(--text-heading);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+}
+
+/* Hover is the brand lime (Jason, 2026-11-23); the open tab keeps white on navy, since a link's own hover colour would turn its label navy on the navy. */
+.tabActive:hover {
+  background: var(--aims-navy);
+  color: var(--aims-white);
 }
 
 .tabActive {

@@ -44,8 +44,13 @@
 }
 
 .step:hover {
-  background: var(--aims-navy-tint);
-  color: var(--text-heading);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
+}
+
+.step[aria-current="step"]:hover {
+  background: var(--aims-navy);
+  color: var(--aims-white);
 }
 
 .step[data-done="true"] {

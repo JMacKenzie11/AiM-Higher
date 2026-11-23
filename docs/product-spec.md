@@ -429,7 +429,7 @@ The heart of the operating rhythm.
 
 ## 6. Company Dashboard (`/dashboard`)
 
-Where a company lands (2026-11-21; the sidebar link is **Dashboard**). One header for both tabs: "Good to see you, {first name}." and "Welcome to {company}", with the meeting the week comes from on This week (the recap's meeting, else the latest analysed team meeting), and a "New recap this week" chip when the newest recap video is under seven days old. Under it, two tabs as links, **This week** (`/dashboard`) and **Dashboard** (`/dashboard?tab=dashboard`); only the open tab's data is read. Everyone in the company sees both, team members included: **My week is gone** (`MyWeek.tsx` deleted; the `my-week` switch now only hides the Commitments and Issues stat counters). `/welcome`, where This week first lived (2026-11-20), redirects here (`next.config.ts`).
+Where a company lands (2026-11-21; the sidebar link is **Dashboard**). One header for both tabs: "Welcome to {company}" (the "Good to see you, {first name}." line above it was removed, Jason 2026-11-23), with the meeting the week comes from on This week (the recap's meeting, else the latest analysed team meeting), and a "New recap this week" chip when the newest recap video is under seven days old. Under it, two tabs as links, **This week** (`/dashboard`) and **Dashboard** (`/dashboard?tab=dashboard`); only the open tab's data is read. Everyone in the company sees both, team members included: **My week is gone** (`MyWeek.tsx` deleted; the `my-week` switch now only hides the Commitments and Issues stat counters). `/welcome`, where This week first lived (2026-11-20), redirects here (`next.config.ts`).
 
 ### 6a. This week tab
 
