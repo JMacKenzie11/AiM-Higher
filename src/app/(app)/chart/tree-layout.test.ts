@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fanDepth } from "./layout";
+import { fanDepth } from "./tree-layout";
 
 type N = { children: N[] };
 const leaf = (): N => ({ children: [] });

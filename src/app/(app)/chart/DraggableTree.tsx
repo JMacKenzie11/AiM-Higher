@@ -23,7 +23,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { reorderFunctionsAction } from "@/lib/chart/actions";
 import type { ChartFunction } from "@/lib/chart/service";
 import { FunctionDrawer } from "./FunctionDrawer";
-import { fanDepth } from "./layout";
+import { fanDepth } from "./tree-layout";
 import styles from "./chart.module.css";
 
 // Draggable chart tree. One SortableContext per parent (root list
@@ -127,7 +127,7 @@ function FunctionBranch({
   fn: ChartFunction;
   // This card's depth, and the depth of the first row that branches.
   // Rows deeper than that stack in a column under their parent
-  // instead of spreading sideways (layout.ts).
+  // instead of spreading sideways (tree-layout.ts).
   depth: number;
   fan: number;
   canReorder: boolean;
