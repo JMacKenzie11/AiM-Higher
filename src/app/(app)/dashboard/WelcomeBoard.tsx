@@ -129,7 +129,7 @@ export function WelcomeBoard(props: WelcomeBoardProps) {
         <section className={`${styles.tile} ${styles.vid} ${styles.pop}`} style={{ animationDelay: "0.05s" }} aria-label="Weekly recap video">
           <div className={styles.frame}>
             {recap ? (
-              <RecapPlayer src={recap.embedUrl} />
+              <RecapPlayer src={recap.embedUrl} poster={recap.poster} />
             ) : (
               <div className={styles.noVideo}>
                 <span className={styles.noVideoIcon} aria-hidden="true">
