@@ -71,7 +71,10 @@
   padding: var(--space-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--aims-sand);
+  /* The Scoreboard's light navy tint, not sand (2026-11-23): the cards
+     sit inside a white card, so they need a fill of their own, and sand
+     belongs to the old palette. */
+  background: var(--aims-navy-tint);
   transition:
     border-color var(--duration-fast) ease,
     box-shadow var(--duration-fast) ease,

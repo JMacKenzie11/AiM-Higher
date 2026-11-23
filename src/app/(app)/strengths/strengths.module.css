@@ -457,9 +457,13 @@ textarea.input {
 
 .primaryButton {
   composes: btnPrimary from "../../../components/ui/ui.module.css";
+  /* Its own width, not the card's: inside a column card a button
+     stretched edge to edge (Start the assessment, 2026-11-23). */
+  align-self: flex-start;
 }
 
 .ghostButton {
   composes: btnSecondary from "../../../components/ui/ui.module.css";
+  align-self: flex-start;
 }
 
