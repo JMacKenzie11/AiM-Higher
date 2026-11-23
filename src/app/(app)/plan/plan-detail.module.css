@@ -168,60 +168,16 @@
   margin-top: var(--space-3);
 }
 
+/* A goal, priority or focus area's actions (Mark complete, Edit,
+   Archive): the app's standard buttons since the Scoreboard design
+   (2026-11-23), Archive with the danger intent. They were small
+   uppercase text links. */
 .editLink {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-1) var(--space-2);
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--primary);
-  border-radius: var(--radius-sm);
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
 }
 
-.editLink:hover:not(:disabled) {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.editLink:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
-}
-
-.editLink:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-/* Same visual weight as .editLink but coloured as a destructive
-   action. Not a full red — just enough to signal "different intent". */
 .archiveLink {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-1) var(--space-2);
-  font: var(--text-subhead);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--aims-danger);
-  border-radius: var(--radius-sm);
-}
-
-.archiveLink:hover:not(:disabled) {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.archiveLink:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
-}
-
-.archiveLink:disabled {
-  opacity: 0.6;
-  cursor: progress;
+  composes: btnDanger from "../../../components/ui/ui.module.css";
 }
 
 .inlineTitleInput {

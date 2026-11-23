@@ -161,10 +161,47 @@ export function PriorityHeroPanel({
             ← {meetingBack ? BACK_TO_MEETING : goal ? "Back to goal" : sfa ? "Back to focus area" : "Back to plan"}
           </Link>
         </div>
+        <div className={heroStyles.eyebrow}>Priority</div>
+            <h1 className={heroStyles.title}>{priority.title}</h1>
+            <span className="aims-rule" aria-hidden="true" />
+            <div className={heroStyles.meta}>
+              {goal ? (
+                <Link
+                  href={`/plan/goal/${goal.id}`}
+                  className={styles.rowTitle}
+                >
+                  Goal: {goal.title}
+                </Link>
+              ) : sfa ? (
+                <Link href={`/plan/sfa/${sfa.id}`} className={styles.rowTitle}>
+                  Focus area: {sfa.title}
+                </Link>
+              ) : orphanLabel ? (
+                /* It HAD a parent. getPriorityDetail resolves an
+                   archived one to null so nothing links to a goal the
+                   plan has stopped showing, but "Not linked to a goal
+                   or focus area" would then read as though nobody had
+                   ever bothered. Say which. */
+                <span className={styles.orphanReasonChip} title={orphanNote ?? undefined}>
+                  {orphanLabel}
+                </span>
+              ) : (
+                <span>Not linked to a goal or focus area</span>
+              )}
+              <span>·</span>
+              <span>Quarter: {quarter?.label ?? "—"}</span>
+              <span>·</span>
+              <span>Owner: {owner?.full_name ?? "Unassigned"}</span>
+              {priority.due_date ? (
+                <>
+                  <span>·</span>
+                  <span>Due {priority.due_date}</span>
+                </>
+              ) : null}
+            </div>
       </div>
 
       <div className={heroStyles.card}>
-        <div className={heroStyles.eyebrow}>Priority</div>
 
         {editing ? (
           <form action={formAction} className={styles.form}>
@@ -315,43 +352,6 @@ export function PriorityHeroPanel({
           </form>
         ) : (
           <>
-            <h1 className={heroStyles.title}>{priority.title}</h1>
-            <span className="aims-rule" aria-hidden="true" />
-            <div className={heroStyles.meta}>
-              {goal ? (
-                <Link
-                  href={`/plan/goal/${goal.id}`}
-                  className={styles.rowTitle}
-                >
-                  Goal: {goal.title}
-                </Link>
-              ) : sfa ? (
-                <Link href={`/plan/sfa/${sfa.id}`} className={styles.rowTitle}>
-                  Focus area: {sfa.title}
-                </Link>
-              ) : orphanLabel ? (
-                /* It HAD a parent. getPriorityDetail resolves an
-                   archived one to null so nothing links to a goal the
-                   plan has stopped showing, but "Not linked to a goal
-                   or focus area" would then read as though nobody had
-                   ever bothered. Say which. */
-                <span className={styles.orphanReasonChip} title={orphanNote ?? undefined}>
-                  {orphanLabel}
-                </span>
-              ) : (
-                <span>Not linked to a goal or focus area</span>
-              )}
-              <span>·</span>
-              <span>Quarter: {quarter?.label ?? "—"}</span>
-              <span>·</span>
-              <span>Owner: {owner?.full_name ?? "Unassigned"}</span>
-              {priority.due_date ? (
-                <>
-                  <span>·</span>
-                  <span>Due {priority.due_date}</span>
-                </>
-              ) : null}
-            </div>
             <div className={heroStyles.stateRow}>
               <StatusChip status={priority.status} />
               <div className={heroStyles.stateProgress}>

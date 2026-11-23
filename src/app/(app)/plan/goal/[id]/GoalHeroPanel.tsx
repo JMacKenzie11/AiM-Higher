@@ -125,10 +125,29 @@ export function GoalHeroPanel({
             ← {meetingBack ? BACK_TO_MEETING : "Back to plan"}
           </Link>
         </div>
+        <div className={heroStyles.eyebrow}>Goal</div>
+            <h1 className={heroStyles.title}>{goal.title}</h1>
+            <span className="aims-rule" aria-hidden="true" />
+            <div className={heroStyles.meta}>
+              {sfa ? (
+                <Link href={`/plan/sfa/${sfa.id}`} className={styles.rowTitle}>
+                  Focus area: {sfa.title}
+                </Link>
+              ) : (
+                <span>Not linked to a focus area</span>
+              )}
+              <span>·</span>
+              <span>Owner: {owner?.full_name ?? "Unassigned"}</span>
+              {goal.target_date ? (
+                <>
+                  <span>·</span>
+                  <span>Target {goal.target_date}</span>
+                </>
+              ) : null}
+            </div>
       </div>
 
       <div className={heroStyles.card}>
-        <div className={heroStyles.eyebrow}>Goal</div>
 
         {editing ? (
           <form action={formAction} className={styles.form}>
@@ -262,25 +281,6 @@ export function GoalHeroPanel({
           </form>
         ) : (
           <>
-            <h1 className={heroStyles.title}>{goal.title}</h1>
-            <span className="aims-rule" aria-hidden="true" />
-            <div className={heroStyles.meta}>
-              {sfa ? (
-                <Link href={`/plan/sfa/${sfa.id}`} className={styles.rowTitle}>
-                  Focus area: {sfa.title}
-                </Link>
-              ) : (
-                <span>Not linked to a focus area</span>
-              )}
-              <span>·</span>
-              <span>Owner: {owner?.full_name ?? "Unassigned"}</span>
-              {goal.target_date ? (
-                <>
-                  <span>·</span>
-                  <span>Target {goal.target_date}</span>
-                </>
-              ) : null}
-            </div>
             <div className={heroStyles.stateRow}>
               <StatusChip status={goal.status} />
               <div className={heroStyles.stateProgress}>
