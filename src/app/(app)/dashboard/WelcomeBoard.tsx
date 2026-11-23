@@ -6,6 +6,7 @@ import type { HonorRoll } from "@/lib/welcome/honor-roll";
 import type { WeekWins, WelcomeRecap } from "@/lib/welcome/data";
 import { formatShortDate } from "@/lib/dates";
 import { useRegisterCommitment, useWorkDrawer, type CommitmentContext } from "@/components/work-drawer/context";
+import { RecapPlayer } from "./RecapPlayer";
 import styles from "./welcome.module.css";
 
 // THE SCOREBOARD (Jason, 2026-11-19): the recap video, last week's
@@ -128,13 +129,7 @@ export function WelcomeBoard(props: WelcomeBoardProps) {
         <section className={`${styles.tile} ${styles.vid} ${styles.pop}`} style={{ animationDelay: "0.05s" }} aria-label="Weekly recap video">
           <div className={styles.frame}>
             {recap ? (
-              <iframe
-                src={recap.embedUrl}
-                title="Weekly recap video"
-                allow="autoplay; fullscreen; picture-in-picture; clipboard-write"
-                allowFullScreen
-                loading="lazy"
-              />
+              <RecapPlayer src={recap.embedUrl} />
             ) : (
               <div className={styles.noVideo}>
                 <span className={styles.noVideoIcon} aria-hidden="true">

@@ -8,7 +8,7 @@ Where your company opens. The page has two tabs under the welcome: **This week**
 
 ## This week
 
-- **Recap video:** the latest recap of your weekly meeting, when there is one.
+- **Recap video:** the latest recap of your weekly meeting, when there is one. When it finishes it goes back to the start, so press play to watch it again.
 - **Follow-through last week:** of the commitments due last week, the share kept on time.
 - **Done this week:** commitments due by this Friday that are already done, and who has done the most.
 - **Week in review:** *What's worth knowing today*, a short written summary of the week so far.
