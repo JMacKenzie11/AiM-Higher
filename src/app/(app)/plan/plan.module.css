@@ -585,32 +585,41 @@
 }
 
 /* ---- Orphan sections ---- */
+/* Standalone Goals and Standalone Quarterly Priorities: the same
+   card as a focus area, with a navy title band (2026-11-23). */
 .orphanCard {
   background: var(--surface);
-  border: 1px dashed var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: var(--space-5);
+  box-shadow: var(--shadow-md);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
 }
 
 .orphanHeader {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  background: var(--aims-navy);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .orphanTitle {
   font: var(--text-h3);
-  color: var(--text-heading);
+  color: var(--aims-white);
   margin: 0;
 }
 
 .orphanNote {
   font: var(--text-body-sm);
-  color: var(--text-muted);
+  color: var(--aims-sky);
   margin: 0;
+}
+
+.orphanCard > .rowList {
+  padding: var(--space-2) var(--space-5) var(--space-4);
 }
 
 .addCard {
