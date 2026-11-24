@@ -1,4 +1,4 @@
-import { test, expect, signIn, users, openPlanAdd } from "./fixtures";
+import { test, expect, signIn, users, openPlanAdd, openFocusAreaAdd } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
 // A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
@@ -108,8 +108,7 @@ test("a commitment added from the plan toolbar lands on its priority", async ({
   const fa = sfaCard(page, faTitle);
   await expect(fa).toBeVisible({ timeout: 30_000 });
 
-  const addPriority = fa.getByTestId("sfa-add-priority-panel");
-  await addPriority.locator("summary").click();
+  const addPriority = await openFocusAreaAdd(page, fa, "priority");
   await addPriority.getByLabel("Title").fill(priTitle);
   await addPriority.getByRole("button", { name: /Add quarterly priority/i }).click();
   await expect(

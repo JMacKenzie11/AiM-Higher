@@ -1,4 +1,4 @@
-import { test, expect, signIn, users, openPlanAdd } from "./fixtures";
+import { test, expect, signIn, users, openPlanAdd, openFocusAreaAdd } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Two things a company admin does to a focus area on /plan, walked
@@ -139,10 +139,10 @@ test("focus areas reorder by their drag handles, and an archived one takes its f
   // ---- Two goals under the first: one finished, one not --------
   const fa = sfaCard(page, first);
   for (const title of [doneGoal, liveGoal]) {
-    const addGoal = fa.getByTestId("sfa-add-goal-panel");
-    if (!(await addGoal.getByLabel("Title").isVisible())) {
-      await addGoal.locator("summary").click();
-    }
+    const panel = fa.getByTestId("sfa-add-goal-panel");
+    const addGoal = (await panel.getByLabel("Title").isVisible())
+      ? panel
+      : await openFocusAreaAdd(page, fa, "goal");
     await addGoal.getByLabel("Title").fill(title);
     await addGoal.getByRole("button", { name: "Add goal", exact: true }).click();
     await expect(

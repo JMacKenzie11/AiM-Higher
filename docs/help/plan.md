@@ -32,7 +32,7 @@ Adding a Focus Area, Goal or Priority is done by your company admin.
 ## What you can do here
 
 - **Add to the plan.** Use the *Add* controls at the top right to add a Focus Area, a Goal, a Quarterly Priority (once a quarter is open) or a commitment (once there's a Priority to attach it to). Each opens a panel on the right. It closes when the row is added, or press Escape, click the X or click outside it.
-- **Add a Priority straight to a Focus Area.** Open the Focus Area and use its *Add quarterly priority*, next to *Add goal*. The same pair sits at the bottom of the Focus Area's own page.
+- **Add a Goal or a Priority straight to a Focus Area.** Use the *Add* button in the Focus Area's dark header and pick *Goal* or *Quarterly priority*. The form opens at the top of that Focus Area; *Cancel* closes it. On the Focus Area's own page, *Add goal* and *Add quarterly priority* sit at the bottom.
 - **Add a commitment from here.** *Add commitment* asks which Priority it belongs to, grouped by what each one sits under. It then shows on that Priority and on Commitments.
 - **Choose what a Priority sits under.** The *Parent* picker lists Goals and Focus Areas together. A Priority sits under one of them: picking a Focus Area clears its Goal, and the other way round. You'll find it on the add panel, on the Priority's *Edit priority* form, and on any Standalone row.
 - **Add something before its parent exists.** Leave the picker on *Not linked (yet)*. The row lands under Standalone and you can link it later from the row itself.

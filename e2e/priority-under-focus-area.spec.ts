@@ -1,4 +1,4 @@
-import { test, expect, signIn, users, openPlanAdd } from "./fixtures";
+import { test, expect, signIn, users, openPlanAdd, openFocusAreaAdd } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
@@ -83,8 +83,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
   // Goals and direct priorities are peers, and "both at once" is the
   // normal case rather than an edge — a focus area may hold either
   // or both.
-  const addGoal = fa.getByTestId("sfa-add-goal-panel");
-  await addGoal.locator("summary").click();
+  const addGoal = await openFocusAreaAdd(page, fa, "goal");
   await addGoal.getByLabel("Title").fill(goalTitle);
   await addGoal.getByRole("button", { name: "Add goal", exact: true }).click();
   await expect(
@@ -117,10 +116,7 @@ test("a priority under a focus area, end to end", async ({ page }) => {
   });
 
   // ---- Add a priority straight under the focus area ----------
-  const addPriority = fa.getByTestId("sfa-add-priority-panel");
-  await addPriority
-    .locator("summary")
-    .click();
+  const addPriority = await openFocusAreaAdd(page, fa, "priority");
   await addPriority.getByLabel("Title").fill(priTitle);
   // The parent is implied by where we clicked, so there is no picker.
   await expect(addPriority.getByLabel("Parent")).toHaveCount(0);

@@ -265,6 +265,23 @@ export async function openPlanAdd(
   return form;
 }
 
+// A focus area card's own add panel, opened from the one Add in the
+// card's navy band (SfaAddMenu). Returns the panel, which holds the
+// form. `card` is the focus area's <details>.
+export async function openFocusAreaAdd(
+  page: Page,
+  card: Locator,
+  which: "goal" | "priority"
+): Promise<Locator> {
+  await card.getByTestId("sfa-add-menu").click();
+  await page
+    .getByRole("menuitem", { name: which === "goal" ? "Goal" : "Quarterly priority", exact: true })
+    .click();
+  const panel = card.getByTestId(`sfa-add-${which}-panel`);
+  await expect(panel.getByLabel("Title")).toBeVisible({ timeout: 15_000 });
+  return panel;
+}
+
 // The simplification switches, as the app under test reads them
 // (src/lib/ui/simplify.ts). The value comes from .env.local, loaded by
 // playwright.config.ts, so a spec tests whichever UI the server shows.
