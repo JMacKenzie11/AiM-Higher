@@ -4581,7 +4581,9 @@ async function promoteStevenAndSean(
   _ids: Identities,
   pending: string = ""
 ): Promise<CaseResult> {
-  if (!pending.includes("0207")) {
+  // Keyed on a line only 0207 holds: `pending` is SQL text, and a
+  // later migration's comments may name 0207 (0330 does).
+  if (!pending.includes("0207: % not on this database")) {
     return {
       name: "promote-steve-and-sean",
       hazard: "A one-off promotion lands on the wrong person, or detaches them from their work",
@@ -14106,6 +14108,149 @@ select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
   }];
 }
 
+// ---- A portfolio admin's own company (0330) ----------------------
+//
+// Jason, 2026-11-24: Promise One's portfolio admins run it, so a system
+// admin gives them it as their own company. Seeded inside the
+// transaction on the company admin's company: a portfolio admin and a
+// team member.
+//   setup     their company_id is refused with no assignment behind
+//             it, and accepted once one exists
+//   reads     the portfolio admin sees at least as many rows in every
+//             public table with a company of their own as without
+//   granted   they read the team member and add a commitment for them;
+//             a system admin can still delete their account
+//   withheld  the company's admin demotes them, deletes them, or ends
+//             their own company's assignment; they end it themselves;
+//             they clear their own company
+// Red before 0330: the assigned company_id is refused (0190's check).
+async function portfolioAdminOwnCompanyProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "a portfolio admin's own company";
+  const ADMIN = ids.companyAdmin, CO = ids.companyAdminCompany;
+  const PA = randomUUID(), PEER = randomUUID();
+  const claims = (sub: string) => `'{"sub":"${sub}","role":"authenticated"}'`;
+  const countAll = (column: "before" | "after") => `
+set local role authenticated;
+do $$
+declare v_t text; n bigint;
+begin
+  perform set_config('request.jwt.claims', ${claims(PA)}, true);
+  for v_t in select tablename from pg_tables where schemaname = 'public' order by 1 loop
+    if has_table_privilege('authenticated', format('public.%I', v_t), 'select') then
+      begin
+        execute format('select count(*) from public.%I', v_t) into n;
+      exception when others then n := -1;
+      end;
+      ${column === "before"
+        ? "insert into _d (t, before) values (v_t, n);"
+        : "update _d set after = n where _d.t = v_t;"}
+    end if;
+  end loop;
+end $$;
+reset role;`;
+  const attempt = (key: string, sql: string) => `
+  begin
+    ${sql}
+    get diagnostics n = row_count;
+    raise exception using errcode = 'P0001';
+  exception when sqlstate 'P0001' then insert into _p values ('${key}', n::text);
+    when others then insert into _p values ('${key}', 'error ' || sqlstate); end;`;
+  let row: Record<string, string> | undefined;
+  try {
+    [row] = await run(["begin;", pending, `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        email_confirmed_at, created_at, updated_at)
+values ('${PA}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-pa-own-0330@example.invalid', '', now(), now(), now()),
+       ('${PEER}', '00000000-0000-0000-0000-000000000000', 'authenticated',
+        'authenticated', 'harness-peer-0330@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values
+  ('${PA}', null, 'Harness PA Own 0330', 'portfolio_admin', 'active'),
+  ('${PEER}', '${CO}', 'Harness Peer 0330', 'team_member', 'active');
+create temp table _d (t text, before bigint, after bigint) on commit drop;
+grant all on _d to authenticated;
+create temp table _p (k text, v text) on commit drop;
+grant all on _p to authenticated;
+${countAll("before")}
+select set_config('request.jwt.claims', '{}', true);
+do $$
+declare n int;
+begin
+${attempt("unassigned_company", `update public.profiles set company_id = '${CO}' where id = '${PA}';`)}
+  insert into public.portfolio_assignments (portfolio_admin_id, company_id, acts_as_company_admin)
+  values ('${PA}', '${CO}', true);
+  begin
+    update public.profiles set company_id = '${CO}' where id = '${PA}';
+    get diagnostics n = row_count;
+    insert into _p values ('assigned_company', n::text);
+  exception when others then insert into _p values ('assigned_company', 'error ' || sqlstate); end;
+end $$;
+${countAll("after")}
+set local role authenticated;
+do $$
+declare n int;
+begin
+  perform set_config('request.jwt.claims', ${claims(ADMIN)}, true);
+${attempt("admin_demotes_pa", `update public.profiles set role = 'team_member' where id = '${PA}';`)}
+${attempt("admin_deletes_pa", `delete from public.profiles where id = '${PA}';`)}
+${attempt("admin_ends_own_assignment", `delete from public.portfolio_assignments where portfolio_admin_id = '${PA}' and company_id = '${CO}';`)}
+  perform set_config('request.jwt.claims', ${claims(PA)}, true);
+${attempt("pa_reads_peer", `perform 1 from public.profiles where id = '${PEER}';`)}
+${attempt("pa_commits_for_peer", `insert into public.commitments (company_id, owner_id, description, due_date, week_ending) values ('${CO}', '${PEER}', 'harness 0330', '2026-11-06', '2026-11-06');`)}
+${attempt("pa_ends_own_assignment", `delete from public.portfolio_assignments where portfolio_admin_id = '${PA}' and company_id = '${CO}';`)}
+${attempt("pa_clears_own_company", `update public.profiles set company_id = null where id = '${PA}';`)}
+end $$;
+reset role;
+select set_config('request.jwt.claims', '{}', true);
+insert into _p select 'pa_company', coalesce(company_id::text, 'null') from public.profiles where id = '${PA}';
+insert into _p select 'pa_role', role from public.profiles where id = '${PA}';
+insert into _p select 'tables', count(*)::text from _d;
+insert into _p select 'narrowed', coalesce(string_agg(t || ' ' || before || '>' || coalesce(after::text, '?'), ', ' order by t), '')
+  from _d where coalesce(after, -1) < before;
+do $$
+declare n int;
+begin
+  begin
+    delete from public.profiles where id = '${PA}';
+    get diagnostics n = row_count;
+    insert into _p values ('root_deletes_pa', n::text);
+  exception when others then insert into _p values ('root_deletes_pa', 'error ' || sqlstate); end;
+end $$;
+select jsonb_object_agg(k, v)::text as r from _p;`, "rollback;"].join("\n"));
+  } catch (err) {
+    const msg = unwrapDbError(err instanceof Error ? err.message : String(err)).replace(/\s+/g, " ").slice(0, 120);
+    return [{ name, granted: `ERROR: ${msg}`, withheld: "not run", ok: false, detail: "the probe could not run" }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const refused = (v: string | undefined) => v === "0" || (v ?? "").startsWith("error");
+  const granted = ["assigned_company", "pa_reads_peer", "pa_commits_for_peer", "root_deletes_pa"];
+  const withheld = ["admin_demotes_pa", "admin_deletes_pa", "pa_clears_own_company"];
+  const blocked = ["unassigned_company", "admin_ends_own_assignment", "pa_ends_own_assignment"];
+  const readsOk = r.narrowed === "" && Number(r.tables) > 0;
+  const ok =
+    readsOk &&
+    granted.every((k) => r[k] === "1") &&
+    withheld.every((k) => refused(r[k])) &&
+    blocked.every((k) => r[k] === "error 23514") &&
+    r.pa_role === "portfolio_admin" &&
+    r.pa_company === CO;
+  return [{
+    name,
+    granted: granted.map((k) => `${k} ${r[k]}`).join(", ") + ` (want 1 each); ${r.tables} tables read the same or wider`,
+    withheld:
+      withheld.map((k) => `${k} ${r[k]}`).join(", ") + " (want 0 or refused), " +
+      blocked.map((k) => `${k} ${r[k]}`).join(", ") + ` (want error 23514); still ${r.pa_role} in ${r.pa_company === CO ? "their company" : r.pa_company}; narrowed: ${r.narrowed || "none"}`,
+    ok,
+    detail: ok
+      ? "a portfolio admin belongs to a company only where assigned, reads nothing less, works with its team, and only a system admin manages the account or ends that assignment"
+      : r.assigned_company !== "1"
+        ? "A PORTFOLIO ADMIN CANNOT HAVE A COMPANY OF THEIR OWN (is 0330 applied?)"
+        : !readsOk
+          ? `A COMPANY_ID NARROWS WHAT A PORTFOLIO ADMIN READS: ${r.narrowed}`
+          : "an own company without an assignment, or a write against the portfolio admin's account, got through",
+  }];
+}
+
 // ---- Only the transcript marks a headline as its own (0292) ------
 //
 // meeting_headlines.source_meeting_id says a headline came from the
@@ -17125,6 +17270,7 @@ async function main(): Promise<void> {
   const checkins = await meetingCheckinsProbes(run, ids, pendingSql);
   const guideOwn = await guideOwnCompanyProbes(run, ids, pendingSql);
   const sysadminOwn = await sysadminOwnCompanyProbes(run, ids, pendingSql);
+  const portfolioOwn = await portfolioAdminOwnCompanyProbes(run, ids, pendingSql);
   const forColleague = await commitmentsForColleagueProbes(run, ids, pendingSql);
   const diagnostics = await diagnosticsSystemAdminOnlyProbes(run, ids, pendingSql);
   const diagnosticClient = await diagnosticClientOwnClientProbes(run, ids, pendingSql);
@@ -17163,7 +17309,7 @@ async function main(): Promise<void> {
     ...(await aimeePageContextProbes(run, ids)),
     ...(await meetingSummaryProbes(run, ids)),
   ];
-  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...portalPreview, ...automationAccounts, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents, ...coachingCalls]).join("\n"));
+  console.log(grantSummaryLines([...probes, ...portfolio, ...openers, ...fromAimee, ...vaultProbes, ...plaintextProbes, ...coachProbes, ...contractProbes, ...hubspotProbes, ...timeouts, ...authorStamps, ...rewording, ...companyStays, ...guideFeatures, ...notes, ...headlines, ...headlinesSource, ...checkins, ...guideOwn, ...sysadminOwn, ...portfolioOwn, ...forColleague, ...diagnostics, ...diagnosticClient, ...diagnosticBots, ...diagnosticProposals, ...portalPreview, ...automationAccounts, ...attendance, ...valueChanges, ...conversations, ...companyContent, ...strengthsAnswers, ...strengthsPersonOnly, ...leadOnly, ...assistant, ...contactChange, ...panelEvents, ...coachingCalls]).join("\n"));
 
   let batchOk = true;
   if (batch && lag.behind.length > 0) {

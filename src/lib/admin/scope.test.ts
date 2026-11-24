@@ -432,6 +432,25 @@ describe("getEffectiveCompanyId (invariant coverage)", () => {
     expect(result).toBeNull();
   });
 
+  // A portfolio admin with a company of their own (0330, Jason
+  // 2026-11-24) keeps the Portfolio view: the company does not pin them.
+  it("does not pin a portfolio admin with a company of their own to it", async () => {
+    cookieMocks.store.set("aims_scope_company", "pa:co_other");
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: { id: "pa", role: "portfolio_admin", company_id: "co_own" },
+    });
+    expect(result).toBe("co_other");
+  });
+
+  it("leaves a portfolio admin with their own company unscoped when no cookie is set", async () => {
+    const { getEffectiveCompanyId } = await import("./scope");
+    const result = await getEffectiveCompanyId({
+      profile: { id: "pa", role: "portfolio_admin", company_id: "co_own" },
+    });
+    expect(result).toBeNull();
+  });
+
   it("ignores a stale scope cookie for a guide unassigned to that company", async () => {
     cookieMocks.store.set("aims_scope_company", "co_unassigned");
     const { getEffectiveCompanyId } = await import("./scope");

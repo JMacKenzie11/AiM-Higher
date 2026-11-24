@@ -213,6 +213,8 @@ export type PortfolioAdminAccess = {
   openCommitmentsByCompany: Record<string, number>;
   /** Of companyIds, those switched on as company admin (0245). */
   adminCompanyIds: string[];
+  /** The company they run as a member (0330), or null. */
+  ownCompanyId: string | null;
 };
 
 // One row per portfolio admin for the Company access card.
@@ -228,11 +230,11 @@ export async function loadPortfolioAdminAccess(): Promise<
 
   const { data: admins } = await supabase
     .from("profiles")
-    .select("id, full_name")
+    .select("id, full_name, company_id")
     .eq("role", "portfolio_admin")
     .neq("status", "inactive")
     .order("full_name");
-  const rows = (admins ?? []) as Array<{ id: string; full_name: string }>;
+  const rows = (admins ?? []) as Array<{ id: string; full_name: string; company_id: string | null }>;
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.id);
@@ -281,6 +283,7 @@ export async function loadPortfolioAdminAccess(): Promise<
   return rows.map((r) => ({
     id: r.id,
     fullName: r.full_name,
+    ownCompanyId: r.company_id,
     companyIds: byAdmin.get(r.id) ?? [],
     openCommitmentsByCompany: openByAdmin.get(r.id) ?? {},
     adminCompanyIds: adminByAdmin.get(r.id) ?? [],

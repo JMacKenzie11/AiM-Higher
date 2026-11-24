@@ -70,6 +70,23 @@ export async function setPortfolioCompanyAccessAction(
 
   const toAdd = [...wanted].filter((id) => !current.has(id));
   const toRemove = [...current].filter((id) => !wanted.has(id));
+
+  // THEIR OWN COMPANY STAYS while it is theirs (0330): the database
+  // refuses that delete, and asking here first means nothing is
+  // released before the refusal.
+  if (toRemove.length > 0) {
+    const { data: person } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", portfolioAdminId)
+      .maybeSingle<{ company_id: string | null }>();
+    if (person?.company_id && toRemove.includes(person.company_id)) {
+      return {
+        ok: false,
+        message: "That is their own company. A system admin clears it first.",
+      };
+    }
+  }
   if (toAdd.length === 0 && toRemove.length === 0) {
     return { ok: true, added: 0, removed: 0, released: 0 };
   }
@@ -187,4 +204,82 @@ export async function setPortfolioCompanyAdminAction(
   revalidatePath("/portfolio");
   revalidatePath("/people");
   return { ok: true };
+}
+
+// ---- A company of their own (0330, Jason 2026-11-24) ----------------
+//
+// For portfolio admins who also run one of the instance's companies,
+// as Promise One's do. SYSTEM ADMINS ONLY, as for a coach (0300).
+//
+// Two writes, both through the system admin's own session so the
+// switch's stamp (0245) is theirs:
+//   - the assignment, switched on as company admin. Written first:
+//     0330's trigger refuses a portfolio admin's company_id that no
+//     assignment backs, and in their own company they are its admin.
+//   - profiles.company_id, which makes them a MEMBER: its chart, its
+//     owner pickers, its Team list, its meetings. Their role stays
+//     portfolio_admin, so the Portfolio view stays theirs, and
+//     scope.ts does not pin them to it.
+//
+// Moving them to another company, or to none, leaves the old one as an
+// ordinary assignment, still switched on, untickable like any other.
+export async function setPortfolioOwnCompanyAction(
+  portfolioAdminId: string,
+  companyId: string | null
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const session = await requireProfile();
+  if (session.profile.role !== "system_admin") {
+    return { ok: false, message: "Only a system admin can change this." };
+  }
+  const supabase = await createSupabaseServerClient(getCurrentInstanceConfig());
+  const { data: person } = await supabase
+    .from("profiles")
+    .select("id, role, company_id")
+    .eq("id", portfolioAdminId)
+    .maybeSingle<{ id: string; role: string; company_id: string | null }>();
+  if (!person || person.role !== "portfolio_admin") {
+    return { ok: false, message: "That user isn't a portfolio admin." };
+  }
+  if ((person.company_id ?? null) === companyId) return { ok: true };
+
+  if (companyId) {
+    const { error: assignErr } = await supabase
+      .from("portfolio_assignments")
+      .upsert(
+        { portfolio_admin_id: portfolioAdminId, company_id: companyId, acts_as_company_admin: true },
+        { onConflict: "portfolio_admin_id,company_id" }
+      );
+    if (assignErr) {
+      return { ok: false, message: "Couldn't make them that company's admin, so nothing changed." };
+    }
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ company_id: companyId })
+    .eq("id", portfolioAdminId);
+  if (error) return { ok: false, message: "Couldn't save their own company." };
+
+  revalidatePath("/portfolio");
+  revalidatePath("/people");
+  revalidatePath("/chart");
+  return { ok: true };
+}
+
+// One Save on a portfolio admin's row when a system admin is looking:
+// their own company first (it adds its assignment, and moving off an
+// old one is what lets the old one be unticked in the same save), then
+// their companies, with their own company always kept.
+export async function savePortfolioAccessAction(
+  portfolioAdminId: string,
+  companyIds: string[],
+  ownCompanyId?: string | null
+): Promise<CompanyAccessResult> {
+  if (ownCompanyId !== undefined) {
+    const own = await setPortfolioOwnCompanyAction(portfolioAdminId, ownCompanyId);
+    if (!own.ok) return own;
+  }
+  const ids =
+    ownCompanyId && !companyIds.includes(ownCompanyId) ? [...companyIds, ownCompanyId] : companyIds;
+  return setPortfolioCompanyAccessAction(portfolioAdminId, ids);
 }

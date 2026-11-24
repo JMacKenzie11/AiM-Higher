@@ -198,13 +198,15 @@ export default async function PeoplePage() {
                           this company's business, and "portfolio
                           admin" in a team list invites a question
                           nobody on that page can answer. */}
-                      {/* A guide, or a system admin, who belongs here
-                          runs this company as its admin. */}
+                      {/* A guide, a system admin or a portfolio admin
+                          who belongs here runs this company as its admin. */}
                       {person.viaAssignment
                         ? person.assignedAsAdmin
                           ? "company admin"
                           : "team member"
-                        : person.role === "aims_guide" || person.role === "system_admin"
+                        : person.role === "aims_guide" ||
+                            person.role === "system_admin" ||
+                            person.role === "portfolio_admin"
                           ? "company admin"
                           : person.role.replace("_", " ")}
                     </td>
@@ -232,12 +234,14 @@ export default async function PeoplePage() {
                             Coach
                           </Link>
                         ) : null}
-                        {/* A guide's or system admin's account reaches
-                            every company they work in, so only a system
-                            admin manages it (0300). */}
+                        {/* A guide's, system admin's or portfolio admin's
+                            account reaches every company they work in, so
+                            only a system admin manages it (0300, 0330). */}
                         {isAdmin &&
                         (!person.viaAssignment || canRemoveAssignments) &&
-                        ((person.role !== "aims_guide" && person.role !== "system_admin") ||
+                        ((person.role !== "aims_guide" &&
+                          person.role !== "system_admin" &&
+                          person.role !== "portfolio_admin") ||
                           session.profile.role === "system_admin") ? (
                           <RowActionsMenu
                             profileId={person.id}
