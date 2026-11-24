@@ -110,6 +110,7 @@
 }
 
 .card {
+  composes: bandHost from "../../../components/ui/ui.module.css";
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -673,6 +674,8 @@
   }
   .card {
     padding: var(--space-4) var(--space-3);
+    --band-pad-y: var(--space-4);
+    --band-pad-x: var(--space-3);
   }
   /* Companies table can horizontal-scroll below its own width
      rather than crushing the caseload row cells. */

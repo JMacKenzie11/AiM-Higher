@@ -66,17 +66,8 @@ export default async function AskAimeePage() {
           conversation is a candidate. */}
       <MemorySweep openConversationId={null} />
       <div className={styles.card}>
-        <div className={styles.listActions}>
-          <h2
-            style={{
-              margin: 0,
-              marginRight: "auto",
-              font: "var(--text-subhead)",
-              textTransform: "uppercase",
-              letterSpacing: "0.15em",
-              color: "var(--text-muted)",
-            }}
-          >
+        <div className={`${styles.listActions} ${styles.listBand}`}>
+          <h2 className={styles.listBandTitle}>
             Recent conversations
           </h2>
           <AskAimeeNewButton />
@@ -147,17 +138,8 @@ export default async function AskAimeePage() {
           noise. Same company scope as the primary list. */}
       {sharedWithMe.length > 0 ? (
         <div className={styles.card} style={{ marginTop: "var(--space-4)" }}>
-          <div className={styles.listActions}>
-            <h2
-              style={{
-                margin: 0,
-                marginRight: "auto",
-                font: "var(--text-subhead)",
-                textTransform: "uppercase",
-                letterSpacing: "0.15em",
-                color: "var(--text-muted)",
-              }}
-            >
+          <div className={`${styles.listActions} ${styles.listBand}`}>
+            <h2 className={styles.listBandTitle}>
               Shared with you
             </h2>
           </div>
