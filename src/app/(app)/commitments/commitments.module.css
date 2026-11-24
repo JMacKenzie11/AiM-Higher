@@ -87,78 +87,81 @@
 /* ---- Filter pills row ---- */
 .filters {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-3);
   flex-wrap: wrap;
   align-items: center;
 }
 
+/* Each filter is the Dashboard's switch (AnalysisTabs, 2026-11-23):
+   a white pill holding its label and options, lime under the
+   pointer, navy on the one selected. */
 .filterGroup {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .filterLabel {
+  padding: 0 var(--space-2) 0 var(--space-3);
   font: var(--text-caption);
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
 }
 
 .filterPill {
-  padding: var(--space-1) var(--space-3);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-pill);
-  color: var(--text);
-  font: var(--text-body-sm);
+  color: var(--text-muted);
+  font: var(--text-button);
+  font-size: 14px;
+  white-space: nowrap;
   cursor: pointer;
   text-decoration: none;
-  transition: background var(--duration-fast) var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .filterPill:hover {
-  background: var(--aims-navy-tint);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
 }
 
 /* Keyboard focus on pills and row controls: a solid outline with an
-   offset. The 50% box-shadow ring it replaces was 2.36:1 on white,
-   under the 3:1 a focus indicator needs; solid cobalt is 7.3:1 on
-   white and 6.8:1 on sand (sky on navy in dark, 6.7:1). */
+   offset, 3:1 or better against the white pill. */
 .filterPill:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-/* Selected, not filled.
-   
-   The same treatment the quarter switcher took: cobalt tint with
-   brand text, which is the app's documented nav-pill vocabulary for
-   "this is the one you are on". A saturated fill made a selected
-   filter the loudest thing on the page and put it in the same visual
-   class as an action, which is the distinction being retired. */
-.filterPillActive {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary);
-  border-color: var(--border-interactive);
-}
-
-/* The active pill is already tinted, so hovering it deepens the
-   BORDER rather than the fill. Setting `--primary-hover` here put a
-   dark background behind `--primary` text and made the selected
-   filter unreadable for as long as the pointer was on it. */
+/* The one selected: navy, as on the Dashboard switch and the meeting
+   agenda. It stays navy under the pointer. */
+.filterPillActive,
 .filterPillActive:hover {
-  border-color: var(--border-strong);
+  background: var(--aims-navy);
+  color: var(--aims-white);
 }
 
 .filterSelect {
-  padding: var(--space-1) var(--space-3);
-  height: var(--control-h-sm, 32px);
+  min-height: 34px;
+  padding: 0 var(--space-3);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-control, var(--border));
   border-radius: var(--radius-pill);
   color: var(--text);
   font: var(--text-body-sm);
+  cursor: pointer;
 }
 
 .filterSelect:focus-visible {
@@ -174,38 +177,45 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   /* No overflow: hidden here — it would clip the priority picker's
      dropdown when it opens downward from the inline add row. The
      header takes its own top-corner border-radius so nothing bleeds
      past the card. */
 }
 
+/* The card's navy band, as on the meeting's step cards (2026-11-23):
+   the title in white, the count beside it in sky, the main action at
+   the right. */
 .groupHeader {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--aims-navy-tint);
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-4) var(--space-5);
+  background: var(--aims-navy);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 
 .groupTitle {
   font: var(--text-h3);
-  color: var(--text-heading);
+  color: var(--aims-white);
   margin: 0;
 }
 
+/* Needs attention keeps the white of every title: red does not read
+   on navy, and the section is a heading, not a second alarm (the
+   overdue dates in its rows say that). */
 .groupTitleNeedsAttention {
-  color: var(--aims-danger);
+  color: var(--aims-white);
 }
 
 .groupMeta {
   font: var(--text-caption);
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--aims-sky);
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
 }
 
 .rowList {
@@ -1517,10 +1527,6 @@ button.fromIssuePill {
   visibility: hidden;
 }
 
-/* The section's title is a heading, not a second alarm. */
-:root[data-simplify~="quiet-rows"] .groupTitleNeedsAttention {
-  color: var(--text-heading);
-}
 
 /* Fields read as text at rest; their box comes back on the row's
    hover or focus, which is when they are about to be used. */
