@@ -1,4 +1,4 @@
-import { test, expect, signIn, users, openPlanAdd } from "./fixtures";
+import { test, expect, signIn, users, openPlanAdd, openFocusAreaAdd } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // A DISCLOSURE IS SELECTED AS A <summary>, NEVER BY ITS TEXT.
@@ -91,8 +91,7 @@ test("a back link lands on /plan with the goal revealed", async ({ page }) => {
   await expect(sfa).toBeVisible({ timeout: 30_000 });
 
   // Create a goal under it.
-  const addGoal = sfa.getByTestId("sfa-add-goal-panel");
-  await addGoal.locator("summary").click();
+  const addGoal = await openFocusAreaAdd(page, sfa, "goal");
   await addGoal.getByLabel("Title").fill(goalTitle);
   await addGoal.getByRole("button", { name: "Add goal", exact: true }).click();
   const goal = goalCard(page, goalTitle);

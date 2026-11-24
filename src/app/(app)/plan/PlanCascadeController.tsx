@@ -6,7 +6,7 @@ import styles from "./plan.module.css";
 // Small client wrapper for the /plan cascade. It does three things:
 //   1. Persists which SFA <details> the user has open in localStorage
 //      so their layout survives navigation and refresh.
-//   2. Renders Expand-all / Collapse-all buttons that toggle every
+//   2. Renders the page's bar, with Expand-all / Collapse-all buttons that toggle every
 //      SFA + Goal <details> on the page at once.
 //   3. Reveals the row a back link named (/plan#goal-<id>), opening
 //      whatever is collapsed above it first.
@@ -19,9 +19,16 @@ const STORAGE_KEY_PREFIX = "aims.plan.sfaOpen.";
 
 export function PlanCascadeController({
   companyId,
+  toolbarStart,
+  toolbarEnd,
   children,
 }: {
   companyId: string;
+  // The page's bar (2026-11-23): the quarter at the left, Add at the
+  // right, and Expand all / Collapse all between them, which is why
+  // the bar is drawn here rather than by PlanView.
+  toolbarStart?: React.ReactNode;
+  toolbarEnd?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -85,7 +92,10 @@ export function PlanCascadeController({
 
   return (
     <>
-      <div className={styles.cascadeToolbar}>
+      <div className={styles.toolbar}>
+        {toolbarStart}
+        <div className={styles.toolbarEndGroup}>
+        <div className={styles.cascadeSwitch} role="group" aria-label="Show or hide everything">
         <button
           type="button"
           className={styles.cascadeToggle}
@@ -100,6 +110,9 @@ export function PlanCascadeController({
         >
           Collapse all
         </button>
+        </div>
+        {toolbarEnd}
+        </div>
       </div>
       <div ref={containerRef}>{children}</div>
     </>

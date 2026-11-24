@@ -26,17 +26,24 @@
    Card-shaped so it visually overlaps the hero when it's the first
    child of the PageShell content area. Same treatment as the toolbar
    on /chart. */
+/* The bar under the page header (2026-11-23): no card, as the
+   Commitments and Issues filters have none. The quarter switch at
+   the left; Expand all / Collapse all and Add at the right. */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
   justify-content: space-between;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.toolbarEndGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin-left: auto;
 }
 
 /* The positioned ancestor for every add panel. It used to be each
@@ -246,13 +253,20 @@
   }
 }
 
-/* ---- Quarter switcher (pill row) ---- */
+/* ---- Quarter switcher ----
+   The Dashboard's switch (2026-11-23): one white pill holding the
+   quarters, lime under the pointer, navy on the one you are looking
+   at. It was a row of separate outlined pills with a cobalt-tint
+   selection. */
 .quarterRow {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 4px;
   align-items: center;
-  padding: var(--space-3) 0;
+  padding: 4px;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .quarterPill,
@@ -260,51 +274,41 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 38px;
   padding: 0 var(--space-4);
-  height: var(--control-h-md);
   border-radius: var(--radius-pill);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 13px;
+  font: var(--text-button);
+  font-size: 14px;
+  white-space: nowrap;
   text-decoration: none;
   transition: background var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
 
 .quarterPill {
-  background: var(--surface);
   color: var(--text-muted);
-  border: 1px solid var(--border);
 }
 
 .quarterPill:hover {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary);
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
 }
 
-/* Selected, not primary.
-   
-   This was a solid --primary fill, which made the quarter switcher
-   the most saturated thing on the page. Once the add buttons became
-   secondary it was the ONLY saturated thing, so it read as the
-   page's primary action — and it is not an action at all, it is a
-   nav control showing which quarter you are looking at.
-   
-   The tint-and-brand-text treatment is the app's existing nav-pill
-   vocabulary, documented in ui.module.css: cobalt-tint for "this is
-   a navigation or selection affordance" as against saturated fill
-   for "this is the call to action". The border promotes to
-   --border-interactive so selected still reads as selected at a
-   glance against the unselected ones. */
-.quarterPillActive {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary);
-  border: 1px solid var(--border-interactive);
+.quarterPillActive,
+.quarterPillActive:hover {
+  background: var(--aims-navy);
+  color: var(--aims-white);
+}
+
+.quarterPill:focus-visible,
+.quarterPillActive:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .closedTag,
 .openTag {
-  font: var(--text-body-sm);
+  font: var(--text-caption);
   padding: 1px var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--aims-navy-tint);
@@ -315,7 +319,7 @@
 }
 
 .openTag {
-  background: color-mix(in srgb, var(--aims-chartreuse) 55%, transparent);
+  background: var(--aims-chartreuse);
   color: var(--aims-navy);
 }
 
@@ -326,33 +330,40 @@
   gap: var(--space-4);
 }
 
-.cascadeToolbar {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: flex-end;
-  padding: var(--space-2) 0;
+/* Expand all / Collapse all: two actions in the switch's white pill,
+   neither of them selected. */
+.cascadeSwitch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .cascadeToggle {
-  height: var(--control-h-sm);
+  min-height: 34px;
   padding: 0 var(--space-3);
   background: transparent;
   color: var(--text-muted);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-sans);
-  font-weight: 500;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  border: 0;
+  border-radius: var(--radius-pill);
+  font: var(--text-button);
+  font-size: 14px;
+  white-space: nowrap;
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out);
 }
 
 .cascadeToggle:hover {
-  color: var(--primary);
-  background: var(--aims-cobalt-tint);
+  color: var(--aims-navy);
+  background: var(--aims-chartreuse);
+}
+
+.cascadeToggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .sfaCard {
@@ -364,14 +375,14 @@
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-4) var(--space-5);
+  box-shadow: var(--shadow-md);
+  padding: 0;
   transition: box-shadow var(--duration-fast) var(--ease-out),
     transform var(--duration-fast) var(--ease-out);
 }
 
 .sfaCard:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
 }
 
 .sfaSummary,
@@ -484,10 +495,9 @@
   margin-right: var(--space-2);
 }
 
+/* The card's rows, under the band. */
 .sfaBody {
-  padding: var(--space-3) 0 0 0;
-  border-top: 1px solid var(--border);
-  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-5) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -1015,4 +1025,123 @@
 .reorderError {
   font: var(--text-body-sm);
   color: var(--aims-danger);
+}
+
+
+/* ---- A focus area's navy band (2026-11-23) ----
+   The card's <summary>, as the meeting's step cards and the
+   Commitments and Issues cards have a navy title band: "Focus Area"
+   in sky, the name in white, the sponsor under it, status and
+   progress at the right, and the card's one Add. Folded, the band is
+   the whole card. Kept after the calm-visuals rule above, which it
+   matches in specificity and must win over. */
+.sfaCard > .sfaSummary {
+  padding: var(--space-4) var(--space-5);
+  background: var(--aims-navy);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.sfaCard:not([open]) > .sfaSummary {
+  border-radius: var(--radius-md);
+}
+
+.sfaCard > .sfaSummary .levelLabel {
+  background: transparent;
+  padding: 0;
+  color: var(--aims-sky);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.sfaCard > .sfaSummary .sfaTitle {
+  color: var(--aims-white);
+}
+
+.sfaCard > .sfaSummary .sfaTitle:hover {
+  text-decoration-color: var(--aims-chartreuse);
+}
+
+.sfaCard > .sfaSummary .sponsorLabel {
+  color: color-mix(in srgb, var(--aims-white) 78%, transparent);
+}
+
+/* The percent beside the bar (ProgressBar's label, the span after
+   the track) in white; the track and chip are light and read as
+   they are. */
+.sfaCard > .sfaSummary [role="progressbar"] + span {
+  color: var(--aims-white);
+}
+
+.sfaCard > .sfaSummary .sfaDragHandle {
+  color: var(--aims-sky);
+}
+
+.sfaCard > .sfaSummary .sfaDragHandle:hover {
+  background: color-mix(in srgb, var(--aims-white) 14%, transparent);
+  color: var(--aims-white);
+}
+
+.sfaCard > .sfaSummary .sfaTitle:focus-visible,
+.sfaCard > .sfaSummary:focus-visible {
+  outline: var(--focus-ring-width) solid var(--aims-chartreuse);
+  outline-offset: 2px;
+}
+
+.bandAddWrap {
+  display: inline-flex;
+}
+
+.bandAdd {
+  composes: btnSecondary from "../../../components/ui/ui.module.css";
+  composes: btnSm from "../../../components/ui/ui.module.css";
+}
+
+/* The two add panels at the top of the body. Nothing shows until the
+   band's Add opens one; then the form is in the flow, full width,
+   with Cancel (its <summary>) at the right. */
+.bandAddRow {
+  display: flex;
+  flex-direction: column;
+}
+
+.bandAddRow:not(:has(details[open])) {
+  display: none;
+}
+
+.bandAddRow > .addDetails {
+  margin-top: var(--space-3);
+}
+
+.bandAddRow > .addDetails:not([open]) {
+  display: none;
+}
+
+.bandAddRow > .addDetails[open] {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  padding: var(--space-4) var(--space-5);
+  background: var(--grad-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.bandAddRow > .addDetails[open] > .form {
+  position: static;
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.bandPanelClose {
+  composes: btnGhost from "../../../components/ui/ui.module.css";
+  composes: btnSm from "../../../components/ui/ui.module.css";
+  list-style: none;
+  cursor: pointer;
+  align-self: flex-end;
+}
+
+.bandPanelClose::-webkit-details-marker {
+  display: none;
 }

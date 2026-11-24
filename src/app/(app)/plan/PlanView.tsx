@@ -17,7 +17,8 @@ import { LinkPriorityToParentSelect } from "./LinkPriorityToParentSelect";
 import { CascadePriorityRow } from "./CascadePriorityRow";
 import { formatParentRef, NO_PARENT } from "@/lib/plan/parent-ref";
 import { PlanCascadeController } from "./PlanCascadeController";
-import { goalAnchorId, sfaAnchorId } from "./cascade-anchor";
+import { addPanelId, goalAnchorId, sfaAnchorId } from "./cascade-anchor";
+import { SfaAddMenu } from "./SfaAddMenu";
 import styles from "./plan.module.css";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
@@ -133,12 +134,15 @@ export async function PlanView({
 
   return (
     <>
-      {/* Toolbar is always visible. SFAs and goals aren't
-          quarter-scoped, so the operator can populate the top of the
-          cascade before opening a quarter. Only priorities need a
-          quarter, and that gating happens at the priority form. */}
-      <div className={styles.toolbar}>
-        {quarters.length > 0 ? (
+      {/* The bar under the header (2026-11-23): the quarter, Expand
+          all and Collapse all, and Add. It is always there: focus
+          areas and goals aren't quarter-scoped, so the top of the
+          cascade can be filled in before a quarter is open. Only
+          priorities need one, and the priority form gates that. */}
+      <PlanCascadeController
+        companyId={companyId}
+        toolbarStart={
+          quarters.length > 0 ? (
           <QuarterSwitcher
             quarters={quarters.map((quarter) => ({
               id: quarter.id,
@@ -149,10 +153,12 @@ export async function PlanView({
           />
         ) : (
           <span className={styles.toolbarMuted}>
-            No quarters yet — open one to add priorities.
+            No quarters yet. Open one to add priorities.
           </span>
-        )}
-        {isAdmin ? (
+        )
+        }
+        toolbarEnd={
+          isAdmin ? (
           <MobileAddMenu>
             {!openQuarter ? (
               <Link href="/quarters" className={styles.toolbarGhost}>
@@ -175,10 +181,9 @@ export async function PlanView({
               defaultDueDate={defaultDueDate}
             />
           </MobileAddMenu>
-        ) : null}
-      </div>
-
-      <PlanCascadeController companyId={companyId}>
+        ) : null
+        }
+      >
           <div className={styles.cascade}>
             {cascade.sfas.length === 0 && cascade.orphanGoals.length === 0 &&
               cascade.orphanPriorities.length === 0 ? (
@@ -220,10 +225,64 @@ export async function PlanView({
                       percent={sfa.percent}
                       label="No progress yet"
                     />
+                    {isAdmin ? (
+                      <SfaAddMenu
+                        sfaId={sfa.id}
+                        sfaTitle={sfa.title}
+                        canAddPriority={selectedQuarter !== null}
+                      />
+                    ) : null}
                   </div>
                 </summary>
 
                 <div className={styles.sfaBody}>
+                  {isAdmin ? (
+                    <div className={styles.bandAddRow}>
+                      {/* Opened from the Add in the band above
+                          (SfaAddMenu), so the summaries show only
+                          while open, as Cancel. name= groups the two
+                          so opening one closes the other, scoped per
+                          focus area. */}
+                      <details
+                        className={styles.addDetails}
+                        name={`sfa-add-${sfa.id}`}
+                        id={addPanelId(sfa.id, "goal")}
+                        data-testid="sfa-add-goal-panel"
+                      >
+                        <summary className={styles.bandPanelClose}>
+                          Cancel
+                        </summary>
+                        <AddGoalForm
+                          defaultSfaId={sfa.id}
+                          sfaOptions={sfaOptions}
+                          people={roster}
+                        />
+                      </details>
+
+                      {selectedQuarter ? (
+                        <details
+                          className={styles.addDetails}
+                          name={`sfa-add-${sfa.id}`}
+                          id={addPanelId(sfa.id, "priority")}
+                          data-testid="sfa-add-priority-panel"
+                        >
+                          <summary className={styles.bandPanelClose}>
+                            Cancel
+                          </summary>
+                          <AddPriorityForm
+                            quarterId={selectedQuarter.id}
+                            defaultParent={formatParentRef({
+                              kind: "sfa",
+                              id: sfa.id,
+                            })}
+                            goalOptions={goalOptions}
+                            sfaOptions={sfaOptions}
+                            people={roster}
+                          />
+                        </details>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {/* Goals and direct priorities are PEERS here: one
                       list, same indent, each row named by its own
                       level eyebrow. `sfa_progress` averages them
@@ -323,51 +382,6 @@ export async function PlanView({
                     </ul>
                   )}
 
-                  {isAdmin ? (
-                    <div className={styles.addRow}>
-                      {/* name= groups these two so the browser closes
-                          one when the other opens — a native exclusive
-                          accordion, no JS. Scoped per focus area so
-                          opening an add on one card does not reach
-                          into another. */}
-                      <details
-                        className={styles.addDetails}
-                        name={`sfa-add-${sfa.id}`}
-                        data-testid="sfa-add-goal-panel"
-                      >
-                        <summary className={`${styles.addSummary}`}>
-                          <PlusIcon />Add goal
-                        </summary>
-                        <AddGoalForm
-                          defaultSfaId={sfa.id}
-                          sfaOptions={sfaOptions}
-                          people={roster}
-                        />
-                      </details>
-
-                      {selectedQuarter ? (
-                        <details
-                          className={styles.addDetails}
-                          name={`sfa-add-${sfa.id}`}
-                          data-testid="sfa-add-priority-panel"
-                        >
-                          <summary className={`${styles.addSummary}`}>
-                            <PlusIcon />Add quarterly priority
-                          </summary>
-                          <AddPriorityForm
-                            quarterId={selectedQuarter.id}
-                            defaultParent={formatParentRef({
-                              kind: "sfa",
-                              id: sfa.id,
-                            })}
-                            goalOptions={goalOptions}
-                            sfaOptions={sfaOptions}
-                            people={roster}
-                          />
-                        </details>
-                      ) : null}
-                    </div>
-                  ) : null}
                 </div>
               </details>
                 ),

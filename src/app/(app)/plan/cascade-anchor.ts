@@ -22,3 +22,9 @@ export function planHrefForSfa(sfaId: string): string {
 export function planHrefForGoal(goalId: string): string {
   return `/plan#${goalAnchorId(goalId)}`;
 }
+
+// A focus area's two add panels, opened from the Add in its band
+// (SfaAddMenu). The band finds the panel by this id.
+export function addPanelId(sfaId: string, kind: "goal" | "priority"): string {
+  return `sfa-add-${kind}-${sfaId}`;
+}
