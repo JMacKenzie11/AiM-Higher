@@ -439,3 +439,119 @@
   background: var(--aims-danger-tint);
   border-color: color-mix(in srgb, var(--aims-danger) 30%, transparent);
 }
+
+/* ---- The band card (Scoreboard theme, 2026-11-24) ----
+   A titled card whose top is a navy band: title in white, meta in
+   sky, an action at the right; the body sits under it with its own
+   padding. The same look as the meeting's step cards, the Commitments
+   and Issues cards and the Focus Area cards, here so any page's card
+   can compose it rather than restating it. Host: composes bandCard;
+   then <header class=cardBand> + <div class=cardBandBody>. */
+.bandCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cardBand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--aims-navy);
+  color: var(--aims-white);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.cardBand :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+
+.cardBandTitle {
+  font: var(--text-h3);
+  color: var(--aims-white);
+  margin: 0;
+}
+
+/* The title and its meta stacked, when the meta is a sentence. */
+.cardBandLead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cardBandMeta {
+  font: var(--text-body-sm);
+  color: var(--aims-sky);
+  margin: 0;
+}
+
+.cardBandBody {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* ---- The band on an existing padded card (2026-11-24) ----
+   For the many cards that are a padded box with the title as their
+   first child: composing bandHost turns that title (or the row that
+   holds it, with its button) into the navy band, pulled out to the
+   card's edges by the card's own padding. The host says its padding
+   in --band-pad-y / --band-pad-x when it is not --space-6. The two
+   CardAccent spans may come first; they are out of the flow. */
+.bandHost {
+  --band-pad-y: var(--space-6);
+  --band-pad-x: var(--space-6);
+}
+
+.bandHost > :is(h2, h3):first-child,
+.bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(h2, h3),
+.bandHost > :first-child:is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)),
+.bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) {
+  margin: calc(var(--band-pad-y) * -1) calc(var(--band-pad-x) * -1) 0;
+  padding: var(--space-4) var(--band-pad-x);
+  background: var(--aims-navy);
+  color: var(--aims-white);
+  border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
+}
+
+.bandHost > :is(h2, h3):first-child,
+.bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(h2, h3),
+.bandHost > :first-child:is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) :is(h2, h3),
+.bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) :is(h2, h3) {
+  font: var(--text-h3);
+  color: var(--aims-white);
+}
+
+.bandHost > :first-child:is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) :is(h2, h3) ~ :is(p, span),
+.bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) :is(h2, h3) ~ :is(p, span) {
+  color: var(--aims-sky);
+}
+
+.bandHost > :is(h2, h3):first-child :focus-visible,
+.bandHost > :first-child:is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) :focus-visible,
+.bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) :focus-visible {
+  outline-color: var(--aims-chartreuse);
+}
+
+@media print {
+  .bandHost > :is(h2, h3):first-child,
+  .bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(h2, h3),
+  .bandHost > :first-child:is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)),
+  .bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)),
+  .bandHost > :first-child:is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) :is(h2, h3),
+  .bandHost > [aria-hidden="true"] + [aria-hidden="true"] + :is(header, div):has(> :is(h2, h3), > div > :is(h2, h3)) :is(h2, h3) {
+    background: none;
+    color: inherit;
+  }
+}

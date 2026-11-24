@@ -17,14 +17,9 @@
  * stylesheet reaching the other way would tie /measures' board to
  * /dashboard's sheet. Same tokens, same result, no coupling. */
 .boardStage {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  /* The band card (2026-11-24): the title and the 13-week toggle in a
+     navy band, the board under it in .boardBody. */
+  composes: bandCard from "../../../../components/ui/ui.module.css";
   /* The three CardAccent needs, matching dashboard.module.css's
      .cardAccent: anchored so the circles pin to this corner, clipped
      so they do not escape it, and isolated so their z-index: -1 stays
@@ -42,17 +37,16 @@
 /* Title and toggle on one line. The title says what the card is; the
    toggle says which window and how it is doing, and opens it. */
 .boardCardHead {
-  display: flex;
-  align-items: baseline;
+  composes: cardBand from "../../../../components/ui/ui.module.css";
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3);
 }
 
 .boardCardTitle {
-  font: var(--text-h2);
-  color: var(--text-heading);
-  margin: 0;
+  composes: cardBandTitle from "../../../../components/ui/ui.module.css";
+}
+
+.boardBody {
+  composes: cardBandBody from "../../../../components/ui/ui.module.css";
 }
 
 /* ---- Header (chips + view toggle) ---------------------------- */
@@ -702,4 +696,26 @@
 .boardSummaryCalm {
   font: var(--text-body-sm);
   color: var(--text-muted);
+}
+
+/* The toggle sits in the navy band: sky and white, and the alert in
+   chartreuse, since red does not read on navy. */
+.boardCardHead .boardSummary:hover {
+  background: color-mix(in srgb, var(--aims-white) 12%, transparent);
+}
+
+.boardCardHead .boardSummaryCaret {
+  color: var(--aims-sky);
+}
+
+.boardCardHead .boardSummaryTitle {
+  color: var(--aims-white);
+}
+
+.boardCardHead .boardSummaryAlert {
+  color: var(--aims-chartreuse);
+}
+
+.boardCardHead .boardSummaryCalm {
+  color: var(--aims-sky);
 }

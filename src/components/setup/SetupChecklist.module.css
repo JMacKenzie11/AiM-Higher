@@ -4,6 +4,7 @@
    other content cards on scorecard for consistency. */
 
 .card {
+  composes: bandHost from "../ui/ui.module.css";
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

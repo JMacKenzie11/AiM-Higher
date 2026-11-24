@@ -190,6 +190,7 @@
 /* ---- Card ---- */
 
 .card {
+  composes: bandHost from "../../../components/ui/ui.module.css";
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

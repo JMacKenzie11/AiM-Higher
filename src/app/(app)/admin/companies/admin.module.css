@@ -150,6 +150,7 @@
 }
 
 .card {
+  composes: bandHost from "../../../../components/ui/ui.module.css";
   /* background-color, not background: the shorthand would reset the
      circles .accentCard paints. */
   background-color: var(--surface);

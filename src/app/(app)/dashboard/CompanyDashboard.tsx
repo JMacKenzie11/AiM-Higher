@@ -201,13 +201,18 @@ export async function CompanyDashboard({
             aria-labelledby="successes-card"
           >
             <CardAccent />
-            <h2 id="successes-card" className={styles.h2}>
-              Recent wins
-            </h2>
-            <p className={styles.cardMeta}>
-              The last {data.recentSuccesses.length} commitments closed on
-              time this quarter.
-            </p>
+            <header className={styles.cardBand}>
+              <div className={styles.cardBandLead}>
+                <h2 id="successes-card" className={styles.h2}>
+                  Recent wins
+                </h2>
+                <p className={styles.cardMeta}>
+                  The last {data.recentSuccesses.length} commitments closed on
+                  time this quarter.
+                </p>
+              </div>
+            </header>
+            <div className={styles.cardBody}>
             <ul className={styles.successList}>
               {data.recentSuccesses.map((win) => (
                 <li key={win.id} className={styles.successItem}>
@@ -232,6 +237,7 @@ export async function CompanyDashboard({
                 </li>
               ))}
             </ul>
+            </div>
           </section>
         ) : null}
 
@@ -239,9 +245,12 @@ export async function CompanyDashboard({
         {shortReview ? null : (
         <section className={styles.cardAccent} aria-labelledby="sfa-card">
           <CardAccent />
-          <h2 id="sfa-card" className={styles.h2}>
-            Focus Areas
-          </h2>
+          <header className={styles.cardBand}>
+            <h2 id="sfa-card" className={styles.h2}>
+              Focus Areas
+            </h2>
+          </header>
+          <div className={styles.cardBody}>
           {data.sfas.length === 0 ? (
             <p className={styles.emptyLine}>
               No focus areas yet.{" "}
@@ -286,6 +295,7 @@ export async function CompanyDashboard({
               </Link>
             </p>
           ) : null}
+          </div>
         </section>
         )}
 
@@ -293,23 +303,34 @@ export async function CompanyDashboard({
         {shortReview ? null : (
         <section className={styles.cardAccent} aria-labelledby="trend-card">
           <CardAccent />
-          <h2 id="trend-card" className={styles.h2}>
-            Follow-Through Rate Trend
-          </h2>
-          <p className={styles.cardMeta}>Last 12 weeks.</p>
-          <KeepRateBarChart bars={data.keepRateTrend} />
+          <header className={styles.cardBand}>
+            <div className={styles.cardBandLead}>
+              <h2 id="trend-card" className={styles.h2}>
+                Follow-Through Rate Trend
+              </h2>
+              <p className={styles.cardMeta}>Last 12 weeks.</p>
+            </div>
+          </header>
+          <div className={styles.cardBody}>
+            <KeepRateBarChart bars={data.keepRateTrend} />
+          </div>
         </section>
         )}
 
         {/* --- People --- */}
         <section className={styles.cardAccent} aria-labelledby="people-card">
           <CardAccent />
-          <h2 id="people-card" className={styles.h2}>
-            Where to lend support
-          </h2>
-          <p className={styles.cardMeta}>
-            Sorted by follow-through rate. Reach out to whoever&rsquo;s at the top.
-          </p>
+          <header className={styles.cardBand}>
+            <div className={styles.cardBandLead}>
+              <h2 id="people-card" className={styles.h2}>
+                Where to lend support
+              </h2>
+              <p className={styles.cardMeta}>
+                Sorted by follow-through rate. Reach out to whoever&rsquo;s at the top.
+              </p>
+            </div>
+          </header>
+          <div className={styles.cardBody}>
           {data.people.length === 0 ? (
             <p className={styles.emptyLine}>
               No one on the roster yet.
@@ -384,6 +405,7 @@ export async function CompanyDashboard({
               </tbody>
             </table>
           )}
+          </div>
         </section>
     </>
   );

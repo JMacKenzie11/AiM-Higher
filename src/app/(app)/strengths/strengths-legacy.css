@@ -40,9 +40,23 @@
 }
 
 .card-header h2 {
-  font: var(--text-h2);
-  color: var(--text-heading);
+  font: var(--text-h3);
+  color: var(--aims-white);
   margin: 0;
+}
+
+/* The navy band (Scoreboard theme, 2026-11-24): a card's header pulled
+   out to the card's edges, as on every other titled card. */
+.card > .card-header:first-child {
+  margin: calc(var(--space-6) * -1) calc(var(--space-6) * -1) var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: var(--aims-navy);
+  color: var(--aims-white);
+  border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
+}
+
+.card > .card-header:first-child :is(p, span, small) {
+  color: var(--aims-sky);
 }
 
 .hero-bg {

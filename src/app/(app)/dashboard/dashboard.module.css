@@ -388,22 +388,32 @@
    stacking context so the sky-tint accent shapes stay behind card
    content (rows, hover states, chart) and never escape the corner. */
 .cardAccent {
-  composes: card;
+  composes: bandCard from "../../../components/ui/ui.module.css";
   position: relative;
   overflow: hidden;
   isolation: isolate;
 }
 
+/* The Dashboard tab's cards take the band card (2026-11-24): the
+   title and its line in a navy band, the content under it. */
+.cardBand {
+  composes: cardBand from "../../../components/ui/ui.module.css";
+}
+
+.cardBandLead {
+  composes: cardBandLead from "../../../components/ui/ui.module.css";
+}
+
 .h2 {
-  font: var(--text-h2);
-  color: var(--text-heading);
-  margin: 0;
+  composes: cardBandTitle from "../../../components/ui/ui.module.css";
 }
 
 .cardMeta {
-  margin: 0;
-  font: var(--text-body-sm);
-  color: var(--text-muted);
+  composes: cardBandMeta from "../../../components/ui/ui.module.css";
+}
+
+.cardBody {
+  composes: cardBandBody from "../../../components/ui/ui.module.css";
 }
 
 /* ============================================================

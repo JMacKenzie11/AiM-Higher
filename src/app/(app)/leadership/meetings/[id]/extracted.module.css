@@ -4,6 +4,9 @@
    badge under the text. */
 
 .section {
+  composes: bandHost from "../../../../../components/ui/ui.module.css";
+  --band-pad-y: var(--space-4);
+  --band-pad-x: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

@@ -38,6 +38,8 @@
 /* ---- Reusable card shell ---- */
 
 .card {
+  composes: bandHost from "../../../../components/ui/ui.module.css";
+  --band-pad-y: var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

@@ -123,7 +123,7 @@ export function BoardView({ data }: { data: BoardData }) {
       </div>
 
       {open ? (
-      <>
+      <div className={styles.boardBody}>
       <header className={styles.boardHeader}>
         <div className={styles.headlineChips}>
           <HeadlineChip
@@ -180,7 +180,7 @@ export function BoardView({ data }: { data: BoardData }) {
       ) : (
         <StoryTimeline data={data} />
       )}
-      </>
+      </div>
       ) : null}
     </section>
   );
