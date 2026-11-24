@@ -6,6 +6,7 @@ import {
 } from "@/lib/portfolio/service";
 import { CompanyAccessRows } from "@/components/access/CompanyAccessRows";
 import {
+  savePortfolioAccessAction,
   setPortfolioCompanyAccessAction,
   setPortfolioCompanyAdminAction,
 } from "@/lib/portfolio/company-access-actions";
@@ -110,7 +111,7 @@ export default async function PortfolioPage() {
                 </h2>
                 <p className={styles.sectionCaption}>
                   {session.profile.role === "system_admin"
-                    ? "Ticking a company puts this person on its team, so they can own commitments and priorities there. Tick Company admin to make them that company's admin as well. Every portfolio admin can read every company."
+                    ? "Ticking a company puts this person on its team, so they can own commitments and priorities there. Tick Company admin to make them that company's admin as well. Their own company is one they run: they belong to it, so they are on its chart and in its owner lists. Every portfolio admin can read every company."
                     : "Ticking a company puts you on its team, so you can own commitments and priorities there. A system admin can also make you a company's admin. As a portfolio admin, you can read every company."}
                 </p>
                 <CompanyAccessRows
@@ -120,9 +121,25 @@ export default async function PortfolioPage() {
                     companyIds: r.companyIds,
                     openCommitmentsByCompany: r.openCommitmentsByCompany,
                     adminCompanyIds: r.adminCompanyIds,
+                    ownCompanyId: r.ownCompanyId,
                   }))}
                   companies={cards.map((c) => ({ id: c.id, name: c.name }))}
-                  action={setPortfolioCompanyAccessAction}
+                  action={
+                    session.profile.role === "system_admin"
+                      ? savePortfolioAccessAction
+                      : setPortfolioCompanyAccessAction
+                  }
+                  // A company they run, set by a system admin only
+                  // (0330). It is what puts them on its team.
+                  ownCompany={
+                    session.profile.role === "system_admin"
+                      ? {
+                          label: "Their own company",
+                          hint: "They join it as its admin, so they can be on its chart and own its work. They keep the Portfolio view.",
+                        }
+                      : undefined
+                  }
+                  saveLabel={session.profile.role === "system_admin" ? "Save" : "Update"}
                   personLabel="Portfolio admin"
                   adminSwitch={{
                     canSet: session.profile.role === "system_admin",

@@ -48,7 +48,7 @@ export type AccessRowData = {
   actions?: ReactNode;
   /** Of companyIds, those switched on as company admin (0245). */
   adminCompanyIds?: string[];
-  /** The person's own company, where the card offers one (guides). */
+  /** The person's own company (guides, portfolio admins). */
   ownCompanyId?: string | null;
 };
 
@@ -239,8 +239,9 @@ function AccessRow({
                   <input
                     type="checkbox"
                     checked={checked.has(company.id)}
-                    // Their own company stays ticked while it is theirs.
-                    disabled={pending || (ownCompany !== undefined && own === company.id)}
+                    // Their own company stays ticked while it is theirs,
+                    // whether or not this viewer can change it.
+                    disabled={pending || own === company.id}
                     onChange={(e) => {
                       setChecked((prev) => {
                         const next = new Set(prev);

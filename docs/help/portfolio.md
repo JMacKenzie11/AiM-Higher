@@ -24,6 +24,7 @@ This is the quickest read of how every company is doing. Your home is still Coac
 - **Open a company** by clicking its name.
 - **Set each portfolio admin's company access** on the *Company access* card. Tick the companies and press **Update** on their row.
 - **Make a portfolio admin a company's admin.** Once a company is ticked and saved for them, tick **Company admin** beside it. It saves straight away. Untick it to take the admin rights away; they stay on the team.
+- **Give a portfolio admin a company of their own** when they run one of the companies. Choose it under *Their own company* on their row and press **Save**. They become a member of that company and its admin, so they're on its chart, in its owner lists and in its meetings, and they keep the Portfolio view. Choose *None* to take it away; they keep their access to the company.
 - **Create a company** with the form at the bottom of the page. It arrives with its chart and an open quarter already set up.
 :::
 
@@ -42,6 +43,8 @@ A system admin can also make you a company's admin. Then, in that company, you c
 Unticking a company takes you off its team. If you own open commitments there, they go to **Unassigned** so someone else can pick them up. The card shows how many beside each company and asks you to confirm first. Commitments you've already closed keep your name.
 
 Every change is recorded with who made it and when. A company admin in one of your companies can also remove you from their Team list. That ends your access there and nothing else.
+
+A system admin can also make a company your own company, if you run it. Then you belong to it like the rest of its team: you're on its chart and in its owner lists, and your teammates can give you commitments and priorities. You keep this page and every other company. Your own company stays ticked on the card, and only a system admin can change it.
 
 ::: role portfolio_admin
 ## Inside a company

@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
     company_id: null as string | null,
   },
   current: [] as Array<{ company_id: string }>,
+  // The person's own company (0330), read before anything is removed.
+  ownCompany: null as string | null,
   inserted: [] as Array<{ portfolio_admin_id: string; company_id: string }>,
   deleted: [] as string[],
   released: [] as string[],
@@ -44,6 +46,15 @@ vi.mock("@/lib/instances/current", () => ({
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => ({
     from(table: string) {
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { company_id: mocks.ownCompany }, error: null }),
+            }),
+          }),
+        };
+      }
       if (table === "portfolio_assignments") {
         return {
           select: () => ({
@@ -98,6 +109,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.profile = { id: "pa_1", role: "portfolio_admin", company_id: null };
   mocks.current = [];
+  mocks.ownCompany = null;
   mocks.inserted = [];
   mocks.deleted = [];
   mocks.released = [];
@@ -125,6 +137,16 @@ describe("setPortfolioCompanyAccessAction", () => {
     expect(result).toMatchObject({ ok: true, removed: 1, released: 1 });
     expect(mocks.calls).toEqual(["release", "delete"]);
     expect(mocks.released).toEqual(["co_a"]);
+  });
+
+  it("refuses to untick their own company, and releases nothing first", async () => {
+    // 0330: the database refuses that delete, so the action must ask
+    // before it releases anybody's work.
+    mocks.current = [{ company_id: "co_own" }, { company_id: "co_b" }];
+    mocks.ownCompany = "co_own";
+    const result = await setAccess("pa_1", []);
+    expect(result).toMatchObject({ ok: false });
+    expect(mocks.calls).toEqual([]);
   });
 
   it("only releases in the companies being removed", async () => {
