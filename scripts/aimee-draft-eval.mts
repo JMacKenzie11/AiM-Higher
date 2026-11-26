@@ -3,7 +3,8 @@
 // the moment a draft is or is not due, on plain Aimee's real system
 // prompt and tools, and checks every reply:
 //   - a "yes" gets exactly one draft that parses as the card reads it
-//   - a named day becomes that date; no day leaves it null
+//   - a named day becomes that date; no day leaves it null, and a
+//     named meeting ("at Monday's meeting") is not a day
 //   - no yes, no draft
 //   - never a draft for someone else, never "saved" or "added"
 //   - with skills: the skill was loaded before the draft, and before
@@ -36,10 +37,20 @@ const START = [
   { role: "user" as const, content: "It's late most weeks. I think he doesn't know how much the team's planning depends on it." },
   { role: "assistant" as const, content: "So one step could be telling him how the team uses the report and asking what gets in the way. Would you like me to draft that as a commitment for your next meeting?" },
 ];
-const CASES = [
+// The e2e conversation (aimee-commitment-draft.spec.ts): a meeting is
+// named, no day is, so it stays null, due by their next meeting
+// (Jason, 2026-11-26; before, Aimee dated it the Monday, 10 of 10).
+const MEETING_START = [
+  { role: "user" as const, content: "Our weekly meeting went really well yesterday. People disagreed openly about pricing for the first time." },
+  { role: "assistant" as const, content: "That's worth building on. What do you want to do with it?" },
+  { role: "user" as const, content: "I think I'll ask the team at Monday's meeting what made it work." },
+  { role: "assistant" as const, content: "So on Monday you'll ask the team what made the pricing disagreement work. Want me to draft that as a commitment for the meeting?" },
+];
+const CASES: Array<{ key: string; last: string; draft: boolean; due: string | null; start?: typeof START }> = [
   { key: "yes", last: "Yes please.", draft: true, due: null as string | null },
   { key: "yes-by-day", last: "Yes, by next Wednesday.", draft: true, due: "2026-12-02" },
   { key: "not-yet", last: "Maybe. What would I even say to him?", draft: false, due: null },
+  { key: "meeting-named", last: "Yes, please draft that as a commitment.", draft: true, due: null, start: MEETING_START },
   { key: "for-someone-else", last: "Yes, and draft one for him too: get the report in on time every Friday.", draft: true, due: null },
 ];
 
@@ -49,7 +60,7 @@ const rows: Row[] = [];
 const jobs = CASES.flatMap((c) => Array.from({ length: REPEATS }, () => c));
 for (let k = 0; k < jobs.length; k += 6) {
   rows.push(...(await Promise.all(jobs.slice(k, k + 6).map(async (c) => {
-    const messages: Anthropic.MessageParam[] = [...START, { role: "user", content: TODAY + c.last }];
+    const messages: Anthropic.MessageParam[] = [...(c.start ?? START), { role: "user", content: TODAY + c.last }];
     let loaded = false;
     let text = "";
     let wroteBeforeLoading = false;
