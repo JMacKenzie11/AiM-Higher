@@ -24,6 +24,7 @@ const SOURCES = [
   "src/lib/coach/person-tool.ts",
   "src/lib/coach/live-tools.ts",
   "src/lib/coach/aims-context.ts",
+  "src/lib/coach/skills.ts",
   "src/lib/role-descriptions/agent-tools.ts",
   "src/lib/guide/agent-tools.ts",
   "src/lib/help/tool.ts",

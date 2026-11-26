@@ -90,4 +90,11 @@ names this file.
     memory you were not given) stays in the base. *Enforced by
     `guidance-blocks.test.ts`: every moved rule arrives with its
     block, none without it, none twice.*
-
+15. **A job's instructions can be a skill.** A file in `prompts/skills/`
+    (`name`, a one-line `when`, then the instructions), listed in every
+    system prompt and loaded with `load_skill`. Write a skill when the
+    instructions matter only at one moment. A rule that must hold when
+    the skill is not loaded stays in the list's closing line or the
+    base. Measure a new skill with an eval that reaches its moment, the
+    way `npm run eval:draft` does for `commitment_draft`.
+    *Enforced by `skills.test.ts`.*

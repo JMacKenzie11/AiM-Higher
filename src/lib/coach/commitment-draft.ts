@@ -10,7 +10,7 @@
 // Commitments page uses (commitments/create.ts).
 //
 // No imports: the chat (a client component) parses with it, and the
-// route puts COMMITMENT_DRAFT_BLOCK in every system prompt.
+// skill file (prompts/skills/commitment-draft.md) says how to write it.
 
 export const COMMITMENT_DRAFT_TAG = "commitment";
 
@@ -42,16 +42,6 @@ export function parseCommitmentDraft(raw: string): CommitmentDraft | null {
   return { description, dueDate };
 }
 
-// In every Aimee system prompt, after the principles. The principles
-// say when; this says how, and that the save is theirs.
-export const COMMITMENT_DRAFT_BLOCK = `How to draft a commitment:
-
-When the leader says yes to drafting their step as a commitment, reply with one short sentence and then the draft, as a fenced block tagged ${COMMITMENT_DRAFT_TAG}, and nothing after it:
-
-\`\`\`${COMMITMENT_DRAFT_TAG}
-{"description": "Ask the team at Monday's meeting what made the pricing discussion work", "due_date": null}
-\`\`\`
-
-"description" is the step in their words, as something they will do, starting with a verb, in one sentence and without a full stop. "due_date" is null unless they named a day; then it is that day as YYYY-MM-DD, worked out from today's date. With null, the commitment is due by their next meeting.
-
-Write the block only after they say yes, and only once for a step. The draft is the leader's own commitment: never draft one for someone else. The leader sees it as a card, can change it, and saves it themselves, so never say it is saved or added. If they ask for a change, write the whole block again with the change.`;
+// How Aimee writes the block is her commitment_draft skill,
+// prompts/skills/commitment-draft.md (Jason, 2026-11-26), loaded when
+// the leader says yes. The principles say when to offer one.

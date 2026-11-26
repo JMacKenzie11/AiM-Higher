@@ -41,6 +41,6 @@ describe("the AiMS coaching principles", () => {
   // had its own until the debrief invitation was switched off (0329).
   it("reach every conversation", () => {
     const route = readFileSync("src/lib/coach/turn/prompt.ts", "utf8");
-    expect(route).toMatch(/\$\{composed\}\\n\\n\$\{await loadCoachingPrinciples\(\)\}\\n\\n\$\{COMMITMENT_DRAFT_BLOCK\}\\n\\n\$\{VOICE_RULES_COACH\}/);
+    expect(route).toMatch(/\$\{composed\}\\n\\n\$\{await loadCoachingPrinciples\(\)\}\\n\\n\$\{skillIndex\(\)\}\\n\\n\$\{VOICE_RULES_COACH\}/);
   });
 });

@@ -9,6 +9,7 @@ import { buildLiveTools } from "./live-tools";
 import { makeAboutAimsTool } from "./aims-context";
 import { makeMemoryLookupTool } from "./memory-tool";
 import { makeRememberTool } from "./remember-tool";
+import { makeLoadSkillTool } from "./skills";
 
 // Coach tools — factory pattern. Every tool is a closure over the
 // conversation's subject + company, so the model can never supply
@@ -111,6 +112,10 @@ export async function buildCoachTools(args: {
   // AiMS in its own words, for questions about AiMS itself
   // (aims-context.ts). Reads no company data at all.
   tools.push(makeAboutAimsTool());
+
+  // Her skills (skills.ts), in every conversation: the system prompt
+  // lists them in every conversation, so the tool has to be there too.
+  tools.push(makeLoadSkillTool());
   return tools;
 }
 
