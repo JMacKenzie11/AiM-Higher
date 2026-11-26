@@ -3,6 +3,7 @@ import "server-only";
 import { aiAppsPromptBlock } from "@/lib/ai-apps/aimee";
 import { currentHelpViewer, helpFeaturesFor, loadAllHelpFor } from "@/lib/help/loader";
 import { type SessionProfile } from "@/lib/auth/current-user";
+import { dataBlocks, loadGuidance } from "@/lib/coach/guidance";
 import { loadSystemPrompt } from "@/lib/coach/turn/prompt";
 import { resolvePracticeTools } from "@/lib/coach/turn/practice-tools";
 import { buildMessages } from "@/lib/coach/turn/messages";
@@ -77,7 +78,7 @@ export async function prepareTurn(args: {
     : undefined;
   // Awaited below; this only keeps an early failure from going unhandled.
   helpDocs?.catch(() => {});
-  const [context, helpFeatures, viewer, offers, basePrompt] = await Promise.all([
+  const [context, helpFeatures, viewer, offers, basePrompt, guidance] = await Promise.all([
     buildCoachContext({
       companyId: convo.company_id,
       subjectProfileId: convo.subject_profile_id,
@@ -97,6 +98,7 @@ export async function prepareTurn(args: {
       ? offerableSessions({ db: supabase, profile: session.profile, companyId: convo.company_id })
       : Promise.resolve(null),
     loadSystemPrompt(convo.mode, agentConfig),
+    loadGuidance(),
   ]);
   // The page beside the panel: path and record id only from the
   // browser, checked against this person's role and features, the
@@ -129,13 +131,19 @@ export async function prepareTurn(args: {
 
   const personBlock = context.personContext ? `${context.personContext}\n\n` : "";
   const partnerBlock = context.partnerContext ? `${context.partnerContext}\n\n` : "";
-  const strengthsBlock = context.strengthsContext ? `${context.strengthsContext}\n\n` : "";
   // Memory rides LAST among the data blocks, immediately before the
   // coaching context that tells the model how to use it. Absent
   // entirely when there is nothing to recall — an empty
   // <coach_memory> block is a prompt saying "there is a memory system
   // and it is empty", which invites apologising for it.
-  const memoryBlock = context.memoryContext ? `${context.memoryContext}\n\n` : "";
+  // Each block carries its own guidance, and only when the block is
+  // there (lib/coach/guidance-blocks.ts).
+  const { strengthsBlock, memoryBlock } = dataBlocks({
+    strengthsContext: context.strengthsContext,
+    memoryContext: context.memoryContext,
+    voiceOnly: agentConfig?.basePromptMode === "voice_only",
+    guidance,
+  });
   // WHAT IS OPEN BESIDE THE PANEL (Step 4). A panel conversation's
   // request names the page and, for a drawer, a record's pattern and
   // id; nothing else from the browser is used. The page is checked

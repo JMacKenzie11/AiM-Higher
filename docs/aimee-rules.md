@@ -2,7 +2,7 @@
 
 Standing rules for any change to Aimee: the coach route
 (`src/app/api/coach/route.ts`, `src/lib/coach/turn/`), her instructions
-(`prompts/leadership-coach.md`, `prompts/aims-voice.md`,
+(`prompts/leadership-coach.md`, `prompts/guidance/*.md`, `prompts/aims-voice.md`,
 `src/lib/coach/general-preamble.ts`, `src/lib/coach/voice-rules.ts`,
 `src/lib/voice/core.ts`, the agents' prompts), her tools and her memory.
 Jason, 2026-11-14: "whenever we make any changes to Aimee ... she stays
@@ -79,3 +79,15 @@ names this file.
     `E2E_PROD=1 npx playwright test <specs> --workers=1`). A failure
     gets a cause, never a rerun (memory tests must wait for the sweep
     request; wording checks accept every honest phrasing).
+
+## Guidance that comes with its data
+
+14. **A rule about a data block rides with the block.** How to use a
+    strengths profile, and how to voice each kind of memory note, sit
+    in `prompts/guidance/` and arrive right after their block, only
+    when it is there (`lib/coach/guidance-blocks.ts`). A rule that must
+    hold without the block (never invent strengths, never claim a
+    memory you were not given) stays in the base. *Enforced by
+    `guidance-blocks.test.ts`: every moved rule arrives with its
+    block, none without it, none twice.*
+
