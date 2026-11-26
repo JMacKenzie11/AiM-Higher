@@ -2,8 +2,8 @@
 
 exports[`what each kind of conversation is sent > about a person 1`] = `
 {
-  "system": "a9b5d9bfb5d5f6bb",
-  "systemChars": 33181,
+  "system": "29f45bdbbd1688c9",
+  "systemChars": 32775,
   "tools": [
     "get_strengths_profile",
     "memory_lookup",
@@ -18,14 +18,15 @@ exports[`what each kind of conversation is sent > about a person 1`] = `
     "open_issues",
     "measures_now",
     "about_aims",
+    "load_skill",
   ],
 }
 `;
 
 exports[`what each kind of conversation is sent > an agent 1`] = `
 {
-  "system": "eb3c0f1343b6c3aa",
-  "systemChars": 30582,
+  "system": "19278be79e0dbbed",
+  "systemChars": 30176,
   "tools": [
     "memory_lookup",
     "remember_this",
@@ -39,14 +40,15 @@ exports[`what each kind of conversation is sent > an agent 1`] = `
     "open_issues",
     "measures_now",
     "about_aims",
+    "load_skill",
   ],
 }
 `;
 
 exports[`what each kind of conversation is sent > plain Aimee in the panel 1`] = `
 {
-  "system": "650a39ce61193d75",
-  "systemChars": 44380,
+  "system": "aedb74e6620ec5a0",
+  "systemChars": 43974,
   "tools": [
     "search_help",
     "person_record",
@@ -62,14 +64,15 @@ exports[`what each kind of conversation is sent > plain Aimee in the panel 1`] =
     "open_issues",
     "measures_now",
     "about_aims",
+    "load_skill",
   ],
 }
 `;
 
 exports[`what each kind of conversation is sent > plain Aimee on the page 1`] = `
 {
-  "system": "69faadde269a9d80",
-  "systemChars": 44002,
+  "system": "af17709c1b050ea1",
+  "systemChars": 43596,
   "tools": [
     "search_help",
     "person_record",
@@ -85,6 +88,7 @@ exports[`what each kind of conversation is sent > plain Aimee on the page 1`] = 
     "open_issues",
     "measures_now",
     "about_aims",
+    "load_skill",
   ],
 }
 `;

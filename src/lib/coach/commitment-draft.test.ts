@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { COMMITMENT_DRAFT_BLOCK, COMMITMENT_DRAFT_TAG, parseCommitmentDraft } from "./commitment-draft";
+import { readFileSync } from "node:fs";
+import { COMMITMENT_DRAFT_TAG, parseCommitmentDraft } from "./commitment-draft";
+import { parseSkill } from "./skills-shape";
+
+// The draft's instructions are the commitment_draft skill (2026-11-26).
+const COMMITMENT_DRAFT_BLOCK = parseSkill("commitment-draft.md", readFileSync("prompts/skills/commitment-draft.md", "utf8")).body;
 import { OUTPUT_CARD_BY_TAG } from "@/lib/practices/output-cards";
 import { findBannedPhrases } from "@/lib/voice/banned";
 
@@ -26,7 +31,7 @@ describe("parseCommitmentDraft", () => {
   });
 });
 
-describe("the draft block", () => {
+describe("the draft skill", () => {
   it("is shown as the draft card", () => {
     expect(OUTPUT_CARD_BY_TAG[COMMITMENT_DRAFT_TAG]).toBe("CommitmentDraftCard");
   });
@@ -35,6 +40,10 @@ describe("the draft block", () => {
     const example = COMMITMENT_DRAFT_BLOCK.match(/```commitment\n([\s\S]*?)\n```/)?.[1] ?? "";
     expect(parseCommitmentDraft(example)).not.toBeNull();
     expect(findBannedPhrases(COMMITMENT_DRAFT_BLOCK)).toEqual([]);
+  });
+
+  it("is tagged with the tag the card reads", () => {
+    expect(COMMITMENT_DRAFT_BLOCK).toContain("```" + COMMITMENT_DRAFT_TAG + "\n");
   });
 
   it("says the save is theirs and only after a yes", () => {

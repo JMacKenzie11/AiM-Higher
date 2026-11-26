@@ -3,7 +3,7 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { loadCoachingPrinciples } from "@/lib/coach/principles";
-import { COMMITMENT_DRAFT_BLOCK } from "@/lib/coach/commitment-draft";
+import { skillIndex } from "@/lib/coach/skills";
 import { VOICE_RULES_COACH } from "@/lib/coach/voice-rules";
 import { GENERAL_MODE_PREAMBLE } from "@/lib/coach/general-preamble";
 import { ATTACHMENT_PROMPT_NOTE } from "@/lib/coach/attachments";
@@ -57,9 +57,10 @@ export async function loadSystemPrompt(
   // LAST so they're the freshest instruction the model reads before
   // generating. Both apply to every coach surface (about, general,
   // practice, panel): one way of coaching and one voice across the
-  // whole product. The commitment draft's format follows the
-  // principles, which say when to offer one (lib/coach/commitment-draft.ts).
-  return `${composed}\n\n${await loadCoachingPrinciples()}\n\n${COMMITMENT_DRAFT_BLOCK}\n\n${VOICE_RULES_COACH}`;
+  // whole product. The skills list follows the principles: how to do
+  // a particular job (the commitment draft first) is loaded with
+  // load_skill when it is needed (lib/coach/skills.ts).
+  return `${composed}\n\n${await loadCoachingPrinciples()}\n\n${skillIndex()}\n\n${VOICE_RULES_COACH}`;
 }
 
 // Load the base coach prompt by splicing prompts/aims-voice.md (the
