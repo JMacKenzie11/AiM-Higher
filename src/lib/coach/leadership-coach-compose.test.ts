@@ -81,8 +81,14 @@ import path from "node:path";
 // recommend"): the record's data rule now covers the people it
 // describes, the retired self mode is gone, an unraised risk is raised
 // only when it bears on what they brought, fewer "rather than"s.
+// Regenerated 2026-11-26 (Jason: Aimee's guidance comes with its data):
+// "Working with strengths", and the memory rules for voicing each kind
+// of note with their worked examples, moved to prompts/guidance/ and
+// ride beside the strengths and memory blocks (lib/coach/guidance.ts).
+// The rules that hold with no block stay here.
+// guidance-blocks.test.ts checks nothing was lost.
 const LEADERSHIP_COACH_BASE_SHA =
-  "9a0333f77ae97e68689152ab79e9780b56488ab2e9d3674a1cf77ffbb24aeaa4";
+  "37e8a5eb63b398bec0acfa8cfac8361c3c6ea725045413d4268c60e80f19691c";
 
 describe("leadership-coach base composition", () => {
   it("splices aims-voice.md into leadership-coach.md byte-equivalent to the pre-split file", async () => {

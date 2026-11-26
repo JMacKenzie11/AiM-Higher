@@ -2,8 +2,8 @@
 
 exports[`what each kind of conversation is sent > about a person 1`] = `
 {
-  "system": "f82fd41b5ae349bb",
-  "systemChars": 36958,
+  "system": "a9b5d9bfb5d5f6bb",
+  "systemChars": 33181,
   "tools": [
     "get_strengths_profile",
     "memory_lookup",
@@ -45,8 +45,8 @@ exports[`what each kind of conversation is sent > an agent 1`] = `
 
 exports[`what each kind of conversation is sent > plain Aimee in the panel 1`] = `
 {
-  "system": "af5933bc5e551c11",
-  "systemChars": 48157,
+  "system": "650a39ce61193d75",
+  "systemChars": 44380,
   "tools": [
     "search_help",
     "person_record",
@@ -68,8 +68,8 @@ exports[`what each kind of conversation is sent > plain Aimee in the panel 1`] =
 
 exports[`what each kind of conversation is sent > plain Aimee on the page 1`] = `
 {
-  "system": "c073d7ed65eac62a",
-  "systemChars": 47779,
+  "system": "69faadde269a9d80",
+  "systemChars": 44002,
   "tools": [
     "search_help",
     "person_record",
