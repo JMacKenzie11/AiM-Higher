@@ -11,7 +11,7 @@ One team meeting: how it went, what was said and decided, and what the team comm
 At the top:
 
 - **The score video**, when there is one: a short video going over how the meeting scored. It plays in place and goes back to its first frame when it ends.
-- **Meeting score**, out of 10, with a bar for each of the ten parts of the meeting. *See what earned each score* opens the breakdown. When the last meeting was scored the same way, a chip says how this one compares.
+- **Meeting score**, out of 10, with each of the ten parts of the meeting and its level, 1 to 5. *See what earned each score* opens the breakdown. When the last meeting was scored the same way, a chip says how this one compares.
 - **Try this next week**: one step, from the part of the meeting with the most room to grow.
 - A row of quick numbers: decisions, new commitments, last week's commitments done, and issues worked.
 

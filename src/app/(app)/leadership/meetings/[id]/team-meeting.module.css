@@ -171,35 +171,48 @@
   background: var(--aims-success-tint);
   color: #2f6b33;
 }
-.bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 64px;
+.partList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(5, auto);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
 }
-.bar {
-  flex: 1;
+.partItem {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
+  font-size: 13px;
 }
-.barFill {
-  width: 100%;
-  border-radius: 4px;
-  background: var(--aims-sky);
+.partShort {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.barFill[data-level="4"] {
+.dotSm {
+  width: 12px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+.dotSm[data-on="true"] {
   background: var(--aims-cobalt);
 }
-.barFill[data-level="5"] {
-  background: var(--aims-navy);
-}
-.barNum {
+.partLevel {
   font-family: var(--font-sans);
-  font-size: 10px;
-  color: var(--text-faint);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-heading);
+  width: 10px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
+
 .pillLink {
   align-self: flex-start;
   font-family: var(--font-sans);
@@ -674,6 +687,13 @@
   }
   .glance {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  .partList {
+    grid-auto-flow: row;
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 560px) {
