@@ -179,13 +179,13 @@
   grid-auto-flow: column;
   grid-template-rows: repeat(5, auto);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 24px;
+  gap: 10px 28px;
 }
 .partItem {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 13.5px;
 }
 .partShort {
   flex: 1;
@@ -194,44 +194,69 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.dotSm {
-  width: 12px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--border);
+/* The score gauge (Jason, 2026-11-27): five rounded segments that
+   deepen from sky to navy as they climb, filled one at a time on load
+   up to the part's level. A 5's level badge is the one chartreuse
+   accent on the card. Colour and size only, once: the brand's motion
+   rules (fills on load, no bounce, nothing continuous). */
+.gauge {
+  display: flex;
+  gap: 3px;
 }
-.dotSm[data-on="true"] {
-  background: var(--aims-cobalt);
-  /* Fills once on load, one dot at a time up to the part's level
-     (Jason, 2026-11-27): about 140ms a dot, each row starting 60ms
-     after the one before. Colour and size only, as the brand's motion
-     rules ask (fills on load, no bounce, nothing continuous). */
-  animation: dotFill 260ms var(--ease-out) both;
+.seg {
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--aims-navy-tint);
+}
+.seg[data-n="1"] {
+  border-radius: 999px 3px 3px 999px;
+}
+.seg[data-n="5"] {
+  border-radius: 3px 999px 999px 3px;
+}
+.seg[data-n="1"] { --seg: var(--aims-sky); }
+.seg[data-n="2"] { --seg: #5e93cb; }
+.seg[data-n="3"] { --seg: var(--aims-cobalt); }
+.seg[data-n="4"] { --seg: #2a4478; }
+.seg[data-n="5"] { --seg: var(--aims-navy); }
+.seg[data-on="true"] {
+  background: var(--seg);
+  animation: segFill 300ms var(--ease-out) both;
   animation-delay: calc(200ms + var(--i, 0) * 140ms + var(--row, 0) * 60ms);
 }
-@keyframes dotFill {
+@keyframes segFill {
   from {
-    background: var(--border);
-    transform: scale(0.5);
+    background: var(--aims-navy-tint);
+    transform: scaleY(0.4);
   }
   to {
-    background: var(--aims-cobalt);
-    transform: scale(1);
+    background: var(--seg);
+    transform: scaleY(1);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dotSm[data-on="true"] {
+  .seg[data-on="true"] {
     animation: none;
   }
 }
 .partLevel {
   font-family: var(--font-sans);
   font-weight: 700;
-  font-size: 13px;
-  color: var(--text-heading);
-  width: 10px;
-  text-align: right;
+  font-size: 12px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--aims-cobalt-tint);
+  color: var(--primary);
   font-variant-numeric: tabular-nums;
+}
+.partLevel[data-top="true"] {
+  background: var(--aims-chartreuse);
+  color: var(--aims-navy);
 }
 
 .pillLink {
