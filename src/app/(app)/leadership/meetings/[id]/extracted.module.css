@@ -170,12 +170,18 @@
    would disappear into the card. */
 .doneChip {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 7px;
   color: var(--text-heading);
   font: var(--text-body-sm);
   font-weight: 600;
-  white-space: nowrap;
+  /* Wraps. "Added to <title>" carries a whole priority title, and on
+     one line it ran past the card's edge (2026-11-27, the meeting
+     page's Commitments tab). Wrapping keeps it inside the actions
+     column; the icon stays with the first line. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
   /* The actions column is right-aligned, so without a shared width
      the two labels ("Resolved in meeting" vs "Added as issue") push
      their icons to different x positions and the icon column reads
@@ -194,6 +200,7 @@
 
 .doneChip svg {
   flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* Similarity badge → click-to-open callout. Anchor keeps
