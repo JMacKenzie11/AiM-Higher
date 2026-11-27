@@ -92,6 +92,33 @@
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   gap: 20px;
 }
+/* The score video (0331), first in the row, as the prototype. The
+   player (dashboard/RecapPlayer) fills its frame and returns to the
+   first frame when it ends, as the weekly recap does. */
+.topWithVideo {
+  grid-template-columns: 220px minmax(0, 1.1fr) minmax(0, 1fr);
+}
+.videoCard {
+  padding: 12px;
+  background: var(--aims-midnight);
+  border-color: var(--aims-midnight);
+}
+.videoFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  border-radius: 10px;
+  overflow: hidden;
+  background: radial-gradient(110% 70% at 50% 30%, #22355a 0%, #0b1220 70%);
+}
+.videoFrame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 .scoreCard {
   padding: var(--space-5);
   display: flex;
@@ -624,6 +651,13 @@
 }
 
 @media (max-width: 980px) {
+  .topWithVideo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .videoFrame {
+    max-width: 320px;
+    margin: 0 auto;
+  }
   .top,
   .cols,
   .runIntro {

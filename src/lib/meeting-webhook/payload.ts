@@ -1,3 +1,5 @@
+import type { StoredRubric } from "@/lib/leadership/rubric/stored";
+
 // The "meeting ready" webhook (2026-11-19): what it says, and whether
 // it is configured. Pure, so the tests can reach it without
 // server-only. The sending is in send.ts.
@@ -30,10 +32,51 @@ export type MeetingReadyPayload = {
   meeting_date: string;
   meeting_url: string;
   analyzed_at: string;
+  // The facilitation rubric's score (2026-11-27), for the Grok Bot's
+  // score video, handed back with the AI apps tool
+  // set_meeting_score_video. Null when the meeting was not scored.
+  score: MeetingReadyScore | null;
 };
 
-// Small on purpose: who and which meeting. The summary itself is read
-// with the AI apps get_meeting tool, which checks the reader's access.
+// What a score video needs and nothing more: the number, each part's
+// level, and the wording the page shows. Never the quoted moments: they
+// are the transcript's own words, and the transcript is for coaches and
+// system admins only.
+export type MeetingReadyScore = {
+  out_of_ten: string;
+  total: number;
+  out_of: 50;
+  try_next_week: { step: string; part: string } | null;
+  parts: Array<{ name: string; level: number; went_well: string[]; even_better: string[] }>;
+  set_video_with: "set_meeting_score_video";
+};
+
+export function scoreForWebhook(rubric: StoredRubric | null): MeetingReadyScore | null {
+  if (!rubric) return null;
+  let pick: StoredRubric["parts"][number] | null = null;
+  for (const p of rubric.parts) {
+    if (p.better.length > 0 && (!pick || p.level < pick.level)) pick = p;
+  }
+  return {
+    out_of_ten: rubric.outOfTen,
+    total: rubric.total,
+    out_of: 50,
+    try_next_week: pick
+      ? { step: pick.better[0].text.replace(/\s*\([^)]*\)(?=\.?$)/, ""), part: pick.name }
+      : null,
+    parts: rubric.parts.map((p) => ({
+      name: p.name,
+      level: p.level,
+      went_well: p.wins.map((w) => w.text),
+      even_better: p.better.map((b) => b.text),
+    })),
+    set_video_with: "set_meeting_score_video",
+  };
+}
+
+// Small on purpose: who and which meeting, and the score's wording
+// (scoreForWebhook). The summary itself is read with the AI apps
+// get_meeting tool, which checks the reader's access.
 export function meetingReadyPayload(args: {
   meetingId: string;
   companyId: string;
@@ -41,6 +84,7 @@ export function meetingReadyPayload(args: {
   meetingTitle: string | null;
   meetingDateIso: string;
   origin: string;
+  rubric?: StoredRubric | null;
   now?: Date;
 }): MeetingReadyPayload {
   return {
@@ -52,5 +96,6 @@ export function meetingReadyPayload(args: {
     meeting_date: args.meetingDateIso,
     meeting_url: `${args.origin}/leadership/meetings/${args.meetingId}`,
     analyzed_at: (args.now ?? new Date()).toISOString(),
+    score: scoreForWebhook(args.rubric ?? null),
   };
 }

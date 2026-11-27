@@ -15,6 +15,7 @@ import { recentCounts, recordAction } from "@/lib/mcp/log";
 import { companyPeople, getMeeting, listMeetings } from "@/lib/mcp/meetings";
 import { aimsBranding } from "@/lib/mcp/branding";
 import { setRecapVideo } from "@/lib/mcp/recap";
+import { setMeetingScoreVideo } from "@/lib/mcp/meeting-video";
 import {
   ReadFailed,
   annualGoals,
@@ -193,8 +194,9 @@ const HANDOFF = { readOnlyHint: false, destructiveHint: false, idempotentHint: f
 // about; the caller is a bot. Not destructive, not idempotent (each
 // call is a run).
 const RECORD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
-// set_recap_video (0328). It writes one row and replaces which video a
-// company's Dashboard shows, so it is not read only. Not
+// set_recap_video (0328) and set_meeting_score_video (0331). Each
+// writes one row and replaces which video a page shows, so it is not
+// read only. Not
 // destructive: every earlier link is kept. Not idempotent: each call is
 // a new row.
 const SETS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
@@ -574,6 +576,31 @@ const handler = createMcpHandler(
         const origin = await currentRequestOrigin();
         return runTool("set_recap_video", true, ctx, args, (c, a) =>
           setRecapVideo({ db: c.db, company: c.company! }, { video_url: a.video_url, meeting_id: a.meeting_id }, origin)
+        );
+      }
+    );
+
+    server.registerTool(
+      "set_meeting_score_video",
+      {
+        title: "Set a meeting's score video",
+        description:
+          "Saves a Vimeo link as a team meeting's score video: the short video that goes over how the meeting scored. The newest link for a meeting is the one its page shows, near the top; earlier links are kept. Name the company by its exact name or its id (list_my_companies), and the meeting by its id (list_meetings, or the meeting ready webhook's meeting_id). The meeting must be one of that company's team meetings. The link must be a Vimeo video, such as https://vimeo.com/123456789 (an unlisted one with its hash, https://vimeo.com/123456789/abcdef1234). Only a system admin or an admin of that company may call this.",
+        inputSchema: z.object({
+          company: z
+            .string()
+            .min(1)
+            .max(200)
+            .describe("The company, by its exact name or its id."),
+          meeting_id: z.string().uuid().describe("The team meeting the video goes over, from list_meetings or the webhook."),
+          video_url: z.string().min(1).max(500).describe("The video's Vimeo link."),
+        }),
+        annotations: SETS,
+      },
+      async (args, ctx) => {
+        const origin = await currentRequestOrigin();
+        return runTool("set_meeting_score_video", true, ctx, args, (c, a) =>
+          setMeetingScoreVideo({ db: c.db, company: c.company! }, { meeting_id: a.meeting_id, video_url: a.video_url }, origin)
         );
       }
     );

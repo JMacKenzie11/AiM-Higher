@@ -11621,7 +11621,8 @@ export const ASSISTANT_MENU = {
   // assistant_meetings, assistant_meeting_full and
   // assistant_company_people since 0327.
   // assistant_set_recap_video since 0328, which checks for an admin itself.
-  rpc: ["assistant_meeting_summaries", "assistant_meetings", "assistant_meeting_full", "assistant_company_people", "assistant_record_bot_run", "assistant_bots", "assistant_set_recap_video"],
+  // assistant_set_meeting_score_video since 0331, likewise.
+  rpc: ["assistant_meeting_summaries", "assistant_meetings", "assistant_meeting_full", "assistant_company_people", "assistant_record_bot_run", "assistant_bots", "assistant_set_recap_video", "assistant_set_meeting_score_video"],
 } as const;
 
 // The restrictive rules a table must carry, by where it sits on the menu.
@@ -12535,6 +12536,118 @@ select jsonb_object_agg(k, v)::text as r from _r;`, "rollback;"].join("\n"));
     detail: ok
       ? "only a system admin, the company's admin or its coach sets a recap video, only a Vimeo link, and only through the function"
       : "THE WRONG PERSON CAN SET A RECAP VIDEO, A BAD LINK GETS IN, OR THE TABLE IS OPEN (is 0328 applied?)",
+  }];
+}
+
+// ---- Meeting score videos (0331) ----------------------------------------
+//
+// Jason, 2026-11-27. An AI app hands back a team meeting's score video
+// through assistant_set_meeting_score_video(). Who may, as 0328: a
+// system admin, the company's company admin and its assigned AiMS Coach;
+// not a team member, another company's admin or a coach assigned
+// elsewhere. The link must be Vimeo; the meeting must be one of the
+// company's TEAM meetings (a coaching call is refused). No insert rule;
+// read by the company's people; closed to an AI app.
+// Red before 0331: the function and the table do not exist.
+async function meetingScoreVideoProbes(run: Runner, ids: Identities, pending: string): Promise<GrantProbe[]> {
+  const name = "meeting score video · an admin sets it, a member cannot";
+  const CO = ids.memberCompany, OTHER = ids.otherCompany, M = ids.member;
+  const uid = (tag: string) => `aaaa0331-0000-4000-8000-0000000000${tag}`;
+  const ADMIN = uid("01"), OTHERADMIN = uid("02"), COACH = uid("03"), FREECOACH = uid("04"), SA = uid("05");
+  const TEAM = uid("11"), CALL = uid("12"), ELSEWHERE = uid("13");
+  const person = (id: string, company: string | null, full: string, role: string) => `
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+values ('${id}', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', '${id}@example.invalid', '', now(), now(), now());
+insert into public.profiles (id, company_id, full_name, role, status) values ('${id}', ${company ? `'${company}'` : "null"}, '${full}', '${role}', 'active');`;
+  const meeting = (id: string, company: string, kind: string) => `
+insert into public.meetings (id, company_id, source_id, provider_file_id, file_name, content_hash, transcript_text, status, kind)
+select '${id}', '${company}', s.id, 'harness-${id}', 'harness.txt', 'harness-${id}', 'x', 'complete', '${kind}'
+  from public.transcript_sources s limit 1;`;
+  const callers: Array<[string, string]> = [["admin", ADMIN], ["coach", COACH], ["system_admin", SA], ["member", M], ["other_admin", OTHERADMIN], ["unassigned_coach", FREECOACH]];
+  let row: { r: string } | undefined;
+  try {
+    [row] = await run<{ r: string }>(["begin;", pending, `
+${person(ADMIN, CO, "Harness 0331 Admin", "company_admin")}
+${person(OTHERADMIN, OTHER, "Harness 0331 Other Admin", "company_admin")}
+${person(COACH, null, "Harness 0331 Coach", "aims_guide")}
+${person(FREECOACH, null, "Harness 0331 Other Coach", "aims_guide")}
+${person(SA, null, "Harness 0331 SA", "system_admin")}
+${meeting(TEAM, CO, "team")}
+${meeting(CALL, CO, "coaching")}
+${meeting(ELSEWHERE, OTHER, "team")}
+insert into public.guide_assignments (guide_id, company_id) values ('${COACH}', '${CO}') on conflict do nothing;
+create temp table _r (k text, v text) on commit drop;
+grant all on _r to authenticated;
+set local role authenticated;
+do $$
+declare who text; sub uuid; outcome text; n int; j jsonb;
+begin
+  foreach who in array array[${callers.map(([k]) => `'${k}'`).join(", ")}] loop
+    sub := case who ${callers.map(([k, id]) => `when '${k}' then '${id}'::uuid`).join(" ")} end;
+    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated","client_id":"harness-0331"}', sub), true);
+    begin
+      perform public.assistant_set_meeting_score_video('${CO}', '${TEAM}', 'https://vimeo.com/1248248696');
+      outcome := 'set';
+    exception when others then outcome := 'refused ' || sqlstate; end;
+    insert into _r values (who, outcome);
+  end loop;
+
+  perform set_config('request.jwt.claims', '{"sub":"${ADMIN}","role":"authenticated","client_id":"harness-0331"}', true);
+  begin
+    perform public.assistant_set_meeting_score_video('${CO}', '${TEAM}', 'https://www.youtube.com/watch?v=abc');
+    outcome := 'set';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _r values ('not_vimeo', outcome);
+  begin
+    perform public.assistant_set_meeting_score_video('${CO}', '${CALL}', 'https://vimeo.com/1248248696');
+    outcome := 'set';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _r values ('coaching_call', outcome);
+  begin
+    perform public.assistant_set_meeting_score_video('${CO}', '${ELSEWHERE}', 'https://vimeo.com/1248248696');
+    outcome := 'set';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _r values ('other_company_meeting', outcome);
+  j := public.assistant_set_meeting_score_video('${CO}', '${TEAM}', 'https://player.vimeo.com/video/1248248696?h=abcdef12&title=0');
+  insert into _r values ('unlisted', coalesce(j ->> 'vimeo_id', '') || '/' || coalesce(j ->> 'vimeo_hash', 'none'));
+  select count(*) into n from public.meeting_score_videos where meeting_id = '${TEAM}';
+  insert into _r values ('assistant_reads', n::text);
+
+  perform set_config('request.jwt.claims', '{"sub":"${M}","role":"authenticated"}', true);
+  select count(*) into n from public.meeting_score_videos where meeting_id = '${TEAM}';
+  insert into _r values ('member_reads', n::text);
+  perform set_config('request.jwt.claims', '{"sub":"${OTHERADMIN}","role":"authenticated"}', true);
+  select count(*) into n from public.meeting_score_videos where meeting_id = '${TEAM}';
+  insert into _r values ('other_admin_reads', n::text);
+  perform set_config('request.jwt.claims', '{"sub":"${ADMIN}","role":"authenticated"}', true);
+  begin
+    insert into public.meeting_score_videos (company_id, meeting_id, video_url, vimeo_id) values ('${CO}', '${TEAM}', 'https://vimeo.com/1248248696', '1248248696');
+    outcome := 'inserted';
+  exception when others then outcome := 'refused ' || sqlstate; end;
+  insert into _r values ('direct_insert', outcome);
+end $$;
+reset role;
+select jsonb_object_agg(k, v)::text as r from _r;`, "rollback;"].join("\n"));
+  } catch (err) {
+    return [{ name, granted: "not measured", withheld: "not measured", ok: false,
+      detail: `ERROR: ${unwrapDbError(err instanceof Error ? err.message : String(err)).slice(0, 160)}` }];
+  }
+  const r = JSON.parse(row?.r ?? "{}") as Record<string, string>;
+  const grantedOk = r.admin === "set" && r.coach === "set" && r.system_admin === "set";
+  const withheldOk =
+    r.member === "refused 42501" && r.other_admin === "refused 42501" && r.unassigned_coach === "refused 42501" &&
+    r.not_vimeo === "refused 22023" && r.coaching_call === "refused 22023" && r.other_company_meeting === "refused 22023" &&
+    r.direct_insert === "refused 42501" && r.assistant_reads === "0" && r.other_admin_reads === "0";
+  const readOk = r.unlisted === "1248248696/abcdef12" && r.member_reads === "4";
+  const ok = grantedOk && withheldOk && readOk;
+  return [{
+    name,
+    granted: `sets it: admin ${r.admin}, coach ${r.coach}, system_admin ${r.system_admin} | unlisted link stored as ${r.unlisted} (want 1248248696/abcdef12) | the company's member reads ${r.member_reads} (want 4)`,
+    withheld: `member ${r.member}, other company's admin ${r.other_admin}, unassigned coach ${r.unassigned_coach} (want refused 42501) | a YouTube link ${r.not_vimeo}, a coaching call ${r.coaching_call}, another company's meeting ${r.other_company_meeting} (want refused 22023) | admin inserts directly ${r.direct_insert} (want refused 42501) | rows an AI app reads ${r.assistant_reads}, another company's admin reads ${r.other_admin_reads} (want 0, 0)`,
+    ok,
+    detail: ok
+      ? "only a system admin, the company's admin or its coach sets a meeting's score video, only a Vimeo link for one of its team meetings, and only through the function"
+      : "THE WRONG PERSON CAN SET A MEETING SCORE VIDEO, A BAD LINK OR MEETING GETS IN, OR THE TABLE IS OPEN (is 0331 applied?)",
   }];
 }
 
@@ -17299,6 +17412,7 @@ async function main(): Promise<void> {
     ...(await assistantPlanReadProbes(run, ids, pendingSql)),
     ...(await assistantMeetingProbes(run, ids, pendingSql)),
     ...(await recapVideoProbes(run, ids, pendingSql)),
+    ...(await meetingScoreVideoProbes(run, ids, pendingSql)),
     ...(await assistantAddProbes(run, ids, pendingSql)),
     ...(await companyAssistantsSwitchProbes(run, ids, pendingSql)),
   ];

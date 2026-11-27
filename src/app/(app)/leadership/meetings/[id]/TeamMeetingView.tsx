@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { AnalysisTabs } from "./AnalysisTabs";
+import { RecapPlayer } from "@/app/(app)/dashboard/RecapPlayer";
 import styles from "./team-meeting.module.css";
 import type { StoredCheck, StoredRubric } from "@/lib/leadership/rubric/stored";
 import type { PageSectionKey, PageSummary } from "@/lib/transcripts/page-summary";
@@ -44,6 +45,8 @@ export type TeamMeetingViewProps = {
   transcript: Array<{ speaker: string | null; words: string }>;
   banner: ReactNode;
   footer: ReactNode;
+  // The meeting's score video (0331), when Grok Bot has handed one back.
+  video: { embedUrl: string; poster: string | null } | null;
 };
 
 const SECTION_TITLES: Record<PageSectionKey, string> = {
@@ -424,7 +427,14 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
       </section>
 
       <div className={styles.body}>
-        <div className={styles.top}>
+        <div className={`${styles.top} ${props.video ? styles.topWithVideo : ""}`}>
+          {props.video ? (
+            <section className={`${styles.card} ${styles.videoCard}`} aria-label="Meeting score video">
+              <div className={styles.videoFrame}>
+                <RecapPlayer src={props.video.embedUrl} poster={props.video.poster} />
+              </div>
+            </section>
+          ) : null}
           <section className={`${styles.card} ${styles.scoreCard}`} aria-labelledby="score">
             <div className={styles.scoreHead}>
               <div>
