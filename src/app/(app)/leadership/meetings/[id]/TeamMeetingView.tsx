@@ -457,19 +457,21 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
                   {rubric.parts.map((p, row) => (
                     <li key={p.key} className={styles.partItem}>
                       <span className={styles.partShort}>{PART_SHORT[p.key]}</span>
-                      <span className={styles.dots} aria-hidden="true">
-                        {/* Fills one dot at a time up to the level, each row a
-                            beat after the one before (--i, --row: the delay). */}
+                      <span className={styles.gauge} aria-hidden="true">
+                        {/* Fills one segment at a time up to the level, each row
+                            a beat after the one before (--i, --row: the delay).
+                            data-n sets the segment's shade, sky to navy. */}
                         {[1, 2, 3, 4, 5].map((n) => (
                           <span
                             key={n}
-                            className={styles.dotSm}
+                            className={styles.seg}
+                            data-n={n}
                             data-on={n <= p.level ? "true" : "false"}
                             style={{ "--i": n - 1, "--row": row } as React.CSSProperties}
                           />
                         ))}
                       </span>
-                      <span className={styles.partLevel}>
+                      <span className={styles.partLevel} data-top={p.level === 5 ? "true" : "false"}>
                         {p.level}
                         <span className={styles.srOnly}> of 5, {p.name}</span>
                       </span>
