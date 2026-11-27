@@ -284,8 +284,7 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
           <h2 className={styles.h2}>How the meeting was run</h2>
           <p className={styles.overview} style={{ marginTop: 8, fontSize: 14 }}>
             Each part is scored 1 to 5 against the AiMS facilitation rubric. Open a part to see what went well, and the
-            next step that would take it even higher. The score comes from the same checks, so it always matches what
-            you read here.
+            next step that would make it even better.
           </p>
         </div>
       </div>
