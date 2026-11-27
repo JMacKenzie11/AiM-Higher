@@ -68,6 +68,21 @@ const SECTION_PART: Record<PageSectionKey, PartKey> = {
   commitments: "operational",
 };
 
+// Short names for the score card's list; the full names are on How it
+// was run.
+const PART_SHORT: Record<PartKey, string> = {
+  checkin: "Check-in",
+  headlines: "Headlines",
+  data: "Data",
+  priorities: "Goals",
+  operational: "Operational",
+  dialogue: "Dialogue",
+  focus: "Focus",
+  container: "Container",
+  structure: "Structure",
+  engagement: "Engagement",
+};
+
 const SOURCE_LABEL = { hq: "AiMS HQ", count: "Counted", judge: "Judged" } as const;
 
 function scoreText(score: MeetingScore): string {
@@ -463,14 +478,25 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
             </div>
             {rubric ? (
               <>
-                <div className={styles.bars} role="img" aria-label={`Score for each of the ten parts: ${rubric.parts.map((p) => `${p.name} ${p.level}`).join(", ")}`}>
-                  {rubric.parts.map((p, i) => (
-                    <div key={p.key} className={styles.bar}>
-                      <div className={styles.barFill} data-level={p.level} style={{ height: p.level * 10 }} />
-                      <span className={styles.barNum}>{i + 1}</span>
-                    </div>
+                {/* Each part named, with its level as dots, as on How it was
+                    run. Numbered bars meant nothing without the breakdown
+                    open (Jason, 2026-11-27). */}
+                <ul className={styles.partList} aria-label="Score for each part of the meeting">
+                  {rubric.parts.map((p) => (
+                    <li key={p.key} className={styles.partItem}>
+                      <span className={styles.partShort}>{PART_SHORT[p.key]}</span>
+                      <span className={styles.dots} aria-hidden="true">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <span key={n} className={styles.dotSm} data-on={n <= p.level ? "true" : "false"} />
+                        ))}
+                      </span>
+                      <span className={styles.partLevel}>
+                        {p.level}
+                        <span className={styles.srOnly}> of 5, {p.name}</span>
+                      </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
                 <a className={styles.pillLink} href="#how-it-was-run">
                   See what earned each score
                 </a>
