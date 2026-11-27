@@ -87,7 +87,9 @@ function tryNextWeek(rubric: StoredRubric): { step: string; part: string } | nul
     if (p.better.length === 0) continue;
     if (!pick || p.level < pick.level) pick = p;
   }
-  return pick ? { step: pick.better[0].text, part: pick.name } : null;
+  // The count in brackets ("(0 of 1 this week)") is for the part's own
+  // list; as a headline it reads as a tally, so it is left off here.
+  return pick ? { step: pick.better[0].text.replace(/\s*\([^)]*\)(?=\.?$)/, ""), part: pick.name } : null;
 }
 
 function Source({ source }: { source: StoredCheck["source"] }) {
