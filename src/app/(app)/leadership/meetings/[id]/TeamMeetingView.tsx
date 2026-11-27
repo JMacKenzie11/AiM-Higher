@@ -6,7 +6,7 @@ import remarkGfm from "remark-gfm";
 import { AnalysisTabs } from "./AnalysisTabs";
 import { RecapPlayer } from "@/app/(app)/dashboard/RecapPlayer";
 import styles from "./team-meeting.module.css";
-import type { StoredCheck, StoredRubric } from "@/lib/leadership/rubric/stored";
+import type { StoredRubric } from "@/lib/leadership/rubric/stored";
 import type { PageSectionKey, PageSummary } from "@/lib/transcripts/page-summary";
 import type { MeetingScore } from "@/lib/leadership/facilitation/score";
 import type { PartKey } from "@/lib/leadership/rubric/types";
@@ -84,8 +84,6 @@ const PART_SHORT: Record<PartKey, string> = {
   engagement: "Engagement",
 };
 
-const SOURCE_LABEL = { hq: "AiMS HQ", count: "Counted", judge: "Judged" } as const;
-
 function scoreText(score: MeetingScore): string {
   if (score.kind === "rubric") return score.outOfTen;
   return score.value.toFixed(1);
@@ -109,14 +107,6 @@ function tryNextWeek(rubric: StoredRubric): { step: string; part: string } | nul
   // The count in brackets ("(0 of 1 this week)") is for the part's own
   // list; as a headline it reads as a tally, so it is left off here.
   return pick ? { step: pick.better[0].text.replace(/\s*\([^)]*\)(?=\.?$)/, ""), part: pick.name } : null;
-}
-
-function Source({ source }: { source: StoredCheck["source"] }) {
-  return (
-    <span className={styles.source} data-source={source}>
-      {SOURCE_LABEL[source]}
-    </span>
-  );
 }
 
 function Tick() {
@@ -298,21 +288,6 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
             you read here.
           </p>
         </div>
-        <div className={`${styles.card} ${styles.legend}`}>
-          <span className={styles.caps}>Where each check comes from</span>
-          <div className={styles.legendRow}>
-            <Source source="hq" />
-            <span>The team&apos;s own records in AiMS HQ: commitments, measures, headlines.</span>
-          </div>
-          <div className={styles.legendRow}>
-            <Source source="count" />
-            <span>Counted from the meeting: who spoke, and which items came up.</span>
-          </div>
-          <div className={styles.legendRow}>
-            <Source source="judge" />
-            <span>Read from the conversation, with the words it rests on.</span>
-          </div>
-        </div>
       </div>
       <div className={`${styles.card} ${styles.parts}`}>
         {rubric.parts.map((part, i) => (
@@ -347,7 +322,6 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
                           {c.text}
                           {c.moment ? <span className={styles.moment}>&ldquo;{c.moment}&rdquo;</span> : null}
                         </span>
-                        <Source source={c.source} />
                       </li>
                     ))}
                   </ul>
@@ -363,7 +337,6 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
                       <li key={c.id} className={styles.check}>
                         <Step />
                         <span className={styles.checkText}>{c.text}</span>
-                        <Source source={c.source} />
                       </li>
                     ))}
                   </ul>

@@ -72,11 +72,7 @@ The score follows the AiMS meeting facilitation rubric. It has ten parts, each s
 
 The ten scores add up to a total out of 50, and that divided by 5 is the score out of 10.
 
-Each part is made of checks, and a part earns a level only when every check at that level and below it is met. Open a part on *How it was run* to see **What went well** and **To do it even better**. Each check says where it came from:
-
-- **AiMS HQ**: your team's own records, such as commitments, measures and headlines sent ahead.
-- **Counted**: counted from the meeting, such as who spoke and which items came up.
-- **Judged**: read from the conversation. A judged check that went well shows the words it rests on.
+Each part is made of checks, and a part earns a level only when every check at that level and below it is met. Open a part on *How it was run* to see **What went well** and **To do it even better**. Some checks come from your team's own records in AiMS HQ (commitments, measures, headlines sent ahead), some are counted from the meeting (who spoke, which items came up), and some are read from the conversation. Something read from the conversation that went well shows the words it rests on.
 
 A commitment due **By next meeting** counts as having a date.
 

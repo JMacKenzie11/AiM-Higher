@@ -474,9 +474,6 @@
 
 /* How it was run */
 .runIntro {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: var(--space-5);
   margin-bottom: var(--space-4);
 }
 .h2 {
@@ -489,45 +486,6 @@
 }
 .runIntroCard {
   padding: 20px 24px;
-}
-.legend {
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.legendRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-}
-/* One width for the three chips, so their descriptions start in one
-   column. */
-.legendRow .source {
-  min-width: 76px;
-  text-align: center;
-}
-.source {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
-  flex: none;
-}
-.source[data-source="hq"] {
-  background: var(--aims-cobalt-tint);
-  color: var(--primary);
-}
-.source[data-source="count"] {
-  background: var(--aims-sky-tint);
-  color: #1f5872;
-}
-.source[data-source="judge"] {
-  background: var(--aims-chartreuse-tint);
-  color: #4f5617;
 }
 .parts {
   padding: 8px;
