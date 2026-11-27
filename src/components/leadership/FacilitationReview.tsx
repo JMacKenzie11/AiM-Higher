@@ -253,6 +253,7 @@ export function FacilitationReview({
 
 // The number on the panel and the strip: rounded either way.
 export function displayScore(score: MeetingScore): number {
+  if (score.kind === "rubric") return score.value;
   return score.kind === "computed" ? score.score.rounded : Math.round(score.value);
 }
 

@@ -10,6 +10,7 @@ import {
   AIMS_WEEKLY_SECTIONS,
 } from "./score";
 import { findBannedPhrases } from "@/lib/voice/banned";
+import { RUBRIC } from "@/lib/leadership/rubric/rubric";
 
 const parts = (pf: number | null, a: number | null, r: number | null, al: number | null, ag: number | null) => ({
   positive_framing: pf,
@@ -175,10 +176,17 @@ describe("SCORE_PART_DESCRIPTIONS", () => {
 });
 
 describe("the help page", () => {
-  it("carries the same five definitions as the tooltips, word for word", () => {
-    const help = readFileSync(join(process.cwd(), "docs/help/leadership.meetings._id.md"), "utf8").replace(/\s+/g, " ");
-    for (const text of Object.values(SCORE_PART_DESCRIPTIONS)) {
-      expect(help).toContain(text);
+  // Since 2026-11-27 the score is the facilitation rubric's, and the
+  // help page explains that, not the five weighted parts above (which
+  // only older meetings carry, with no breakdown shown).
+  it("names the rubric's ten parts, in order", () => {
+    const help = readFileSync(join(process.cwd(), "docs/help/leadership.meetings._id.md"), "utf8");
+    let from = help.indexOf("## How the score is made");
+    expect(from).toBeGreaterThan(-1);
+    for (const part of RUBRIC) {
+      const at = help.indexOf(`**${part.name}**`, from);
+      expect(at, part.name).toBeGreaterThan(from);
+      from = at;
     }
   });
 });

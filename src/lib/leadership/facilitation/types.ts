@@ -14,6 +14,9 @@
 // render — the renderer treats the new fields as optional and shows
 // them only when present.
 
+import type { StoredRubric } from "@/lib/leadership/rubric/stored";
+import type { PageSummary } from "@/lib/transcripts/page-summary";
+
 export const FACILITATION_REVIEW_VERSION = 2;
 
 export type FacilitationDimension =
@@ -111,4 +114,11 @@ export type FacilitationReview = {
   // late may hold the older { question, asker } shape; the component
   // skips those.
   opening_questions?: { asker: string; asked?: string; opened?: string; question?: string }[];
+  // The facilitation rubric's score (src/lib/leadership/rubric). Team
+  // meetings analysed from 2026-11-27 carry it, and when they do it IS
+  // the meeting's score: `overall` is set to its value, and every
+  // surface reads it first (scoreForRow). Older rows have none.
+  rubric?: StoredRubric | null;
+  // The meeting page's summary, in agenda order (transcripts/page-summary.ts).
+  page_summary?: PageSummary | null;
 };

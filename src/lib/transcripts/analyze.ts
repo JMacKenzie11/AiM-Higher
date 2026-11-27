@@ -18,6 +18,7 @@ import {
   identifiedSpeakers,
   replaceSpeakerLabels,
   storedSpeakerMap,
+  type SpeakerMap,
 } from "./speakers";
 import { attendeesFromSummary, presentOwnerIds } from "./attendees";
 import { settleSummary } from "./summary";
@@ -46,6 +47,12 @@ import type {
   Profile,
 } from "@/lib/types";
 import { getCurrentInstanceConfig } from "@/lib/instances/current";
+import { loadRubricFacts } from "@/lib/leadership/rubric/facts";
+import { readMeeting, scoreReadings } from "@/lib/leadership/rubric/score-meeting";
+import { withThisMeeting } from "@/lib/leadership/rubric/this-meeting";
+import { toStoredRubric, type StoredRubric } from "@/lib/leadership/rubric/stored";
+import type { Reading } from "@/lib/leadership/rubric/observe";
+import { summarizeForPage, type PageSummary } from "./page-summary";
 
 // Two-call analysis pipeline. Call 1 uses the AiMS meeting-analyzer
 // prompt verbatim (prompts/meeting-analyzer.md) plus a company
@@ -289,6 +296,71 @@ export async function analyzeMeeting(
         })
       : Promise.resolve(null);
 
+    // ---- Call 5: the facilitation rubric's readings ----
+    // A team meeting, under the same feature as the review. Three
+    // readings of the meeting against the rubric's questions
+    // (src/lib/leadership/rubric), started here beside the other calls:
+    // they need only AiMS HQ's goals, last week's commitments, measures
+    // and areas. What this meeting committed to joins after the
+    // extraction, below, for code's checks. Best effort, like the
+    // review: a failure is "no rubric score", never a failed meeting.
+    const rubricReadingsP: Promise<{ readings: Reading[]; facts: Awaited<ReturnType<typeof loadRubricFacts>> } | null> =
+      plan.scoreReview && !options.carryOver && (await companyHasFacilitationReview(admin, meetingRow.company_id))
+        ? (async () => {
+            const facts = await loadRubricFacts(admin, {
+              meetingId,
+              companyId: meetingRow.company_id!,
+              createdAt: meetingRow.created_at,
+              timezone: context.timezone ?? "UTC",
+              newCommitments: [],
+              issuesRaised: 0,
+            });
+            const readings = await readMeeting(client, {
+              model,
+              transcript: meetingRow.transcript_text,
+              contextBlock: speakerBlock ? `${companyBlock}\n\n${speakerBlock}` : companyBlock,
+              facts,
+              onReading: (r) => {
+                if (r.usage) {
+                  void logCoachTokenUsage({
+                    conversationId: null,
+                    companyId: meetingRow.company_id,
+                    purpose: "facilitation",
+                    model,
+                    usage: r.usage,
+                  });
+                }
+              },
+            });
+            return readings ? { readings, facts } : null;
+          })().catch((err) => {
+            console.error(
+              `[rubric] readings failed for meeting ${meetingId}:`,
+              err instanceof Error ? err.message : err
+            );
+            return null;
+          })
+        : Promise.resolve(null);
+
+    // ---- Call 6: the meeting page's summary, in agenda order ----
+    // A team meeting with a review (it is stored on the review). Best
+    // effort: without it the page shows the written summary instead.
+    const pageSummaryP: Promise<PageSummary | null> =
+      plan.scoreReview && (await companyHasFacilitationReview(admin, meetingRow.company_id))
+        ? summarizeForPage(client, {
+            model,
+            transcript: meetingRow.transcript_text,
+            contextBlock: speakerBlock ? `${companyBlock}\n\n${speakerBlock}` : companyBlock,
+            onMessage: usageLogger({ companyId: meetingRow.company_id, purpose: "analyzer", model }),
+          }).catch((err) => {
+            console.error(
+              `[page-summary] failed for meeting ${meetingId}:`,
+              err instanceof Error ? err.message : err
+            );
+            return null;
+          })
+        : Promise.resolve(null);
+
     // ---- Call 4: each functional area's headline ----
     // Under the "transcript-headlines" switch, for a company with
     // functional areas, and not on a summary-only run. Best effort,
@@ -322,11 +394,13 @@ export async function analyzeMeeting(
       messages: [{ role: "user", content: analysisUserMessage }],
     });
 
-    const [analysisMessage, rawExtraction, reviewFromCall, rawHeadlines] = await Promise.all([
+    const [analysisMessage, rawExtraction, reviewFromCall, rawHeadlines, rubricReadings, pageSummary] = await Promise.all([
       analysisP,
       extractionP,
       facilitationP,
       headlinesP,
+      rubricReadingsP,
+      pageSummaryP,
     ]);
     const logAnalysisUsage = (message: Anthropic.Message) => {
       if (!message.usage) return;
@@ -536,6 +610,37 @@ export async function analyzeMeeting(
       : null;
     const overallScore = scoreParts ? computeOverall(scoreParts) : null;
 
+    // THE RUBRIC SCORE, from the readings and, now the extraction is in,
+    // what this meeting committed to and raised. When there is one it
+    // is the meeting's score: it rides on the review as `rubric`, sets
+    // the review's `overall`, and fills score_overall (scoreForRow
+    // reads it first). Kept with the review it sits beside, so a
+    // meeting whose review did not run keeps no rubric score either.
+    let rubric: StoredRubric | null = null;
+    if (rubricReadings && facilitationReview && !facilitationReview.insufficient_transcript) {
+      const run = scoreReadings(rubricReadings.readings, {
+        transcript: meetingRow.transcript_text,
+        facts: withThisMeeting(rubricReadings.facts, {
+          commitments: validated,
+          issues: validatedIssues.length,
+        }),
+        names: speakerNames(speakerMap),
+      });
+      rubric = toStoredRubric(run);
+      facilitationReview = { ...facilitationReview, rubric, overall: rubric.value };
+      if (run.momentsRejected.length > 0) {
+        console.warn(
+          `[rubric] meeting ${meetingId}: ${run.momentsRejected.length} moment(s) not found in the transcript (${[...new Set(run.momentsRejected)].join(", ")})`
+        );
+      }
+    }
+    if (pageSummary && facilitationReview) {
+      facilitationReview = { ...facilitationReview, page_summary: pageSummary };
+    }
+    if (rubricReadings && !facilitationReview) {
+      console.warn(`[rubric] meeting ${meetingId}: scored, but no review to keep it with; not stored`);
+    }
+
     // Store the analysis row so system_admin / company_admin can
     // read the markdown.
     // THE ERROR IS CHECKED. It was not, and that turned a failed
@@ -593,7 +698,7 @@ export async function analyzeMeeting(
       score_accountability: scoreParts?.accountability ?? null,
       score_alignment: scoreParts?.alignment ?? null,
       score_agenda: scoreParts?.agenda ?? null,
-      score_overall: overallScore ? overallScore.hundredths / 100 : null,
+      score_overall: rubric ? rubric.value : overallScore ? overallScore.hundredths / 100 : null,
       score_weights: overallScore ? SCORE_WEIGHTS : null,
       commitments_json: stored.commitments_json,
       issues_json: stored.issues_json,
@@ -1400,4 +1505,14 @@ async function createCommitmentsFromExtraction(
 
 function deriveTitle(fileName: string): string {
   return fileName.replace(/\.(txt|vtt|docx)$/i, "").replace(/[_-]+/g, " ").trim();
+}
+
+// Transcript label to person, from the speaker map, for counting who
+// talked (rubric/counts.ts). Confident names only, as the summary uses.
+function speakerNames(map: SpeakerMap | null): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const s of map?.speakers ?? []) {
+    if (s.name && (s.confidence === "high" || s.confidence === "medium") && !s.shared_label) out[s.label] = s.name;
+  }
+  return out;
 }
