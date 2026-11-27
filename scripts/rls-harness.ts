@@ -17136,8 +17136,12 @@ async function main(): Promise<void> {
         // never reached a database, so there is no answer to report,
         // and failing the batch on one would make the harness a
         // measure of the network.
+        // A 502, 503 or 504 is the Management API's own gateway giving
+        // up, also before any database answered (seen 2026-11-27,
+        // twice in a row after a full run's rate limiting).
         const transient =
-          status === 429 || /fetch failed|ETIMEDOUT|ECONNRESET/i.test(String(error));
+          status === 429 || status === 502 || status === 503 || status === 504 ||
+          /fetch failed|ETIMEDOUT|ECONNRESET/i.test(String(error));
         if (!transient || attempt >= 6) throw error;
         // Exponential, capped. The limit is a sustained-rate cap, so
         // a few seconds is not enough once a day's runs have spent
