@@ -3,6 +3,7 @@ import "server-only";
 import { APP_URL } from "@/lib/supabase/env";
 import { instanceOrigin } from "@/lib/instances/instance-origin";
 import { meetingReadyPayload, webhookConfig } from "./payload";
+import type { StoredRubric } from "@/lib/leadership/rubric/stored";
 
 // Posts "meeting ready" to an outside URL (Jason, 2026-11-19: a Cursor
 // automation) once a TEAM meeting's analysis is stored. Coaching calls
@@ -31,6 +32,7 @@ export async function sendMeetingReadyWebhook(args: {
   meetingTitle: string | null;
   meetingDateIso: string;
   subdomain: string;
+  rubric?: StoredRubric | null;
 }): Promise<WebhookResult> {
   const config = webhookConfig();
   if (!config) return { skipped: "MEETING_READY_WEBHOOK_URL is not set" };

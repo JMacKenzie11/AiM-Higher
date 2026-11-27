@@ -26,14 +26,15 @@ describe("tool annotations", () => {
     expect(route).toMatch(/const ADDS = \{ readOnlyHint: false, destructiveHint: false/);
   });
 
-  it("marks every other tool read only, except the Aimee handoff, a bot's run and a recap video, which write a record", () => {
-    const writers = ["work_with_aimee", "record_bot_run", "set_recap_video"];
+  it("marks every other tool read only, except the Aimee handoff, a bot's run and the two videos, which write a record", () => {
+    const writers = ["work_with_aimee", "record_bot_run", "set_recap_video", "set_meeting_score_video"];
     for (const t of tools.filter((x) => !x.name.startsWith("add_") && !writers.includes(x.name))) expect(t.annotations).toBe("READ_ONLY");
     expect(tools.find((t) => t.name === "work_with_aimee")?.annotations).toBe("HANDOFF");
     expect(route).toMatch(/const HANDOFF = \{ readOnlyHint: false, destructiveHint: false/);
     expect(tools.find((t) => t.name === "record_bot_run")?.annotations).toBe("RECORD");
     expect(route).toMatch(/const RECORD = \{ readOnlyHint: false, destructiveHint: false/);
     expect(tools.find((t) => t.name === "set_recap_video")?.annotations).toBe("SETS");
+    expect(tools.find((t) => t.name === "set_meeting_score_video")?.annotations).toBe("SETS");
     expect(route).toMatch(/const SETS = \{ readOnlyHint: false, destructiveHint: false/);
   });
 

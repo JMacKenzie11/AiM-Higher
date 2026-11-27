@@ -809,6 +809,7 @@ export async function analyzeMeeting(
         meetingTitle: meetingRow.meeting_title ?? deriveTitle(meetingRow.file_name),
         meetingDateIso,
         subdomain: instance.subdomain,
+        rubric,
       });
       console.log(`[meeting-webhook] meeting ${meetingId}: ${JSON.stringify(posted)}`);
     }

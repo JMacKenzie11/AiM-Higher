@@ -21,6 +21,8 @@ import { TeamMeetingView, type PriorCommitment } from "./TeamMeetingView";
 import { readStoredRubric } from "@/lib/leadership/rubric/stored";
 import { readPageSummary } from "@/lib/transcripts/page-summary";
 import { countTurns } from "@/lib/leadership/rubric/turns";
+import { vimeoEmbedUrl } from "@/lib/recap-video/vimeo";
+import { resolveVideoThumbnail, shareUrlFor } from "@/lib/classroom/video-thumbnail";
 import { SplitTile } from "@/components/ui/SplitTile";
 import tabStyles from "./analysis-tabs.module.css";
 import type {
@@ -635,6 +637,7 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
         }))}
         banner={processingBanner}
         footer={reanalyze}
+        video={team.video}
       />
     );
   }
@@ -824,7 +827,11 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
 async function teamMeetingExtras(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   args: { companyId: string; meetingId: string; createdAt: string }
-): Promise<{ previousRubricValue: number | null; prior: PriorCommitment[] }> {
+): Promise<{
+  previousRubricValue: number | null;
+  prior: PriorCommitment[];
+  video: { embedUrl: string; poster: string | null } | null;
+}> {
   const { data: prev } = await supabase
     .from("meetings")
     .select("id, created_at")
@@ -838,7 +845,7 @@ async function teamMeetingExtras(
   const from = prev
     ? prev.created_at.slice(0, 10)
     : new Date(Date.parse(`${meetingDate}T00:00:00Z`) - 7 * 86400000).toISOString().slice(0, 10);
-  const [prevAnalysis, priorRes] = await Promise.all([
+  const [prevAnalysis, priorRes, videoRes] = await Promise.all([
     prev
       ? supabase
           // meetings-kind: keyed by the team meeting found just above.
@@ -855,6 +862,15 @@ async function teamMeetingExtras(
       .lte("due_date", meetingDate)
       .lt("created_at", args.createdAt)
       .is("deleted_at", null),
+    // The newest score video for this meeting (0331). An instance 0331
+    // has not reached answers with an error: no video, nothing else.
+    supabase
+      .from("meeting_score_videos")
+      .select("vimeo_id, vimeo_hash")
+      .eq("meeting_id", args.meetingId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ vimeo_id: string; vimeo_hash: string | null }>(),
   ]);
   const rows = ((priorRes.data ?? []) as Array<{
     id: string;
@@ -870,7 +886,15 @@ async function teamMeetingExtras(
     for (const p of (data ?? []) as Array<{ id: string; full_name: string }>) owners.set(p.id, p.full_name);
   }
   const rubric = readStoredRubric(prevAnalysis.data?.facilitation_review_json?.rubric);
+  const v = videoRes.error ? null : videoRes.data;
+  const share = v ? shareUrlFor("vimeo", v.vimeo_id, v.vimeo_hash) : null;
   return {
+    video: v
+      ? {
+          embedUrl: vimeoEmbedUrl({ id: v.vimeo_id, hash: v.vimeo_hash }),
+          poster: share ? await resolveVideoThumbnail(share) : null,
+        }
+      : null,
     previousRubricValue: rubric ? rubric.value : null,
     prior: rows.map((r) => ({
       id: r.id,
