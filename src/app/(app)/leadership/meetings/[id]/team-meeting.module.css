@@ -453,6 +453,9 @@
   color: var(--text-heading);
   margin: 0;
 }
+.runIntroCard {
+  padding: 20px 24px;
+}
 .legend {
   padding: 16px 20px;
   display: flex;
@@ -464,6 +467,12 @@
   align-items: center;
   gap: 10px;
   font-size: 13px;
+}
+/* One width for the three chips, so their descriptions start in one
+   column. */
+.legendRow .source {
+  min-width: 76px;
+  text-align: center;
 }
 .source {
   font-family: var(--font-sans);
