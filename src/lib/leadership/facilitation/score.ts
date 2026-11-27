@@ -1,3 +1,5 @@
+import { readStoredRubric } from "@/lib/leadership/rubric/stored";
+
 // THE OVERALL SCORE IS ARITHMETIC, NOT A JUDGEMENT.
 //
 // It used to be a separate model judgement, "an integrated read, not
@@ -169,7 +171,10 @@ export function computeOverall(
   };
 }
 
-// WHICH SCORE A STORED MEETING SHOWS. One rule, used by the meeting
+// WHICH SCORE A STORED MEETING SHOWS.
+//
+// (The facilitation rubric, when the row has one, comes before both;
+// see MeetingScore.) One rule, used by the meeting
 // page, the meetings list and the scorecard, so they never disagree.
 //
 //   computed  analysed at or after SCORE_CUTOVER_ISO AND carrying its
@@ -177,7 +182,11 @@ export function computeOverall(
 //             the row, and unmoved by a later change of weights.
 //   original  everything else: the review's own `overall`, exactly as
 //             it was given. Never recomputed from its parts.
+//   rubric    analysed with the facilitation rubric (2026-11-27 on):
+//             ten parts, 1 to 5, total out of 50, divided by 5. Read
+//             first, whatever else the row holds.
 export type MeetingScore =
+  | { kind: "rubric"; value: number; total: number; outOfTen: string }
   | { kind: "computed"; score: OverallScore; value: number }
   | { kind: "original"; value: number };
 
@@ -193,9 +202,12 @@ export type StoredScoreRow = {
 
 export function scoreForRow(
   row: StoredScoreRow | null,
-  review: { insufficient_transcript: boolean; overall: number | null } | null
+  review: { insufficient_transcript: boolean; overall: number | null; rubric?: unknown } | null
 ): MeetingScore | null {
-  if (!review || review.insufficient_transcript) return null;
+  if (!review) return null;
+  const rubric = readStoredRubric(review.rubric);
+  if (rubric) return { kind: "rubric", value: rubric.value, total: rubric.total, outOfTen: rubric.outOfTen };
+  if (review.insufficient_transcript) return null;
   const weights = storedWeights(row?.score_weights);
   const analysedAt = row?.created_at ? Date.parse(row.created_at) : NaN;
   if (row && analysedAt >= Date.parse(SCORE_CUTOVER_ISO) && weights) {

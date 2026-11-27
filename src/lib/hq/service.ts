@@ -388,14 +388,18 @@ export async function loadFacilitationScores(
   for (const row of (data ?? []) as Array<
     StoredScoreRow & {
       meeting_id: string;
-      facilitation_review_json: { insufficient_transcript?: boolean; overall?: number | null } | null;
+      facilitation_review_json: { insufficient_transcript?: boolean; overall?: number | null; rubric?: unknown } | null;
     }
   >) {
     const review = row.facilitation_review_json;
     const score = scoreForRow(
       row,
       review
-        ? { insufficient_transcript: Boolean(review.insufficient_transcript), overall: review.overall ?? null }
+        ? {
+            insufficient_transcript: Boolean(review.insufficient_transcript),
+            overall: review.overall ?? null,
+            rubric: review.rubric,
+          }
         : null
     );
     if (!score) continue;

@@ -61,7 +61,7 @@ function fakeDb() {
       const filters: Record<string, unknown> = {};
       let op = "select";
       const b: Record<string, unknown> = {};
-      for (const m of ["select", "neq", "in", "order", "limit", "gte"]) b[m] = () => b;
+      for (const m of ["select", "neq", "in", "order", "limit", "gte", "lte", "gt", "lt", "is"]) b[m] = () => b;
       b.eq = (k: string, v: unknown) => {
         filters[k] = v;
         return b;
@@ -107,6 +107,10 @@ const kindOf = (req: { system: Array<{ text: string }> }) =>
       ? "headlines"
     : req.system[0].text.startsWith("Each item below")
       ? "reword"
+    : req.system[0].text.startsWith("You write the summary of a team's weekly leadership meeting")
+      ? "page_summary"
+    : req.system[0].text.startsWith("You read the transcript of a team's weekly leadership meeting")
+      ? "rubric"
       : "analysis";
 const text = (t: string) => ({ content: [{ type: "text", text: t }], stop_reason: "end_turn", usage: null });
 
@@ -122,8 +126,8 @@ beforeEach(() => {
   process.env.ANTHROPIC_API_KEY = "test";
 });
 
-describe("analyzeMeeting runs its three calls at once", () => {
-  it("starts the analysis, the extraction and the review before any of them returns", async () => {
+describe("analyzeMeeting runs its calls at once", () => {
+  it("starts the analysis, the extraction, the review, the page summary and the rubric before any of them returns", async () => {
     // Each call waits until all three have started. Run in sequence,
     // the first would wait forever, and the race below says so.
     const started = new Set<string>();
@@ -131,13 +135,13 @@ describe("analyzeMeeting runs its three calls at once", () => {
     const allStarted = new Promise<void>((r) => (release = r));
     const arrive = (k: string) => {
       started.add(k);
-      if (started.size === 3) release();
+      if (started.size === 5) release();
       return allStarted;
     };
     h.create.mockImplementation(async (req) => {
       const k = kindOf(req);
       await arrive(k);
-      return text(k === "analysis" ? SUMMARY : EXTRACTION);
+      return text(k === "analysis" ? SUMMARY : k === "extraction" ? EXTRACTION : "{}");
     });
     h.facilitation.mockImplementation(async () => {
       await arrive("facilitation");
@@ -150,7 +154,7 @@ describe("analyzeMeeting runs its three calls at once", () => {
     );
     await Promise.race([analyzeMeeting("m1"), sequential]);
 
-    expect([...started].sort()).toEqual(["analysis", "extraction", "facilitation"]);
+    expect([...started].sort()).toEqual(["analysis", "extraction", "facilitation", "page_summary", "rubric"]);
     expect(h.writes.some((w) => w.table === "meeting_analyses" && w.op === "insert")).toBe(true);
   });
 });
@@ -482,5 +486,69 @@ describe("a coaching call writes nothing outside its own analysis", () => {
     expect(h.writes.filter((w) => w.table === "meetings" && w.op === "update").at(-1)?.payload).toMatchObject({
       status: "complete",
     });
+  });
+});
+
+describe("the facilitation rubric and the page summary", () => {
+  const REVIEW = {
+    version: 2,
+    insufficient_transcript: false,
+    overall: 7,
+    executive_summary: "A steady meeting.",
+    strengths: [{ title: "Clear owners", evidence: "Pat took the quote." }],
+    growth_edges: [],
+    experiments: [],
+    fourws_audit: [],
+    dimensions: {
+      rhythm: { score: 7, notes: "" },
+      accountability: { score: 7, notes: "" },
+      alignment: { score: 7, notes: "" },
+      positive_framing: { score: 7, notes: "" },
+    },
+    agenda_adherence: { score_out_of_5: 4, notes: "" },
+  };
+  const PAGE = JSON.stringify({
+    overview: "The team agreed the quote goes out Friday.",
+    sections: [{ part: "commitments", points: ["Pat will send the quote on Friday."] }],
+    issues: [],
+    decisions: ["The quote goes out Friday."],
+    values_shown: [],
+    values_to_name: [],
+  });
+  const stored = () =>
+    (h.writes.find((w) => w.table === "meeting_analyses" && w.op === "insert")?.payload ?? {}) as {
+      score_overall?: number | null;
+      facilitation_review_json?: { overall?: number; rubric?: { value: number; total: number }; page_summary?: { overview: string } } | null;
+    };
+
+  beforeEach(() => {
+    h.features = ["meeting_facilitation_review"];
+    h.facilitation.mockResolvedValue(REVIEW);
+    h.create.mockImplementation(async (req: { system: Array<{ text: string }> }) => {
+      const k = kindOf(req);
+      return text(k === "analysis" ? SUMMARY : k === "extraction" ? EXTRACTION : k === "page_summary" ? PAGE : "{}");
+    });
+  });
+
+  it("stores the rubric score as the meeting's score, and the page summary beside it", async () => {
+    h.meetingKind = "team";
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+    const review = stored().facilitation_review_json!;
+    expect(review.rubric).toBeTruthy();
+    expect(review.overall).toBe(review.rubric!.value);
+    expect(stored().score_overall).toBe(review.rubric!.value);
+    expect(review.rubric!.value).toBe(review.rubric!.total / 5);
+    expect(review.page_summary?.overview).toBe("The team agreed the quote goes out Friday.");
+  });
+
+  it("never scores a coaching call or writes its page summary", async () => {
+    h.meetingKind = "coaching";
+    const { analyzeMeeting } = await import("./analyze");
+    await analyzeMeeting("m1");
+    const kinds = h.create.mock.calls.map(([req]) => kindOf(req));
+    expect(kinds).not.toContain("rubric");
+    expect(kinds).not.toContain("page_summary");
+    expect(stored().facilitation_review_json?.rubric ?? null).toBeNull();
   });
 });

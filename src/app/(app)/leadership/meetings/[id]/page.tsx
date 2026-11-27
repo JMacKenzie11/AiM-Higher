@@ -17,6 +17,10 @@ import { scoreForRow } from "@/lib/leadership/facilitation/score";
 import { displayScore, signalTone } from "@/components/leadership/FacilitationReview";
 import { dueLabel } from "@/lib/commitments/due-label";
 import { AnalysisTabs } from "./AnalysisTabs";
+import { TeamMeetingView, type PriorCommitment } from "./TeamMeetingView";
+import { readStoredRubric } from "@/lib/leadership/rubric/stored";
+import { readPageSummary } from "@/lib/transcripts/page-summary";
+import { countTurns } from "@/lib/leadership/rubric/turns";
 import { SplitTile } from "@/components/ui/SplitTile";
 import tabStyles from "./analysis-tabs.module.css";
 import type {
@@ -79,9 +83,9 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
   // rule decides who sees a coaching call; the page branches on kind.
   const { data: meeting } = await supabase
     .from("meetings")
-    .select("id, company_id, meeting_title, file_name, status, error, created_at, kind")
+    .select("id, company_id, meeting_title, file_name, status, error, created_at, kind, transcript_text")
     .eq("id", id)
-    .maybeSingle<Pick<Meeting, "id" | "company_id" | "meeting_title" | "file_name" | "status" | "error" | "created_at" | "kind">>();
+    .maybeSingle<Pick<Meeting, "id" | "company_id" | "meeting_title" | "file_name" | "status" | "error" | "created_at" | "kind" | "transcript_text">>();
   if (!meeting) notFound();
   const coaching = meeting.kind === "coaching";
 
@@ -572,6 +576,69 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
     </SplitTile>
   );
 
+  // ---- A TEAM MEETING: the new page (TeamMeetingView) -----------
+  if (!coaching) {
+    const team = await teamMeetingExtras(supabase, {
+      companyId: meeting.company_id,
+      meetingId: meeting.id,
+      createdAt: meeting.created_at,
+    });
+    const names = new Map<string, string>();
+    for (const sp of ((analysis as { speaker_map?: Array<{ label: string; name: string | null }> | null } | null)?.speaker_map ?? [])) {
+      if (sp.name) names.set(sp.label, sp.name);
+    }
+    const processingBanner = isProcessing ? (
+      <div className={processingStyles.processingBanner} role="status" aria-live="polite">
+        <span className={processingStyles.processingDot} aria-hidden="true" />
+        <span>
+          Analyzing this meeting.{" "}
+          <span className={processingStyles.processingHint}>
+            Refresh in a minute or two to see the summary, score and commitments.
+          </span>
+        </span>
+      </div>
+    ) : null;
+    const reanalyze =
+      session.profile.role === "system_admin" && !isProcessing && commitmentRows.length === 0 && addedIssueRows.length === 0 ? (
+        <section
+          aria-label="Meeting analysis actions"
+          style={{ marginTop: "var(--space-6)", paddingTop: "var(--space-4)", borderTop: "1px solid var(--border)" }}
+        >
+          <ReanalyzeMeetingButton meetingId={id} />
+        </section>
+      ) : null;
+    return (
+      <TeamMeetingView
+        meetingId={meeting.id}
+        title={meeting.meeting_title ?? meeting.file_name}
+        dateLabel={new Date(meeting.created_at).toLocaleDateString(undefined, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}
+        attendeeCount={attendees.length}
+        score={score}
+        rubric={facilitationReview ? readStoredRubric(facilitationReview.rubric) : null}
+        previousRubricValue={team.previousRubricValue}
+        summary={facilitationReview ? readPageSummary(facilitationReview.page_summary) : null}
+        summaryMarkdown={analysisParts.rest}
+        valuesMarkdown={analysisParts.values || null}
+        truncated={Boolean(analysis?.truncated)}
+        newCommitments={autoTrackOn ? commitmentRows.length : commitmentExtractionRows.length}
+        issuesRaised={issueRows.length}
+        priorCommitments={team.prior}
+        commitmentsTab={issuesAndCommitments}
+        transcript={countTurns(meeting.transcript_text ?? "").map((t) => ({
+          speaker: t.speaker ? names.get(t.speaker) ?? t.speaker : null,
+          words: t.words,
+        }))}
+        banner={processingBanner}
+        footer={reanalyze}
+      />
+    );
+  }
+
   return (
     <div className={styles.stage}>
       <section className={styles.hero} aria-label="Meeting analysis">
@@ -747,4 +814,69 @@ export default async function MeetingAnalysisPage({ params }: PageProps) {
       </div>
     </div>
   );
+}
+
+// What the team meeting page needs beyond the analysis: the previous
+// team meeting's rubric score, for "up on the last meeting", and last
+// week's commitments with where each stands. Last week's are those due
+// after the previous team meeting and up to this one, made before this
+// one, as the rubric reads them (rubric/facts.ts).
+async function teamMeetingExtras(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  args: { companyId: string; meetingId: string; createdAt: string }
+): Promise<{ previousRubricValue: number | null; prior: PriorCommitment[] }> {
+  const { data: prev } = await supabase
+    .from("meetings")
+    .select("id, created_at")
+    .eq("company_id", args.companyId)
+    .eq("kind", "team")
+    .lt("created_at", args.createdAt)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; created_at: string }>();
+  const meetingDate = args.createdAt.slice(0, 10);
+  const from = prev
+    ? prev.created_at.slice(0, 10)
+    : new Date(Date.parse(`${meetingDate}T00:00:00Z`) - 7 * 86400000).toISOString().slice(0, 10);
+  const [prevAnalysis, priorRes] = await Promise.all([
+    prev
+      ? supabase
+          // meetings-kind: keyed by the team meeting found just above.
+          .from("meeting_analyses")
+          .select("facilitation_review_json")
+          .eq("meeting_id", prev.id)
+          .maybeSingle<{ facilitation_review_json: { rubric?: unknown } | null }>()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("commitments")
+      .select("id, description, owner_id, status, source_meeting_id")
+      .eq("company_id", args.companyId)
+      .gt("due_date", from)
+      .lte("due_date", meetingDate)
+      .lt("created_at", args.createdAt)
+      .is("deleted_at", null),
+  ]);
+  const rows = ((priorRes.data ?? []) as Array<{
+    id: string;
+    description: string;
+    owner_id: string | null;
+    status: string;
+    source_meeting_id: string | null;
+  }>).filter((r) => r.source_meeting_id !== args.meetingId);
+  const ownerIds = [...new Set(rows.map((r) => r.owner_id).filter((x): x is string => !!x))];
+  const owners = new Map<string, string>();
+  if (ownerIds.length > 0) {
+    const { data } = await supabase.from("profiles").select("id, full_name").in("id", ownerIds);
+    for (const p of (data ?? []) as Array<{ id: string; full_name: string }>) owners.set(p.id, p.full_name);
+  }
+  const rubric = readStoredRubric(prevAnalysis.data?.facilitation_review_json?.rubric);
+  return {
+    previousRubricValue: rubric ? rubric.value : null,
+    prior: rows.map((r) => ({
+      id: r.id,
+      description: r.description,
+      owner: r.owner_id ? owners.get(r.owner_id) ?? null : null,
+      state: r.status === "kept_on_time" || r.status === "kept_late" ? "done" : r.status === "missed" ? "not_done" : "open",
+    })),
+  };
 }
