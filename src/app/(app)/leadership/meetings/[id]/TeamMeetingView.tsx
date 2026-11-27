@@ -274,7 +274,7 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
   const runTab = rubric ? (
     <div>
       <div className={styles.runIntro}>
-        <div>
+        <div className={`${styles.card} ${styles.runIntroCard}`}>
           <h2 className={styles.h2}>How the meeting was run</h2>
           <p className={styles.overview} style={{ marginTop: 8, fontSize: 14 }}>
             Each part is scored 1 to 5 against the AiMS facilitation rubric. Open a part to see what went well, and the
