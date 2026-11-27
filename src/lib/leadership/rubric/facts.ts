@@ -155,6 +155,7 @@ async function loadNewCommitments(admin: Admin, meetingId: string): Promise<NewC
 }
 
 async function loadIssueCount(admin: Admin, meetingId: string): Promise<number> {
+  // meetings-kind: keyed by the one meeting being scored, a team meeting.
   const { data } = await admin
     .from("meeting_analyses")
     .select("issues_json")

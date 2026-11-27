@@ -50,6 +50,7 @@ type MeetingRow = { id: string; company_id: string; created_at: string; transcri
 
 async function pickMeetings(): Promise<MeetingRow[]> {
   if (ids.length > 0) {
+    // meetings-kind: an operator's eval, on the meeting ids it was given.
     const { data } = await db.from("meetings").select("id, company_id, created_at, transcript_text, meeting_title").in("id", ids);
     return (data ?? []) as MeetingRow[];
   }
