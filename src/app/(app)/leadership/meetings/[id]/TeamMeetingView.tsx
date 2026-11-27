@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type React from "react";
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -460,11 +461,9 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
                       <span className={styles.scoreNumber}>{scoreText(score)}</span>
                       <span className={styles.scoreDenom}>/ 10</span>
                     </div>
-                    <div className={styles.scoreNote}>
-                      {rubric
-                        ? `${rubric.total} of 50 across the ten parts of the meeting`
-                        : "Scored before the facilitation rubric"}
-                    </div>
+                    {/* The total out of 50 was taken off the card (Jason,
+                        2026-11-27); the parts below say where it came from. */}
+                    {rubric ? null : <div className={styles.scoreNote}>Scored before the facilitation rubric</div>}
                   </>
                 ) : (
                   <div className={styles.scoreNote}>{props.banner ? "Scoring when the analysis finishes." : "No score for this meeting."}</div>
@@ -482,12 +481,19 @@ export function TeamMeetingView(props: TeamMeetingViewProps) {
                     run. Numbered bars meant nothing without the breakdown
                     open (Jason, 2026-11-27). */}
                 <ul className={styles.partList} aria-label="Score for each part of the meeting">
-                  {rubric.parts.map((p) => (
+                  {rubric.parts.map((p, row) => (
                     <li key={p.key} className={styles.partItem}>
                       <span className={styles.partShort}>{PART_SHORT[p.key]}</span>
                       <span className={styles.dots} aria-hidden="true">
+                        {/* Fills one dot at a time up to the level, each row a
+                            beat after the one before (--i, --row: the delay). */}
                         {[1, 2, 3, 4, 5].map((n) => (
-                          <span key={n} className={styles.dotSm} data-on={n <= p.level ? "true" : "false"} />
+                          <span
+                            key={n}
+                            className={styles.dotSm}
+                            data-on={n <= p.level ? "true" : "false"}
+                            style={{ "--i": n - 1, "--row": row } as React.CSSProperties}
+                          />
                         ))}
                       </span>
                       <span className={styles.partLevel}>

@@ -202,6 +202,27 @@
 }
 .dotSm[data-on="true"] {
   background: var(--aims-cobalt);
+  /* Fills once on load, one dot at a time up to the part's level
+     (Jason, 2026-11-27): about 140ms a dot, each row starting 60ms
+     after the one before. Colour and size only, as the brand's motion
+     rules ask (fills on load, no bounce, nothing continuous). */
+  animation: dotFill 260ms var(--ease-out) both;
+  animation-delay: calc(200ms + var(--i, 0) * 140ms + var(--row, 0) * 60ms);
+}
+@keyframes dotFill {
+  from {
+    background: var(--border);
+    transform: scale(0.5);
+  }
+  to {
+    background: var(--aims-cobalt);
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dotSm[data-on="true"] {
+    animation: none;
+  }
 }
 .partLevel {
   font-family: var(--font-sans);
